@@ -65,7 +65,7 @@ These seats are full send/receive identities inside the CRM. They are not IMAP a
 
 Never use a real customer address for the first delivery test unless the message itself is legitimate and approved.
 
-The mailbox seat is already created, but a mailbox seat is not a login. A Supabase owner invitation for `l.patterson@costivra.ai` was created on July 31, 2026 and received in the CRM inbox. Use the newest owner-password email: its secure link opens `/set-password`, accepts only the one-time owner-invite session, and then routes to `/manage`.
+The mailbox seat is already created, but a mailbox seat is not a login. A Supabase owner invitation for `l.patterson@costivra.ai` was created on July 31, 2026 and received in the CRM inbox. The newer email **Set your Costivra owner password** was delivered through Resend and stored in the same inbox; use that secure link. It opens `/set-password`, accepts only the one-time owner-invite session, and then routes to `/manage`.
 
 ## Live-data rule
 
