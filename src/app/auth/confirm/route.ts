@@ -1,14 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { isExplicitRecoveryConfirmation } from "@/lib/auth/recovery";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const tokenHash = requestUrl.searchParams.get("token_hash");
-  const type = requestUrl.searchParams.get("type");
   const destination = new URL("/set-password?mode=recovery", requestUrl.origin);
   const errorDestination = new URL("/set-password?mode=recovery&error=invalid_link", requestUrl.origin);
 
-  if (!tokenHash || type !== "recovery") {
+  if (!tokenHash || !isExplicitRecoveryConfirmation(requestUrl.searchParams)) {
     return NextResponse.redirect(errorDestination);
   }
 
@@ -30,10 +30,19 @@ export async function GET(request: NextRequest) {
     },
   );
 
+  const startedAt = Date.now();
   const { error } = await supabase.auth.verifyOtp({
     token_hash: tokenHash,
     type: "recovery",
   });
+
+  console.log(JSON.stringify({
+    level: error ? "warning" : "info",
+    message: error ? "Password recovery confirmation rejected" : "Password recovery confirmation completed",
+    route: "/auth/confirm",
+    method: "GET",
+    durationMs: Date.now() - startedAt,
+  }));
 
   return error ? NextResponse.redirect(errorDestination) : response;
 }

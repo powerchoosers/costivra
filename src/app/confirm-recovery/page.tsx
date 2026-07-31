@@ -2,6 +2,7 @@ import { ArrowRight, BadgeCheck, KeyRound, LockKeyhole } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CostivraMark } from "@/components/brand";
+import { isValidRecoveryTokenHash } from "@/lib/auth/recovery";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function ConfirmRecoveryPage({
   searchParams: Promise<{ token_hash?: string }>;
 }) {
   const { token_hash: tokenHash } = await searchParams;
-  const validRequest = typeof tokenHash === "string" && tokenHash.length > 0;
+  const confirmedTokenHash = isValidRecoveryTokenHash(tokenHash) ? tokenHash : null;
 
   return (
     <main className="paper-texture">
@@ -50,21 +51,23 @@ export default async function ConfirmRecoveryPage({
           <section className="account-card">
             <div className="account-card-heading">
               <span className="account-card-kicker">Secure confirmation</span>
-              <h2>{validRequest ? "Continue to set your password." : "This link is incomplete."}</h2>
+              <h2>{confirmedTokenHash ? "Continue to set your password." : "This link is incomplete."}</h2>
               <p>
-                {validRequest
+                {confirmedTokenHash
                   ? "Your password will not change until you choose and save a new one on the next screen."
                   : "Request a fresh password email from the Costivra sign-in page."}
               </p>
             </div>
             <KeyRound aria-hidden="true" size={28} className="card-icon" />
-            {validRequest ? (
-              <form action="/auth/confirm" method="post">
-                <input type="hidden" name="token_hash" value={tokenHash} />
-                <button className="button button-primary account-submit" type="submit">
-                  Continue securely <ArrowRight aria-hidden="true" size={17} />
-                </button>
-              </form>
+            {confirmedTokenHash ? (
+              <Link
+                className="button button-primary account-submit"
+                href={`/auth/confirm?token_hash=${encodeURIComponent(confirmedTokenHash)}&type=recovery&confirm=1`}
+                prefetch={false}
+                rel="nofollow"
+              >
+                Continue securely <ArrowRight aria-hidden="true" size={17} />
+              </Link>
             ) : (
               <Link className="button button-primary account-submit" href="/login">
                 Return to sign in <ArrowRight aria-hidden="true" size={17} />

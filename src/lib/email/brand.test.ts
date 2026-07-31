@@ -45,6 +45,7 @@ describe("Costivra email branding", () => {
 
     expect(template).toContain("{{ .SiteURL }}/confirm-recovery?token_hash={{ .TokenHash }}");
     expect(template).not.toContain("{{ .ConfirmationURL }}");
+    expect(template).not.toContain("confirm=1");
     expect(template).toContain("Find the leak. Prove the value. Recover with confidence.");
     expect(template).toContain("costivra-circuit-mark-cropped.png");
   });
