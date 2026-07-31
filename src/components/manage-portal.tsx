@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   CircleAlert,
   Clock3,
+  Download,
   FileText,
   Inbox,
   LayoutDashboard,
@@ -1034,6 +1035,31 @@ function AccountInspector({
   );
 }
 
+function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers
+        .map((header) => {
+          const val = row[header];
+          const str = val === null || val === undefined ? "" : String(val);
+          return `"${str.replaceAll('"', '""')}"`;
+        })
+        .join(","),
+    ),
+  ].join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function Accounts({
   data,
   query,
@@ -1043,7 +1069,11 @@ function Accounts({
   onEdit: () => void;
 }) {
   const [filter, setFilter] = useState("all");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    data.accounts[0]?.id ?? null,
+  );
   const [editing, setEditing] = useState<ManageAccount | null>(null);
+
   const filtered = data.accounts.filter(
     (account) =>
       (filter === "all" || (account.stage || "unclassified") === filter) &&
@@ -1051,97 +1081,119 @@ function Accounts({
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+
+  const selectedAccount =
+    data.accounts.find((a) => a.id === selectedAccountId) ?? filtered[0];
+
+  const accountActivities = useMemo(
+    () =>
+      selectedAccount
+        ? data.activities.filter(
+            (act) => act.organizationId === selectedAccount.id,
+          )
+        : [],
+    [data.activities, selectedAccount],
+  );
+
+  const accountContacts = useMemo(
+    () =>
+      selectedAccount
+        ? data.contacts.filter((c) => c.organizationId === selectedAccount.id)
+        : [],
+    [data.contacts, selectedAccount],
+  );
+
+  const exportAccountsCsv = () => {
+    const exportRows = filtered.map((a) => ({
+      ID: a.id,
+      Name: a.name,
+      LegalName: a.legalName ?? "",
+      Industry: a.industry ?? "",
+      Stage: a.stage ?? "",
+      PrimaryContact: a.primaryContact ?? "",
+      PrimaryEmail: a.primaryEmail ?? "",
+      MemberCount: a.memberCount,
+      DocumentCount: a.documentCount,
+      OpportunityCount: a.opportunityCount,
+      OpenTaskCount: a.openTaskCount,
+      NextFollowUpAt: a.nextFollowUpAt ?? "",
+      NextStep: a.nextStep ?? "",
+      PrivateNotes: a.privateNotes ?? "",
+    }));
+    downloadCsv(`costivra-accounts-${new Date().toISOString().slice(0, 10)}.csv`, exportRows);
+  };
+
   return (
     <>
       <section className="manage-page-heading">
         <div>
           <h2>Accounts</h2>
           <p>
-            Every row below comes from the live Supabase organizations table.
+            Every row below comes from the live Supabase organizations table. Select a row to inspect details.
           </p>
         </div>
-        <span className="manage-live">
-          <i /> LIVE DATABASE
-        </span>
-      </section>
-      <section className="manage-panel manage-account-table manage-account-table--full">
-        <div className="manage-tabs">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
-            className={filter === "all" ? "active" : ""}
-            onClick={() => setFilter("all")}
+            className="manage-button manage-button--quiet"
+            onClick={exportAccountsCsv}
+            title="Export filtered accounts to CSV"
           >
-            All <span>{data.accounts.length}</span>
+            <Download size={15} /> Export CSV
           </button>
-          {stages.slice(0, 4).map((stage) => (
-            <button
-              className={filter === stage ? "active" : ""}
-              onClick={() => setFilter(stage)}
-              key={stage}
-            >
-              {pretty(stage)}{" "}
-              <span>
-                {
-                  data.accounts.filter((account) => account.stage === stage)
-                    .length
-                }
-              </span>
-            </button>
-          ))}
+          <span className="manage-live">
+            <i /> LIVE DATABASE
+          </span>
         </div>
-        <AccountRows accounts={filtered} />
-        {!filtered.length && (
-          <Empty
-            icon={Building2}
-            title="No matching accounts"
-            copy={
-              data.accounts.length
-                ? "Clear the search or choose another lifecycle stage."
-                : "No real organizations are available yet."
-            }
-          />
-        )}
       </section>
-      {filtered.length > 0 && (
-        <section className="manage-account-cards">
-          {filtered.map((account) => (
-            <article key={account.id}>
-              <div>
-                <span className="manage-account-avatar">
-                  {initials(account.name)}
-                </span>
-                <div>
-                  <h3>{account.name}</h3>
-                  <p>{account.primaryEmail || "No primary email"}</p>
-                </div>
-              </div>
-              <Status value={account.stage} />
-              {account.marketingOptInCount > 0 && (
-                <MarketingConsent count={account.marketingOptInCount} compact />
-              )}
-              <dl>
-                <div>
-                  <dt>Open tasks</dt>
-                  <dd>{account.openTaskCount}</dd>
-                </div>
-                <div>
-                  <dt>Documents</dt>
-                  <dd>{account.documentCount}</dd>
-                </div>
-                <div>
-                  <dt>Next follow-up</dt>
-                  <dd>{date(account.nextFollowUpAt)}</dd>
-                </div>
-              </dl>
+      <div className="manage-overview-grid">
+        <section className="manage-panel manage-account-table manage-account-table--full">
+          <div className="manage-tabs">
+            <button
+              className={filter === "all" ? "active" : ""}
+              onClick={() => setFilter("all")}
+            >
+              All <span>{data.accounts.length}</span>
+            </button>
+            {stages.slice(0, 4).map((stage) => (
               <button
-                className="manage-button manage-button--quiet manage-full"
-                onClick={() => setEditing(account)}
+                className={filter === stage ? "active" : ""}
+                onClick={() => setFilter(stage)}
+                key={stage}
               >
-                Edit follow-up
+                {pretty(stage)}{" "}
+                <span>
+                  {
+                    data.accounts.filter((account) => account.stage === stage)
+                      .length
+                  }
+                </span>
               </button>
-            </article>
-          ))}
+            ))}
+          </div>
+          <AccountRows
+            accounts={filtered}
+            selectedId={selectedAccount?.id}
+            onSelectAccount={(account) => setSelectedAccountId(account.id)}
+          />
+          {!filtered.length && (
+            <Empty
+              icon={Building2}
+              title="No matching accounts"
+              copy={
+                data.accounts.length
+                  ? "Clear the search or choose another lifecycle stage."
+                  : "No real organizations are available yet."
+              }
+            />
+          )}
         </section>
-      )}
+        <AccountInspector
+          account={selectedAccount}
+          activities={accountActivities}
+          contacts={accountContacts}
+          onEdit={(account) => setEditing(account)}
+        />
+      </div>
       {editing && (
         <EditAccount account={editing} onClose={() => setEditing(null)} />
       )}
@@ -1158,11 +1210,39 @@ function Contacts({
   query: string;
   onCompose: (contact: ManageData["contacts"][number]) => void;
 }) {
-  const rows = data.contacts.filter((contact) =>
-    `${contact.fullName} ${contact.email} ${contact.organizationName}`
+  const [filter, setFilter] = useState<"all" | "primary" | "workspace" | "crm">("all");
+
+  const rows = data.contacts.filter((contact) => {
+    const matchesFilter =
+      filter === "all"
+        ? true
+        : filter === "primary"
+        ? contact.isPrimary
+        : filter === "workspace"
+        ? contact.source === "workspace"
+        : contact.source === "crm";
+    const matchesQuery = `${contact.fullName} ${contact.email} ${contact.organizationName}`
       .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
+      .includes(query.toLowerCase());
+    return matchesFilter && matchesQuery;
+  });
+
+  const exportContactsCsv = () => {
+    const exportRows = rows.map((c) => ({
+      ID: c.id,
+      Organization: c.organizationName,
+      FullName: c.fullName,
+      Email: c.email,
+      Title: c.title ?? "",
+      Phone: c.phone ?? "",
+      IsPrimary: c.isPrimary ? "Yes" : "No",
+      Status: c.status,
+      Source: c.source,
+      MarketingStatus: c.marketingStatus ?? "",
+    }));
+    downloadCsv(`costivra-contacts-${new Date().toISOString().slice(0, 10)}.csv`, exportRows);
+  };
+
   return (
     <>
       <section className="manage-page-heading">
@@ -1172,11 +1252,49 @@ function Contacts({
             Workspace users and owner-added client contacts in one directory.
           </p>
         </div>
-        <span>
-          {rows.length} contact{rows.length === 1 ? "" : "s"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            className="manage-button manage-button--quiet"
+            onClick={exportContactsCsv}
+            title="Export contacts to CSV"
+          >
+            <Download size={15} /> Export CSV
+          </button>
+          <span>
+            {rows.length} contact{rows.length === 1 ? "" : "s"}
+          </span>
+        </div>
       </section>
       <section className="manage-panel manage-contact-list">
+        <div className="manage-tabs">
+          <button
+            className={filter === "all" ? "active" : ""}
+            onClick={() => setFilter("all")}
+          >
+            All Contacts <span>{data.contacts.length}</span>
+          </button>
+          <button
+            className={filter === "primary" ? "active" : ""}
+            onClick={() => setFilter("primary")}
+          >
+            Primary Contacts{" "}
+            <span>{data.contacts.filter((c) => c.isPrimary).length}</span>
+          </button>
+          <button
+            className={filter === "workspace" ? "active" : ""}
+            onClick={() => setFilter("workspace")}
+          >
+            Workspace Members{" "}
+            <span>{data.contacts.filter((c) => c.source === "workspace").length}</span>
+          </button>
+          <button
+            className={filter === "crm" ? "active" : ""}
+            onClick={() => setFilter("crm")}
+          >
+            CRM Contacts{" "}
+            <span>{data.contacts.filter((c) => c.source === "crm").length}</span>
+          </button>
+        </div>
         <div className="manage-contact-head">
           <span>Person</span>
           <span>Account</span>
@@ -1209,6 +1327,7 @@ function Contacts({
               className="manage-icon-button"
               onClick={() => onCompose(contact)}
               aria-label={`Email ${contact.fullName}`}
+              title={`Compose email to ${contact.fullName}`}
             >
               <Mail size={16} />
             </button>
@@ -1220,7 +1339,7 @@ function Contacts({
             title="No matching contacts"
             copy={
               data.contacts.length
-                ? "Clear the search to see the live contact directory."
+                ? "Clear the search or choose another filter."
                 : "Contacts will appear when a workspace member exists or you add a real client contact."
             }
           />
@@ -1243,11 +1362,32 @@ function Outreach({
   onTask: () => void;
   onNote: () => void;
 }) {
-  const tasks = data.tasks.filter((task) =>
-    `${task.title} ${task.organizationName}`
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+
+  const tasks = data.tasks.filter((task) => {
+    const matchesPriority =
+      priorityFilter === "all" || task.priority === priorityFilter;
+    const matchesQuery = `${task.title} ${task.organizationName} ${task.notes || ""}`
       .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
+      .includes(query.toLowerCase());
+    return matchesPriority && matchesQuery;
+  });
+
+  const exportTasksCsv = () => {
+    const exportRows = tasks.map((t) => ({
+      ID: t.id,
+      Organization: t.organizationName,
+      Title: t.title,
+      Type: t.taskType,
+      Priority: t.priority,
+      Status: t.status,
+      DueAt: t.dueAt ?? "",
+      Notes: t.notes ?? "",
+      CreatedAt: t.createdAt,
+    }));
+    downloadCsv(`costivra-tasks-${new Date().toISOString().slice(0, 10)}.csv`, exportRows);
+  };
+
   return (
     <>
       <section className="manage-page-heading">
@@ -1258,7 +1398,14 @@ function Outreach({
             blasting.
           </p>
         </div>
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            className="manage-button manage-button--quiet"
+            onClick={exportTasksCsv}
+            title="Export tasks to CSV"
+          >
+            <Download size={15} /> Export CSV
+          </button>
           <button
             className="manage-button manage-button--quiet"
             onClick={onNote}
@@ -1273,6 +1420,32 @@ function Outreach({
           </button>
         </div>
       </section>
+      <div className="manage-tabs" style={{ marginBottom: 16, borderBottom: "1px solid #edf0f3" }}>
+        <button
+          className={priorityFilter === "all" ? "active" : ""}
+          onClick={() => setPriorityFilter("all")}
+        >
+          All Tasks <span>{data.tasks.length}</span>
+        </button>
+        <button
+          className={priorityFilter === "high" ? "active" : ""}
+          onClick={() => setPriorityFilter("high")}
+        >
+          High Priority <span>{data.tasks.filter((t) => t.priority === "high").length}</span>
+        </button>
+        <button
+          className={priorityFilter === "normal" ? "active" : ""}
+          onClick={() => setPriorityFilter("normal")}
+        >
+          Normal Priority <span>{data.tasks.filter((t) => t.priority === "normal").length}</span>
+        </button>
+        <button
+          className={priorityFilter === "low" ? "active" : ""}
+          onClick={() => setPriorityFilter("low")}
+        >
+          Low Priority <span>{data.tasks.filter((t) => t.priority === "low").length}</span>
+        </button>
+      </div>
       <section className="manage-outreach-board">
         {["open", "in_progress", "completed"].map((status) => (
           <div className="manage-task-column" key={status}>
@@ -1299,7 +1472,12 @@ function Outreach({
                       <small>{pretty(task.taskType)}</small>
                     </div>
                     <h4>{task.title}</h4>
-                    <p>{task.organizationName}</p>
+                    <p><strong>{task.organizationName}</strong></p>
+                    {task.notes && (
+                      <p style={{ marginTop: 4, color: "#667085", fontSize: "0.64rem", lineHeight: 1.4 }}>
+                        {task.notes}
+                      </p>
+                    )}
                     <footer>
                       <span>
                         <Clock3 size={14} /> {date(task.dueAt)}
@@ -1317,6 +1495,7 @@ function Outreach({
                             )
                           }
                           aria-label={`Complete ${task.title}`}
+                          title="Mark task completed"
                         >
                           <Check size={15} />
                         </button>
@@ -1995,11 +2174,36 @@ function ActivityPage({
   query: string;
   onNote: () => void;
 }) {
-  const rows = data.activities.filter((item) =>
-    `${item.subject} ${item.summary} ${item.organizationName}`
+  const [kindFilter, setKindFilter] = useState<string>("all");
+
+  const rows = data.activities.filter((item) => {
+    const matchesKind =
+      kindFilter === "all"
+        ? true
+        : kindFilter === "notes"
+        ? item.kind === "note"
+        : kindFilter === "calls"
+        ? ["call", "meeting"].includes(item.kind)
+        : ["account_created", "status_change", "inquiry_received"].includes(item.kind);
+    const matchesQuery = `${item.subject} ${item.summary || ""} ${item.organizationName}`
       .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
+      .includes(query.toLowerCase());
+    return matchesKind && matchesQuery;
+  });
+
+  const exportActivityCsv = () => {
+    const exportRows = rows.map((a) => ({
+      ID: a.id,
+      Organization: a.organizationName,
+      Kind: a.kind,
+      Direction: a.direction ?? "",
+      Subject: a.subject,
+      Summary: a.summary ?? "",
+      OccurredAt: a.occurredAt,
+    }));
+    downloadCsv(`costivra-activity-${new Date().toISOString().slice(0, 10)}.csv`, exportRows);
+  };
+
   return (
     <>
       <section className="manage-page-heading">
@@ -2007,14 +2211,66 @@ function ActivityPage({
           <h2>Activity</h2>
           <p>An internal timeline of client touches and CRM changes.</p>
         </div>
-        <button
-          className="manage-button manage-button--primary"
-          onClick={onNote}
-        >
-          <Plus size={16} /> Add note
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            className="manage-button manage-button--quiet"
+            onClick={exportActivityCsv}
+            title="Export activity log to CSV"
+          >
+            <Download size={15} /> Export CSV
+          </button>
+          <button
+            className="manage-button manage-button--primary"
+            onClick={onNote}
+          >
+            <Plus size={16} /> Add note
+          </button>
+        </div>
       </section>
       <section className="manage-panel manage-activity-page">
+        <div className="manage-tabs">
+          <button
+            className={kindFilter === "all" ? "active" : ""}
+            onClick={() => setKindFilter("all")}
+          >
+            All Activity <span>{data.activities.length}</span>
+          </button>
+          <button
+            className={kindFilter === "notes" ? "active" : ""}
+            onClick={() => setKindFilter("notes")}
+          >
+            Internal Notes{" "}
+            <span>{data.activities.filter((a) => a.kind === "note").length}</span>
+          </button>
+          <button
+            className={kindFilter === "calls" ? "active" : ""}
+            onClick={() => setKindFilter("calls")}
+          >
+            Calls & Meetings{" "}
+            <span>
+              {
+                data.activities.filter((a) =>
+                  ["call", "meeting"].includes(a.kind),
+                ).length
+              }
+            </span>
+          </button>
+          <button
+            className={kindFilter === "events" ? "active" : ""}
+            onClick={() => setKindFilter("events")}
+          >
+            Account Events{" "}
+            <span>
+              {
+                data.activities.filter((a) =>
+                  ["account_created", "status_change", "inquiry_received"].includes(
+                    a.kind,
+                  ),
+                ).length
+              }
+            </span>
+          </button>
+        </div>
         <ActivityList activities={rows} />
         {!rows.length && (
           <Empty
@@ -2022,7 +2278,7 @@ function ActivityPage({
             title="No matching activity"
             copy={
               data.activities.length
-                ? "Clear the search to see the complete live history."
+                ? "Clear the search or choose another filter to see full history."
                 : "Notes, tasks, and mail events will build the audit-friendly timeline."
             }
           />
