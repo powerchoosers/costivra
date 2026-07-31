@@ -11,7 +11,14 @@ export async function POST(request: Request) {
     const fullName = cleanText(body.fullName, 120);
     const memberRole = cleanText(body.role, 20) || "member";
     if (!/^\S+@\S+\.\S+$/.test(email) || !['admin','member','viewer'].includes(memberRole)) return NextResponse.json({ error: "Enter a valid email and role." }, { status: 400 });
-    const { data: invited, error: inviteError } = await db.auth.admin.inviteUserByEmail(email, { data: { full_name: fullName } });
+    // Always make team invitations land on the deployed Costivra app. Supabase
+    // otherwise falls back to the project's Site URL, which can accidentally
+    // be a developer's localhost address.
+    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://costivra.ai";
+    const { data: invited, error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
+      data: { full_name: fullName },
+      redirectTo: `${appUrl.replace(/\/$/, "")}/set-password`,
+    });
     if (inviteError) throw inviteError;
     const user = invited.user;
     const { error: profileError } = await db.from("profiles").upsert({ id: user.id, email, full_name: fullName || email }, { onConflict: "id" });
