@@ -269,6 +269,9 @@ function AccountPage({ mode }: { mode: string }) {
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [resetMode, setResetMode] = useState(searchParams?.get("mode") === "recovery");
+  useEffect(() => {
+    setResetMode(searchParams?.get("mode") === "recovery");
+  }, [searchParams]);
   const [message, setMessage] = useState(
     searchParams?.get("confirmed") === "1"
       ? "Your email is confirmed. Sign in to continue."
@@ -285,7 +288,7 @@ function AccountPage({ mode }: { mode: string }) {
     if (resetMode) {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://costivra.ai";
       const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/set-password?mode=recovery`,
+        redirectTo: `${siteUrl}/confirm-recovery`,
       });
       setMessage(error ? error.message : "Check your email for a secure password reset link.");
       setBusy(false);
