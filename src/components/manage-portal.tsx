@@ -347,16 +347,7 @@ export function ManagePortal({
               >
                 <PenLine size={16} /> Compose
               </button>
-            ) : section === "mailboxes" ? (
-              data.operator.role === "owner" && (
-                <button
-                  className="manage-button manage-button--primary"
-                  onClick={() => setDialog("mailbox")}
-                >
-                  <Plus size={16} /> New mailbox
-                </button>
-              )
-            ) : section === "activity" ? (
+            ) : section === "mailboxes" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => setDialog("note")}
@@ -1119,37 +1110,59 @@ function Mailboxes({
       <section className="manage-page-heading">
         <div>
           <p>Approved sender and receiving identities on costivra.ai.</p>
-          <h2>Mailbox seats</h2>
+          <div className="manage-mailbox-heading-row">
+            <h2>Mailbox seats</h2>
+            <span>
+              {mailboxes.length} mailbox{mailboxes.length === 1 ? "" : "es"}
+            </span>
+            {data.operator.role === "owner" && (
+              <button
+                className="manage-button manage-button--primary"
+                onClick={onAdd}
+              >
+                <Plus size={15} /> New mailbox
+              </button>
+            )}
+          </div>
         </div>
-        <span>
-          {mailboxes.length} mailbox{mailboxes.length === 1 ? "" : "es"}
-        </span>
       </section>
       <section className="manage-panel manage-mailbox-panel">
         {mailboxes.length ? (
-          <div className="manage-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Mailbox</th>
-                  <th>Seat type</th>
-                  <th>Delivery</th>
-                  <th>Status</th>
-                  <th aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody>
-                {mailboxes.map((mailbox) => (
-                  <MailboxRow
-                    mailbox={mailbox}
-                    owner={data.operator.role === "owner"}
-                    run={run}
-                    key={mailbox.id}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="manage-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mailbox</th>
+                    <th>Seat type</th>
+                    <th>Delivery</th>
+                    <th>Status</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {mailboxes.map((mailbox) => (
+                    <MailboxRow
+                      mailbox={mailbox}
+                      owner={data.operator.role === "owner"}
+                      run={run}
+                      key={mailbox.id}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="manage-mailbox-cards">
+              {mailboxes.map((mailbox) => (
+                <MailboxCard
+                  mailbox={mailbox}
+                  owner={data.operator.role === "owner"}
+                  run={run}
+                  key={mailbox.id}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           <Empty
             icon={AtSign}
@@ -1173,6 +1186,68 @@ function Mailboxes({
         IMAP, Gmail, or Outlook account.
       </p>
     </>
+  );
+}
+
+function MailboxCard({
+  mailbox,
+  owner,
+  run,
+}: {
+  mailbox: ManageMailbox;
+  owner: boolean;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+}) {
+  const nextOperation = mailbox.status === "active" ? "disable" : "enable";
+  return (
+    <article>
+      <header>
+        <div className="manage-mailbox-identity">
+          <span className="manage-person-avatar">
+            {initials(mailbox.displayName)}
+          </span>
+          <div>
+            <strong>{mailbox.displayName}</strong>
+            <small>{mailbox.address}</small>
+          </div>
+        </div>
+        <Status value={mailbox.status} />
+      </header>
+      <dl>
+        <div>
+          <dt>Seat type</dt>
+          <dd>{pretty(mailbox.mailboxType)}</dd>
+        </div>
+        <div>
+          <dt>Delivery</dt>
+          <dd>
+            {mailbox.canSend ? "Send" : "No send"} ·{" "}
+            {mailbox.canReceive ? "Receive" : "No receive"}
+          </dd>
+        </div>
+      </dl>
+      <footer>
+        <span>{mailbox.isDefault ? "Default owner inbox" : "Managed seat"}</span>
+        {owner && (
+          <button
+            className="manage-button manage-button--quiet"
+            disabled={mailbox.isDefault && nextOperation === "disable"}
+            onClick={() =>
+              void run(
+                () =>
+                  api(`/api/manage/mailboxes/${mailbox.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ operation: nextOperation }),
+                  }),
+                `Mailbox ${nextOperation === "enable" ? "enabled" : "disabled"}.`,
+              )
+            }
+          >
+            {nextOperation === "enable" ? "Enable" : "Disable"}
+          </button>
+        )}
+      </footer>
+    </article>
   );
 }
 
@@ -2340,7 +2415,7 @@ function Compose({
           </div>
           <button
             className="manage-button manage-button--primary"
-            disabled={busy || !selectedMailbox}
+            disabled={busy || !selectedAccount || !selectedMailbox}
           >
             {busy ? "Sending…" : "Send"}
             <Send size={16} />
