@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { validAccessDestination } from "@/lib/auth/access";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -35,11 +36,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isLogin && data?.claims) {
+  if (isLogin && data?.claims && request.nextUrl.searchParams.get("error") !== "no_access") {
     const url = request.nextUrl.clone();
-    const requested = request.nextUrl.searchParams.get("next");
-    url.pathname = requested?.startsWith("/manage") || requested?.startsWith("/app") ? requested : "/app";
+    const requested = validAccessDestination(request.nextUrl.searchParams.get("next"));
+    url.pathname = "/access";
     url.search = "";
+    if (requested) url.searchParams.set("next", requested);
     return NextResponse.redirect(url);
   }
 

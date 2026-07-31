@@ -1,5 +1,12 @@
 # Costivra Status
 
+## Authenticated access routing — July 31, 2026
+
+- Fixed the production `NO_ORGANIZATION_MEMBERSHIP` crash triggered when an authenticated owner clicked the public top-bar **Sign in** link.
+- Added `/access` as the narrow server-side resolver: active internal staff and configured owner emails go to `/manage`; organization members go to `/app`; accounts with neither authorization receive a clear login message.
+- Successful password sign-in now passes through the same resolver, and `/app` safely reroutes missing-membership sessions instead of exposing a Next.js server-error screen.
+- Validation passed: `npm run typecheck`, `npm run lint`, `npm test` (20 tests), and `npm run build`.
+
 ## Password recovery reliability — July 31, 2026
 
 - Replaced browser-bound PKCE recovery-email links with a server-verified Supabase token-hash route at `/auth/confirm`.

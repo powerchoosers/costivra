@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-07-31 — Resolve authenticated users to an authorized product surface
+
+### Context
+
+The login proxy previously sent every authenticated session without an explicit destination to `/app`. Internal Costivra operators intentionally have no customer-organization membership, so an owner recovery session could be redirected into the customer workspace and trigger `NO_ORGANIZATION_MEMBERSHIP`.
+
+### Decision
+
+Route successful authentication through `/access`. The server verifies the session, checks the explicit internal-staff boundary and customer-organization membership, then sends the user to `/manage` or `/app`. Requested destinations are restricted to those two same-origin route families. An account with neither authorization returns to login with a clear access message, and the customer workspace redirects missing-membership sessions through the resolver instead of rendering a raw server failure.
+
+### Consequences
+
+Owner and customer identities remain separate while sharing one sign-in surface. Recovery sessions and direct top-bar sign-in visits reach the correct portal, unauthorized accounts fail safely, and the routing rules are covered by deterministic tests.
+
 ## 2026-07-31 — Verify password recovery links on the Costivra server
 
 ### Context
