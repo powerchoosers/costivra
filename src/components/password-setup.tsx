@@ -19,6 +19,7 @@ export function PasswordSetup() {
     async function establishSession() {
       const client = createClient();
       const url = new URL(window.location.href);
+      const recoveryMode = url.searchParams.get("mode") === "recovery";
       let sessionError = "";
       const code = url.searchParams.get("code");
       if (code) {
@@ -41,7 +42,7 @@ export function PasswordSetup() {
       }
       const { data } = await client.auth.getSession();
       if (!active) return;
-      const ownerInvite =
+      const ownerInvite = recoveryMode ||
         data.session?.user.user_metadata?.internal_owner_invite === true;
       setReady(ownerInvite);
       if (!data.session)
@@ -73,9 +74,10 @@ export function PasswordSetup() {
     setBusy(true);
     setMessage("");
     const client = createClient();
+    const recoveryMode = new URL(window.location.href).searchParams.get("mode") === "recovery";
     const { error } = await client.auth.updateUser({
       password,
-      data: { internal_owner_invite: false },
+      data: recoveryMode ? undefined : { internal_owner_invite: false },
     });
     if (error) {
       setMessage(error.message);
