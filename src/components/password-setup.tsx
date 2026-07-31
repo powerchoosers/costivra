@@ -53,7 +53,7 @@ export function PasswordSetup() {
       if (!active) return;
       const ownerInvite = recoveryMode ||
         data.session?.user.user_metadata?.internal_owner_invite === true;
-      setReady(ownerInvite);
+      setReady(Boolean(data.session && ownerInvite));
       if (!data.session)
         setMessage(
           sessionError ||
