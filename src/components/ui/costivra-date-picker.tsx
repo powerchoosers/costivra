@@ -83,16 +83,17 @@ export function CostivraDatePicker({
   const initialViewDate = selectedDate || new Date();
   const [viewYear, setViewYear] = useState<number>(initialViewDate.getFullYear());
   const [viewMonth, setViewMonth] = useState<number>(initialViewDate.getMonth());
+  const [syncedDateStr, setSyncedDateStr] = useState(currentDateStr);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Sync view when selectedDate changes
-  useEffect(() => {
+  if (currentDateStr !== syncedDateStr) {
+    setSyncedDateStr(currentDateStr);
     if (selectedDate) {
       setViewYear(selectedDate.getFullYear());
       setViewMonth(selectedDate.getMonth());
     }
-  }, [currentDateStr]);
+  }
+
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Click outside listener
   useEffect(() => {

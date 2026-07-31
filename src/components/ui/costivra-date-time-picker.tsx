@@ -102,18 +102,18 @@ export function CostivraDateTimePicker({
 
   const [viewYear, setViewYear] = useState<number>(initialYear);
   const [viewMonth, setViewMonth] = useState<number>(initialMonth);
+  const [syncedDateStr, setSyncedDateStr] = useState(selectedDateStr);
+
+  if (selectedDateStr !== syncedDateStr) {
+    setSyncedDateStr(selectedDateStr);
+    const parts = selectedDateStr.split("-");
+    if (parts.length === 3) {
+      setViewYear(parseInt(parts[0], 10));
+      setViewMonth(parseInt(parts[1], 10) - 1);
+    }
+  }
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (selectedDateStr) {
-      const parts = selectedDateStr.split("-");
-      if (parts.length === 3) {
-        setViewYear(parseInt(parts[0], 10));
-        setViewMonth(parseInt(parts[1], 10) - 1);
-      }
-    }
-  }, [selectedDateStr]);
 
   // Click outside listener
   useEffect(() => {

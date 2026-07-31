@@ -1,5 +1,43 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-07-31 — Promote website inquiries into auditable CRM leads
+
+### Context
+
+The public contact form previously saved a standalone inquiry and sent plain transactional email. It did not create an owner-CRM account, show a lead stage, record marketing permission, or surface a timely in-product alert.
+
+### Decision
+
+Handle one contact-form submission as one database transaction. Create or resolve the organization and primary contact, set a new account to the `lead` lifecycle stage, save the original inquiry, create an immediate follow-up task and CRM activity, append explicit email-marketing consent evidence only when the visitor checks the unchecked box, and create a browser-inaccessible internal notification. The owner UI polls a narrow authenticated server route every three seconds and shows unread inquiry alerts as toasts; it never subscribes a browser directly to cross-tenant tables.
+
+Send the visitor's acknowledgment and the owner's notification through the existing Resend side-effect ledger. Both messages use the shared Costivra email shell and the real circuit-mark asset. A repeated inquiry from the same email and company adds activity to the existing account instead of creating a duplicate account.
+
+Rate-limit the public path to five accepted attempts per hashed network address per hour. The database updates the counter atomically, browser roles cannot read it, raw addresses are never stored, and stale counters are deleted after seven days.
+
+### Alternatives considered
+
+- Keeping inquiries in a separate inbox for later manual conversion. This makes follow-up easy to miss and creates two sources of truth.
+- Treating form submission as marketing consent. A service acknowledgment is transactional; marketing permission must be separate, explicit, unchecked by default, and evidenced.
+- Reading internal notification tables from the browser. This would widen the cross-tenant data surface unnecessarily.
+
+### Consequences
+
+Real inquiries appear immediately in the CRM as leads without demo records. The account and contact show the latest marketing status, while the append-only consent row preserves the exact wording, version, source, and time. Delivery failures do not discard the saved lead, and no provider send is accepted without an idempotency key and ledger record.
+
+## 2026-07-31 — Use `auth.costivra.ai` for the Supabase custom domain
+
+### Context
+
+Costivra's account pages already live on `costivra.ai`, but Supabase Auth network requests still use the default project hostname. Supabase custom domains support a subdomain, not the root domain already serving the website.
+
+### Decision
+
+Use `auth.costivra.ai` as the intended Supabase custom hostname. Keep `NEXT_PUBLIC_SUPABASE_URL=https://skfocjrykyvsaviyhdea.supabase.co` until Supabase reports that the custom hostname is DNS-verified and activated, then change the variable and redeploy. Signup email confirmation explicitly returns to `/login` on the Costivra website.
+
+### Consequences
+
+Changing the client URL early would break login, so activation is a gated infrastructure step. A July 31 CLI check reported that the project does not yet have Supabase's separate Custom Domain add-on, even though it is on a paid plan. DNS creation, activation, and the Vercel environment change remain blocked until that add-on is enabled.
+
 ## 2026-07-31 — Separate the internal CRM control plane from customer workspaces
 
 ### Context

@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
+import { createHmac } from "node:crypto";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { cleanText } from "@/lib/portal/http";
+
+function inquiryRateLimitKey(request: Request) {
+  const clientAddress =
+    request.headers.get("x-real-ip") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    `unknown:${request.headers.get("user-agent") || "browser"}`;
+  return createHmac("sha256", process.env.SUPABASE_SECRET_KEY || "")
+    .update(`public-contact:${clientAddress}`)
+    .digest("hex");
+}
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +24,20 @@ export async function POST(request: Request) {
     const marketingConsent = body.marketingConsent === true || body.marketingConsent === "on";
     if (!name || !company || !message || !/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: "Complete every required field with a valid work email." }, { status: 400 });
     const db = createServerSupabaseClient();
+    const { data: rateLimitAllowed, error: rateLimitError } = await db.rpc(
+      "claim_public_inquiry_rate_limit",
+      {
+        p_key_hash: inquiryRateLimitKey(request),
+        p_limit: 5,
+        p_window_seconds: 3_600,
+      },
+    );
+    if (rateLimitError) throw rateLimitError;
+    if (!rateLimitAllowed)
+      return NextResponse.json(
+        { error: "Too many inquiries were submitted from this connection. Please try again later or email hello@costivra.ai." },
+        { status: 429 },
+      );
     const { data, error } = await db.rpc("create_contact_inquiry_lead", {
       p_name: name,
       p_email: email,
