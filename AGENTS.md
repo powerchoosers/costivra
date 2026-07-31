@@ -87,7 +87,11 @@ Initial supported categories are software subscriptions, telecom and internet, a
 ### GitHub and deployment
 
 - Canonical source repository: `https://github.com/powerchoosers/costivra.git`.
-- The `main` branch is the deployment branch. Configure Vercel to use this repository with the repository root as its Root Directory and `npm run build` as the build command.
+- Vercel project: `costivra` under the `Nodal Point Network` team. The project ID is `prj_pMAnjcRnNPD35PyXwNiUVz99N8Zc` and the team ID is `team_aAYe8Oai5o7BR0a3F4a6bPMe`.
+- The canonical production domain is `https://costivra.ai`. Treat `.ai` as the primary public address in links, metadata, canonical URLs, sitemaps, email, and product copy.
+- `https://costivra.io` is attached to the same Vercel project as a permanent HTTP `308` redirect to `https://costivra.ai`. The redirect must preserve the requested path and query string; do not serve a separate copy of the site on `.io`.
+- Both domains are registered through and verified by Vercel. They were connected on July 31, 2026; initial DNS and certificate availability may remain pending while the new registrations propagate.
+- The `main` branch is the deployment branch. Vercel uses this repository with the repository root as its Root Directory and `npm run build` as the build command.
 - In Vercel, configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `OPEN_ROUTER_API_KEY` separately for Production, Preview, and Development as appropriate. Do not copy secret values into repository files.
 - A push to `main` should trigger a Vercel production deployment. Pull requests should create preview deployments once branch protection and Vercel integration are enabled.
 
