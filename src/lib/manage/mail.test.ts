@@ -31,8 +31,10 @@ describe("owner CRM mail policy", () => {
   it("creates a stable request hash without ignoring material changes", () => {
     const base = {
       organizationId: "11111111-1111-4111-8111-111111111111",
+      mailboxId: "22222222-2222-4222-8222-222222222222",
       to: ["A@example.com"],
       cc: [] as string[],
+      bcc: [] as string[],
       subject: "Follow-up",
       text: "The agreed message",
     };
@@ -41,6 +43,9 @@ describe("owner CRM mail policy", () => {
     );
     expect(mailRequestHash(base)).not.toBe(
       mailRequestHash({ ...base, text: "Changed message" }),
+    );
+    expect(mailRequestHash(base)).not.toBe(
+      mailRequestHash({ ...base, bcc: ["private@example.com"] }),
     );
   });
 

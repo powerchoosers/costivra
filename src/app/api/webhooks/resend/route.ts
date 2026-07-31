@@ -75,6 +75,7 @@ async function persistOwnerMailboxMessage(
   resend: ReturnType<typeof getResendClient>,
   received: EmailReceivedEvent,
   recipientAddresses: string[],
+  mailbox: { id: string; address: string },
 ) {
   const senderAddress = normalizeEmailAddress(received.data.from);
   const { data: existing } = await db
@@ -133,6 +134,7 @@ async function persistOwnerMailboxMessage(
       .from("crm_email_messages")
       .select("thread_id")
       .eq("internet_message_id", inReplyTo)
+      .eq("mailbox_id", mailbox.id)
       .maybeSingle();
     threadId = repliedMessage?.thread_id ?? null;
   }
@@ -141,6 +143,7 @@ async function persistOwnerMailboxMessage(
       .from("crm_email_threads")
       .select("id")
       .eq("organization_id", organizationId)
+      .eq("mailbox_id", mailbox.id)
       .eq("normalized_subject", normalizedSubject)
       .eq("status", "open")
       .order("last_message_at", { ascending: false })
@@ -155,6 +158,7 @@ async function persistOwnerMailboxMessage(
       .from("crm_email_threads")
       .insert({
         organization_id: organizationId,
+        mailbox_id: mailbox.id,
         contact_id: contact?.id ?? null,
         subject,
         normalized_subject: normalizedSubject,
@@ -179,6 +183,7 @@ async function persistOwnerMailboxMessage(
       .from("crm_email_threads")
       .update({
         organization_id: organizationId,
+        mailbox_id: mailbox.id,
         contact_id: contact?.id ?? null,
         participants: Array.from(
           new Set([senderAddress, ...recipientAddresses]),
@@ -201,6 +206,7 @@ async function persistOwnerMailboxMessage(
   const { error: messageError } = await db.from("crm_email_messages").insert({
     thread_id: threadId,
     organization_id: organizationId,
+    mailbox_id: mailbox.id,
     contact_id: contact?.id ?? null,
     direction: "inbound",
     folder: "inbox",
@@ -237,7 +243,10 @@ async function persistOwnerMailboxMessage(
     action: "crm.email_received",
     resource_type: "crm_email_thread",
     resource_id: threadId,
-    safe_metadata: { linked_to_account: Boolean(organizationId) },
+    safe_metadata: {
+      linked_to_account: Boolean(organizationId),
+      mailbox: mailbox.address,
+    },
   });
   return { duplicate: false, threadId };
 }
@@ -330,16 +339,25 @@ export async function POST(request: Request) {
     matchesIntakeAddress(recipientAddresses, candidate),
   );
   if (!intake) {
-    const ownerInbox = normalizeEmailAddress(
-      process.env.RESEND_OWNER_INBOX || "mail@inbound.costivra.ai",
+    const { data: mailboxCandidates, error: mailboxError } = await db
+      .from("crm_mailboxes")
+      .select("id,address")
+      .in("address", recipientAddresses)
+      .eq("status", "active")
+      .eq("can_receive", true)
+      .limit(2);
+    if (mailboxError) throw mailboxError;
+    const mailbox = mailboxCandidates?.find((candidate) =>
+      recipientAddresses.includes(normalizeEmailAddress(candidate.address)),
     );
-    if (!recipientAddresses.includes(ownerInbox))
+    if (!mailbox)
       return NextResponse.json({ received: true });
     const result = await persistOwnerMailboxMessage(
       db,
       resend,
       received,
       recipientAddresses,
+      mailbox,
     );
     await db.from("crm_email_events").upsert(
       {
@@ -347,7 +365,7 @@ export async function POST(request: Request) {
         provider_message_id: received.data.email_id,
         event_type: event.type,
         occurred_at: event.created_at,
-        safe_metadata: { mailbox: "owner" },
+        safe_metadata: { mailbox: mailbox.address },
       },
       { onConflict: "provider_event_id" },
     );

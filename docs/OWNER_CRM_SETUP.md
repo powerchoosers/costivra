@@ -7,7 +7,7 @@ The internal CRM lives at `/manage`. It is deliberately separate from `/app`, wh
 Set this server-only environment variable in Vercel for Production, Preview, and Development as needed:
 
 ```text
-COSTIVRA_INTERNAL_ADMIN_EMAILS=your-exact-supabase-login@example.com
+COSTIVRA_INTERNAL_ADMIN_EMAILS=l.patterson@costivra.ai
 ```
 
 Use a comma-separated list for more than one internal owner. On the first successful visit to `/manage`, Costivra verifies the authenticated Supabase email and records that user in `internal_staff_users`. A customer workspace owner or administrator is not automatically allowed into the internal CRM.
@@ -19,15 +19,14 @@ RESEND_API_KEY=server-only-key
 RESEND_FROM_EMAIL=Costivra <hello@costivra.ai>
 ```
 
-The From address must belong to a Resend-verified sending domain. The CRM does not send during deployment or testing. A human operator must link the message to a real client account and click Send.
+The From address must belong to a Resend-verified sending domain. `costivra.ai` is verified. CRM messages use the active mailbox seat selected in the composer; the fallback variable remains for transactional product mail. The CRM does not send during deployment or testing. A human operator must link the message to a real client account and click Send.
 
 ## 3. Configure the owner inbox
 
-Use a dedicated receiving subdomain so business mailbox MX records on `costivra.ai` are not replaced:
+The root domain had no existing MX mailbox provider when receiving was configured, so the CRM can safely receive its mailbox seats directly at `@costivra.ai`:
 
 ```text
-RESEND_INBOUND_DOMAIN=inbound.costivra.ai
-RESEND_OWNER_INBOX=mail@inbound.costivra.ai
+RESEND_INBOUND_DOMAIN=costivra.ai
 RESEND_WEBHOOK_SECRET=whsec_...
 ```
 
@@ -39,16 +38,22 @@ https://costivra.ai/api/webhooks/resend
 
 Subscribe to `email.received`, `email.scheduled`, `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed`, and `email.suppressed`.
 
-Do not enable receiving on the root `costivra.ai` domain. Do not enable the receiving subdomain until the deployed webhook returns successfully, its signing secret is configured, and the separate document-intake malware scanner requirement is satisfied.
+Resend receives domain-wide, but the webhook stores owner mail only when the recipient matches an active row in `crm_mailboxes`. Unknown addresses are ignored. Document-intake addresses continue through their separate sender allowlist and fail-closed malware boundary.
 
-## 4. First production check
+## 4. Mailbox seats
+
+The first owner seat is `l.patterson@costivra.ai`. Owners can open **Mailboxes** in `/manage` to create additional personal or shared addresses. A verified Resend domain can send from any address on that domain; receiving is also domain-wide, so the database allowlist is the authoritative list of addresses Costivra accepts.
+
+These seats are full send/receive identities inside the CRM. They are not IMAP accounts and do not create Gmail or Outlook credentials. Platform login access remains separate so creating a mailbox cannot accidentally grant someone cross-client access.
+
+## 5. First production check
 
 1. Sign in with the exact allowlisted Supabase email and open `/manage`.
 2. Confirm existing Supabase organizations appear as accounts without sample rows.
 3. Add a real follow-up or internal note and confirm it appears in Activity.
 4. Send one intentionally authorized email to an address you control.
 5. Confirm the Sent conversation has a Resend provider state and an `external_side_effects` record.
-6. Reply from the controlled address and confirm the signed webhook creates one Inbox message, not a duplicate.
+6. Reply from the controlled address and confirm the signed webhook creates one Inbox message in the selected seat, not a duplicate.
 
 Never use a real customer address for the first delivery test unless the message itself is legitimate and approved.
 

@@ -1,6 +1,6 @@
 # Automatic Email Intake
 
-Costivra gives each organization a unique address at `inbound.costivra.ai`. Customers can forward vendor invoices and contracts to that address without sharing their mailbox password or granting Costivra access to every email.
+Costivra gives each organization a unique generated address at `costivra.ai`. Customers can forward vendor invoices and contracts to that address without sharing their mailbox password or granting Costivra access to every email.
 
 ## Customer setup
 
@@ -20,13 +20,13 @@ Production requires these server-only variables:
 
 - `RESEND_API_KEY`
 - `RESEND_WEBHOOK_SECRET`
-- `RESEND_INBOUND_DOMAIN=inbound.costivra.ai`
+- `RESEND_INBOUND_DOMAIN=costivra.ai`
 - `MALWARE_SCANNER_URL`
 - `MALWARE_SCANNER_TOKEN` when required by the selected scanner
 
 Alternatively, set `CLOUDMERSIVE_API_KEY`; the built-in adapter will use Cloudmersive's file-scanning API without a custom scanner service. This sends source files to Cloudmersive for scanning, so Costivra must approve the provider's privacy terms, DPA, retention behavior, and customer disclosure before production use.
 
-Resend must have `inbound.costivra.ai` registered as a receiving-enabled domain, its MX record must be verified, and an `email.received` webhook must point to `https://costivra.ai/api/webhooks/resend`.
+Resend must have receiving enabled for `costivra.ai`, its MX record must be verified, and an `email.received` webhook must point to `https://costivra.ai/api/webhooks/resend`. Owner mailbox seats and customer document-intake addresses share the receiving domain but use separate database allowlists and processing rules.
 
 The malware scanner receives a multipart request containing a `file` part and must return JSON with either `{ "clean": true }` or `{ "infected": true, "signature": "..." }`. A missing, unavailable, or failed scanner never releases an attachment to extraction. The file stays in the private quarantine path until an administrator retries it.
 

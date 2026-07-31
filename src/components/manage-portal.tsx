@@ -7,6 +7,7 @@ import {
   Activity,
   Archive,
   ArrowLeft,
+  AtSign,
   Building2,
   CalendarClock,
   Check,
@@ -36,6 +37,7 @@ import {
 import type {
   ManageAccount,
   ManageData,
+  ManageMailbox,
   ManageMailThread,
 } from "@/lib/manage/types";
 import { createClient } from "@/lib/supabase/client";
@@ -47,6 +49,7 @@ const nav = [
   ["Contacts", "/manage/contacts", Users],
   ["Outreach", "/manage/outreach", MessageSquareText],
   ["Mail", "/manage/mail", Mail],
+  ["Mailboxes", "/manage/mailboxes", AtSign],
   ["Activity", "/manage/activity", Activity],
 ] as const;
 
@@ -91,6 +94,7 @@ type ComposeContext = {
   subject?: string;
   body?: string;
   threadId?: string;
+  mailboxId?: string;
 };
 
 async function api(url: string, init: RequestInit) {
@@ -220,7 +224,7 @@ export function ManagePortal({
   const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState<
-    "account" | "contact" | "task" | "note" | null
+    "account" | "contact" | "task" | "note" | "mailbox" | null
   >(null);
   const [compose, setCompose] = useState<ComposeContext | null>(null);
   const [busy, setBusy] = useState(false);
@@ -336,8 +340,28 @@ export function ManagePortal({
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => setCompose({ mode: "new" })}
+                disabled={!data.mail.mailboxes.some(
+                  (mailbox) =>
+                    mailbox.status === "active" && mailbox.canSend,
+                )}
               >
                 <PenLine size={16} /> Compose
+              </button>
+            ) : section === "mailboxes" ? (
+              data.operator.role === "owner" && (
+                <button
+                  className="manage-button manage-button--primary"
+                  onClick={() => setDialog("mailbox")}
+                >
+                  <Plus size={16} /> New mailbox
+                </button>
+              )
+            ) : section === "activity" ? (
+              <button
+                className="manage-button manage-button--primary"
+                onClick={() => setDialog("note")}
+              >
+                <Plus size={16} /> Add note
               </button>
             ) : (
               <button
@@ -405,6 +429,14 @@ export function ManagePortal({
               query={search}
               run={run}
               onCompose={(context) => setCompose(context)}
+            />
+          )}
+          {section === "mailboxes" && (
+            <Mailboxes
+              data={data}
+              query={search}
+              run={run}
+              onAdd={() => setDialog("mailbox")}
             />
           )}
           {section === "activity" && (
@@ -479,6 +511,22 @@ export function ManagePortal({
                   body: JSON.stringify(Object.fromEntries(form)),
                 }),
               "Note added to the activity record.",
+            )
+          }
+        />
+      )}
+      {dialog === "mailbox" && (
+        <MailboxForm
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onSubmit={(form) =>
+            run(
+              () =>
+                api("/api/manage/mailboxes", {
+                  method: "POST",
+                  body: JSON.stringify(Object.fromEntries(form)),
+                }),
+              "Mailbox seat created and ready to use.",
             )
           }
         />
@@ -1050,6 +1098,154 @@ function Outreach({
   );
 }
 
+function Mailboxes({
+  data,
+  query,
+  run,
+  onAdd,
+}: {
+  data: ManageData;
+  query: string;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  onAdd: () => void;
+}) {
+  const mailboxes = data.mail.mailboxes.filter((mailbox) =>
+    `${mailbox.displayName} ${mailbox.address} ${mailbox.mailboxType} ${mailbox.assignedToName || ""}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  return (
+    <>
+      <section className="manage-page-heading">
+        <div>
+          <p>Approved sender and receiving identities on costivra.ai.</p>
+          <h2>Mailbox seats</h2>
+        </div>
+        <span>
+          {mailboxes.length} mailbox{mailboxes.length === 1 ? "" : "es"}
+        </span>
+      </section>
+      <section className="manage-panel manage-mailbox-panel">
+        {mailboxes.length ? (
+          <div className="manage-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mailbox</th>
+                  <th>Seat type</th>
+                  <th>Delivery</th>
+                  <th>Status</th>
+                  <th aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {mailboxes.map((mailbox) => (
+                  <MailboxRow
+                    mailbox={mailbox}
+                    owner={data.operator.role === "owner"}
+                    run={run}
+                    key={mailbox.id}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty
+            icon={AtSign}
+            title="No mailbox seats"
+            copy="Create an approved Costivra address. No placeholder seats are added automatically."
+            action={
+              data.operator.role === "owner" ? (
+                <button
+                  className="manage-button manage-button--primary"
+                  onClick={onAdd}
+                >
+                  <Plus size={15} /> New mailbox
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+      </section>
+      <p className="manage-mailbox-footnote">
+        Mailbox seats work inside Costivra through Resend. They do not create an
+        IMAP, Gmail, or Outlook account.
+      </p>
+    </>
+  );
+}
+
+function MailboxRow({
+  mailbox,
+  owner,
+  run,
+}: {
+  mailbox: ManageMailbox;
+  owner: boolean;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+}) {
+  const nextOperation = mailbox.status === "active" ? "disable" : "enable";
+  return (
+    <tr>
+      <td>
+        <div className="manage-mailbox-identity">
+          <span className="manage-person-avatar">
+            {initials(mailbox.displayName)}
+          </span>
+          <div>
+            <strong>{mailbox.displayName}</strong>
+            <small>{mailbox.address}</small>
+          </div>
+        </div>
+      </td>
+      <td>
+        <strong>{pretty(mailbox.mailboxType)}</strong>
+        <small>{mailbox.assignedToName || "Owner administered"}</small>
+      </td>
+      <td>
+        <div className="manage-mailbox-capabilities">
+          <span className={mailbox.canSend ? "ready" : ""}>
+            <i /> Send
+          </span>
+          <span className={mailbox.canReceive ? "ready" : ""}>
+            <i /> Receive
+          </span>
+        </div>
+      </td>
+      <td>
+        <Status value={mailbox.status} />
+        {mailbox.isDefault && <small>Default owner inbox</small>}
+      </td>
+      <td className="manage-mailbox-action">
+        {owner && (
+          <button
+            className="manage-button manage-button--quiet"
+            disabled={mailbox.isDefault && nextOperation === "disable"}
+            title={
+              mailbox.isDefault
+                ? "The default owner inbox stays active"
+                : undefined
+            }
+            onClick={() =>
+              void run(
+                () =>
+                  api(`/api/manage/mailboxes/${mailbox.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ operation: nextOperation }),
+                  }),
+                `Mailbox ${nextOperation === "enable" ? "enabled" : "disabled"}.`,
+              )
+            }
+          >
+            {nextOperation === "enable" ? "Enable" : "Disable"}
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 function MailPage({
   data,
   query,
@@ -1063,6 +1259,12 @@ function MailPage({
 }) {
   const router = useRouter();
   const current = data.mail.selectedThread;
+  const activeMailboxes = data.mail.mailboxes.filter(
+    (mailbox) => mailbox.status === "active",
+  );
+  const mailboxQuery = data.mail.selectedMailboxId
+    ? `&mailbox=${data.mail.selectedMailboxId}`
+    : "";
   const threads = data.mail.threads.filter((thread) =>
     `${thread.subject} ${thread.contactName} ${thread.organizationName} ${thread.snippet}`
       .toLowerCase()
@@ -1093,15 +1295,42 @@ function MailPage({
       <aside className="manage-mail-folders">
         <button
           className="manage-compose"
-          onClick={() => onCompose({ mode: "new" })}
+          disabled={!activeMailboxes.some((mailbox) => mailbox.canSend)}
+          onClick={() =>
+            onCompose({
+              mode: "new",
+              mailboxId: data.mail.selectedMailboxId || undefined,
+            })
+          }
         >
           <PenLine size={17} /> Compose
         </button>
+        <label className="manage-mailbox-switch">
+          <span>Mailbox</span>
+          <select
+            aria-label="Current mailbox"
+            value={data.mail.selectedMailboxId || ""}
+            onChange={(event) =>
+              router.push(
+                `/manage/mail?folder=${data.mail.folder}&mailbox=${event.target.value}`,
+              )
+            }
+          >
+            {!activeMailboxes.length && (
+              <option value="">No active mailbox</option>
+            )}
+            {activeMailboxes.map((mailbox) => (
+              <option value={mailbox.id} key={mailbox.id}>
+                {mailbox.address}
+              </option>
+            ))}
+          </select>
+        </label>
         <nav>
           {folders.map(([key, label, Icon]) => (
             <Link
               className={data.mail.folder === key ? "active" : ""}
-              href={`/manage/mail?folder=${key}`}
+              href={`/manage/mail?folder=${key}${mailboxQuery}`}
               key={key}
             >
               <Icon size={17} />
@@ -1134,6 +1363,25 @@ function MailPage({
               {threads.length} conversation{threads.length === 1 ? "" : "s"}
             </span>
           </div>
+          <select
+            className="manage-mailbox-mobile-switch"
+            aria-label="Current mailbox"
+            value={data.mail.selectedMailboxId || ""}
+            onChange={(event) =>
+              router.push(
+                `/manage/mail?folder=${data.mail.folder}&mailbox=${event.target.value}`,
+              )
+            }
+          >
+            {!activeMailboxes.length && (
+              <option value="">No active mailbox</option>
+            )}
+            {activeMailboxes.map((mailbox) => (
+              <option value={mailbox.id} key={mailbox.id}>
+                {mailbox.address}
+              </option>
+            ))}
+          </select>
           <button aria-label="Refresh" onClick={() => router.refresh()}>
             <RefreshCw size={16} />
           </button>
@@ -1161,7 +1409,10 @@ function MailPage({
           <>
             <header className="manage-reader-tools">
               <div>
-                <Link href="/manage/mail" aria-label="Back to message list">
+                <Link
+                  href={`/manage/mail?folder=${data.mail.folder}${mailboxQuery}`}
+                  aria-label="Back to message list"
+                >
                   <ArrowLeft size={17} />
                 </Link>
                 <button
@@ -1278,6 +1529,7 @@ function MailPage({
                       ? current.subject
                       : `Re: ${current.subject}`,
                     threadId: current.id,
+                    mailboxId: current.mailboxId || undefined,
                   });
                 }}
               >
@@ -1296,6 +1548,7 @@ function MailPage({
                     body: latest
                       ? `\n\n---------- Forwarded message ----------\nFrom: ${latest.fromAddress}\nDate: ${date(latest.sentAt || latest.receivedAt || latest.createdAt, true)}\nSubject: ${latest.subject}\n\n${latest.textBody || ""}`
                       : "",
+                    mailboxId: current.mailboxId || undefined,
                   });
                 }}
               >
@@ -1374,7 +1627,7 @@ function MailThreadRow({
 }) {
   return (
     <Link
-      href={`/manage/mail/${thread.id}?folder=${folder}`}
+      href={`/manage/mail/${thread.id}?folder=${folder}${thread.mailboxId ? `&mailbox=${thread.mailboxId}` : ""}`}
       className={`manage-thread${active ? " active" : ""}${thread.unreadCount ? " unread" : ""}`}
     >
       <span className="manage-thread-star" aria-hidden="true">
@@ -1819,6 +2072,72 @@ function EditAccount({
   );
 }
 
+function MailboxForm({
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (form: FormData) => void;
+}) {
+  return (
+    <Modal
+      title="Create mailbox seat"
+      copy="This address can send and receive inside the Costivra CRM."
+      onClose={onClose}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(new FormData(event.currentTarget));
+        }}
+      >
+        <div className="manage-form-grid">
+          <label className="wide">
+            <span>Display name</span>
+            <input
+              name="displayName"
+              required
+              maxLength={100}
+              placeholder="Jordan Lee"
+            />
+          </label>
+          <label className="wide">
+            <span>Email address</span>
+            <div className="manage-mailbox-address-field">
+              <input
+                name="localPart"
+                required
+                maxLength={64}
+                pattern="[a-zA-Z0-9]+([._-][a-zA-Z0-9]+)*"
+                placeholder="jordan.lee"
+              />
+              <strong>@costivra.ai</strong>
+            </div>
+          </label>
+          <label className="wide">
+            <span>Seat type</span>
+            <select name="mailboxType" defaultValue="personal">
+              <option value="personal">Personal mailbox</option>
+              <option value="shared">Shared team mailbox</option>
+            </select>
+          </label>
+        </div>
+        <p className="manage-form-note">
+          Creating a mailbox does not send an invitation. Platform access and
+          login permissions remain separate.
+        </p>
+        <FormActions
+          busy={busy}
+          submit="Create mailbox"
+          onClose={onClose}
+        />
+      </form>
+    </Modal>
+  );
+}
+
 function Compose({
   data,
   context,
@@ -1834,6 +2153,12 @@ function Compose({
   const [showCc, setShowCc] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(
     context.organizationId || "",
+  );
+  const availableMailboxes = data.mail.mailboxes.filter(
+    (mailbox) => mailbox.status === "active" && mailbox.canSend,
+  );
+  const [selectedMailbox, setSelectedMailbox] = useState(
+    context.mailboxId || data.mail.selectedMailboxId || "",
   );
   const accountContacts = useMemo(
     () =>
@@ -1863,8 +2188,8 @@ function Compose({
       onClose();
       router.push(
         result.threadId
-          ? `/manage/mail/${result.threadId}?folder=${mode === "draft" ? "drafts" : "sent"}`
-          : "/manage/mail",
+          ? `/manage/mail/${result.threadId}?folder=${mode === "draft" ? "drafts" : "sent"}&mailbox=${selectedMailbox}`
+          : `/manage/mail?mailbox=${selectedMailbox}`,
       );
       router.refresh();
     } catch (error) {
@@ -1903,22 +2228,40 @@ function Compose({
           </button>
         </header>
         <div className="manage-compose-account">
-          <label>
-            <span>Client account *</span>
-            <select
-              name="organizationId"
-              required
-              value={selectedAccount}
-              onChange={(event) => setSelectedAccount(event.target.value)}
-            >
-              <option value="">Link this email to an account</option>
-              {data.accounts.map((account) => (
-                <option value={account.id} key={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="manage-compose-routing">
+            <label>
+              <span>From *</span>
+              <select
+                name="mailboxId"
+                required
+                value={selectedMailbox}
+                onChange={(event) => setSelectedMailbox(event.target.value)}
+              >
+                <option value="">Choose mailbox</option>
+                {availableMailboxes.map((mailbox) => (
+                  <option value={mailbox.id} key={mailbox.id}>
+                    {mailbox.displayName} · {mailbox.address}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Client account *</span>
+              <select
+                name="organizationId"
+                required
+                value={selectedAccount}
+                onChange={(event) => setSelectedAccount(event.target.value)}
+              >
+                <option value="">Link this email to an account</option>
+                {data.accounts.map((account) => (
+                  <option value={account.id} key={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <small>Required so the send is authorized and auditable.</small>
         </div>
         <div className="manage-compose-line">
@@ -1986,7 +2329,7 @@ function Compose({
             <button
               className="manage-button manage-button--quiet"
               type="button"
-              disabled={busy || !selectedAccount}
+              disabled={busy || !selectedAccount || !selectedMailbox}
               onClick={(event) => {
                 const form = event.currentTarget.form;
                 if (form) void submitForm(form, "draft");
@@ -1997,7 +2340,7 @@ function Compose({
           </div>
           <button
             className="manage-button manage-button--primary"
-            disabled={busy}
+            disabled={busy || !selectedMailbox}
           >
             {busy ? "Sending…" : "Send"}
             <Send size={16} />

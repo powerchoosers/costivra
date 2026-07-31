@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getResendClient } from "@/lib/email/resend";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
+import { requireMailbox } from "@/lib/manage/mailbox-access";
 import {
   deliveryFailureLedgerUpdate,
   isValidEmail,
@@ -39,10 +40,12 @@ async function resolveContact(
 
 export async function POST(request: Request) {
   try {
-    const { db, userId } = await requireInternalOperator();
+    const operator = await requireInternalOperator();
+    const { db, userId } = operator;
     const form = await request.formData();
     const mode = field(form, "mode", 20) || "send";
     const organizationId = cleanUuid(form.get("organizationId"));
+    const mailboxId = cleanUuid(form.get("mailboxId"));
     const threadId = cleanUuid(form.get("threadId")) || null;
     const subject = field(form, "subject", 500) || "(no subject)";
     const body = field(form, "body", 100_000);
@@ -58,10 +61,16 @@ export async function POST(request: Request) {
         },
         { status: 400 },
       );
+    if (!mailboxId)
+      return NextResponse.json(
+        { error: "Choose an active Costivra mailbox before sending." },
+        { status: 400 },
+      );
+    const mailbox = await requireMailbox(operator, mailboxId, "send");
     if (threadId) {
       const { data: linkedThread } = await db
         .from("crm_email_threads")
-        .select("id")
+        .select("id,mailbox_id")
         .eq("id", threadId)
         .eq("organization_id", organizationId)
         .maybeSingle();
@@ -71,6 +80,11 @@ export async function POST(request: Request) {
             error:
               "That conversation is not linked to the selected client account.",
           },
+          { status: 409 },
+        );
+      if (linkedThread.mailbox_id && linkedThread.mailbox_id !== mailbox.id)
+        return NextResponse.json(
+          { error: "Replies must use the mailbox that owns the conversation." },
           { status: 409 },
         );
     }
@@ -128,8 +142,7 @@ export async function POST(request: Request) {
     const contact = to[0]
       ? await resolveContact(db, organizationId, to[0])
       : null;
-    const fromAddress =
-      process.env.RESEND_FROM_EMAIL || "Costivra <hello@costivra.ai>";
+    const fromAddress = mailbox.sender;
     const attachmentData = await Promise.all(
       files.map(async (file) => {
         const buffer = Buffer.from(await file.arrayBuffer());
@@ -151,6 +164,7 @@ export async function POST(request: Request) {
           .from("crm_email_threads")
           .insert({
             organization_id: organizationId,
+            mailbox_id: mailbox.id,
             contact_id: contact?.id ?? null,
             subject,
             normalized_subject: normalizeSubject(subject),
@@ -172,6 +186,7 @@ export async function POST(request: Request) {
       const draftRecord = {
         thread_id: resolvedThreadId,
         organization_id: organizationId,
+        mailbox_id: mailbox.id,
         contact_id: contact?.id ?? null,
         actor_id: userId,
         direction: "outbound",
@@ -195,6 +210,7 @@ export async function POST(request: Request) {
       await db
         .from("crm_email_threads")
         .update({
+          mailbox_id: mailbox.id,
           subject,
           normalized_subject: normalizeSubject(subject),
           participants: Array.from(new Set([fromAddress, ...to, ...cc])),
@@ -216,8 +232,10 @@ export async function POST(request: Request) {
     const idempotencyKey = field(form, "idempotencyKey", 256) || randomUUID();
     const requestHash = mailRequestHash({
       organizationId,
+      mailboxId: mailbox.id,
       to,
       cc,
+      bcc,
       subject,
       text: body,
       scheduledAt: scheduledAt?.toISOString(),
@@ -254,6 +272,7 @@ export async function POST(request: Request) {
       .from("external_side_effects")
       .insert({
         organization_id: organizationId,
+        mailbox_id: mailbox.id,
         actor_id: userId,
         type: "email.outbound",
         destination: [...to, ...cc, ...bcc].join(","),
@@ -309,7 +328,7 @@ export async function POST(request: Request) {
             bcc: bcc.length ? bcc : undefined,
             subject,
             text: body,
-            replyTo: process.env.RESEND_OWNER_INBOX || undefined,
+            replyTo: mailbox.address,
             scheduledAt: scheduledAt?.toISOString(),
             headers: Object.keys(headers).length ? headers : undefined,
             attachments: attachmentData.map((item) => ({
@@ -342,6 +361,7 @@ export async function POST(request: Request) {
           .from("crm_email_threads")
           .insert({
             organization_id: organizationId,
+            mailbox_id: mailbox.id,
             contact_id: contact?.id ?? null,
             subject,
             normalized_subject: normalizeSubject(subject),
@@ -361,6 +381,7 @@ export async function POST(request: Request) {
         .insert({
           thread_id: resolvedThreadId,
           organization_id: organizationId,
+          mailbox_id: mailbox.id,
           contact_id: contact?.id ?? null,
           actor_id: userId,
           direction: "outbound",
@@ -387,6 +408,7 @@ export async function POST(request: Request) {
         .from("crm_email_threads")
         .update({
           organization_id: organizationId,
+          mailbox_id: mailbox.id,
           contact_id: contact?.id ?? null,
           subject,
           normalized_subject: normalizeSubject(subject),

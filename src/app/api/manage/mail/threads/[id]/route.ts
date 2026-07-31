@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
+import { requireMailbox } from "@/lib/manage/mailbox-access";
 import { cleanText, cleanUuid } from "@/lib/portal/http";
 
 export async function PATCH(
@@ -7,7 +8,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { db, userId } = await requireInternalOperator();
+    const operator = await requireInternalOperator();
+    const { db, userId } = operator;
     const id = cleanUuid((await params).id);
     const body = (await request.json()) as Record<string, unknown>;
     const operation = cleanText(body.operation, 30);
@@ -27,6 +29,15 @@ export async function PATCH(
         { error: "Invalid mail action." },
         { status: 400 },
       );
+    const { data: existingThread, error: existingError } = await db
+      .from("crm_email_threads")
+      .select("mailbox_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existingThread?.mailbox_id)
+      throw new Error("MAILBOX_ACCESS_REQUIRED");
+    await requireMailbox(operator, existingThread.mailbox_id, "read");
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -49,6 +60,7 @@ export async function PATCH(
       .from("crm_email_threads")
       .update(updates)
       .eq("id", id)
+      .eq("mailbox_id", existingThread.mailbox_id)
       .select("organization_id")
       .single();
     if (error) throw error;

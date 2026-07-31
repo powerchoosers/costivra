@@ -13,6 +13,7 @@ export const revalidate = 0;
 async function loadManagePageData(input: {
   folder?: string;
   threadId?: string | null;
+  mailboxId?: string | null;
 }) {
   try {
     return { authorized: true as const, data: await getManageData(input) };
@@ -32,13 +33,14 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ slug?: string[] }>;
-  searchParams: Promise<{ folder?: string }>;
+  searchParams: Promise<{ folder?: string; mailbox?: string }>;
 }) {
   const { slug = [] } = await params;
-  const { folder } = await searchParams;
+  const { folder, mailbox } = await searchParams;
   const section = slug[0] || "overview";
   const result = await loadManagePageData({
     folder,
+    mailboxId: mailbox,
     threadId: section === "mail" ? slug[1] : null,
   });
   if (!result.authorized) return <ManageAccessDenied />;

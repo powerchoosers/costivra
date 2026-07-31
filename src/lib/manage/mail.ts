@@ -14,8 +14,10 @@ export function normalizeSubject(value: string) {
 
 export function mailRequestHash(input: {
   organizationId: string;
+  mailboxId: string;
   to: string[];
   cc: string[];
+  bcc: string[];
   subject: string;
   text: string;
   scheduledAt?: string | null;
@@ -25,8 +27,10 @@ export function mailRequestHash(input: {
     .update(
       JSON.stringify({
         organizationId: input.organizationId,
+        mailboxId: input.mailboxId,
         to: input.to.map(normalizeEmailAddress).sort(),
         cc: input.cc.map(normalizeEmailAddress).sort(),
+        bcc: input.bcc.map(normalizeEmailAddress).sort(),
         subject: input.subject.trim(),
         text: input.text,
         scheduledAt: input.scheduledAt ?? null,

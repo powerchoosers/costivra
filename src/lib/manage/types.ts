@@ -62,10 +62,27 @@ export type ManageActivity = {
   occurredAt: string;
 };
 
+export type ManageMailbox = {
+  id: string;
+  displayName: string;
+  localPart: string;
+  domain: string;
+  address: string;
+  mailboxType: "personal" | "shared";
+  assignedTo: string | null;
+  assignedToName: string | null;
+  status: "active" | "disabled";
+  canSend: boolean;
+  canReceive: boolean;
+  isDefault: boolean;
+  createdAt: string;
+};
+
 export type ManageMailMessage = {
   id: string;
   threadId: string;
   organizationId: string | null;
+  mailboxId: string | null;
   direction: "inbound" | "outbound";
   folder: string;
   fromAddress: string;
@@ -83,6 +100,8 @@ export type ManageMailMessage = {
 export type ManageMailThread = {
   id: string;
   organizationId: string | null;
+  mailboxId: string | null;
+  mailboxAddress: string | null;
   organizationName: string | null;
   contactId: string | null;
   contactName: string | null;
@@ -111,6 +130,8 @@ export type ManageData = {
     selectedThread: ManageMailThread | null;
     messages: ManageMailMessage[];
     unreadCount: number;
+    mailboxes: ManageMailbox[];
+    selectedMailboxId: string | null;
     fromAddress: string;
     inboxAddress: string;
     inboundReady: boolean;

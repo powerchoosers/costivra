@@ -4,9 +4,11 @@ import { requireInternalOperator } from "@/lib/manage/auth";
 import type {
   ManageContact,
   ManageData,
+  ManageMailbox,
   ManageMailMessage,
   ManageMailThread,
 } from "@/lib/manage/types";
+import { canUseMailbox, formatMailboxSender } from "@/lib/manage/mailboxes";
 import { hiddenOrganizationIds } from "@/lib/manage/visibility";
 
 type Row = Record<string, unknown>;
@@ -34,6 +36,7 @@ function stringArray(value: unknown) {
 export async function getManageData(input?: {
   folder?: string;
   threadId?: string | null;
+  mailboxId?: string | null;
 }): Promise<ManageData> {
   const operator = await requireInternalOperator();
   const { db } = operator;
@@ -45,6 +48,7 @@ export async function getManageData(input?: {
     crmContactsResult,
     tasksResult,
     activitiesResult,
+    mailboxesResult,
     documentsResult,
     opportunitiesResult,
     threadsResult,
@@ -73,6 +77,11 @@ export async function getManageData(input?: {
       .select("*")
       .order("occurred_at", { ascending: false })
       .limit(120),
+    db
+      .from("crm_mailboxes")
+      .select("*")
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true }),
     db.from("documents").select("id,organization_id"),
     db.from("opportunities").select("id,organization_id"),
     db
@@ -94,6 +103,7 @@ export async function getManageData(input?: {
     crmContactsResult,
     tasksResult,
     activitiesResult,
+    mailboxesResult,
     documentsResult,
     opportunitiesResult,
     threadsResult,
@@ -136,6 +146,43 @@ export async function getManageData(input?: {
     ["open", "in_progress"].includes(text(task.status)),
   );
   const openTaskCount = countBy(openTasks, "organization_id");
+  const mailboxes: ManageMailbox[] = rows(mailboxesResult.data).map(
+    (mailbox) => {
+      const assignedProfile = profilesById.get(text(mailbox.assigned_to));
+      return {
+        id: text(mailbox.id),
+        displayName: text(mailbox.display_name),
+        localPart: text(mailbox.local_part),
+        domain: text(mailbox.domain),
+        address: text(mailbox.address),
+        mailboxType:
+          mailbox.mailbox_type === "shared" ? "shared" : "personal",
+        assignedTo: nullable(mailbox.assigned_to),
+        assignedToName: assignedProfile
+          ? text(assignedProfile.full_name, text(assignedProfile.email))
+          : null,
+        status: mailbox.status === "disabled" ? "disabled" : "active",
+        canSend: Boolean(mailbox.can_send),
+        canReceive: Boolean(mailbox.can_receive),
+        isDefault: Boolean(mailbox.is_default),
+        createdAt: text(mailbox.created_at),
+      };
+    },
+  );
+  const visibleMailboxes =
+    operator.role === "owner"
+      ? mailboxes
+      : mailboxes.filter((mailbox) =>
+          canUseMailbox(operator.role, operator.userId, mailbox),
+        );
+  const usableMailboxes = visibleMailboxes.filter((mailbox) =>
+    canUseMailbox(operator.role, operator.userId, mailbox),
+  );
+  const selectedMailbox =
+    usableMailboxes.find((mailbox) => mailbox.id === input?.mailboxId) ??
+    usableMailboxes.find((mailbox) => mailbox.isDefault) ??
+    usableMailboxes[0] ??
+    null;
 
   const contacts: ManageContact[] = rows(crmContactsResult.data)
     .filter((contact) =>
@@ -222,7 +269,10 @@ export async function getManageData(input?: {
   );
   const rawMessages = rows(messagesResult.data).filter((message) => {
     const organizationId = nullable(message.organization_id);
-    return !organizationId || isVisibleOrganization(organizationId);
+    return (
+      (!organizationId || isVisibleOrganization(organizationId)) &&
+      (!selectedMailbox || text(message.mailbox_id) === selectedMailbox.id)
+    );
   });
   const latestMessageByThread = new Map<string, Row>();
   for (const message of rawMessages) {
@@ -233,7 +283,11 @@ export async function getManageData(input?: {
   const allThreads: ManageMailThread[] = rows(threadsResult.data)
     .filter((thread) => {
       const organizationId = nullable(thread.organization_id);
-      return !organizationId || isVisibleOrganization(organizationId);
+      return (
+        (!organizationId || isVisibleOrganization(organizationId)) &&
+        Boolean(selectedMailbox) &&
+        text(thread.mailbox_id) === selectedMailbox?.id
+      );
     })
     .map((thread) => {
       const organizationId = nullable(thread.organization_id);
@@ -242,6 +296,8 @@ export async function getManageData(input?: {
       return {
         id: text(thread.id),
         organizationId,
+        mailboxId: nullable(thread.mailbox_id),
+        mailboxAddress: selectedMailbox?.address ?? null,
         organizationName: organizationId
           ? text(organizationsById.get(organizationId)?.name) || null
           : null,
@@ -288,6 +344,7 @@ export async function getManageData(input?: {
           id: text(message.id),
           threadId: text(message.thread_id),
           organizationId: nullable(message.organization_id),
+          mailboxId: nullable(message.mailbox_id),
           direction: message.direction === "inbound" ? "inbound" : "outbound",
           folder: text(message.folder),
           fromAddress: text(message.from_address),
@@ -371,14 +428,19 @@ export async function getManageData(input?: {
         (sum, thread) => sum + thread.unreadCount,
         0,
       ),
-      fromAddress:
-        process.env.RESEND_FROM_EMAIL || "Costivra <hello@costivra.ai>",
-      inboxAddress:
-        process.env.RESEND_OWNER_INBOX || "mail@inbound.costivra.ai",
+      mailboxes: visibleMailboxes,
+      selectedMailboxId: selectedMailbox?.id ?? null,
+      fromAddress: selectedMailbox
+        ? formatMailboxSender(
+            selectedMailbox.displayName,
+            selectedMailbox.address,
+          )
+        : "No active mailbox",
+      inboxAddress: selectedMailbox?.address ?? "No active mailbox",
       inboundReady: Boolean(
         process.env.RESEND_API_KEY &&
           process.env.RESEND_WEBHOOK_SECRET &&
-          process.env.RESEND_OWNER_INBOX,
+          selectedMailbox?.canReceive,
       ),
     },
   };

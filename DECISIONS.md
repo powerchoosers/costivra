@@ -50,11 +50,11 @@ Provision one private receiving address per organization. Let an owner or admini
 
 - Broad Gmail or Microsoft mailbox OAuth as the first path. This creates a larger privacy and permission surface and is unnecessary for the MVP.
 - Accepting attachments before malware scanning. This violates the document-intake security boundary.
-- Enabling Resend receiving on the root `costivra.ai` domain. Its MX record could conflict with the existing business mailbox, so a dedicated receiving subdomain is required.
+- Enabling Resend receiving on the root `costivra.ai` domain without first checking MX records. That would risk displacing an existing mailbox provider.
 
 ### Consequences
 
-Customers can configure intake themselves without sharing mailbox credentials. Unknown senders fail closed, and unscanned files never reach extraction. Resend's current one-domain Free plan must be upgraded or replaced before the dedicated receiving subdomain can be activated, and a production malware scanner must be selected.
+Customers can configure intake themselves without sharing mailbox credentials. Unknown senders fail closed, and unscanned files never reach extraction. A production malware scanner must be selected. A live DNS inspection later on July 31 found no root-domain MX provider, so the mailbox-seat decision below uses `costivra.ai` directly; the safety rule remains to inspect MX before enabling receiving.
 
 ## 2026-07-31 — Use Resend only through a server-side delivery ledger
 
@@ -121,3 +121,12 @@ Describe UCEP as one optional energy-review destination. Keep independent detect
 ### Consequences
 
 The frontend cannot auto-route an energy case or present UCEP as the only option. Commercial integration remains blocked pending written employment/IP clarity and counsel-reviewed disclosure language.
+## 2026-07-31 — Treat Resend mailbox seats as application identities, not hosted email accounts
+
+**Context:** Costivra needs multiple working `@costivra.ai` addresses in the owner CRM. Resend accepts any sender on a verified domain and receives any address on a receiving-enabled domain, but it does not provide Gmail/Outlook-style IMAP seats.
+
+**Decision:** Store an explicit server-only `crm_mailboxes` allowlist. Each thread, message, and outbound side effect records its mailbox. Owners administer all seats; operators may use only assigned personal seats or shared seats. Creating a mailbox never grants platform access, and creating a platform user never silently creates cross-client mailbox access.
+
+**Alternatives considered:** Treat arbitrary From addresses as seats, which would allow spoofing and make inbound routing ambiguous; or require Google Workspace/Microsoft 365 immediately, which would add OAuth, provider billing, token custody, and synchronization before the CRM workflow is proven.
+
+**Consequences:** Seats send and receive completely inside Costivra through Resend, with exact address routing and auditability. They do not provide IMAP, native Gmail, or Outlook logins. A traditional mailbox provider can be added later behind a separate adapter if outside-CRM access becomes necessary.

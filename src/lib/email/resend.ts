@@ -38,7 +38,7 @@ export function getResendClient() {
 }
 
 export function getInboundEmailDomain() {
-  return (process.env.RESEND_INBOUND_DOMAIN || "inbound.costivra.ai")
+  return (process.env.RESEND_INBOUND_DOMAIN || "costivra.ai")
     .trim()
     .toLowerCase();
 }

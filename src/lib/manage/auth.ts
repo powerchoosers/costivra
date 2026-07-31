@@ -68,6 +68,18 @@ export async function requireInternalOperator() {
     .select("full_name")
     .eq("id", userId)
     .maybeSingle();
+  if (role === "owner") {
+    const { error: mailboxClaimError } = await db
+      .from("crm_mailboxes")
+      .update({
+        assigned_to: userId,
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("address", email)
+      .is("assigned_to", null);
+    if (mailboxClaimError) throw mailboxClaimError;
+  }
   return {
     db,
     userId,
@@ -80,6 +92,12 @@ export async function requireInternalOperator() {
   };
 }
 
+export async function requireInternalOwner() {
+  const operator = await requireInternalOperator();
+  if (operator.role !== "owner") throw new Error("OWNER_ACCESS_REQUIRED");
+  return operator;
+}
+
 export function manageApiError(error: unknown) {
   const message = error instanceof Error ? error.message : "INTERNAL_ERROR";
   if (message === "AUTH_REQUIRED")
@@ -88,6 +106,16 @@ export function manageApiError(error: unknown) {
     return {
       status: 403,
       error: "This account is not authorized for the Costivra owner portal.",
+    };
+  if (message === "OWNER_ACCESS_REQUIRED")
+    return {
+      status: 403,
+      error: "Only a Costivra owner can manage mailbox seats.",
+    };
+  if (message === "MAILBOX_ACCESS_REQUIRED")
+    return {
+      status: 403,
+      error: "You do not have access to that mailbox.",
     };
   console.error("Owner portal API error:", message);
   return {
