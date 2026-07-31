@@ -7,69 +7,102 @@ import { FormEvent, useEffect, useState } from "react";
 import { CostivraMark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
 
-export function PasswordSetup() {
+import { useSearchParams } from "next/navigation";
+
+export function PasswordSetup({
+  initialReady = false,
+  initialUserEmail = null,
+  serverError = null,
+}: {
+  initialReady?: boolean;
+  initialUserEmail?: string | null;
+  serverError?: string | null;
+}) {
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
-  const [ready, setReady] = useState(false);
+  const searchParams = useSearchParams();
+  const [checking, setChecking] = useState(!initialReady);
+  const [ready, setReady] = useState(initialReady);
+  const [userEmail, setUserEmail] = useState<string | null>(initialUserEmail);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(
+    serverError === "invalid_link"
+      ? "This secure link is invalid or expired. Open the newest Costivra owner password email and try again."
+      : "",
+  );
 
   useEffect(() => {
     let active = true;
     async function establishSession() {
-      const client = createClient();
-      const url = new URL(window.location.href);
-      const recoveryMode = url.searchParams.get("mode") === "recovery";
-      let sessionError = "";
-      const code = url.searchParams.get("code");
-      const timeout = new Promise<{ data: { session: null }; error: Error }>((resolve) =>
-        window.setTimeout(
-          () => resolve({ data: { session: null }, error: new Error("The secure link took too long to respond. Open the newest email and try again.") }),
-          8000,
-        ),
-      );
-      if (code) {
-        const result = await Promise.race([
-          client.auth.exchangeCodeForSession(code),
-          timeout,
-        ]);
-        sessionError = result.error?.message ?? "";
-        url.searchParams.delete("code");
-        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
-      } else if (url.hash) {
-        const hash = new URLSearchParams(url.hash.slice(1));
-        const accessToken = hash.get("access_token");
-        const refreshToken = hash.get("refresh_token");
-        if (accessToken && refreshToken) {
-          const { error } = await client.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+      // If initialReady was already validated on the server and no code/hash is in URL, skip redundant client call
+      const code = searchParams?.get("code");
+      const hasHash = typeof window !== "undefined" && Boolean(window.location.hash);
+      if (initialReady && !code && !hasHash) {
+        if (active) {
+          setChecking(false);
+          setReady(true);
+        }
+        return;
+      }
+
+      try {
+        const client = createClient();
+        const url = new URL(window.location.href);
+        const recoveryMode = url.searchParams.get("mode") === "recovery";
+        let sessionError = "";
+
+        if (code) {
+          const { error } = await client.auth.exchangeCodeForSession(code);
           sessionError = error?.message ?? "";
-          window.history.replaceState({}, "", url.pathname);
+          url.searchParams.delete("code");
+          window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+        } else if (url.hash) {
+          const hash = new URLSearchParams(url.hash.slice(1));
+          const accessToken = hash.get("access_token");
+          const refreshToken = hash.get("refresh_token");
+          if (accessToken && refreshToken) {
+            const { error } = await client.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            sessionError = error?.message ?? "";
+            window.history.replaceState({}, "", url.pathname);
+          }
+        }
+
+        const { data: { user }, error: userError } = await client.auth.getUser();
+        if (!active) return;
+
+        const ownerInvite = recoveryMode || user?.user_metadata?.internal_owner_invite === true;
+        const isVerified = Boolean(user && ownerInvite);
+        setReady(isVerified);
+        setUserEmail(user?.email ?? null);
+
+        if (!user) {
+          setMessage(
+            sessionError ||
+              userError?.message ||
+              "This secure link is invalid or expired. Open the newest Costivra owner password email and try again.",
+          );
+        } else if (!ownerInvite) {
+          setMessage(
+            "This secure link does not belong to the signed-in owner invitation. Sign out, then open the newest Costivra owner password email.",
+          );
+        }
+      } catch (err: any) {
+        if (!active) return;
+        setMessage(err?.message || "Unable to verify secure link. Please try again.");
+      } finally {
+        if (active) {
+          setChecking(false);
         }
       }
-      const { data } = await Promise.race([client.auth.getSession(), timeout]);
-      if (!active) return;
-      const ownerInvite = recoveryMode ||
-        data.session?.user.user_metadata?.internal_owner_invite === true;
-      setReady(Boolean(data.session && ownerInvite));
-      if (!data.session)
-        setMessage(
-          sessionError ||
-            "This secure link is invalid or expired. Open the newest Costivra owner password email and try again.",
-        );
-      else if (!ownerInvite)
-        setMessage(
-          "This secure link does not belong to the signed-in owner invitation. Sign out, then open the newest Costivra owner password email.",
-        );
-      setChecking(false);
     }
+
     void establishSession();
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialReady, searchParams]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,7 +126,7 @@ export function PasswordSetup() {
       setBusy(false);
       return;
     }
-    router.replace("/manage");
+    router.replace("/access");
     router.refresh();
   }
 
