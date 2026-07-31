@@ -281,8 +281,9 @@ function AccountPage({ mode }: { mode: string }) {
     const password = String(form.get("password") ?? "");
     const client = createClient();
     if (resetMode) {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://costivra.ai";
       const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/set-password?mode=recovery`,
+        redirectTo: `${siteUrl}/set-password?mode=recovery`,
       });
       setMessage(error ? error.message : "Check your email for a secure password reset link.");
       setBusy(false);
