@@ -965,6 +965,83 @@ body.modal-open { overflow:hidden; }
 @media (max-width:760px){.toast-region{top:auto;right:10px;bottom:calc(76px + env(safe-area-inset-bottom));width:calc(100vw - 20px)}.portal-modal{width:calc(100% - 2px)}}
 @media (prefers-reduced-motion:reduce){.portal-modal-layer,.portal-modal,.command-overlay,.command-box,.app-toast,.chat-message,.topbar-popover{animation:none!important}.typing i{animation:none}.portal-list-row,.chat-suggestions button{transition:none}}
 
+/* Shared motion language: small, composed movements that keep the product feeling quick. */
+:root {
+  --motion-ease: cubic-bezier(.23, 1, .32, 1);
+  --motion-fast: 160ms;
+  --motion-standard: 420ms;
+}
+html { scroll-padding-top: 92px; }
+.route-transition { animation: route-enter 520ms var(--motion-ease) both; }
+.reveal {
+  transform: translateY(22px);
+  transition: opacity var(--motion-standard) var(--motion-ease), transform var(--motion-standard) var(--motion-ease);
+}
+.spec-page > .reveal:nth-child(2) { transition-delay: 60ms; }
+.spec-page > .reveal:nth-child(3) { transition-delay: 110ms; }
+.spec-page > .reveal:nth-child(4) { transition-delay: 160ms; }
+.spec-page > .reveal:nth-child(5) { transition-delay: 210ms; }
+.button,
+.marketing-nav a,
+.content-block,
+.panel,
+.portal-panel,
+.portal-metric,
+.summary-card,
+.global-search,
+.ask-composer,
+.ask-suggestions button {
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease);
+}
+.button:hover { transform: translateY(-2px); }
+.button:active { transform: translateY(0) scale(.985); transition-duration: 90ms; }
+.content-block,
+.portal-panel,
+.portal-metric,
+.summary-card { transition-property: transform, box-shadow, border-color, background-color; }
+.content-block:hover,
+.portal-panel:hover,
+.portal-metric:hover,
+.summary-card:hover { transform: translateY(-3px); box-shadow: 0 18px 42px rgba(24, 39, 64, .075); }
+.app-content > .portal-page-header,
+.app-content > .portal-metrics,
+.app-content > .portal-panel,
+.app-content > .panel,
+.app-content > .summary-grid,
+.app-content > .portal-card-grid,
+.app-content > .content-grid,
+.app-content > .detail-layout {
+  animation: portal-section-in 520ms var(--motion-ease) both;
+}
+.app-content > :nth-child(2) { animation-delay: 60ms; }
+.app-content > :nth-child(3) { animation-delay: 110ms; }
+.app-content > :nth-child(4) { animation-delay: 160ms; }
+.app-content > :nth-child(5) { animation-delay: 210ms; }
+.portal-modal-layer { animation-duration: 240ms; animation-timing-function: var(--motion-ease); }
+.portal-modal { animation-duration: 280ms; animation-timing-function: var(--motion-ease); }
+.command-overlay { animation-duration: 220ms; animation-timing-function: var(--motion-ease); }
+.command-box { animation-duration: 280ms; animation-timing-function: var(--motion-ease); }
+@keyframes route-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes portal-section-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .route-transition,
+  .app-content > .portal-page-header,
+  .app-content > .portal-metrics,
+  .app-content > .portal-panel,
+  .app-content > .panel,
+  .app-content > .summary-grid,
+  .app-content > .portal-card-grid,
+  .app-content > .content-grid,
+  .app-content > .detail-layout { animation: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .button:hover,
+  .content-block:hover,
+  .portal-panel:hover,
+  .portal-metric:hover,
+  .summary-card:hover { transform: none; }
+}
+
 /* ==========================================
    Costivra Apple / iOS 2026–2028 Design System
    ========================================== */
