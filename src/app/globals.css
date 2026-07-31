@@ -665,7 +665,7 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
   .mobile-drawer a:not(.mobile-drawer-cta) span { color: var(--blue); font: 700 .68rem "SFMono-Regular", Consolas, monospace; }
   .mobile-drawer-cta { margin-top: 18px; width: 100%; }
   .hero { min-height: auto; }
-  .hero-inner { gap: 38px; padding: 60px 0 52px; }
+  .hero-inner { gap: 38px; padding: 112px 0 52px; }
   .hero h1 { max-width: 12ch; font-size: clamp(2.72rem, 12vw, 3.65rem); }
   .hero-copy p { margin: 22px 0; font-size: 1rem; }
   .hero-actions { display: grid; grid-template-columns: 1fr; }.hero-actions .button { width: 100%; }

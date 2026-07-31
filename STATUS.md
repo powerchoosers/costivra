@@ -126,6 +126,7 @@ The implementation was checked against the original `COSTIVRA_AGENTIC_BUSINESS_B
 
 ## Validation completed July 31, 2026
 
+- Mobile homepage header — restored the hero's 112px mobile top spacing so the floating navigation no longer overlaps the headline. Verified at 375×812 with a 34px rendered gap, a working mobile drawer, and no browser console warnings or errors.
 - `npm run typecheck` — passed.
 - `npm run lint` — passed with zero warnings.
 - `npm run build` — passed; all application and API routes compiled.
