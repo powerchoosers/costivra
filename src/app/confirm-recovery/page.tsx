@@ -60,14 +60,13 @@ export default async function ConfirmRecoveryPage({
             </div>
             <KeyRound aria-hidden="true" size={28} className="card-icon" />
             {confirmedTokenHash ? (
-              <Link
+              <a
                 className="button button-primary account-submit"
                 href={`/auth/confirm?token_hash=${encodeURIComponent(confirmedTokenHash)}&type=recovery&confirm=1`}
-                prefetch={false}
                 rel="nofollow"
               >
                 Continue securely <ArrowRight aria-hidden="true" size={17} />
-              </Link>
+              </a>
             ) : (
               <Link className="button button-primary account-submit" href="/login">
                 Return to sign in <ArrowRight aria-hidden="true" size={17} />

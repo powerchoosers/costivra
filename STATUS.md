@@ -138,7 +138,7 @@ The implementation was checked against the original `COSTIVRA_AGENTIC_BUSINESS_B
 ## Validation completed July 31, 2026
 
 - Password recovery entry — `/login?mode=recovery` is now a durable recovery route and remains reachable when a valid session cookie already exists; ordinary authenticated visits to `/login` still resolve to the authorized owner or customer workspace.
-- Password recovery confirmation — the intermediate “Continue securely” control now uses an explicit same-site navigation instead of a form submission, because secured/embedded browser contexts can block form POSTs. Supabase verification still requires a second-page `confirm=1` signal that is absent from the email link, preserving the scanner-safe boundary.
+- Password recovery confirmation — the intermediate “Continue securely” control now forces a full same-site browser navigation to the server confirmation endpoint. This avoids blocked form submissions and Next.js client-routing redirects that can change the address while leaving the old screen visible. Supabase verification still requires a second-page `confirm=1` signal that is absent from the email link, preserving the scanner-safe boundary.
 - Mobile homepage header — restored the hero's 112px mobile top spacing so the floating navigation no longer overlaps the headline. Verified at 375×812 with a 34px rendered gap, a working mobile drawer, and no browser console warnings or errors.
 - `npm run typecheck` — passed.
 - `npm run lint` — passed with zero warnings.
