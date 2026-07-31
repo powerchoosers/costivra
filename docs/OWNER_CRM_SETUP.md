@@ -43,10 +43,10 @@ Resend receives domain-wide, but the webhook stores owner mail only when the rec
 Live configuration on July 31, 2026:
 
 - Vercel Production has `RESEND_INBOUND_DOMAIN=costivra.ai`, `RESEND_WEBHOOK_SECRET`, and `COSTIVRA_INTERNAL_ADMIN_EMAILS=l.patterson@costivra.ai`.
-- Resend sending and receiving are enabled for `costivra.ai`.
+- Resend sending and receiving are enabled and fully verified for `costivra.ai`.
 - The root MX is `inbound-smtp.us-east-1.amazonaws.com` at priority 10 and resolves publicly.
 - The signed production webhook is enabled for inbound and the outbound delivery events listed above.
-- Resend may briefly show the receiving record as pending while its DNS verifier refreshes.
+- The production webhook completed a signed inbound delivery for the owner invitation with HTTP `200` and stored it in the `l.patterson@costivra.ai` inbox.
 
 ## 4. Mailbox seats
 
@@ -65,7 +65,7 @@ These seats are full send/receive identities inside the CRM. They are not IMAP a
 
 Never use a real customer address for the first delivery test unless the message itself is legitimate and approved.
 
-The mailbox seat is already created, but a mailbox seat is not a login. A Supabase owner invitation for `l.patterson@costivra.ai` was created on July 31, 2026 and redirects to `/manage`; it must be accepted before step 1.
+The mailbox seat is already created, but a mailbox seat is not a login. A Supabase owner invitation for `l.patterson@costivra.ai` was created on July 31, 2026, received in the CRM inbox, and redirects to `/manage`; it must be accepted before step 1.
 
 ## Live-data rule
 

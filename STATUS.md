@@ -13,10 +13,10 @@
 - Extended the signed Resend webhook to keep delivery states current and route exact active `crm_mailboxes` recipients while preserving the separate customer document-intake path.
 - Applied the owner CRM, mailbox-seat, and mailbox audit-index migrations to the live Costivra project. All new tables have RLS enabled and deny browser roles. Supabase security review found only the existing leaked-password-protection warning; the follow-up performance review found no unindexed foreign keys.
 - Validation passed: `npm run typecheck`, `npm run lint`, `npm test` (14 tests), and `npm run build`. Browser QA covered the real owner seat, seat-creation dialog, empty live inbox, and sender selection; the review added a narrower-desktop navigation breakpoint and purpose-built mobile mailbox cards. The temporary QA route was removed afterward.
-- Production deployment `dpl_6EeVRWWfWKHN8fnmmfv1eMxpYPYw` is READY and aliased to `costivra.ai`. Vercel Production now uses `RESEND_INBOUND_DOMAIN=costivra.ai` and allowlists `l.patterson@costivra.ai` as the internal owner.
-- Resend sending and receiving are enabled for `costivra.ai`; Vercel DNS now publishes the root MX `inbound-smtp.us-east-1.amazonaws.com` at priority 10. The production webhook is enabled for inbound and all implemented outbound delivery events. DNS resolves publicly, while the Resend receiving-record check is still pending provider refresh.
-- Created a Supabase Auth owner invitation for `l.patterson@costivra.ai`, redirected to `/manage`; it is awaiting Lewis's acceptance. On first authenticated visit, the production allowlist records the user as an internal owner.
-- Remaining production check: accept the owner invitation, sign in, then perform one deliberately authorized self-controlled round trip. No customer email was sent during setup or testing.
+- Production deployment `dpl_DLhubDAKWCrpqDXK1ZX6ERZFygfr` is READY and aliased to `costivra.ai`. Vercel Production now uses `RESEND_INBOUND_DOMAIN=costivra.ai`, allowlists `l.patterson@costivra.ai` as the internal owner, and has valid server-only Resend API, Resend webhook, and Supabase secret credentials. The initial inherited Resend values were placeholders and the Supabase server secret was absent; both problems were found by the first live inbound event and corrected before customer mail was used.
+- Resend sending and receiving are enabled and fully verified for `costivra.ai`; Vercel DNS publishes the root MX `inbound-smtp.us-east-1.amazonaws.com` at priority 10. The production webhook is enabled for inbound and all implemented outbound delivery events.
+- Created a Supabase Auth owner invitation for `l.patterson@costivra.ai`, redirected to `/manage`; it is awaiting Lewis's acceptance. The invitation was received by Resend and persisted in the live `l.patterson@costivra.ai` CRM inbox through a signed, successful `200` webhook. On first authenticated visit, the production allowlist records the user as an internal owner.
+- Remaining production check: accept the owner invitation, sign in, then send one deliberately authorized message linked to a real client account. No customer email was sent during setup or testing.
 - Dependency audit: `npm audit --omit=dev --json` currently reports three high-severity production findings through Next.js transitive `postcss` and `sharp` packages. npm proposes an unsafe major downgrade rather than a compatible patched Next.js release, so no automated force-fix was applied. Track the upstream patched Next.js/sharp/postcss release before production launch.
 
 ## Automatic email document intake — July 31, 2026
@@ -33,7 +33,7 @@
 
 ## Transactional contact email — July 31, 2026
 
-- Verified the `costivra.ai` domain is active for sending in Resend. Receiving is now enabled and its root MX is publicly resolvable; Resend's receiving-record status is awaiting provider refresh.
+- Verified the `costivra.ai` domain is active for sending and receiving in Resend, with every sending and receiving DNS record fully verified.
 - Added a server-only Resend adapter for contact-inquiry receipts and internal notifications from `hello@costivra.ai`.
 - Added stable idempotency keys and a database delivery ledger that records request hashes and provider outcomes without storing message bodies. RLS is enabled and both browser roles are denied access.
 - Contact inquiries are saved before email is attempted. A provider outage is recorded but does not discard the inquiry or falsely report that the inquiry itself failed.
