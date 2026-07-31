@@ -1,5 +1,61 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-07-31 — Separate the internal CRM control plane from customer workspaces
+
+### Context
+
+Costivra needs one place for its owner to manage customer accounts, contacts, follow-ups, internal notes, and business email across organizations. A customer organization owner is not automatically a Costivra employee, and customer Row Level Security must never become a route to cross-tenant administration.
+
+### Decision
+
+Add an internal `/manage` portal that reads authoritative accounts from `organizations` and workspace contacts from memberships/profiles, then layers server-only CRM fields onto those records. Internal access requires an authenticated user plus an explicit `internal_staff_users` record or exact email in `COSTIVRA_INTERNAL_ADMIN_EMAILS`. All cross-tenant reads and writes run through narrow server routes after that check. CRM, mailbox, and internal-audit tables deny `anon` and `authenticated` browser roles even though Row Level Security remains enabled.
+
+Do not seed sample accounts, contacts, tasks, activities, or messages. Missing CRM fields display as unknown or empty rather than being invented.
+
+### Alternatives considered
+
+- Reusing customer organization roles for internal access. This would let customer permissions leak into a cross-tenant control plane.
+- Copying customer records into a second CRM account table. That creates conflicting sources of truth.
+- Shipping static example data to make the interface look populated. This hides real empty states and can be mistaken for customer data.
+
+### Consequences
+
+The owner portal stays useful as real customers arrive while customer workspaces remain isolated. Deployment must configure the internal email allowlist before the first operator can enter `/manage`; the allowlisted authenticated user is then recorded as an internal owner.
+
+## 2026-07-31 — Treat every Resend send as an authorized external side effect
+
+### Context
+
+The internal mailbox needs outbound, scheduled, reply, forward, attachment, and delivery-state behavior. Email is an external action, so a UI click alone is not enough evidence after a timeout or retry.
+
+### Decision
+
+Require every outbound message to be linked to a real organization. Before contacting Resend, persist the actor, organization, destination, content hash, idempotency key, authorization time/method, sanitized attachment names, and trace identifier in `external_side_effects`. Store provider acceptance immediately, then create the mailbox message, activity, and internal audit event. Verify signed webhooks and idempotently reconcile scheduled, sent, delivered, delayed, bounced, complained, failed, and suppressed states. Render inbound email from plain text; retain provider HTML for provenance but never inject it into the owner UI.
+
+### Consequences
+
+Repeated requests cannot silently duplicate a send, ambiguous outcomes have a provider reference for reconciliation, and messages remain attributable. No live email is sent merely to test the implementation; an operator must intentionally authorize the first production send.
+
+## 2026-07-31 — Use customer-managed forwarding for automatic document intake
+
+### Context
+
+Costivra needs recurring invoice and contract intake without requiring every customer to manually upload each month or granting broad access to an employee's mailbox. Source attachments are untrusted and may contain sensitive financial data.
+
+### Decision
+
+Provision one private receiving address per organization. Let an owner or administrator approve exact forwarding addresses and configure a narrow rule in the customer's existing mail system. Verify signed Resend webhooks, require an exact tenant address and trusted sender, retrieve attachments immediately, scan them before extraction, and route scanner failures to private quarantine. Reuse the manual document ingestion pipeline so provenance, deduplication, extraction versions, evidence, and audit behavior do not diverge.
+
+### Alternatives considered
+
+- Broad Gmail or Microsoft mailbox OAuth as the first path. This creates a larger privacy and permission surface and is unnecessary for the MVP.
+- Accepting attachments before malware scanning. This violates the document-intake security boundary.
+- Enabling Resend receiving on the root `costivra.ai` domain. Its MX record could conflict with the existing business mailbox, so a dedicated receiving subdomain is required.
+
+### Consequences
+
+Customers can configure intake themselves without sharing mailbox credentials. Unknown senders fail closed, and unscanned files never reach extraction. Resend's current one-domain Free plan must be upgraded or replaced before the dedicated receiving subdomain can be activated, and a production malware scanner must be selected.
+
 ## 2026-07-31 — Use Resend only through a server-side delivery ledger
 
 ### Context

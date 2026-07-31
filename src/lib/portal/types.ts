@@ -115,6 +115,25 @@ export type PortalIntegration = {
   lastSyncedAt: string | null;
 };
 
+export type PortalEmailIntake = {
+  id: string;
+  address: string;
+  status: string;
+  trustedSenders: string[];
+  platformReady: boolean;
+};
+
+export type PortalInboundEmailEvent = {
+  id: string;
+  senderAddress: string;
+  subject: string;
+  status: string;
+  attachmentCount: number;
+  processedAttachmentCount: number;
+  errorMessage: string | null;
+  receivedAt: string;
+};
+
 export type PortalReport = {
   id: string;
   name: string;
@@ -161,6 +180,8 @@ export type PortalData = {
   actions: PortalAction[];
   savings: PortalSavingsOutcome[];
   integrations: PortalIntegration[];
+  emailIntake: PortalEmailIntake | null;
+  inboundEmailEvents: PortalInboundEmailEvent[];
   reports: PortalReport[];
   team: PortalTeamMember[];
   notifications: PortalNotification[];

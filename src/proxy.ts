@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getClaims();
-  const isWorkspace = request.nextUrl.pathname.startsWith("/app");
+  const isWorkspace = request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/manage");
   const isLogin = request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup";
 
   if (isWorkspace && !data?.claims) {
@@ -37,7 +37,8 @@ export async function proxy(request: NextRequest) {
 
   if (isLogin && data?.claims) {
     const url = request.nextUrl.clone();
-    url.pathname = "/app";
+    const requested = request.nextUrl.searchParams.get("next");
+    url.pathname = requested?.startsWith("/manage") || requested?.startsWith("/app") ? requested : "/app";
     url.search = "";
     return NextResponse.redirect(url);
   }
@@ -46,5 +47,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/login", "/signup"],
+  matcher: ["/app/:path*", "/manage/:path*", "/login", "/signup"],
 };

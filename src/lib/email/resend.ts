@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
+import { Resend } from "resend";
+import { isMalwareScannerConfigured } from "@/lib/security/malware-scanner";
 
 export type TransactionalEmail = {
   to: string;
@@ -17,38 +17,62 @@ export type EmailDeliveryResult =
   | { ok: true; providerId: string }
   | { ok: false; error: string };
 
-export function emailRequestHash(email: Pick<TransactionalEmail, "to" | "subject" | "text">) {
+export function emailRequestHash(
+  email: Pick<TransactionalEmail, "to" | "subject" | "text">,
+) {
   return createHash("sha256")
-    .update(JSON.stringify({ to: email.to.toLowerCase(), subject: email.subject, text: email.text }))
+    .update(
+      JSON.stringify({
+        to: email.to.toLowerCase(),
+        subject: email.subject,
+        text: email.text,
+      }),
+    )
     .digest("hex");
 }
 
-export async function sendTransactionalEmail(email: TransactionalEmail): Promise<EmailDeliveryResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "EMAIL_PROVIDER_NOT_CONFIGURED" };
+export function getResendClient() {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY is not configured.");
+  return new Resend(key);
+}
 
+export function getInboundEmailDomain() {
+  return (process.env.RESEND_INBOUND_DOMAIN || "inbound.costivra.ai")
+    .trim()
+    .toLowerCase();
+}
+
+export function isInboundEmailPlatformReady() {
+  return Boolean(
+    process.env.RESEND_API_KEY &&
+      process.env.RESEND_WEBHOOK_SECRET &&
+      process.env.RESEND_INBOUND_DOMAIN &&
+      isMalwareScannerConfigured(),
+  );
+}
+
+export async function sendTransactionalEmail(
+  email: TransactionalEmail,
+): Promise<EmailDeliveryResult> {
+  if (!process.env.RESEND_API_KEY)
+    return { ok: false, error: "EMAIL_PROVIDER_NOT_CONFIGURED" };
   try {
-    const response = await fetch(RESEND_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": email.idempotencyKey,
-      },
-      body: JSON.stringify({
-        from: "Costivra <hello@costivra.ai>",
+    const { data, error } = await getResendClient().emails.send(
+      {
+        from: process.env.RESEND_FROM_EMAIL || "Costivra <hello@costivra.ai>",
         to: [email.to],
         subject: email.subject,
         text: email.text,
         html: email.html,
-        reply_to: email.replyTo,
-      }),
-    });
-    const payload = await response.json().catch(() => ({})) as { id?: string };
-    if (!response.ok || !payload.id) return { ok: false, error: `EMAIL_PROVIDER_${response.status}` };
-    return { ok: true, providerId: payload.id };
+        replyTo: email.replyTo,
+      },
+      { idempotencyKey: email.idempotencyKey },
+    );
+    if (error || !data?.id)
+      return { ok: false, error: "EMAIL_PROVIDER_REJECTED" };
+    return { ok: true, providerId: data.id };
   } catch {
     return { ok: false, error: "EMAIL_PROVIDER_UNAVAILABLE" };
   }
 }
-

@@ -5,8 +5,8 @@ import { FormEvent, ReactNode, useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import {
   ArrowDownRight, ArrowUpRight, Bot, Building2, CalendarClock, Check, CheckCircle2,
-  CircleDollarSign, Download, FileText, Link2, LoaderCircle, MessageSquareText, Plus,
-  ReceiptText, Search, Send, ShieldCheck, Trash2, Upload, X,
+  CircleDollarSign, Copy, Download, FileText, Link2, LoaderCircle, Mail, MessageSquareText,
+  Pause, Plus, ReceiptText, RotateCcw, Search, Send, ShieldCheck, Trash2, Upload, X,
 } from "lucide-react";
 import type { PortalData } from "@/lib/portal/types";
 import { useToast } from "@/components/toast-provider";
@@ -138,7 +138,52 @@ function Savings({data}:{data:PortalData}) { const total=data.savings.reduce((s,
 
 function Vendors({data,onAdd}:{data:PortalData;onAdd:()=>void}) { const [query,setQuery]=useState(""); const rows=data.vendors.filter(x=>`${x.name} ${x.category}`.toLowerCase().includes(query.toLowerCase())); return <><PageHeader title="Vendors" description="Your active supplier relationships and normalized annual spend." action={<button className="button button-primary" onClick={onAdd}><Plus size={16}/> Add vendor</button>}/><Toolbar query={query} setQuery={setQuery} placeholder="Search vendors"/><div className="portal-card-grid vendor-grid">{rows.map(item=><article className="portal-card" key={item.id}><div className="vendor-symbol"><Building2/></div><h2>{item.name}</h2><p>{item.category}</p><dl><div><dt>Annualized spend</dt><dd>{money(item.annualizedSpend)}</dd></div><div><dt>Relationship</dt><dd><Status value={item.relationshipStatus}/></dd></div></dl>{item.website&&<a href={item.website} target="_blank" rel="noreferrer"><Link2 size={14}/> Visit website</a>}</article>)}{!rows.length&&<Empty title="No vendors match" copy="Add a vendor relationship or clear the search."/>}</div></> }
 
-function Integrations({data,run}:{data:PortalData;run:(work:()=>Promise<unknown>,success:string)=>Promise<void>}) { const update=(id:string,operation:string)=>run(()=>api(`/api/portal/integrations/${id}`,{method:"PATCH",body:{operation}}),"Integration status updated."); return <><PageHeader title="Integrations" description="Control which systems may exchange data with this workspace."/><div className="portal-card-grid">{data.integrations.map(item=><article className="portal-card integration-card" key={item.id}><header><div className="integration-symbol">{item.displayName.slice(0,2).toUpperCase()}</div><Status value={item.status}/></header><h2>{item.displayName}</h2><p>{item.description}</p><small>{item.lastSyncedAt?`Last synchronized ${date(item.lastSyncedAt)}`:"No successful synchronization yet"}</small><footer>{item.status==="connected"?<button className="button button-quiet" onClick={()=>void update(item.id,"pause")}>Pause</button>:item.status==="paused"?<button className="button button-primary" onClick={()=>void update(item.id,"resume")}>Resume</button>:<button className="button button-primary" onClick={()=>void update(item.id,"connect")}>Enable workspace connection</button>}</footer></article>)}</div><p className="portal-footnote">Provider authorization is completed in each provider&apos;s secure sign-in flow. Enabling a workspace connection does not grant access by itself.</p></> }
+function Integrations({data,run}:{data:PortalData;run:(work:()=>Promise<unknown>,success:string)=>Promise<void>}) {
+  const [sender,setSender]=useState("");
+  const toast=useToast();
+  const intake=data.emailIntake;
+  const canManage=["owner","admin"].includes(data.currentUser.role);
+  const providerIntegrations=data.integrations.filter(item=>item.provider!=="resend_inbound");
+  const update=(id:string,operation:string)=>run(()=>api(`/api/portal/integrations/${id}`,{method:"PATCH",body:{operation}}),"Integration status updated.");
+  const intakeOperation=(operation:string,email?:string)=>run(()=>api("/api/portal/email-intake",{method:"PATCH",body:{operation,sender:email}}),operation==="activate"?"Automatic email intake is active.":operation==="pause"?"Automatic email intake is paused.":operation==="retry"?"Quarantined files were checked again.":operation==="add_sender"?"Forwarding address approved.":"Forwarding address removed.");
+  const copyAddress=async()=>{if(!intake)return;try{await navigator.clipboard.writeText(intake.address);toast.success("Intake address copied.");}catch{toast.error("Couldn’t copy automatically",`Copy ${intake.address} manually.`);}};
+  const addSender=async(event:FormEvent)=>{event.preventDefault();const value=sender.trim().toLowerCase();if(!value)return;try{await intakeOperation("add_sender",value);setSender("");}catch{}};
+  const quarantined=data.inboundEmailEvents.some(item=>item.status==="quarantined");
+  return <>
+    <PageHeader title="Integrations" description="Connect the systems that supply Costivra with trusted, organization-owned records."/>
+    <section className="email-intake portal-panel">
+      <div className="email-intake-header">
+        <div className="email-intake-title"><span className="email-intake-icon"><Mail/></span><div><span className="eyebrow">AUTOMATIC DOCUMENT INTAKE</span><h2>Forward bills and contracts from work email</h2><p>Give vendors this workspace address or create a forwarding rule in your current mailbox. Approved attachments become private, traceable Costivra records.</p></div></div>
+        <Status value={intake?.status??"unavailable"}/>
+      </div>
+      {intake?<>
+        <div className="email-intake-address"><div><small>Your private workspace address</small><strong>{intake.address}</strong></div><button className="button button-quiet" type="button" onClick={()=>void copyAddress()}><Copy size={16}/> Copy address</button></div>
+        {!intake.platformReady&&<div className="email-intake-notice"><ShieldCheck/><div><strong>Costivra platform setup is still being completed.</strong><span>You can approve forwarding addresses now. Activation will unlock after the receiving domain, signed webhook, and malware scanner are verified.</span></div></div>}
+        <div className="email-intake-layout">
+          <div className="email-intake-setup">
+            <h3>Set up in three steps</h3>
+            <ol>
+              <li><span>1</span><div><strong>Approve your forwarding address</strong><p>Add the exact work email that will send or forward documents. Workspace member emails are trusted automatically.</p></div></li>
+              <li><span>2</span><div><strong>Create a mailbox rule</strong><p>In Outlook or Google Workspace, forward vendor invoices and contracts to the private address above. You can also give this address directly to vendors.</p></div></li>
+              <li><span>3</span><div><strong>Send one test document</strong><p>Attach a PDF, DOCX, or TXT file. Costivra verifies the sender, scans the file, prevents duplicates, and preserves the source.</p></div></li>
+            </ol>
+          </div>
+          <div className="trusted-senders">
+            <h3>Approved forwarding addresses</h3>
+            {canManage?<><form onSubmit={addSender} className="trusted-sender-form"><label><span>Work email</span><input type="email" required value={sender} onChange={event=>setSender(event.target.value)} placeholder="billing@yourcompany.com"/></label><button className="button button-primary" type="submit" disabled={!sender.trim()}><Plus size={16}/> Approve</button></form>
+            <div className="trusted-sender-list">{intake.trustedSenders.length?intake.trustedSenders.map(email=><div key={email}><span><Mail size={15}/>{email}</span><button type="button" className="icon-button" aria-label={`Remove ${email}`} onClick={()=>void intakeOperation("remove_sender",email)}><X size={15}/></button></div>):<p>No additional forwarding addresses are approved yet.</p>}</div>
+            <div className="email-intake-controls">{intake.status==="active"?<button className="button button-quiet" type="button" onClick={()=>void intakeOperation("pause")}><Pause size={16}/> Pause intake</button>:<button className="button button-primary" type="button" disabled={!intake.platformReady} onClick={()=>void intakeOperation("activate")}><Check size={16}/> Activate intake</button>}{quarantined&&<button className="button button-quiet" type="button" onClick={()=>void intakeOperation("retry")}><RotateCcw size={16}/> Retry quarantine</button>}</div></>:<p className="email-intake-readonly">An owner or administrator manages forwarding access for this workspace.</p>}
+          </div>
+        </div>
+        <div className="email-intake-events">
+          <div className="portal-panel-heading"><div><h3>Recent inbound activity</h3><p>A visible record of what Costivra accepted, quarantined, or rejected.</p></div></div>
+          {data.inboundEmailEvents.length?<div>{data.inboundEmailEvents.map(event=><article className="email-intake-event" key={event.id}><span className="email-event-icon"><Mail size={17}/></span><div className="grow"><strong>{event.subject||"No subject"}</strong><span>From {event.senderAddress} · {date(event.receivedAt)}</span>{event.errorMessage&&<small>{event.errorMessage}</small>}</div><div className="email-event-result"><Status value={event.status}/><small>{event.processedAttachmentCount}/{event.attachmentCount} files processed</small></div></article>)}</div>:<Empty title="No inbound messages yet" copy="After activation, send a test document from an approved work email."/>}
+        </div>
+      </>:<div className="email-intake-notice"><ShieldCheck/><div><strong>Email intake is not provisioned for this workspace.</strong><span>An owner can contact Costivra support to repair the organization setup.</span></div></div>}
+    </section>
+    {providerIntegrations.length>0&&<><div className="portal-section-heading"><h2>Other connections</h2><p>Authorization is completed in each provider&apos;s secure sign-in flow.</p></div><div className="portal-card-grid">{providerIntegrations.map(item=><article className="portal-card integration-card" key={item.id}><header><div className="integration-symbol">{item.displayName.slice(0,2).toUpperCase()}</div><Status value={item.status}/></header><h2>{item.displayName}</h2><p>{item.description}</p><small>{item.lastSyncedAt?`Last synchronized ${date(item.lastSyncedAt)}`:"No successful synchronization yet"}</small><footer>{item.status==="connected"?<button className="button button-quiet" onClick={()=>void update(item.id,"pause")}>Pause</button>:item.status==="paused"?<button className="button button-primary" onClick={()=>void update(item.id,"resume")}>Resume</button>:<button className="button button-primary" onClick={()=>void update(item.id,"connect")}>Enable workspace connection</button>}</footer></article>)}</div></>}
+  </>;
+}
 
 function Reports({data}:{data:PortalData}) { return <><PageHeader title="Reports" description="Exports generated from the current organization records at download time."/><div className="portal-card-grid">{data.reports.map(item=><article className="portal-card" key={item.id}><FileText className="card-icon"/><h2>{item.name}</h2><p>{item.description}</p><small>{item.lastGeneratedAt?`Last generated ${date(item.lastGeneratedAt)}`:"Not generated yet"}</small><footer><a className="button button-primary" href={`/api/portal/reports/${item.id}`}><Download size={16}/> Download CSV</a></footer></article>)}{!data.reports.length&&<Empty title="No reports configured" copy="Report definitions created for this organization will appear here."/>}</div></> }
 

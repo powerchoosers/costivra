@@ -50,6 +50,7 @@ export async function getPortalData(): Promise<PortalData> {
     documentsResult, extractionsResult, opportunitiesResult, opportunityEvidenceResult,
     actionsResult, approvalsResult, savingsResult, integrationsResult,
     reportsResult, membershipsResult, profilesResult, notificationsResult,
+    emailIntakeResult, inboundEmailEventsResult,
   ] = await Promise.all([
     db.from("organizations").select("*").eq("id", organizationId).single(),
     db.from("profiles").select("id,email,full_name").eq("id", userId).single(),
@@ -71,13 +72,15 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("organization_memberships").select("*").eq("organization_id", organizationId),
     db.from("profiles").select("id,email,full_name"),
     db.from("notifications").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
+    db.from("inbound_email_addresses").select("id,local_part,domain,status,trusted_senders").eq("organization_id", organizationId).maybeSingle(),
+    db.from("inbound_email_events").select("id,sender_address,subject,status,attachment_count,processed_attachment_count,error_message,received_at").eq("organization_id", organizationId).order("received_at", { ascending: false }).limit(12),
   ]);
 
   const results = [organizationResult, profileResult, locationsResult, vendorsResult,
     relationshipsResult, accountsResult, expensesResult, contractsResult, documentsResult,
     extractionsResult, opportunitiesResult, opportunityEvidenceResult, actionsResult,
     approvalsResult, savingsResult, integrationsResult, reportsResult, membershipsResult,
-    profilesResult, notificationsResult];
+    profilesResult, notificationsResult, emailIntakeResult, inboundEmailEventsResult];
   const failed = results.find((result) => result.error);
   if (failed?.error) throw failed.error;
 
@@ -153,6 +156,14 @@ export async function getPortalData(): Promise<PortalData> {
     }),
     savings: rows(savingsResult.data).map((outcome) => ({ id: stringValue(outcome.id), title: stringValue(outcome.title), valueType: stringValue(outcome.value_type), amount: numberValue(outcome.amount), method: stringValue(outcome.method), status: stringValue(outcome.status), verifiedAt: nullableString(outcome.verified_at) })),
     integrations: rows(integrationsResult.data).map((integration) => ({ id: stringValue(integration.id), provider: stringValue(integration.provider), displayName: stringValue(integration.display_name), description: stringValue(integration.description), status: stringValue(integration.status), lastSyncedAt: nullableString(integration.last_synced_at) })),
+    emailIntake: emailIntakeResult.data ? {
+      id: stringValue(emailIntakeResult.data.id),
+      address: `${stringValue(emailIntakeResult.data.local_part)}@${stringValue(emailIntakeResult.data.domain)}`,
+      status: stringValue(emailIntakeResult.data.status),
+      trustedSenders: Array.isArray(emailIntakeResult.data.trusted_senders) ? emailIntakeResult.data.trusted_senders.filter((value): value is string => typeof value === "string") : [],
+      platformReady: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_WEBHOOK_SECRET && process.env.RESEND_INBOUND_DOMAIN),
+    } : null,
+    inboundEmailEvents: rows(inboundEmailEventsResult.data).map((event) => ({ id: stringValue(event.id), senderAddress: stringValue(event.sender_address), subject: stringValue(event.subject), status: stringValue(event.status), attachmentCount: numberValue(event.attachment_count), processedAttachmentCount: numberValue(event.processed_attachment_count), errorMessage: nullableString(event.error_message), receivedAt: stringValue(event.received_at) })),
     reports: rows(reportsResult.data).map((report) => ({ id: stringValue(report.id), name: stringValue(report.name), description: stringValue(report.description), reportType: stringValue(report.report_type), status: stringValue(report.status), lastGeneratedAt: nullableString(report.last_generated_at) })),
     team: rows(membershipsResult.data).map((member) => { const person = profileById.get(stringValue(member.user_id)); return { id: stringValue(member.user_id), fullName: stringValue(person?.full_name, stringValue(person?.email)), email: stringValue(person?.email), role: stringValue(member.role), permissions: Array.isArray(member.permissions) ? member.permissions.filter((item): item is string => typeof item === "string") : [] }; }),
     notifications: rows(notificationsResult.data).map((notification) => ({ id: stringValue(notification.id), title: stringValue(notification.title), body: stringValue(notification.body), resourceType: nullableString(notification.resource_type), resourceId: nullableString(notification.resource_id), readAt: nullableString(notification.read_at), createdAt: stringValue(notification.created_at) })),
