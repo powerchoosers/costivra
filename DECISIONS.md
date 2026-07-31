@@ -1,5 +1,24 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-07-31 — Use Resend only through a server-side delivery ledger
+
+### Context
+
+The `costivra.ai` sending domain is verified and a restricted server credential is configured in Vercel. The first production email use is contact-inquiry confirmation, before any approval-gated vendor communication is built.
+
+### Decision
+
+Send transactional email through a small server-only Resend adapter. Persist the inquiry before attempting delivery, assign a stable idempotency key to each message, and record the request hash, provider result, and failure state in a browser-inaccessible delivery ledger. Do not expose the API key or treat a provider response as proof that a person read the message.
+
+### Alternatives considered
+
+- Sending directly from the contact route without a ledger. This would make duplicate sends and ambiguous provider failures difficult to audit.
+- Building general vendor-email execution now. That would outrun the current approval-policy and durable-workflow milestone.
+
+### Consequences
+
+Contact inquiries can produce a receipt and an internal notification without losing the saved inquiry when email is unavailable. Vendor, referral, cancellation, and other consequential email remain unavailable until their approval and execution controls are implemented.
+
 ## 2026-07-30 — Build the complete frontend before backend integrations
 
 ### Context

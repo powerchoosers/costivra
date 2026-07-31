@@ -379,6 +379,16 @@ textarea:focus-visible {
   font-weight: 750;
   letter-spacing: .01em;
 }
+.account-brand-mark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(49, 92, 255, .18);
+  border-radius: 12px;
+  background: #edf1ff;
+}
+.account-brand-mark img { width: 30px; height: 30px; object-fit: contain; }
 .account-intro .mini-mark {
   display: grid;
   width: 38px;

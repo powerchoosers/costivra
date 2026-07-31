@@ -3,7 +3,7 @@ import { ToastProvider } from "@/components/toast-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://costivra.com"),
+  metadataBase: new URL("https://costivra.ai"),
   title: { default: "Costivra — Every recurring cost, under command.", template: "%s | Costivra" },
   description: "Costivra finds, explains, and helps eliminate unnecessary recurring business costs with evidence and approval controls.",
   applicationName: "Costivra",

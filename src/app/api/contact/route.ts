@@ -11,8 +11,11 @@ export async function POST(request: Request) {
     const locations = cleanText(body.locations, 80) || null;
     const message = cleanText(body.message, 2_000);
     if (!name || !company || !message || !/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: "Complete every required field with a valid work email." }, { status: 400 });
-    const { error } = await createServerSupabaseClient().from("contact_inquiries").insert({ name, email, company, locations, message });
+    const db = createServerSupabaseClient();
+    const { data: inquiry, error } = await db.from("contact_inquiries").insert({ name, email, company, locations, message }).select("id,name,email,company,locations,message").single();
     if (error) throw error;
+    const { deliverContactInquiryEmails } = await import("@/lib/email/contact-inquiry");
+    await deliverContactInquiryEmails(db, inquiry);
     return NextResponse.json({ ok: true }, { status: 201 });
-  } catch { return NextResponse.json({ error: "Your inquiry could not be saved. Please email hello@costivra.com." }, { status: 500 }); }
+  } catch { return NextResponse.json({ error: "Your inquiry could not be saved. Please email hello@costivra.ai." }, { status: 500 }); }
 }

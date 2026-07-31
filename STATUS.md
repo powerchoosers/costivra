@@ -1,5 +1,14 @@
 # Costivra Status
 
+## Transactional contact email — July 31, 2026
+
+- Verified the `costivra.ai` domain is active for sending in Resend; receiving remains disabled.
+- Added a server-only Resend adapter for contact-inquiry receipts and internal notifications from `hello@costivra.ai`.
+- Added stable idempotency keys and a database delivery ledger that records request hashes and provider outcomes without storing message bodies. RLS is enabled and both browser roles are denied access.
+- Contact inquiries are saved before email is attempted. A provider outage is recorded but does not discard the inquiry or falsely report that the inquiry itself failed.
+- Corrected the public contact addresses and API fallback from `costivra.com` to the canonical `costivra.ai` domain.
+- This does not enable vendor communication or other consequential external actions; those still require the later approval-policy and durable-workflow milestone.
+
 ## Blueprint alignment review — July 31, 2026
 
 The implementation was checked against the original `COSTIVRA_AGENTIC_BUSINESS_BLUEPRINT.md`, especially the essential product loop, product surfaces, MVP definition, twelve-week plan, roadmap, and recommended Codex task order.
@@ -70,6 +79,7 @@ The implementation was checked against the original `COSTIVRA_AGENTIC_BUSINESS_B
 - Authentication — password sign-in reached the intended protected route.
 - Account entry UI — sign-in and sign-up now use a responsive rounded-card layout with honest, disabled Google and Outlook placeholders for future OAuth work; email/password auth remains unchanged.
 - Motion system — public routes now share a light route-entry and scroll-reveal rhythm; portal sections, buttons, surfaces, command search, and modals use the same restrained easing with reduced-motion fallbacks.
+- Demo workspace — `demo@costivra.com` is confirmed in Supabase with an owner membership for Northstar Hospitality and seeded records for expenses, contracts, documents, and opportunities.
 - Motion system — public routes now share a light route-entry and scroll-reveal rhythm; portal sections, buttons, surfaces, command search, and modals use the same restrained easing with reduced-motion fallbacks.
 - Account entry UI — sign-in and sign-up now use a responsive rounded-card layout with honest, disabled Google and Outlook placeholders for future OAuth work; email/password auth remains unchanged.
 - Persistence — settings saved and reloaded from Supabase; public contact inquiry persisted (QA row removed afterward).
