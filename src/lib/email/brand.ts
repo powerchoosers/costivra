@@ -43,7 +43,7 @@ export function brandedEmailHtml(input: {
               <td style="padding:30px 34px 22px;border-bottom:1px solid #edf0f4">
                 <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
                   <tr>
-                    <td style="padding-right:12px"><img src="${COSTIVRA_EMAIL_LOGO_URL}" width="42" height="42" alt="Costivra" style="display:block;width:42px;height:42px;object-fit:contain;border:0"></td>
+                    <td style="padding-right:12px"><img src="${COSTIVRA_EMAIL_LOGO_URL}" width="42" height="37" alt="Costivra" style="display:block;width:42px;height:37px;object-fit:contain;border:0"></td>
                     <td><strong style="display:block;color:#111927;font-size:19px;letter-spacing:-.4px">Costivra</strong><span style="display:block;margin-top:2px;color:#7a8596;font-size:11px;letter-spacing:1.25px;text-transform:uppercase">Every recurring cost, under command.</span></td>
                   </tr>
                 </table>
