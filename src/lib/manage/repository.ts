@@ -46,6 +46,7 @@ export async function getManageData(input?: {
     membershipsResult,
     profilesResult,
     crmContactsResult,
+    marketingConsentsResult,
     tasksResult,
     activitiesResult,
     mailboxesResult,
@@ -68,6 +69,10 @@ export async function getManageData(input?: {
       .from("crm_contacts")
       .select("*")
       .order("created_at", { ascending: false }),
+    db
+      .from("crm_marketing_consents")
+      .select("organization_id,contact_id,status,recorded_at")
+      .order("recorded_at", { ascending: false }),
     db
       .from("crm_tasks")
       .select("*")
@@ -101,6 +106,7 @@ export async function getManageData(input?: {
     membershipsResult,
     profilesResult,
     crmContactsResult,
+    marketingConsentsResult,
     tasksResult,
     activitiesResult,
     mailboxesResult,
@@ -146,6 +152,30 @@ export async function getManageData(input?: {
     ["open", "in_progress"].includes(text(task.status)),
   );
   const openTaskCount = countBy(openTasks, "organization_id");
+  const latestConsentByContact = new Map<string, Row>();
+  for (const consent of rows(marketingConsentsResult.data)) {
+    const contactId = text(consent.contact_id);
+    if (contactId && !latestConsentByContact.has(contactId))
+      latestConsentByContact.set(contactId, consent);
+  }
+  const optedInByOrganization = new Map<
+    string,
+    { count: number; latestAt: string | null }
+  >();
+  for (const consent of latestConsentByContact.values()) {
+    if (text(consent.status) !== "opted_in") continue;
+    const organizationId = text(consent.organization_id);
+    if (!isVisibleOrganization(organizationId)) continue;
+    const current = optedInByOrganization.get(organizationId);
+    const recordedAt = nullable(consent.recorded_at);
+    optedInByOrganization.set(organizationId, {
+      count: (current?.count ?? 0) + 1,
+      latestAt:
+        !current?.latestAt || (recordedAt && recordedAt > current.latestAt)
+          ? recordedAt
+          : current.latestAt,
+    });
+  }
   const mailboxes: ManageMailbox[] = rows(mailboxesResult.data).map(
     (mailbox) => {
       const assignedProfile = profilesById.get(text(mailbox.assigned_to));
@@ -189,6 +219,15 @@ export async function getManageData(input?: {
       isVisibleOrganization(text(contact.organization_id)),
     )
     .map((contact) => ({
+      ...(() => {
+        const consent = latestConsentByContact.get(text(contact.id));
+        const status = text(consent?.status);
+        return {
+          marketingStatus:
+            status === "opted_in" || status === "opted_out" ? status : null,
+          marketingConsentAt: nullable(consent?.recorded_at),
+        };
+      })(),
       id: text(contact.id),
       organizationId: text(contact.organization_id),
       organizationName: text(
@@ -227,6 +266,8 @@ export async function getManageData(input?: {
       isPrimary: text(membership.role) === "owner",
       status: "active",
       source: "workspace",
+      marketingStatus: null,
+      marketingConsentAt: null,
     });
   }
 
@@ -241,6 +282,7 @@ export async function getManageData(input?: {
     const id = text(organization.id);
     const overlay = overlays.get(id);
     const primary = primaryContactByOrganization.get(id);
+    const marketing = optedInByOrganization.get(id);
     return {
       id,
       name: text(organization.name),
@@ -254,6 +296,8 @@ export async function getManageData(input?: {
       documentCount: documentCount.get(id) ?? 0,
       opportunityCount: opportunityCount.get(id) ?? 0,
       openTaskCount: openTaskCount.get(id) ?? 0,
+      marketingOptInCount: marketing?.count ?? 0,
+      latestMarketingConsentAt: marketing?.latestAt ?? null,
       lastContactedAt: nullable(overlay?.last_contacted_at),
       nextFollowUpAt: nullable(overlay?.next_follow_up_at),
       nextStep: nullable(overlay?.next_step),

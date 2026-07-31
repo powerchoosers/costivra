@@ -4,6 +4,7 @@ import { ArrowRight, BadgeCheck, KeyRound, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { CostivraMark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
 
 export function PasswordSetup() {
@@ -91,7 +92,9 @@ export function PasswordSetup() {
         <div className="account-page">
           <aside className="account-intro">
             <div className="account-intro-mark">
-              <span className="account-brand-mark">C</span>
+              <span className="account-brand-mark">
+                <CostivraMark size={34} />
+              </span>
               <span>Costivra owner access</span>
             </div>
             <div>

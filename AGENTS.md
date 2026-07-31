@@ -283,6 +283,13 @@ Do not implement commercial UCEP data sharing until the founder has written clar
 - Meet WCAG 2.2 AA expectations for keyboard access, focus, contrast, labels, errors, and motion preferences.
 - Keep consequential approvals explicit and understandable. The user must know what will happen, who will receive data, and whether Costivra may benefit.
 
+### Costivra Brand Assets
+
+- Use the real Costivra mark or wordmark whenever the product identity is shown. Never substitute a letter glyph such as `C`, generated initials, an emoji, or an unrelated icon for the Costivra logo.
+- Reuse `src/components/brand.tsx` in the application and the approved files under `public/brand/`. Do not redraw or approximate the logo with CSS.
+- Use the shared Costivra email shell for every transactional or marketing template. Marketing emails must include the approved Costivra logo, sender identity, brand typography/colors where email-client safe, and an unsubscribe path when legally or operationally required.
+- Keep customer/account initials limited to avatars for those entities; never use them as Costivra branding.
+
 ## Testing and Evaluation
 
 Add tests with each feature. At minimum, cover:

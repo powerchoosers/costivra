@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { CostivraMark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
 
 export function ManageAccessDenied() {
@@ -17,7 +18,9 @@ export function ManageAccessDenied() {
   return (
     <main className="manage-access-page">
       <section>
-        <span>C</span>
+        <span className="costivra-access-mark">
+          <CostivraMark size={42} />
+        </span>
         <small>COSTIVRA OWNER OPERATIONS</small>
         <h1>This account is not on the internal access list.</h1>
         <p>

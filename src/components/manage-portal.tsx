@@ -33,6 +33,8 @@ import {
   Trash2,
   Users,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import type {
   ManageAccount,
@@ -42,6 +44,10 @@ import type {
 } from "@/lib/manage/types";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/toast-provider";
+import { CostivraMark } from "@/components/brand";
+import { ManageLiveNotifications } from "@/components/manage-live-notifications";
+import { CostivraSelect } from "@/components/ui/costivra-select";
+import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 
 const nav = [
   ["Overview", "/manage", LayoutDashboard],
@@ -119,6 +125,28 @@ function Status({ value }: { value: string | null }) {
     <span className={`manage-status manage-status--${key}`}>
       <i />
       {stageLabel(value)}
+    </span>
+  );
+}
+
+function MarketingConsent({
+  count,
+  compact = false,
+}: {
+  count: number;
+  compact?: boolean;
+}) {
+  return count > 0 ? (
+    <span
+      className={`manage-marketing-consent${compact ? " is-compact" : ""}`}
+      title={`${count} contact${count === 1 ? "" : "s"} opted in to email marketing`}
+    >
+      <Check aria-hidden="true" size={compact ? 11 : 13} />
+      Marketing opt-in{count > 1 ? ` · ${count}` : ""}
+    </span>
+  ) : (
+    <span className="manage-marketing-consent is-empty">
+      No marketing opt-in
     </span>
   );
 }
@@ -222,6 +250,7 @@ export function ManagePortal({
   const router = useRouter();
   const toast = useToast();
   const [mobileNav, setMobileNav] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState<
     "account" | "contact" | "task" | "note" | "mailbox" | null
@@ -255,16 +284,40 @@ export function ManagePortal({
     section === "overview" ? "Client operations" : pretty(section);
   return (
     <div className="manage-app">
-      <aside className={`manage-sidebar${mobileNav ? " is-open" : ""}`}>
+      <ManageLiveNotifications />
+      <aside
+        className={`manage-sidebar${mobileNav ? " is-open" : ""}${
+          sidebarCollapsed ? " is-collapsed" : ""
+        }`}
+      >
         <div className="manage-brand">
-          <Link href="/manage">
-            <span className="manage-brand-mark">C</span>
-            <div>
-              <strong>Costivra</strong>
-              <small>OWNER OPERATIONS</small>
-            </div>
+          <Link href="/manage" title="Costivra Owner Operations">
+            <span className="manage-brand-mark">
+              <CostivraMark size={34} />
+            </span>
+            {!sidebarCollapsed && (
+              <div>
+                <strong>Costivra</strong>
+                <small>OWNER OPERATIONS</small>
+              </div>
+            )}
           </Link>
-          <button onClick={() => setMobileNav(false)} aria-label="Close menu">
+          {!sidebarCollapsed && (
+            <button
+              className="manage-sidebar-toggle"
+              type="button"
+              onClick={() => setSidebarCollapsed(true)}
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose size={17} />
+            </button>
+          )}
+          <button
+            className="manage-mobile-close"
+            onClick={() => setMobileNav(false)}
+            aria-label="Close menu"
+          >
             <X size={18} />
           </button>
         </div>
@@ -279,10 +332,11 @@ export function ManagePortal({
                 className={active ? "active" : ""}
                 href={href}
                 key={href}
+                aria-label={label}
                 onClick={() => setMobileNav(false)}
               >
                 <Icon size={18} />
-                <span>{label}</span>
+                <span className="manage-nav-label">{label}</span>
                 {label === "Mail" && data.mail.unreadCount > 0 && (
                   <b>{data.mail.unreadCount}</b>
                 )}
@@ -311,9 +365,20 @@ export function ManagePortal({
           onClick={() => setMobileNav(false)}
         />
       )}
-      <main className="manage-main">
+      <main className={`manage-main${sidebarCollapsed ? " is-collapsed" : ""}`}>
         <header className="manage-topbar">
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {sidebarCollapsed && (
+              <button
+                className="manage-topbar-expand-toggle"
+                type="button"
+                onClick={() => setSidebarCollapsed(false)}
+                aria-label="Expand sidebar"
+                title="Expand sidebar"
+              >
+                <PanelLeftOpen size={18} />
+              </button>
+            )}
             <button
               className="manage-menu"
               onClick={() => setMobileNav(true)}
@@ -700,6 +765,12 @@ function AccountRows({ accounts }: { accounts: ManageAccount[] }) {
               <td>
                 <strong>{account.primaryContact || "No contact"}</strong>
                 <small>{account.primaryEmail || "—"}</small>
+                {account.marketingOptInCount > 0 && (
+                  <MarketingConsent
+                    count={account.marketingOptInCount}
+                    compact
+                  />
+                )}
               </td>
               <td>
                 <Status value={account.stage} />
@@ -759,6 +830,17 @@ function AccountInspector({ account }: { account?: ManageAccount }) {
           <dd>
             <strong>{account.primaryContact || "Not set"}</strong>
             <span>{account.primaryEmail || "No email"}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Email marketing</dt>
+          <dd>
+            <MarketingConsent count={account.marketingOptInCount} />
+            <span>
+              {account.latestMarketingConsentAt
+                ? `Recorded ${date(account.latestMarketingConsentAt, true)}`
+                : "Consent must be explicit before marketing email is sent"}
+            </span>
           </dd>
         </div>
         <div>
@@ -870,6 +952,9 @@ function Accounts({
                 </div>
               </div>
               <Status value={account.stage} />
+              {account.marketingOptInCount > 0 && (
+                <MarketingConsent count={account.marketingOptInCount} compact />
+              )}
               <dl>
                 <div>
                   <dt>Open tasks</dt>
@@ -1382,24 +1467,24 @@ function MailPage({
         </button>
         <label className="manage-mailbox-switch">
           <span>Mailbox</span>
-          <select
+          <CostivraSelect
             aria-label="Current mailbox"
             value={data.mail.selectedMailboxId || ""}
-            onChange={(event) =>
+            onChange={(val) =>
               router.push(
-                `/manage/mail?folder=${data.mail.folder}&mailbox=${event.target.value}`,
+                `/manage/mail?folder=${data.mail.folder}&mailbox=${val}`,
               )
             }
-          >
-            {!activeMailboxes.length && (
-              <option value="">No active mailbox</option>
-            )}
-            {activeMailboxes.map((mailbox) => (
-              <option value={mailbox.id} key={mailbox.id}>
-                {mailbox.address}
-              </option>
-            ))}
-          </select>
+            size="sm"
+            options={
+              !activeMailboxes.length
+                ? [{ value: "", label: "No active mailbox" }]
+                : activeMailboxes.map((mailbox) => ({
+                    value: mailbox.id,
+                    label: mailbox.address,
+                  }))
+            }
+          />
         </label>
         <nav>
           {folders.map(([key, label, Icon]) => (
@@ -1438,25 +1523,26 @@ function MailPage({
               {threads.length} conversation{threads.length === 1 ? "" : "s"}
             </span>
           </div>
-          <select
+          <CostivraSelect
             className="manage-mailbox-mobile-switch"
             aria-label="Current mailbox"
             value={data.mail.selectedMailboxId || ""}
-            onChange={(event) =>
+            onChange={(val) =>
               router.push(
-                `/manage/mail?folder=${data.mail.folder}&mailbox=${event.target.value}`,
+                `/manage/mail?folder=${data.mail.folder}&mailbox=${val}`,
               )
             }
-          >
-            {!activeMailboxes.length && (
-              <option value="">No active mailbox</option>
-            )}
-            {activeMailboxes.map((mailbox) => (
-              <option value={mailbox.id} key={mailbox.id}>
-                {mailbox.address}
-              </option>
-            ))}
-          </select>
+            size="sm"
+            variant="compact"
+            options={
+              !activeMailboxes.length
+                ? [{ value: "", label: "No active mailbox" }]
+                : activeMailboxes.map((mailbox) => ({
+                    value: mailbox.id,
+                    label: mailbox.address,
+                  }))
+            }
+          />
           <button aria-label="Refresh" onClick={() => router.refresh()}>
             <RefreshCw size={16} />
           </button>
@@ -1863,13 +1949,14 @@ function AccountForm({
           </label>
           <label>
             <span>Lifecycle stage</span>
-            <select name="stage" defaultValue="lead">
-              {stages.map((stage) => (
-                <option value={stage} key={stage}>
-                  {pretty(stage)}
-                </option>
-              ))}
-            </select>
+            <CostivraSelect
+              name="stage"
+              defaultValue="lead"
+              options={stages.map((stage) => ({
+                value: stage,
+                label: pretty(stage),
+              }))}
+            />
           </label>
           <label>
             <span>Primary contact</span>
@@ -1915,14 +2002,19 @@ function ContactForm({
         <div className="manage-form-grid">
           <label className="wide">
             <span>Account *</span>
-            <select name="organizationId" required autoFocus>
-              <option value="">Choose an account</option>
-              {data.accounts.map((account) => (
-                <option value={account.id} key={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
+            <CostivraSelect
+              name="organizationId"
+              required
+              autoFocus
+              placeholder="Choose an account"
+              options={[
+                { value: "", label: "Choose an account" },
+                ...data.accounts.map((account) => ({
+                  value: account.id,
+                  label: account.name,
+                })),
+              ]}
+            />
           </label>
           <label>
             <span>Full name *</span>
@@ -1976,14 +2068,19 @@ function TaskForm({
         <div className="manage-form-grid">
           <label className="wide">
             <span>Account *</span>
-            <select name="organizationId" required autoFocus>
-              <option value="">Choose an account</option>
-              {data.accounts.map((account) => (
-                <option value={account.id} key={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
+            <CostivraSelect
+              name="organizationId"
+              required
+              autoFocus
+              placeholder="Choose an account"
+              options={[
+                { value: "", label: "Choose an account" },
+                ...data.accounts.map((account) => ({
+                  value: account.id,
+                  label: account.name,
+                })),
+              ]}
+            />
           </label>
           <label className="wide">
             <span>Task *</span>
@@ -1991,25 +2088,33 @@ function TaskForm({
           </label>
           <label>
             <span>Type</span>
-            <select name="taskType" defaultValue="follow_up">
-              <option value="follow_up">Follow-up</option>
-              <option value="email">Email</option>
-              <option value="call">Call</option>
-              <option value="meeting">Meeting</option>
-              <option value="review">Review</option>
-            </select>
+            <CostivraSelect
+              name="taskType"
+              defaultValue="follow_up"
+              options={[
+                { value: "follow_up", label: "Follow-up" },
+                { value: "email", label: "Email" },
+                { value: "call", label: "Call" },
+                { value: "meeting", label: "Meeting" },
+                { value: "review", label: "Review" },
+              ]}
+            />
           </label>
           <label>
             <span>Priority</span>
-            <select name="priority" defaultValue="normal">
-              <option value="low">Low</option>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-            </select>
+            <CostivraSelect
+              name="priority"
+              defaultValue="normal"
+              options={[
+                { value: "low", label: "Low" },
+                { value: "normal", label: "Normal" },
+                { value: "high", label: "High" },
+              ]}
+            />
           </label>
           <label>
             <span>Due</span>
-            <input name="dueAt" type="datetime-local" />
+            <CostivraDateTimePicker name="dueAt" />
           </label>
           <label className="wide">
             <span>Notes</span>
@@ -2047,14 +2152,19 @@ function NoteForm({
         <div className="manage-form-grid">
           <label className="wide">
             <span>Account *</span>
-            <select name="organizationId" required autoFocus>
-              <option value="">Choose an account</option>
-              {data.accounts.map((account) => (
-                <option value={account.id} key={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
+            <CostivraSelect
+              name="organizationId"
+              required
+              autoFocus
+              placeholder="Choose an account"
+              options={[
+                { value: "", label: "Choose an account" },
+                ...data.accounts.map((account) => ({
+                  value: account.id,
+                  label: account.name,
+                })),
+              ]}
+            />
           </label>
           <label className="wide">
             <span>Title *</span>
@@ -2112,19 +2222,19 @@ function EditAccount({
         <div className="manage-form-grid">
           <label>
             <span>Lifecycle stage</span>
-            <select name="stage" defaultValue={account.stage || "onboarding"}>
-              {stages.map((stage) => (
-                <option key={stage} value={stage}>
-                  {pretty(stage)}
-                </option>
-              ))}
-            </select>
+            <CostivraSelect
+              name="stage"
+              defaultValue={account.stage || "onboarding"}
+              options={stages.map((stage) => ({
+                value: stage,
+                label: pretty(stage),
+              }))}
+            />
           </label>
           <label>
             <span>Next follow-up</span>
-            <input
+            <CostivraDateTimePicker
               name="nextFollowUpAt"
-              type="datetime-local"
               defaultValue={account.nextFollowUpAt?.slice(0, 16) || ""}
             />
           </label>
@@ -2193,10 +2303,14 @@ function MailboxForm({
           </label>
           <label className="wide">
             <span>Seat type</span>
-            <select name="mailboxType" defaultValue="personal">
-              <option value="personal">Personal mailbox</option>
-              <option value="shared">Shared team mailbox</option>
-            </select>
+            <CostivraSelect
+              name="mailboxType"
+              defaultValue="personal"
+              options={[
+                { value: "personal", label: "Personal mailbox" },
+                { value: "shared", label: "Shared team mailbox" },
+              ]}
+            />
           </label>
         </div>
         <p className="manage-form-note">
@@ -2306,35 +2420,39 @@ function Compose({
           <div className="manage-compose-routing">
             <label>
               <span>From *</span>
-              <select
+              <CostivraSelect
                 name="mailboxId"
                 required
                 value={selectedMailbox}
-                onChange={(event) => setSelectedMailbox(event.target.value)}
-              >
-                <option value="">Choose mailbox</option>
-                {availableMailboxes.map((mailbox) => (
-                  <option value={mailbox.id} key={mailbox.id}>
-                    {mailbox.displayName} · {mailbox.address}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedMailbox(val)}
+                placeholder="Choose mailbox"
+                size="sm"
+                options={[
+                  { value: "", label: "Choose mailbox" },
+                  ...availableMailboxes.map((mailbox) => ({
+                    value: mailbox.id,
+                    label: `${mailbox.displayName} · ${mailbox.address}`,
+                  })),
+                ]}
+              />
             </label>
             <label>
               <span>Client account *</span>
-              <select
+              <CostivraSelect
                 name="organizationId"
                 required
                 value={selectedAccount}
-                onChange={(event) => setSelectedAccount(event.target.value)}
-              >
-                <option value="">Link this email to an account</option>
-                {data.accounts.map((account) => (
-                  <option value={account.id} key={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedAccount(val)}
+                placeholder="Link this email to an account"
+                size="sm"
+                options={[
+                  { value: "", label: "Link this email to an account" },
+                  ...data.accounts.map((account) => ({
+                    value: account.id,
+                    label: account.name,
+                  })),
+                ]}
+              />
             </label>
           </div>
           <small>Required so the send is authorized and auditable.</small>
@@ -2392,7 +2510,7 @@ function Compose({
           <label>
             <Clock3 size={14} />
             <span>Schedule (optional)</span>
-            <input name="scheduledAt" type="datetime-local" />
+            <CostivraDateTimePicker name="scheduledAt" />
           </label>
         </div>
         <footer>

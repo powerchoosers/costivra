@@ -17,6 +17,8 @@ export type ManageAccount = {
   documentCount: number;
   opportunityCount: number;
   openTaskCount: number;
+  marketingOptInCount: number;
+  latestMarketingConsentAt: string | null;
   lastContactedAt: string | null;
   nextFollowUpAt: string | null;
   nextStep: string | null;
@@ -35,6 +37,8 @@ export type ManageContact = {
   isPrimary: boolean;
   status: string;
   source: "crm" | "workspace";
+  marketingStatus: "opted_in" | "opted_out" | null;
+  marketingConsentAt: string | null;
 };
 
 export type ManageTask = {

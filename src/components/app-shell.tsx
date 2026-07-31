@@ -132,15 +132,17 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
         <aside className="app-sidebar">
           <div className="sidebar-brand-row">
             <Brand light compact={sidebarCollapsed} />
-            <button
-              className="sidebar-toggle"
-              type="button"
-              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" size={17} /> : <PanelLeftClose aria-hidden="true" size={17} />}
-            </button>
+            {!sidebarCollapsed && (
+              <button
+                className="sidebar-toggle"
+                type="button"
+                onClick={() => setSidebarCollapsed(true)}
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+              >
+                <PanelLeftClose aria-hidden="true" size={17} />
+              </button>
+            )}
           </div>
           <nav className="app-nav" aria-label="Customer application">
             {navigation.map(([label, href, Icon]) => {
@@ -162,6 +164,17 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
 
         <main className="app-main">
           <div className="app-topbar">
+            {sidebarCollapsed && (
+              <button
+                className="app-topbar-expand-toggle"
+                type="button"
+                onClick={() => setSidebarCollapsed(false)}
+                aria-label="Expand sidebar"
+                title="Expand sidebar"
+              >
+                <PanelLeftOpen aria-hidden="true" size={18} />
+              </button>
+            )}
             <div className="app-organization" style={{ position: "relative" }}>
               <button
                 className="org-switcher"
