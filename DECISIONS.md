@@ -14,6 +14,8 @@ Use Supabase's one-time `TokenHash` in the recovery email and send it to `/auth/
 
 Recovery links work across browsers and devices while remaining single-use and time-limited. Previously issued PKCE links cannot be repaired and must be replaced with a fresh email. Invalid or expired links fail closed and return the user to a clear error state.
 
+The email now lands on `/confirm-recovery`, which requires an explicit user button before the server verifies the token. This prevents email-client security scanners and link previewers from consuming the single-use recovery token with an automated GET request. The reproducible hosted template is stored at `docs/SUPABASE_RECOVERY_EMAIL_TEMPLATE.html` and includes the approved Costivra logo and complete footer.
+
 ## 2026-07-31 — Promote website inquiries into auditable CRM leads
 
 ### Context
