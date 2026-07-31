@@ -37,3 +37,40 @@ export async function GET(request: NextRequest) {
 
   return error ? NextResponse.redirect(errorDestination) : response;
 }
+
+export async function POST(request: NextRequest) {
+  const requestUrl = new URL(request.url);
+  const formData = await request.formData();
+  const tokenHash = formData.get("token_hash");
+  const destination = new URL("/set-password?mode=recovery", requestUrl.origin);
+  const errorDestination = new URL("/set-password?mode=recovery&error=invalid_link", requestUrl.origin);
+
+  if (typeof tokenHash !== "string" || !tokenHash) {
+    return NextResponse.redirect(errorDestination, 303);
+  }
+
+  const response = NextResponse.redirect(destination, 303);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+
+  const { error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: "recovery",
+  });
+
+  return error ? NextResponse.redirect(errorDestination, 303) : response;
+}

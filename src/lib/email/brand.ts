@@ -61,7 +61,17 @@ export function brandedEmailHtml(input: {
               <td style="padding:0 34px">${cta ? `<table role="presentation" cellspacing="0" cellpadding="0">${cta}</table>` : ""}</td>
             </tr>
             <tr>
-              <td style="padding:22px 34px 28px;border-top:1px solid #edf0f4;color:#7b8696;font-size:12px;line-height:1.6">${escapeEmailHtml(input.footer ?? "Costivra · costivra.ai")}</td>
+              <td style="padding:22px 34px 12px;border-top:1px solid #edf0f4;color:#7b8696;font-size:12px;line-height:1.6">${escapeEmailHtml(input.footer ?? "This message was sent by Costivra.")}</td>
+            </tr>
+            <tr>
+              <td style="padding:0 34px 28px;color:#7b8696;font-size:12px;line-height:1.75">
+                <strong style="color:#111927">Costivra</strong> · Every recurring cost, under command.<br>
+                Find the leak. Prove the value. Recover with confidence.<br>
+                <a href="https://costivra.ai" style="color:#002fa7;text-decoration:none">costivra.ai</a>
+                &nbsp;·&nbsp; <a href="https://costivra.ai/privacy" style="color:#002fa7;text-decoration:none">Privacy</a>
+                &nbsp;·&nbsp; <a href="https://costivra.ai/security" style="color:#002fa7;text-decoration:none">Security</a>
+                &nbsp;·&nbsp; <a href="mailto:hello@costivra.ai" style="color:#002fa7;text-decoration:none">Contact</a>
+              </td>
             </tr>
           </table>
         </td>
