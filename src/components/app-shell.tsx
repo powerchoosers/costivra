@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/brand";
+import { useToast } from "@/components/toast-provider";
 import type { PortalData } from "@/lib/portal/types";
 import { createClient } from "@/lib/supabase/client";
 
@@ -52,6 +53,7 @@ import { Search, X } from "lucide-react";
 export function AppShell({ children, data }: { children: ReactNode; data: PortalData }) {
   const pathname = usePathname();
   const router = useRouter();
+  const toast = useToast();
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandLeaving, setCommandLeaving] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
@@ -113,7 +115,17 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
   const initials = data.currentUser.fullName.split(/\s+/).map((part) => part[0]).slice(0,2).join("").toUpperCase();
   const spend = data.vendors.reduce((sum, vendor) => sum + vendor.annualizedSpend, 0);
   async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
-  async function markNotificationsRead() { await fetch("/api/portal/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ all: true }) }); setNotificationsOpen(false); router.refresh(); }
+  async function markNotificationsRead() {
+    try {
+      const response = await fetch("/api/portal/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ all: true }) });
+      if (!response.ok) throw new Error("Notifications could not be updated.");
+      setNotificationsOpen(false);
+      router.refresh();
+      toast.success("Notifications cleared");
+    } catch (error) {
+      toast.error("That didn’t work", error instanceof Error ? error.message : "Please try again.");
+    }
+  }
   return (
     <div className="app-body">
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
