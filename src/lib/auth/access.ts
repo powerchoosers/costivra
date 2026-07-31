@@ -5,6 +5,17 @@ export function validAccessDestination(value: string | null) {
   return null;
 }
 
+export function shouldResolveAuthenticatedEntry(input: {
+  pathname: string;
+  mode: string | null;
+  error: string | null;
+}) {
+  const isAccountEntry = input.pathname === "/login" || input.pathname === "/signup";
+  const isPasswordRecovery = input.pathname === "/login" && input.mode === "recovery";
+
+  return isAccountEntry && !isPasswordRecovery && input.error !== "no_access";
+}
+
 export function resolveAccessDestination(input: {
   internal: boolean;
   hasMembership: boolean;

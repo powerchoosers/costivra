@@ -38,6 +38,8 @@ import {
 } from "lucide-react";
 import type {
   ManageAccount,
+  ManageActivity,
+  ManageContact,
   ManageData,
   ManageMailbox,
   ManageMailThread,
@@ -607,6 +609,11 @@ function Overview({
   onAdd: () => void;
   onTask: () => void;
 }) {
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    data.accounts[0]?.id ?? null,
+  );
+  const [editingAccount, setEditingAccount] = useState<ManageAccount | null>(null);
+
   const active = data.accounts.filter(
     (account) => account.stage === "active",
   ).length;
@@ -616,7 +623,28 @@ function Overview({
   const onboarding = data.accounts.filter(
     (account) => account.stage === "onboarding",
   ).length;
-  const selected = data.accounts[0];
+
+  const selectedAccount =
+    data.accounts.find((a) => a.id === selectedAccountId) ?? data.accounts[0];
+
+  const accountActivities = useMemo(
+    () =>
+      selectedAccount
+        ? data.activities.filter(
+            (act) => act.organizationId === selectedAccount.id,
+          )
+        : [],
+    [data.activities, selectedAccount],
+  );
+
+  const accountContacts = useMemo(
+    () =>
+      selectedAccount
+        ? data.contacts.filter((c) => c.organizationId === selectedAccount.id)
+        : [],
+    [data.contacts, selectedAccount],
+  );
+
   return (
     <>
       <section className="manage-intro">
@@ -666,11 +694,15 @@ function Overview({
           <header>
             <div>
               <h3>Accounts</h3>
-              <p>Live organizations and their next action.</p>
+              <p>Live organizations and their next action. Select a row to inspect.</p>
             </div>
             <Link href="/manage/accounts">View all</Link>
           </header>
-          <AccountRows accounts={data.accounts.slice(0, 8)} />
+          <AccountRows
+            accounts={data.accounts.slice(0, 8)}
+            selectedId={selectedAccount?.id}
+            onSelectAccount={(account) => setSelectedAccountId(account.id)}
+          />
           {!data.accounts.length && (
             <Empty
               icon={Building2}
@@ -687,7 +719,12 @@ function Overview({
             />
           )}
         </section>
-        <AccountInspector account={selected} />
+        <AccountInspector
+          account={selectedAccount}
+          activities={accountActivities}
+          contacts={accountContacts}
+          onEdit={(account) => setEditingAccount(account)}
+        />
       </div>
       <div className="manage-lower-grid">
         <section className="manage-panel">
@@ -731,11 +768,25 @@ function Overview({
           )}
         </section>
       </div>
+      {editingAccount && (
+        <EditAccount
+          account={editingAccount}
+          onClose={() => setEditingAccount(null)}
+        />
+      )}
     </>
   );
 }
 
-function AccountRows({ accounts }: { accounts: ManageAccount[] }) {
+function AccountRows({
+  accounts,
+  selectedId,
+  onSelectAccount,
+}: {
+  accounts: ManageAccount[];
+  selectedId?: string;
+  onSelectAccount?: (account: ManageAccount) => void;
+}) {
   return (
     <div className="manage-table-wrap">
       <table>
@@ -749,46 +800,66 @@ function AccountRows({ accounts }: { accounts: ManageAccount[] }) {
           </tr>
         </thead>
         <tbody>
-          {accounts.map((account) => (
-            <tr key={account.id}>
-              <td>
-                <Link href={`/manage/accounts?account=${account.id}`}>
-                  <span className="manage-account-avatar">
-                    {initials(account.name)}
-                  </span>
-                  <span>
-                    <strong>{account.name}</strong>
-                    <small>{account.industry || "Industry not set"}</small>
-                  </span>
-                </Link>
-              </td>
-              <td>
-                <strong>{account.primaryContact || "No contact"}</strong>
-                <small>{account.primaryEmail || "—"}</small>
-                {account.marketingOptInCount > 0 && (
-                  <MarketingConsent
-                    count={account.marketingOptInCount}
-                    compact
-                  />
-                )}
-              </td>
-              <td>
-                <Status value={account.stage} />
-              </td>
-              <td>{date(account.lastContactedAt)}</td>
-              <td>
-                <strong>{account.nextStep || "Not set"}</strong>
-                <small>{date(account.nextFollowUpAt)}</small>
-              </td>
-            </tr>
-          ))}
+          {accounts.map((account) => {
+            const isSelected = account.id === selectedId;
+            return (
+              <tr
+                key={account.id}
+                className={isSelected ? "is-selected" : ""}
+                onClick={() => onSelectAccount?.(account)}
+                style={{ cursor: onSelectAccount ? "pointer" : "default" }}
+              >
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span className="manage-account-avatar">
+                      {initials(account.name)}
+                    </span>
+                    <span>
+                      <strong>{account.name}</strong>
+                      <small>{account.industry || "Industry not set"}</small>
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <strong>{account.primaryContact || "No contact"}</strong>
+                  <small>{account.primaryEmail || "—"}</small>
+                  {account.marketingOptInCount > 0 && (
+                    <MarketingConsent
+                      count={account.marketingOptInCount}
+                      compact
+                    />
+                  )}
+                </td>
+                <td>
+                  <Status value={account.stage} />
+                </td>
+                <td>{date(account.lastContactedAt)}</td>
+                <td>
+                  <strong>{account.nextStep || "Not set"}</strong>
+                  <small>{date(account.nextFollowUpAt)}</small>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-function AccountInspector({ account }: { account?: ManageAccount }) {
+function AccountInspector({
+  account,
+  activities = [],
+  contacts = [],
+  onEdit,
+}: {
+  account?: ManageAccount;
+  activities?: ManageActivity[];
+  contacts?: ManageContact[];
+  onEdit?: (account: ManageAccount) => void;
+}) {
+  const [tab, setTab] = useState<"overview" | "timeline" | "contacts">("overview");
+
   if (!account)
     return (
       <aside className="manage-panel manage-inspector">
@@ -799,6 +870,7 @@ function AccountInspector({ account }: { account?: ManageAccount }) {
         />
       </aside>
     );
+
   return (
     <aside className="manage-panel manage-inspector">
       <header>
@@ -809,60 +881,151 @@ function AccountInspector({ account }: { account?: ManageAccount }) {
             <p>{account.industry || "Industry not set"}</p>
           </div>
         </div>
-        <button aria-label="More account options">
-          <MoreHorizontal size={17} />
-        </button>
+        {onEdit && (
+          <button
+            onClick={() => onEdit(account)}
+            aria-label="Edit account follow-up"
+            title="Edit follow-up"
+            style={{ background: "none", border: 0, color: "#667085", cursor: "pointer", padding: 4 }}
+          >
+            <PenLine size={16} />
+          </button>
+        )}
       </header>
       <div className="manage-inspector-tabs">
-        <button className="active">Overview</button>
-        <Link href="/manage/activity">Timeline</Link>
-        <Link href="/manage/contacts">Contacts</Link>
+        <button
+          className={tab === "overview" ? "active" : ""}
+          onClick={() => setTab("overview")}
+        >
+          Overview
+        </button>
+        <button
+          className={tab === "timeline" ? "active" : ""}
+          onClick={() => setTab("timeline")}
+        >
+          Timeline ({activities.length})
+        </button>
+        <button
+          className={tab === "contacts" ? "active" : ""}
+          onClick={() => setTab("contacts")}
+        >
+          Contacts ({contacts.length})
+        </button>
       </div>
-      <dl>
-        <div>
-          <dt>Lifecycle</dt>
-          <dd>
-            <Status value={account.stage} />
-          </dd>
+
+      {tab === "overview" && (
+        <>
+          <dl>
+            <div>
+              <dt>Lifecycle</dt>
+              <dd>
+                <Status value={account.stage} />
+              </dd>
+            </div>
+            <div>
+              <dt>Primary contact</dt>
+              <dd>
+                <strong>{account.primaryContact || "Not set"}</strong>
+                <span>{account.primaryEmail || "No email"}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Email marketing</dt>
+              <dd>
+                <MarketingConsent count={account.marketingOptInCount} />
+                <span>
+                  {account.latestMarketingConsentAt
+                    ? `Recorded ${date(account.latestMarketingConsentAt, true)}`
+                    : "Consent must be explicit before marketing email is sent"}
+                </span>
+              </dd>
+            </div>
+            <div>
+              <dt>Next follow-up</dt>
+              <dd>
+                <strong>{date(account.nextFollowUpAt)}</strong>
+                <span>{account.nextStep || "No next step recorded"}</span>
+              </dd>
+            </div>
+            {account.privateNotes && (
+              <div>
+                <dt>Private notes</dt>
+                <dd style={{ maxWidth: 190, textAlign: "right" }}>
+                  <span style={{ fontSize: "0.65rem", color: "#475467", lineHeight: 1.4 }}>
+                    {account.privateNotes}
+                  </span>
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>Customer workspace</dt>
+              <dd>
+                <strong>
+                  {account.memberCount} member{account.memberCount === 1 ? "" : "s"}
+                </strong>
+                <span>
+                  {account.documentCount} documents · {account.opportunityCount}{" "}
+                  opportunities
+                </span>
+              </dd>
+            </div>
+          </dl>
+          {onEdit && (
+            <div style={{ padding: "0 18px 14px" }}>
+              <button
+                className="manage-button manage-button--quiet manage-full"
+                onClick={() => onEdit(account)}
+              >
+                Edit follow-up & notes
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "timeline" && (
+        <div style={{ maxHeight: 380, overflowY: "auto" }}>
+          {activities.length > 0 ? (
+            <ActivityList activities={activities} />
+          ) : (
+            <Empty
+              icon={Activity}
+              title="No activity recorded"
+              copy="Notes and client interactions for this account will appear here."
+            />
+          )}
         </div>
-        <div>
-          <dt>Primary contact</dt>
-          <dd>
-            <strong>{account.primaryContact || "Not set"}</strong>
-            <span>{account.primaryEmail || "No email"}</span>
-          </dd>
+      )}
+
+      {tab === "contacts" && (
+        <div style={{ maxHeight: 380, overflowY: "auto" }}>
+          {contacts.length > 0 ? (
+            <div className="manage-compact-list">
+              {contacts.map((contact) => (
+                <article key={contact.id}>
+                  <span className="manage-person-avatar">
+                    {initials(contact.fullName)}
+                  </span>
+                  <div>
+                    <strong>{contact.fullName}</strong>
+                    <p>{contact.title || contact.email}</p>
+                  </div>
+                  {contact.isPrimary && (
+                    <span className="manage-source">Primary</span>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <Empty
+              icon={Users}
+              title="No contacts"
+              copy="Client contacts for this account will appear here."
+            />
+          )}
         </div>
-        <div>
-          <dt>Email marketing</dt>
-          <dd>
-            <MarketingConsent count={account.marketingOptInCount} />
-            <span>
-              {account.latestMarketingConsentAt
-                ? `Recorded ${date(account.latestMarketingConsentAt, true)}`
-                : "Consent must be explicit before marketing email is sent"}
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt>Next follow-up</dt>
-          <dd>
-            <strong>{date(account.nextFollowUpAt)}</strong>
-            <span>{account.nextStep || "No next step recorded"}</span>
-          </dd>
-        </div>
-        <div>
-          <dt>Customer workspace</dt>
-          <dd>
-            <strong>
-              {account.memberCount} member{account.memberCount === 1 ? "" : "s"}
-            </strong>
-            <span>
-              {account.documentCount} documents · {account.opportunityCount}{" "}
-              opportunities
-            </span>
-          </dd>
-        </div>
-      </dl>
+      )}
+
       <p className="manage-inspector-note">
         Customer workspaces stay tenant-isolated. This portal shows operational
         context without impersonating a client.

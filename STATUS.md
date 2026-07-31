@@ -137,6 +137,7 @@ The implementation was checked against the original `COSTIVRA_AGENTIC_BUSINESS_B
 
 ## Validation completed July 31, 2026
 
+- Password recovery entry — `/login?mode=recovery` is now a durable recovery route and remains reachable when a valid session cookie already exists; ordinary authenticated visits to `/login` still resolve to the authorized owner or customer workspace.
 - Mobile homepage header — restored the hero's 112px mobile top spacing so the floating navigation no longer overlaps the headline. Verified at 375×812 with a 34px rendered gap, a working mobile drawer, and no browser console warnings or errors.
 - `npm run typecheck` — passed.
 - `npm run lint` — passed with zero warnings.

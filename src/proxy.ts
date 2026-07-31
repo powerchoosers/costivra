@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { validAccessDestination } from "@/lib/auth/access";
+import { shouldResolveAuthenticatedEntry, validAccessDestination } from "@/lib/auth/access";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -27,7 +27,11 @@ export async function proxy(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const isWorkspace = request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/manage");
-  const isLogin = request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup";
+  const shouldResolveEntry = shouldResolveAuthenticatedEntry({
+    pathname: request.nextUrl.pathname,
+    mode: request.nextUrl.searchParams.get("mode"),
+    error: request.nextUrl.searchParams.get("error"),
+  });
 
   if (isWorkspace && !data?.claims) {
     const url = request.nextUrl.clone();
@@ -36,7 +40,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isLogin && data?.claims && request.nextUrl.searchParams.get("error") !== "no_access") {
+  if (shouldResolveEntry && data?.claims) {
     const url = request.nextUrl.clone();
     const requested = validAccessDestination(request.nextUrl.searchParams.get("next"));
     url.pathname = "/access";
