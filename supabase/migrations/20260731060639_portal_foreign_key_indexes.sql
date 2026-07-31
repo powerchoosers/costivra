@@ -1,0 +1,10 @@
+create index if not exists chat_sessions_user_idx on public.chat_sessions(user_id);
+create index if not exists contracts_document_idx on public.contracts(document_id);
+create index if not exists contracts_expense_account_idx on public.contracts(expense_account_id);
+create index if not exists contracts_organization_vendor_idx on public.contracts(organization_vendor_id);
+create index if not exists documents_organization_vendor_idx on public.documents(organization_vendor_id);
+create index if not exists expenses_document_idx on public.expenses(document_id);
+create index if not exists expenses_expense_account_idx on public.expenses(expense_account_id);
+create index if not exists notifications_recipient_user_idx on public.notifications(recipient_user_id);
+create index if not exists report_definitions_organization_idx on public.report_definitions(organization_id);
+create index if not exists savings_outcomes_opportunity_idx on public.savings_outcomes(opportunity_id);

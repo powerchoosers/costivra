@@ -1,6 +1,6 @@
-# Costivra Frontend
+# Costivra
 
-Costivra is an evidence-first business cost intelligence and recovery platform. This repository currently contains the complete public-site and customer-workspace frontend concept described in `COSTIVRA_AGENTIC_BUSINESS_BLUEPRINT.md`.
+Costivra is an evidence-first recurring-cost intelligence platform. This repository contains the public site and a functioning, authenticated customer workspace backed by Supabase and a source-grounded AI assistant.
 
 ## Run locally
 
@@ -19,20 +19,22 @@ npm run lint
 npm run build
 ```
 
-## Important scope boundary
+## Configuration
 
-This is a production-quality frontend concept with realistic demo data and local interactive states. Authentication, private storage, document scanning and extraction, database tenancy, workflow execution, email, billing, and partner integrations are not connected yet. The UI says so rather than pretending those backend systems exist.
+Copy `.env.example` to `.env.local` and configure the Costivra Supabase publishable/secret keys and the server-only OpenRouter key. Never commit `.env.local`.
 
 ## Main routes
 
 - `/` — public homepage
 - `/product`, `/solutions`, `/how-it-works`, `/pricing`, `/security`
 - `/industries/*` — vertical-specific pages
-- `/scan` — interactive Cost Leak Scan intake preview
+- `/scan` — secure Cost Leak Scan account entry
 - `/privacy`, `/terms`, `/ucep-disclosure` — legal and disclosure drafts
-- `/app` — complete customer workspace preview
+- `/app` — authenticated customer command center
 - `/app/expenses`, `/app/opportunities`, `/app/contracts`, `/app/documents`
 - `/app/actions`, `/app/savings`, `/app/vendors`, `/app/integrations`
 - `/app/reports`, `/app/team`, `/app/ask`, `/app/settings`
 
 Legal pages are substantial product-launch drafts, not attorney-approved final documents.
+
+See `STATUS.md` for verified capabilities, current provider boundaries, and launch work.

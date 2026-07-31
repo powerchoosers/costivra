@@ -1,50 +1,47 @@
 # Costivra Status
 
-## Completed
+## Operational now
 
-- Root engineering instructions and the full business blueprint are stored in the repository.
-- Original Costivra logo direction, standalone SVG mark, wordmark, favicon, pinned-tab icon, web manifest, and dynamic social card.
-- Responsive public homepage with product preview, workflow, evidence viewer, security doctrine, pricing, FAQ, and footer.
-- Public product, solutions, integrations, industry, how-it-works, pricing, security, about, partner, contact, help, status, and case-study-standard pages.
-- Interactive Cost Leak Scan, sign-in, and signup frontend states.
-- Substantive privacy, terms, and UCEP relationship-disclosure drafts.
-- Complete customer workspace navigation and pages for Command Center, Expenses, Opportunities, Contracts, Documents, Actions, Savings, Vendors, Integrations, Reports, Team & approvals, Ask Costivra, and Settings.
-- Desktop and mobile responsive layouts.
-- Robots rules, sitemap, metadata, and Open Graph image.
-- Supabase project created for Costivra (`skfocjrykyvsaviyhdea`, `us-east-2`) with the secure foundation deployed: organizations, memberships, locations, vendor and expense records, documents, evidence, opportunities, approvals, audit events, and external-side-effect records.
-- Row Level Security enabled on all 17 current public tables, with tenant-scoped read policies and server-only mutation paths.
-- Private `costivra-documents` Storage bucket created for source files.
-- Server-only Supabase helper and bounded OpenRouter document-intelligence adapter added, plus `.env.example` for safe configuration.
+- Supabase authentication, signup organization provisioning, protected `/app/*` routes, session refresh, and sign-out.
+- Tenant-scoped Supabase repositories for organizations, members, locations, vendors, expenses, contracts, documents, extraction versions, evidence, opportunities, actions, approvals, savings, integrations, reports, notifications, settings, chat sessions, and chat messages.
+- Real command-center metrics and every portal list rendered from Supabase. The former hard-coded customer workspace was removed.
+- Private PDF, DOCX, and text upload to `costivra-documents`, SHA-256 duplicate detection, text extraction, OpenRouter document analysis, evidence records, signed downloads, and deletion.
+- Evidence-grounded Ask Costivra chat with persisted sessions and clickable source-document citations.
+- Working expense, vendor, and contract creation; opportunity status changes; action approval/decline/start/complete; organization settings; notifications; team invitations; integration state controls; and live CSV reports.
+- Public contact inquiries persist server-side. The free-scan path now creates a secure account before accepting private documents instead of simulating an upload.
+- Portal dialogs render through a top-level portal, animate in and out, close on Escape/backdrop, and stay within desktop and mobile viewports.
+- Custom blue scrollbars, responsive mobile/tablet navigation, restrained colors, compact typography, loading/empty/error/success states, and reduced-motion support.
 
-## Validation
+## Live connections
+
+- Supabase project: `skfocjrykyvsaviyhdea` (`us-east-2`).
+- Private Storage bucket: `costivra-documents`.
+- AI: OpenRouter through the server-only adapter in `src/lib/ai/openrouter.ts`.
+- GitHub deployment route: `https://github.com/powerchoosers/costivra.git`, `main` branch to Vercel.
+- Local secrets are in ignored `.env.local`; deploy environments need the variables listed in `.env.example`.
+
+## Validation completed July 31, 2026
 
 - `npm run typecheck` — passed.
-- `npm run lint` — passed.
-- `npm run build` — passed.
-- Supabase security advisor — passed with no findings.
-- Supabase performance advisor — only reports unused indexes because the new database has no live records yet.
-- Browser QA at 1536×1024 and 390×844.
-- All 39 tested public, legal, asset, and application routes returned HTTP 200.
-- Mobile navigation opened and exposed the expected links.
-- Command Center approval filter updated from three rows to one row.
-- Cost Leak Scan reached its confirmation state using QA-only sample data.
-- UCEP disclosure rendered the relationship and customer-choice sections.
-- No browser console errors were found during the final disclosure check.
+- `npm run lint` — passed with zero warnings.
+- `npm run build` — passed; all application and API routes compiled.
+- Browser QA — all 13 portal routes loaded with real records and no horizontal overflow.
+- Responsive QA — desktop, 820px tablet, and 390×844 mobile; no page overflow. All five create/upload dialogs and command search were opened and closed against live portal data. The tallest contract sheet remained reachable on mobile with an independently scrolling body and sticky actions; Escape, backdrop close, focus restoration, body scroll locking, entrance/exit motion, reduced-motion handling, and console health passed.
+- Authentication — password sign-in reached the intended protected route.
+- Persistence — settings saved and reloaded from Supabase; public contact inquiry persisted (QA row removed afterward).
+- Reports — a current CSV generated and downloaded from Supabase records.
+- AI — answered the highest-value open-opportunity question and linked the supporting `direct-energy-june-2026.txt` source citation.
+- Supabase — all missing foreign-key indexes fixed; current domain row counts verified; no missing-RLS or unindexed-FK findings remain.
 
-## Current QA server
+## Honest boundaries
 
-- URL: `http://localhost:3000`
-- Command: `npm run dev`
+- Supabase leaked-password checking is unavailable on the current plan. Password minimum length is 10, recent authentication is required for password changes, and password-change notifications are enabled. Upgrade to Supabase Pro to enable HaveIBeenPwned protection.
+- Integration controls safely manage Costivra-side connection state; provider OAuth/API credentials still need to be configured before external synchronization can occur.
+- Uploaded files are validated by type, size, hash, tenant, and private storage. A dedicated malware-scanning provider and OCR for image-only scans are not connected yet; these require external vendor selection.
+- Team invitations use Supabase email delivery. Production SMTP should be configured before launch.
+- Billing, supplier communication, cancellation, and other external financial actions remain intentionally unavailable until provider adapters and explicit authorization workflows exist.
+- Legal and UCEP drafts still require qualified counsel before commercial launch.
 
-## Known boundaries
+## Next launch work
 
-- Authentication and form submissions are frontend demonstrations, not connected services.
-- The database and private document bucket are ready, but application authentication, upload handling, malware scanning, signed access, persistence repositories, and extraction-job orchestration are not connected to the UI yet.
-- The OpenRouter adapter is implemented but cannot be invoked until `OPEN_ROUTER_API_KEY` and Costivra's `SUPABASE_SECRET_KEY` are configured in local and Vercel environments.
-- Demo financial values are illustrative product data, not customer claims.
-- Legal drafts need review by qualified counsel before commercial launch.
-- UCEP data sharing must not be implemented before written employment/IP clarity and counsel-reviewed disclosure terms.
-
-## Next recommended milestone
-
-Connect Supabase Auth and tenant-aware repositories to the customer workspace, then implement the private document intake path: server-side validation, SHA-256 provenance, malware-scan boundary, private upload, extraction queue, field-level evidence, and tenant-isolation tests.
+Configure Vercel environment variables, production SMTP, domain/redirect URLs, and selected provider OAuth credentials. Then add automated tenant-isolation, upload, workflow, and browser regression suites to CI.

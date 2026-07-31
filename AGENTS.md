@@ -73,16 +73,16 @@ Initial supported categories are software subscriptions, telecom and internet, a
 ### Supabase
 
 - The Costivra Supabase project is `skfocjrykyvsaviyhdea` in `us-east-2`. Its public URL is `https://skfocjrykyvsaviyhdea.supabase.co`.
-- The initial database foundation is already deployed: profiles, organizations, memberships, locations, vendor and expense records, documents, extraction versions, evidence, approval policies, opportunities, action plans, approvals, audit events, and external-side-effect records.
+- The product database is deployed: profiles, organizations, memberships, locations, vendor relationships, expenses, contracts, documents, extraction versions, evidence, approval policies, opportunities, action plans, approvals, savings outcomes, integrations, reports, notifications, chat sessions/messages, public contact inquiries, audit events, and external-side-effect records.
 - Every current public-schema table has Row Level Security enabled. Private source files belong in the `costivra-documents` private Storage bucket; do not make it public or add broad browser write policies.
-- Use the server-only helper at `src/lib/supabase/server.ts` for privileged operations. It accepts `SUPABASE_SECRET_KEY` (preferred) or the legacy `SUPABASE_SERVICE_ROLE_KEY`; neither may be prefixed with `NEXT_PUBLIC_` or imported by a Client Component.
+- Use the server-only helper at `src/lib/supabase/server.ts` for privileged operations and `src/lib/portal/repository.ts` for tenant-scoped portal reads. Browser/server session clients live in `src/lib/supabase/client.ts` and `src/lib/supabase/session.ts`; route protection and token refresh live in `src/proxy.ts`.
 - Use `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` only for browser-safe, authenticated client work. Before exposing any new table through the Data API, add a narrowly scoped RLS policy and tenant-isolation tests.
 - All future schema changes must be recorded as reviewed migrations and verified with Supabase security and performance advisors. Do not use the Luxor Event Space Supabase credentials against this project.
 
 ### AI provider
 
 - Costivra currently uses an OpenRouter-compatible server adapter in `src/lib/ai/openrouter.ts`. The server reads `OPEN_ROUTER_API_KEY` (the existing Luxor naming) or `OPENROUTER_API_KEY`; the key must never enter a browser bundle, commit, log, or error message.
-- `src/lib/ai/document-intelligence.ts` is restricted to candidate extraction and source quotes. It cannot calculate savings, approve work, or take external action.
+- `src/lib/ai/document-intelligence.ts` is restricted to candidate extraction and source quotes. `src/app/api/portal/ask/route.ts` answers only from scoped organization records and persists validated citations. Neither path may calculate authoritative savings, approve work, or take external action.
 
 ### GitHub and deployment
 

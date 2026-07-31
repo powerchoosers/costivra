@@ -173,3 +173,51 @@ create policy "Members read chat sessions" on public.chat_sessions for select to
   using (exists (select 1 from public.organization_memberships m where m.organization_id = chat_sessions.organization_id and m.user_id = (select auth.uid())) and (chat_sessions.user_id is null or chat_sessions.user_id = (select auth.uid())));
 create policy "Members read chat messages" on public.chat_messages for select to authenticated
   using (exists (select 1 from public.chat_sessions s join public.organization_memberships m on m.organization_id = s.organization_id where s.id = chat_messages.session_id and m.user_id = (select auth.uid()) and (s.user_id is null or s.user_id = (select auth.uid()))));
+
+update storage.buckets
+set allowed_mime_types = array[
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'text/plain',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+]
+where id = 'costivra-documents';
+
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+
+create or replace function private.handle_new_costivra_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  organization_id uuid;
+  company_name text;
+begin
+  insert into public.profiles (id, email, full_name)
+  values (new.id, coalesce(new.email, ''), nullif(new.raw_user_meta_data ->> 'full_name', ''))
+  on conflict (id) do update set email = excluded.email, full_name = coalesce(excluded.full_name, public.profiles.full_name), updated_at = now();
+
+  company_name := nullif(new.raw_user_meta_data ->> 'company_name', '');
+  if company_name is not null then
+    insert into public.organizations (name, industry, primary_contact_name)
+    values (company_name, nullif(new.raw_user_meta_data ->> 'industry', ''), nullif(new.raw_user_meta_data ->> 'full_name', ''))
+    returning id into organization_id;
+
+    insert into public.organization_memberships (organization_id, user_id, role, permissions)
+    values (organization_id, new.id, 'owner', '["documents:write","opportunities:approve","settings:write","reports:export"]'::jsonb);
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function private.handle_new_costivra_user() from public, anon, authenticated;
+
+drop trigger if exists on_costivra_user_created on auth.users;
+create trigger on_costivra_user_created
+  after insert on auth.users
+  for each row execute procedure private.handle_new_costivra_user();
