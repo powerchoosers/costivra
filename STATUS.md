@@ -11,9 +11,11 @@
 - Added explicit internal authorization through `internal_staff_users` plus `COSTIVRA_INTERNAL_ADMIN_EMAILS`. Customer organization roles never grant cross-tenant owner-portal access.
 - Added an external-side-effect ledger around every send, including human authorization, idempotency, request hash, provider reference, retries, trace ID, sanitized metadata, CRM activity, and internal audit history.
 - Extended the signed Resend webhook to keep delivery states current and route exact active `crm_mailboxes` recipients while preserving the separate customer document-intake path.
-- Applied the `owner_crm_and_resend_mail` migration to the live Costivra project. All new tables have RLS enabled and deny browser roles. Supabase security review found only the existing leaked-password-protection warning; performance review found unused-index informational notices expected for new empty tables and no missing foreign-key indexes.
-- Validation passed: `npm run typecheck`, `npm run lint`, `npm test` (11 tests), and `npm run build`. Browser QA passed for the overview, empty live-data states, mailbox, composer, and 390px phone layout; the temporary QA route was removed afterward.
-- Remaining setup at this point in the work: deploy the mailbox-aware webhook, update the existing Resend webhook event subscriptions, enable receiving for `costivra.ai`, and perform a controlled round-trip test. No customer email has been sent.
+- Applied the owner CRM, mailbox-seat, and mailbox audit-index migrations to the live Costivra project. All new tables have RLS enabled and deny browser roles. Supabase security review found only the existing leaked-password-protection warning; the follow-up performance review found no unindexed foreign keys.
+- Validation passed: `npm run typecheck`, `npm run lint`, `npm test` (14 tests), and `npm run build`. Browser QA covered the real owner seat, seat-creation dialog, empty live inbox, and sender selection; the review added a narrower-desktop navigation breakpoint and purpose-built mobile mailbox cards. The temporary QA route was removed afterward.
+- Production deployment `dpl_6EeVRWWfWKHN8fnmmfv1eMxpYPYw` is READY and aliased to `costivra.ai`. Vercel Production now uses `RESEND_INBOUND_DOMAIN=costivra.ai` and allowlists `l.patterson@costivra.ai` as the internal owner.
+- Resend sending and receiving are enabled for `costivra.ai`; Vercel DNS now publishes the root MX `inbound-smtp.us-east-1.amazonaws.com` at priority 10. The production webhook is enabled for inbound and all implemented outbound delivery events. DNS resolves publicly, while the Resend receiving-record check is still pending provider refresh.
+- Remaining production check: sign in with a Supabase Auth account whose exact email is `l.patterson@costivra.ai`, then perform one deliberately authorized self-controlled round trip. No customer email was sent during setup or testing.
 - Dependency audit: `npm audit --omit=dev --json` currently reports three high-severity production findings through Next.js transitive `postcss` and `sharp` packages. npm proposes an unsafe major downgrade rather than a compatible patched Next.js release, so no automated force-fix was applied. Track the upstream patched Next.js/sharp/postcss release before production launch.
 
 ## Automatic email document intake — July 31, 2026
@@ -23,14 +25,14 @@
 - Added a fail-closed malware boundary. Clean files proceed; infected files are rejected; scanner failures or missing configuration put originals in private quarantine and never send them to AI extraction.
 - Added owner/admin customer controls under Integrations: copy address, approve/remove forwarding senders, activate/pause intake, retry quarantined files, and review recent accepted/rejected/quarantined activity. Non-admin members have read-only visibility.
 - Added client setup guidance in `docs/EMAIL_INTAKE_SETUP.md` and server configuration keys in `.env.example`.
-- A production Resend webhook is registered at `https://costivra.ai/api/webhooks/resend` with `email.received`; its event subscriptions still need to be expanded after the mailbox-aware handler is deployed.
+- The production Resend webhook at `https://costivra.ai/api/webhooks/resend` is enabled for `email.received` plus scheduled, sent, delivered, delayed, bounced, complained, failed, and suppressed delivery events.
 - DNS inspection found no existing MX provider on the root `costivra.ai` domain. The verified Resend domain can therefore be used for CRM mailbox seats without displacing an existing mailbox host; receiving activation is tracked in the owner-mailbox setup above.
 - A production malware-scanning provider and its server credential are still required. A direct Cloudmersive adapter is included for the simplest setup, while a provider-neutral HTTP adapter remains available. Until configured, the system safely quarantines files instead of pretending intake completed.
 - Validation: `npm test` (3 inbound-policy tests), `npm run typecheck`, `npm run lint`, and `npm run build` passed. Supabase security advisor reported no new RLS findings; the three new unindexed-foreign-key findings were corrected in a follow-up migration.
 
 ## Transactional contact email — July 31, 2026
 
-- Verified the `costivra.ai` domain is active for sending in Resend; receiving remains disabled.
+- Verified the `costivra.ai` domain is active for sending in Resend. Receiving is now enabled and its root MX is publicly resolvable; Resend's receiving-record status is awaiting provider refresh.
 - Added a server-only Resend adapter for contact-inquiry receipts and internal notifications from `hello@costivra.ai`.
 - Added stable idempotency keys and a database delivery ledger that records request hashes and provider outcomes without storing message bodies. RLS is enabled and both browser roles are denied access.
 - Contact inquiries are saved before email is attempted. A provider outage is recorded but does not discard the inquiry or falsely report that the inquiry itself failed.
