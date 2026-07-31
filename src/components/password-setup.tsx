@@ -22,9 +22,18 @@ export function PasswordSetup() {
       const recoveryMode = url.searchParams.get("mode") === "recovery";
       let sessionError = "";
       const code = url.searchParams.get("code");
+      const timeout = new Promise<{ data: { session: null }; error: Error }>((resolve) =>
+        window.setTimeout(
+          () => resolve({ data: { session: null }, error: new Error("The secure link took too long to respond. Open the newest email and try again.") }),
+          8000,
+        ),
+      );
       if (code) {
-        const { error } = await client.auth.exchangeCodeForSession(code);
-        sessionError = error?.message ?? "";
+        const result = await Promise.race([
+          client.auth.exchangeCodeForSession(code),
+          timeout,
+        ]);
+        sessionError = result.error?.message ?? "";
         url.searchParams.delete("code");
         window.history.replaceState({}, "", `${url.pathname}${url.search}`);
       } else if (url.hash) {
@@ -40,7 +49,7 @@ export function PasswordSetup() {
           window.history.replaceState({}, "", url.pathname);
         }
       }
-      const { data } = await client.auth.getSession();
+      const { data } = await Promise.race([client.auth.getSession(), timeout]);
       if (!active) return;
       const ownerInvite = recoveryMode ||
         data.session?.user.user_metadata?.internal_owner_invite === true;
