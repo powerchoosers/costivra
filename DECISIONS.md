@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-07-31 — Verify password recovery links on the Costivra server
+
+### Context
+
+Supabase recovery emails previously used `ConfirmationURL`, which produced a PKCE authorization code tied to the browser that requested the reset. Opening the email in another browser or profile left no matching verifier and caused password setup to stall or fail.
+
+### Decision
+
+Use Supabase's one-time `TokenHash` in the recovery email and send it to `/auth/confirm` on `costivra.ai`. That server route verifies the recovery token, establishes the secure Supabase session through cookies, and redirects to `/set-password` without exposing a browser-bound PKCE dependency. The password form becomes usable only when a real recovery session exists.
+
+### Consequences
+
+Recovery links work across browsers and devices while remaining single-use and time-limited. Previously issued PKCE links cannot be repaired and must be replaced with a fresh email. Invalid or expired links fail closed and return the user to a clear error state.
+
 ## 2026-07-31 — Promote website inquiries into auditable CRM leads
 
 ### Context

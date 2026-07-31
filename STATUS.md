@@ -1,5 +1,12 @@
 # Costivra Status
 
+## Password recovery reliability — July 31, 2026
+
+- Replaced browser-bound PKCE recovery-email links with a server-verified Supabase token-hash route at `/auth/confirm`.
+- Password setup now remains disabled unless the browser has a valid recovery session; invalid or expired links fail closed instead of hanging indefinitely.
+- Updated the live Supabase recovery template to one clean Costivra-branded email using the correctly proportioned approved logo and the new `costivra.ai` confirmation route.
+- Commit `d440812` is deployed to Vercel production and reports **READY**. `npm run typecheck` passed before deployment.
+
 ## Inquiry-to-lead, consent, and brand enforcement — July 31, 2026
 
 - Public inquiries now atomically create or resolve a real CRM account and contact, save the inquiry, set new accounts to **Lead**, add a high-priority follow-up task and inquiry activity, and create an internal owner notification. No sample or demo lead was added.
