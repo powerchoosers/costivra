@@ -36,7 +36,7 @@ Use `auth.costivra.ai` as the intended Supabase custom hostname. Keep `NEXT_PUBL
 
 ### Consequences
 
-Changing the client URL early would break login, so activation is a gated infrastructure step. A July 31 CLI check reported that the project does not yet have Supabase's separate Custom Domain add-on, even though it is on a paid plan. DNS creation, activation, and the Vercel environment change remain blocked until that add-on is enabled.
+Changing the client URL early would break login, so activation is a gated infrastructure step. The separate Custom Domain add-on was enabled on July 31, 2026. `auth.costivra.ai` is now registered with Supabase, its CNAME and ACME TXT records are public, and SSL issuance is pending. DNS verification, activation, and the Vercel environment change remain intentionally separate until the certificate is ready.
 
 ## 2026-07-31 — Separate the internal CRM control plane from customer workspaces
 

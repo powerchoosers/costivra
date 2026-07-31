@@ -69,14 +69,14 @@ The public login, signup, confirmation landing, and password setup pages use `co
 
 Do not change `NEXT_PUBLIC_SUPABASE_URL` before activation. The safe sequence is:
 
-1. Enable Supabase's separate **Custom Domain add-on** for project `skfocjrykyvsaviyhdea`.
-2. Create `auth.costivra.ai` as the project custom hostname.
-3. Add the exact CNAME and TXT verification records Supabase returns to Vercel DNS.
-4. Reverify and activate the hostname in Supabase.
+1. Enable Supabase's separate **Custom Domain add-on** for project `skfocjrykyvsaviyhdea`. **Completed July 31, 2026.**
+2. Create `auth.costivra.ai` as the project custom hostname. **Completed.**
+3. Add the exact CNAME and TXT verification records Supabase returns to Vercel DNS. **Completed; both records resolve publicly.**
+4. Wait for SSL validation, then reverify and activate the hostname in Supabase. **Pending SSL issuance.**
 5. Set `NEXT_PUBLIC_SUPABASE_URL=https://auth.costivra.ai` in Vercel Production, Preview, and Development as appropriate; redeploy.
 6. Test signup confirmation, normal login, password recovery, owner activation, sign-out, and session refresh on `https://costivra.ai`.
 
-The July 31 CLI check stopped at step 1 with `entitlement_required`. The project stays on its working `https://skfocjrykyvsaviyhdea.supabase.co` value until the add-on is enabled, preventing an avoidable login outage.
+The current Supabase status is `ssl.status=pending_validation`. The project stays on its working `https://skfocjrykyvsaviyhdea.supabase.co` value until SSL is active, preventing an avoidable login outage.
 
 ## 7. First production check
 
