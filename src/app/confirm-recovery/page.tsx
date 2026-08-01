@@ -1,4 +1,4 @@
-import { ArrowRight, BadgeCheck, KeyRound, LockKeyhole } from "lucide-react";
+import { ArrowRight, BadgeCheck, LockKeyhole } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CostivraMark } from "@/components/brand";

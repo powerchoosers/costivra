@@ -268,13 +268,12 @@ function AccountPage({ mode }: { mode: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState(false);
-  const [resetMode, setResetMode] = useState(searchParams?.get("mode") === "recovery");
+  const [resetMode, setResetMode] = useState(
+    searchParams?.get("mode") === "recovery",
+  );
   const [messageTone, setMessageTone] = useState<"error" | "info" | "success">(
     searchParams?.get("confirmed") === "1" ? "success" : "error",
   );
-  useEffect(() => {
-    setResetMode(searchParams?.get("mode") === "recovery");
-  }, [searchParams]);
   const [message, setMessage] = useState(
     searchParams?.get("confirmed") === "1"
       ? "Your email is confirmed. Sign in to continue."
