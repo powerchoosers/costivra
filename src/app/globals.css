@@ -1939,6 +1939,7 @@ html { scroll-padding-top: 92px; }
 .manage-global-search-wrap { position:relative; width:100%; }
 .manage-create-wrap { position:relative; flex:0 0 auto; }
 .manage-create-trigger { width:40px; min-width:40px; height:40px; min-height:40px; max-height:40px; flex:0 0 40px; padding:0; }
+.manage-create-trigger svg{width:30px;height:30px;stroke-width:3.5}
 .manage-create-menu { position:absolute; z-index:130; top:calc(100% + 9px); left:50%; display:grid; min-width:166px; margin-left:-83px; overflow:hidden; padding:5px; border:1px solid #dfe4eb; border-radius:12px; background:rgba(255,255,255,.98); box-shadow:0 18px 44px rgba(18,31,51,.16); backdrop-filter:blur(16px); animation:manage-create-menu-in 180ms cubic-bezier(.23,1,.32,1) both; transform-origin:top center; }
 .manage-create-menu.is-closing { pointer-events:none; animation:manage-create-menu-out 150ms ease-in both; }
 .manage-create-menu button { display:flex; align-items:center; gap:9px; border:0; border-radius:8px; color:#344054; background:transparent; padding:10px; font:680 .74rem/1 inherit; cursor:pointer; text-align:left; white-space:nowrap; }
