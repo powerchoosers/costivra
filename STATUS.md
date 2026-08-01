@@ -1,5 +1,12 @@
 # Costivra Status
 
+## Public marketing-page clarity pass — August 1, 2026
+
+- Reviewed all public marketing, category, industry, utility, scan, and legal routes for a clear visitor question: who Costivra helps, what it reviews, what it finds, and what the visitor can do next.
+- Rewrote abstract page headlines and ledes on Product, Solutions, How it works, Security, Integrations, Industries, and Pricing; standardized the primary CTA to “Scan three bills free”; gave Case Studies a useful pilot CTA; and made legal-page introductions specific to their subject.
+- Browser route audit passed for 30 public routes with visible headings and successful responses. Representative screenshots were captured in `output/playwright/public-product-after-reveal.png`, `output/playwright/public-pricing.png`, `output/playwright/public-case-studies.png`, and `output/playwright/public-energy-mobile.png`.
+- Validation: `npm run typecheck`, `npm test` (56 tests), and `npm run build` passed. `npm run lint` remains blocked by one pre-existing error in `src/components/manage-portal.tsx:1461` (`setState` inside effect); the touched marketing files introduce no lint errors.
+
 ## Homepage product motion — August 1, 2026
 
 - Added restrained, evidence-led motion to the public homepage: the hero preview cycles through classification, detection, evidence linking, and approval; the evidence viewer animates category changes; and the workflow section reveals on scroll with staggered steps.
