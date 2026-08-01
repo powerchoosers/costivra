@@ -8,6 +8,18 @@ type PasswordPayload = {
   confirmation: string;
 };
 
+const RECOVERY_SETUP_COOKIE = "costivra-recovery-setup";
+
+function clearRecoverySetupRequirement(response: NextResponse) {
+  response.cookies.set(RECOVERY_SETUP_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
 function redirectToForm(request: NextRequest, error: string) {
   const url = new URL("/set-password", request.url);
   url.searchParams.set("mode", "recovery");
@@ -147,8 +159,17 @@ export async function POST(request: NextRequest) {
       durationMs: Date.now() - startedAt,
     });
 
-    if (acceptsJson) return NextResponse.json({ success: true });
-    return NextResponse.redirect(new URL("/access?password=changed", request.url), 303);
+    if (acceptsJson) {
+      const response = NextResponse.json({ success: true });
+      clearRecoverySetupRequirement(response);
+      return response;
+    }
+    const response = NextResponse.redirect(
+      new URL("/access?password=changed", request.url),
+      303,
+    );
+    clearRecoverySetupRequirement(response);
+    return response;
   } catch (error) {
     console.error("auth.password_update.exception", {
       requestId,

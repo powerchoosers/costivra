@@ -2,6 +2,18 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { isExplicitRecoveryConfirmation } from "@/lib/auth/recovery";
 
+const RECOVERY_SETUP_COOKIE = "costivra-recovery-setup";
+
+function markRecoverySetupRequired(response: NextResponse) {
+  response.cookies.set(RECOVERY_SETUP_COOKIE, "active", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 15 * 60,
+  });
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const tokenHash = requestUrl.searchParams.get("token_hash");
@@ -44,7 +56,9 @@ export async function GET(request: NextRequest) {
     durationMs: Date.now() - startedAt,
   }));
 
-  return error ? NextResponse.redirect(errorDestination) : response;
+  if (error) return NextResponse.redirect(errorDestination);
+  markRecoverySetupRequired(response);
+  return response;
 }
 
 export async function POST(request: NextRequest) {
@@ -81,5 +95,7 @@ export async function POST(request: NextRequest) {
     type: "recovery",
   });
 
-  return error ? NextResponse.redirect(errorDestination, 303) : response;
+  if (error) return NextResponse.redirect(errorDestination, 303);
+  markRecoverySetupRequired(response);
+  return response;
 }

@@ -212,3 +212,11 @@ The frontend cannot auto-route an energy case or present UCEP as the only option
 **Alternatives considered:** Treat arbitrary From addresses as seats, which would allow spoofing and make inbound routing ambiguous; or require Google Workspace/Microsoft 365 immediately, which would add OAuth, provider billing, token custody, and synchronization before the CRM workflow is proven.
 
 **Consequences:** Seats send and receive completely inside Costivra through Resend, with exact address routing and auditability. The root `costivra.ai` MX now routes inbound mail to Resend, and only active database-allowlisted mailbox or document-intake addresses are retained. Seats do not provide IMAP, native Gmail, or Outlook logins. A traditional mailbox provider can be added later behind a separate adapter if outside-CRM access becomes necessary.
+
+## 2026-08-01 — Constrain password-recovery sessions to password setup
+
+**Context:** Supabase establishes an authenticated, short-lived session after a valid recovery link is verified so the user can call `updateUser()` to save a new password. Without an application-level guard, a browser refresh could make that temporary session look like an ordinary Costivra sign-in and open the owner workspace before the password update completes.
+
+**Decision:** The confirmation route writes a secure, HTTP-only, same-site `costivra-recovery-setup` cookie with a 15-minute expiry. The proxy redirects workspace requests to `/set-password?mode=recovery` while it is present. The server-side password-update route alone clears it after Supabase confirms the new password was saved.
+
+**Consequences:** A recovery email still has the expected single-use Supabase security properties, but the product experience cannot treat that recovery session as completed access. Users cannot enter `/app` or `/manage` from the reset flow until password creation actually succeeds.

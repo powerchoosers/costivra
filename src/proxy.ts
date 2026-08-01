@@ -41,11 +41,20 @@ export async function proxy(request: NextRequest) {
     );
   }
   const isWorkspace = request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/manage");
+  const recoverySetupRequired =
+    request.cookies.get("costivra-recovery-setup")?.value === "active";
   const shouldResolveEntry = shouldResolveAuthenticatedEntry({
     pathname: request.nextUrl.pathname,
     mode: request.nextUrl.searchParams.get("mode"),
     error: request.nextUrl.searchParams.get("error"),
   });
+
+  if (isWorkspace && recoverySetupRequired) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/set-password";
+    url.search = "?mode=recovery";
+    return NextResponse.redirect(url);
+  }
 
   if (isWorkspace && !data?.claims) {
     const url = request.nextUrl.clone();
