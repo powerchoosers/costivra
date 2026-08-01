@@ -36,6 +36,21 @@ a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
+/* Make every available action clearly feel actionable across public, customer, and owner views. */
+:where(
+  a[href],
+  button:not(:disabled),
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  label:has(input[type="checkbox"]:not(:disabled)),
+  label:has(input[type="radio"]:not(:disabled)),
+  summary
+) { cursor: pointer; }
+
+:where(button:disabled, select:disabled, input:disabled, [aria-disabled="true"]) { cursor: not-allowed; }
+
 ::selection { background: var(--blue); color: white; }
 
 .paper-texture {
