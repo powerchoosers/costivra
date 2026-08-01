@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-01 — Load the PDF worker explicitly in server extraction
+
+### Context
+
+The first demo fixture import reached the document pipeline but `pdf-parse` tried to create a fake worker from a Turbopack-generated `.next` chunk that does not exist. That made every PDF look like an extraction failure even though the source text was readable.
+
+### Decision
+
+Load `pdfjs-dist/legacy/build/pdf.worker.mjs` into the Node process before creating `PDFParse`. The existing extraction and review policy remains unchanged: a worker or model failure produces `needs_review`, and no invoice is written until the validated structured result exists.
+
+### Consequences
+
+Local Next development and Node/Vercel execution use the same installed worker path and do not depend on browser fake-worker URL rewriting. The worker is still an implementation detail; OCR, schema validation, deterministic reconciliation, and human review remain separate safeguards.
+
 ## 2026-07-31 — Resolve authenticated users to an authorized product surface
 
 ### Context

@@ -16,6 +16,10 @@ async function extractText(buffer: Buffer, mimeType: string) {
   if (mimeType === "text/plain") return { text: buffer.toString("utf8"), pageCount: 1 };
   if (mimeType === "application/pdf") {
     const { PDFParse } = await import("pdf-parse");
+    // Load the worker into the Node process before parsing. This avoids the
+    // browser-oriented fake-worker path that Turbopack otherwise rewrites to a
+    // missing .next chunk in local development and serverless functions.
+    await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     try {
       const result = await parser.getText();

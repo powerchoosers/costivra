@@ -1,5 +1,13 @@
 # Costivra Status
 
+## Demo invoice import and extraction QA — August 1, 2026
+
+- Created two Supabase Auth demo workspaces with owner memberships so the end-to-end portal can be reviewed without touching a real customer tenant: Cloud Billing Demo and Telecom Software Demo.
+- Imported eight public, de-identified PDF fixtures into the private `costivra-documents` bucket. The import uses the same private storage, SHA-256 deduplication, extraction-version, evidence, invoice, line-item, review, and audit paths as a customer upload; the temporary local fixture route and account-creation script were removed after the run.
+- Fixed the Node PDF worker configuration so `pdf-parse` loads the installed `pdfjs-dist` worker instead of a missing Turbopack `.next` chunk.
+- QA result: four telecom/utility/software fixtures produced completed extraction versions with invoice rows, 4–14 line items, and 10–12 evidence references each. All remain `needs_review` because vendor matching/reconciliation or required fields still need a human decision. AWS/Azure fixtures correctly escalated to review when the model returned an ambiguous multi-invoice or incomplete result; no unvalidated invoice was written.
+- This is a test dataset, not proof of production extraction accuracy. Before launch, add golden fixtures and evaluation thresholds, a visible correction console, and a configured malware scanner. Demo credentials are provided in the handoff and should not be reused for customer access.
+
 ## Public marketing-page clarity pass — August 1, 2026
 
 - Reviewed all public marketing, category, industry, utility, scan, and legal routes for a clear visitor question: who Costivra helps, what it reviews, what it finds, and what the visitor can do next.
