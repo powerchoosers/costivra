@@ -266,3 +266,4 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added four public sample PDFs under `tests/fixtures/invoices/` for local extraction and review-queue evaluation: two telecom/VoIP samples, one utility bill, and one generic software invoice.
 - Each fixture is documented with its source URL. These are templates/sample documents only, not customer records or production evidence.
 - Verified all four downloads begin with the PDF signature (`%PDF-`). Full extraction scoring remains a follow-up once the golden-data harness is connected.
+- Expanded the set with official Microsoft Azure MSDN/PAYG sample invoices and official AWS VAT invoice/receipt samples. The fixture directory now covers recognizable cloud, telecom, utility, and software billing layouts without importing private customer bills.
