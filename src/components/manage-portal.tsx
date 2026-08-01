@@ -984,6 +984,7 @@ function Overview({
           )}
         </section>
         <AccountInspector
+          data={data}
           account={selectedAccount}
           activities={accountActivities}
           contacts={accountContacts}
@@ -1152,6 +1153,7 @@ function AccountRows({
   selectedIds,
   onToggle,
   onTogglePage,
+  empty,
 }: {
   accounts: ManageAccount[];
   selectedId?: string;
@@ -1159,11 +1161,12 @@ function AccountRows({
   selectedIds?: Set<string>;
   onToggle?: (id: string) => void;
   onTogglePage?: () => void;
+  empty?: ReactNode;
 }) {
   const pageSelection = accounts.length > 0 && accounts.every((account) => selectedIds?.has(account.id));
   const someSelected = accounts.some((account) => selectedIds?.has(account.id));
   return (
-    <div className="manage-table-wrap">
+    <div className={`manage-table-wrap${accounts.length === 0 ? " is-empty" : ""}`}>
       <table className="manage-data-table manage-account-data-table">
         <thead>
           <tr>
@@ -1237,24 +1240,50 @@ function AccountRows({
           })}
         </tbody>
       </table>
+      {accounts.length === 0 && empty ? <div className="manage-table-empty-state">{empty}</div> : null}
     </div>
   );
 }
 
 function AccountInspector({
+  data,
   account,
   activities = [],
   contacts = [],
-  onAddTask,
-  onAddNote,
 }: {
+  data: ManageData;
   account?: ManageAccount;
   activities?: ManageActivity[];
   contacts?: ManageContact[];
-  onAddTask?: (account: ManageAccount) => void;
-  onAddNote?: (account: ManageAccount) => void;
 }) {
   const [tab, setTab] = useState<"overview" | "timeline" | "contacts">("overview");
+  const [composer, setComposer] = useState<"task" | "note" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const router = useRouter();
+  const toast = useToast();
+
+  async function submitComposer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!account || !composer) return;
+    setBusy(true);
+    try {
+      const form = new FormData(event.currentTarget);
+      form.set("organizationId", account.id);
+      await api(composer === "task" ? "/api/manage/tasks" : "/api/manage/activities", {
+        method: "POST",
+        body: JSON.stringify(Object.fromEntries(form)),
+      });
+      toast.success(composer === "task" ? "Follow-up task created." : "Note added to the activity record.");
+      setComposer(null);
+      setMentionedUserIds([]);
+      router.refresh();
+    } catch (error) {
+      toast.error("That didn’t work", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (!account)
     return (
@@ -1270,15 +1299,13 @@ function AccountInspector({
   return (
     <aside className="manage-panel manage-inspector">
       <header className="manage-inspector-header">
-        <div className="manage-inspector-account">
+        <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-account manage-inspector-record-link" title={`Open ${account.name}`}>
           <span>{initials(account.name)}</span>
           <div>
-            <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-record-link" title={`Open ${account.name}`}>
               <h3>{account.name}</h3>
-            </Link>
             <p>{account.industry || "Industry not set"}</p>
           </div>
-        </div>
+        </Link>
       </header>
       <div className="manage-inspector-tabs" style={{ "--active-tab": tab === "overview" ? 0 : tab === "timeline" ? 1 : 2 } as CSSProperties}>
         <button
@@ -1357,9 +1384,22 @@ function AccountInspector({
               </dd>
             </div>
           </dl>
-          <div className="manage-inspector-actions manage-inspector-actions--split">
-            <button className="manage-button manage-button--quiet manage-full" onClick={() => onAddTask?.(account)}><CalendarClock size={15} /> Add task</button>
-            <button className="manage-button manage-button--quiet manage-full" onClick={() => onAddNote?.(account)}><MessageSquareText size={15} /> Add note</button>
+          <div className="manage-inspector-actions">
+            {composer ? (
+              <form className="manage-inspector-composer" onSubmit={submitComposer}>
+                <header><strong>{composer === "task" ? "Add task" : "Add internal note"}</strong><button type="button" onClick={() => { setComposer(null); setMentionedUserIds([]); }} aria-label="Close composer"><X size={15} /></button></header>
+                {composer === "task" ? <>
+                  <label><span>Task</span><input name="title" required autoFocus placeholder="What needs to happen?" /></label>
+                  <div className="manage-inspector-composer-grid"><label><span>Type</span><CostivraSelect name="taskType" defaultValue="follow_up" options={[{ value: "follow_up", label: "Follow-up" }, { value: "email", label: "Email" }, { value: "call", label: "Call" }, { value: "meeting", label: "Meeting" }, { value: "review", label: "Review" }]} /></label><label><span>Priority</span><CostivraSelect name="priority" defaultValue="normal" options={[{ value: "low", label: "Low" }, { value: "normal", label: "Normal" }, { value: "high", label: "High" }]} /></label></div>
+                  <label><span>Due</span><CostivraDateTimePicker name="dueAt" /></label><label><span>Notes</span><textarea name="notes" rows={3} placeholder="Optional context" /></label>
+                </> : <>
+                  <input type="hidden" name="mentionedUserIds" value={JSON.stringify(mentionedUserIds)} />
+                  <label><span>Title</span><input name="subject" required autoFocus placeholder="What is this note about?" /></label><label><span>Note</span><textarea name="summary" rows={5} placeholder="Write the internal note." /></label>
+                  <div className="manage-mention-picker"><span>Notify teammate</span>{data.staff.filter((member) => member.id !== data.operator.id).length ? <div>{data.staff.filter((member) => member.id !== data.operator.id).map((member) => { const selected = mentionedUserIds.includes(member.id); return <button type="button" className={selected ? "is-selected" : ""} key={member.id} onClick={() => setMentionedUserIds((current) => selected ? current.filter((id) => id !== member.id) : [...current, member.id])}><AtSign size={13} /> {member.fullName}</button>; })}</div> : <small>No other active internal teammates are available to mention.</small>}</div>
+                </>}
+                <footer><button type="button" className="manage-button manage-button--quiet" onClick={() => setComposer(null)}>Cancel</button><button className="manage-button manage-button--primary" disabled={busy}>{busy ? "Saving…" : composer === "task" ? "Create task" : "Save note"}</button></footer>
+              </form>
+            ) : <div className="manage-inspector-actions--split"><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("task")}><CalendarClock size={15} /> Add task</button><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("note")}><MessageSquareText size={15} /> Add note</button></div>}
           </div>
         </>
       )}
@@ -1579,7 +1619,7 @@ function Accounts({
     <>
       <div className="manage-overview-grid manage-record-workspace">
         <section className="manage-panel manage-account-table manage-account-table--full">
-          <div className="manage-tabs">
+          <div className="manage-tabs" style={{ "--active-tab": filter === "all" ? 0 : stages.slice(0, 4).indexOf(filter) + 1 } as CSSProperties}>
             <button
               className={filter === "all" ? "active" : ""}
               onClick={() => { setFilter("all"); setPage(1); setSelectedIds(new Set()); }}
@@ -1603,6 +1643,7 @@ function Accounts({
             ))}
           </div>
           <AccountRows
+            key={`${filter}-${query}`}
             accounts={pageRows}
             selectedId={selectedAccount?.id}
             onSelectAccount={(account) => setSelectedAccountId(account.id)}
@@ -1618,26 +1659,15 @@ function Accounts({
               pageRows.forEach((account) => allSelected ? next.delete(account.id) : next.add(account.id));
               return next;
             })}
+            empty={<Empty icon={Building2} title="No matching accounts" copy={data.accounts.length ? "Clear the search or choose another lifecycle stage." : "No real organizations are available yet."} />}
           />
-          {!filtered.length && (
-            <Empty
-              icon={Building2}
-              title="No matching accounts"
-              copy={
-                data.accounts.length
-                  ? "Clear the search or choose another lifecycle stage."
-                  : "No real organizations are available yet."
-              }
-            />
-          )}
           <TableFooter count={filtered.length} noun="account" page={currentPage} pageCount={pageCount} onPage={setPage} />
         </section>
         <AccountInspector
+          data={data}
           account={selectedAccount}
           activities={accountActivities}
           contacts={accountContacts}
-          onAddTask={onAddTask}
-          onAddNote={onAddNote}
         />
       </div>
       <BulkActionBar
