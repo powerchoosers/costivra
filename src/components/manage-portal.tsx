@@ -991,15 +991,7 @@ function Overview({
             <Empty
               icon={Building2}
               title="No accounts yet"
-              copy="Accounts will appear when a real organization exists in Supabase or you add one here."
-              action={
-                <button
-                  className="manage-button manage-button--primary"
-                  onClick={onAdd}
-                >
-                  Add first account
-                </button>
-              }
+              copy="Use the create button beside global search to add the first real account."
             />
           )}
         </section>
