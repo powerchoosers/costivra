@@ -12,16 +12,56 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { CostivraMark } from "@/components/brand";
 import {
   MIN_PASSWORD_LENGTH,
   passwordMeetsMinimumLength,
+  validatePasswordUpdate,
 } from "@/lib/auth/password-policy";
-import { createClient } from "@/lib/supabase/client";
 
 const PASSWORD_UPDATE_TIMEOUT_MS = 15_000;
+
+const SERVER_MESSAGES: Record<string, string> = {
+  invalid_link:
+    "This reset link is invalid or has already been used. Request a new link below.",
+  missing_session:
+    "This page does not have an active recovery session. Request a new link below.",
+  invalid_session:
+    "Your recovery session expired before the password was saved. Request a new link below.",
+  password_short: `Your password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
+  password_mismatch: "The two passwords did not match.",
+  save_failed: "We could not save your password. Request a new link and try again.",
+};
+
+function OwnerAccessIntro() {
+  return (
+    <aside className="account-intro">
+      <div className="account-intro-mark">
+        <span className="account-brand-mark">
+          <CostivraMark size={34} />
+        </span>
+        <span>Costivra owner access</span>
+      </div>
+      <div>
+        <p className="eyebrow">Private account setup</p>
+        <h1>Choose the password only you know.</h1>
+        <p>
+          This step activates your internal Costivra access. Mailbox seats and
+          customer records remain separate from login permissions.
+        </p>
+      </div>
+      <div className="account-trust">
+        <span>
+          <LockKeyhole aria-hidden="true" size={16} /> Secure reset only
+        </span>
+        <span>
+          <BadgeCheck aria-hidden="true" size={16} /> Owner access audited
+        </span>
+      </div>
+    </aside>
+  );
+}
 
 export function PasswordSetup({
   initialReady = false,
@@ -32,195 +72,128 @@ export function PasswordSetup({
   initialUserEmail?: string | null;
   serverError?: string | null;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [checking, setChecking] = useState(!initialReady);
-  const [ready, setReady] = useState(initialReady);
-  const [userEmail, setUserEmail] = useState<string | null>(initialUserEmail);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(
-    serverError === "invalid_link"
-      ? "This secure link is invalid or expired. Open the newest Costivra owner password email and try again."
-      : "",
+    serverError ? SERVER_MESSAGES[serverError] ?? "We could not open this reset link." : "",
   );
   const [messageSuccess, setMessageSuccess] = useState(false);
-
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    async function establishSession() {
-      const code = searchParams?.get("code");
-      const hasHash = typeof window !== "undefined" && Boolean(window.location.hash);
-      if (initialReady && !code && !hasHash) {
-        if (active) {
-          setChecking(false);
-          setReady(true);
-        }
-        return;
-      }
-
-      try {
-        const client = createClient();
-        const url = new URL(window.location.href);
-        const recoveryMode = url.searchParams.get("mode") === "recovery";
-        let sessionError = "";
-
-        if (code) {
-          const { error } = await client.auth.exchangeCodeForSession(code);
-          sessionError = error?.message ?? "";
-          url.searchParams.delete("code");
-          window.history.replaceState({}, "", `${url.pathname}${url.search}`);
-        } else if (url.hash) {
-          const hash = new URLSearchParams(url.hash.slice(1));
-          const accessToken = hash.get("access_token");
-          const refreshToken = hash.get("refresh_token");
-          if (accessToken && refreshToken) {
-            const { error } = await client.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            sessionError = error?.message ?? "";
-            window.history.replaceState({}, "", url.pathname);
-          }
-        }
-
-        const { data: { user }, error: userError } = await client.auth.getUser();
-        if (!active) return;
-
-        const ownerInvite = recoveryMode || user?.user_metadata?.internal_owner_invite === true;
-        const isVerified = Boolean(user && ownerInvite);
-        setReady(isVerified);
-        setUserEmail(user?.email ?? null);
-
-        if (!user) {
-          setMessage(
-            sessionError ||
-              userError?.message ||
-              "This secure link is invalid or expired. Open the newest Costivra owner password email and try again.",
-          );
-        } else if (!ownerInvite) {
-          setMessage(
-            "This secure link does not belong to the signed-in owner invitation. Sign out, then open the newest Costivra owner password email.",
-          );
-        }
-      } catch (err: any) {
-        if (!active) return;
-        setMessage(err?.message || "Unable to verify secure link. Please try again.");
-      } finally {
-        if (active) {
-          setChecking(false);
-        }
-      }
-    }
-
-    void establishSession();
-    return () => {
-      active = false;
-    };
-  }, [initialReady, searchParams]);
+  if (!initialReady) {
+    return (
+      <main className="paper-texture">
+        <div className="container content-page">
+          <div className="account-page">
+            <OwnerAccessIntro />
+            <section className="account-card">
+              <div className="account-card-heading">
+                <span className="account-card-kicker">Reset link needed</span>
+                <h2>This password page is no longer active.</h2>
+                <p>
+                  {message ||
+                    "The recovery session is missing or expired. No password was changed."}
+                </p>
+              </div>
+              <Link
+                className="button button-primary account-submit"
+                href="/login?mode=recovery"
+              >
+                Request a new reset link <ArrowRight aria-hidden="true" size={17} />
+              </Link>
+              <p className="account-switch">
+                Already changed it? <Link href="/login?next=/manage">Sign in</Link>
+              </p>
+            </section>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const nextPassword = String(formData.get("password") ?? "");
+    const nextConfirmation = String(formData.get("confirmation") ?? "");
+    setPassword(nextPassword);
+    setConfirmation(nextConfirmation);
     setMessageSuccess(false);
 
-    if (!password) {
-      setMessage("Please enter a new password.");
-      return;
-    }
-    if (!passwordMeetsMinimumLength(password)) {
-      setMessage(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
-      return;
-    }
-    if (password !== confirmation) {
-      setMessage("The two passwords do not match. Please verify both fields.");
+    const validation = validatePasswordUpdate(nextPassword, nextConfirmation);
+    if (!validation.ok) {
+      setMessage(validation.message);
       return;
     }
 
     setBusy(true);
     setMessage("");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      PASSWORD_UPDATE_TIMEOUT_MS,
+    );
 
     try {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(
-        () => controller.abort(),
-        PASSWORD_UPDATE_TIMEOUT_MS,
-      );
       const response = await fetch("/api/auth/set-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({
+          password: nextPassword,
+          confirmation: nextConfirmation,
+        }),
         signal: controller.signal,
       });
-      window.clearTimeout(timeout);
       const data = (await response.json().catch(() => null)) as
         | { success?: boolean; error?: string }
         | null;
 
       if (!response.ok || !data?.success) {
         setMessage(data?.error || "We could not save your password. Try again.");
-        setBusy(false);
         return;
       }
 
       setMessageSuccess(true);
       setMessage("Password changed. Taking you to your Costivra workspace…");
-      setBusy(false);
-      setTimeout(() => {
-        window.location.href = "/access";
-      }, 1000);
+      window.setTimeout(() => {
+        window.location.assign("/access?password=changed");
+      }, 900);
     } catch (error) {
       setMessage(
         error instanceof DOMException && error.name === "AbortError"
           ? "Saving took too long. Check your connection and try again."
           : "We could not save your password. Try again.",
       );
+    } finally {
+      window.clearTimeout(timeout);
       setBusy(false);
     }
   }
 
   const lengthValid = passwordMeetsMinimumLength(password);
-  const passwordsMatch = password.length > 0 && confirmation.length > 0 && password === confirmation;
+  const passwordsMatch =
+    password.length > 0 && confirmation.length > 0 && password === confirmation;
   const showMismatch = confirmation.length > 0 && password !== confirmation;
 
   return (
     <main className="paper-texture">
       <div className="container content-page">
         <div className="account-page">
-          <aside className="account-intro">
-            <div className="account-intro-mark">
-              <span className="account-brand-mark">
-                <CostivraMark size={34} />
-              </span>
-              <span>Costivra owner access</span>
-            </div>
-            <div>
-              <p className="eyebrow">Private account setup</p>
-              <h1>Choose the password only you know.</h1>
-              <p>
-                This step activates your internal Costivra access. Mailbox seats
-                and customer records remain separate from login permissions.
-              </p>
-            </div>
-            <div className="account-trust">
-              <span>
-                <LockKeyhole aria-hidden="true" size={16} /> Secure invite only
-              </span>
-              <span>
-                <BadgeCheck aria-hidden="true" size={16} /> Owner access audited
-              </span>
-            </div>
-          </aside>
-          <form className="account-card" onSubmit={submit}>
+          <OwnerAccessIntro />
+          <form
+            className="account-card"
+            action="/api/auth/set-password"
+            method="post"
+            onSubmit={submit}
+          >
             <div className="account-card-heading">
               <span className="account-card-kicker">Owner credentials</span>
               <h2>Set your permanent password.</h2>
               <p>
-                {userEmail
-                  ? `Set a new password for ${userEmail}.`
+                {initialUserEmail
+                  ? `Set a new password for ${initialUserEmail}.`
                   : "Choose a secure password to protect your account."}
               </p>
             </div>
@@ -235,33 +208,32 @@ export function PasswordSetup({
                     minLength={MIN_PASSWORD_LENGTH}
                     autoComplete="new-password"
                     required
-                    disabled={!ready || busy}
+                    disabled={busy}
                     className={
-                      passwordMeetsMinimumLength(password)
+                      lengthValid
                         ? "is-valid"
                         : password.length > 0
-                        ? "is-invalid"
-                        : ""
+                          ? "is-invalid"
+                          : ""
                     }
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your new password"
+                    onInput={(event) => setPassword(event.currentTarget.value)}
+                    placeholder={`Use at least ${MIN_PASSWORD_LENGTH} characters`}
                   />
                   <button
                     type="button"
                     className={`password-toggle-button ${showPassword ? "is-visible" : ""}`}
-                    onClick={() => setShowPassword((prev) => !prev)}
+                    onClick={() => setShowPassword((visible) => !visible)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    disabled={busy}
                   >
-                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     <span>{showPassword ? "Hide" : "Show"}</span>
                   </button>
                 </div>
               </div>
               <div className="field">
-                <label htmlFor="owner-password-confirmation">
-                  Confirm password
-                </label>
+                <label htmlFor="owner-password-confirmation">Confirm password</label>
                 <div className="password-input-wrapper">
                   <input
                     id="owner-password-confirmation"
@@ -270,25 +242,24 @@ export function PasswordSetup({
                     minLength={MIN_PASSWORD_LENGTH}
                     autoComplete="new-password"
                     required
-                    disabled={!ready || busy}
+                    disabled={busy}
                     className={
-                      passwordsMatch
-                        ? "is-valid"
-                        : showMismatch
-                        ? "is-invalid"
-                        : ""
+                      passwordsMatch ? "is-valid" : showMismatch ? "is-invalid" : ""
                     }
-                    value={confirmation}
-                    onChange={(e) => setConfirmation(e.target.value)}
-                    placeholder="Re-enter your new password"
+                    onInput={(event) => setConfirmation(event.currentTarget.value)}
+                    placeholder="Enter the same password again"
                   />
                   <button
                     type="button"
                     className={`password-toggle-button ${showConfirmation ? "is-visible" : ""}`}
-                    onClick={() => setShowConfirmation((prev) => !prev)}
-                    aria-label={showConfirmation ? "Hide confirm password" : "Show confirm password"}
+                    onClick={() => setShowConfirmation((visible) => !visible)}
+                    aria-label={
+                      showConfirmation ? "Hide confirmation" : "Show confirmation"
+                    }
+                    aria-pressed={showConfirmation}
+                    disabled={busy}
                   >
-                    {showConfirmation ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showConfirmation ? <EyeOff size={16} /> : <Eye size={16} />}
                     <span>{showConfirmation ? "Hide" : "Show"}</span>
                   </button>
                 </div>
@@ -302,23 +273,30 @@ export function PasswordSetup({
                 }`}
               >
                 {lengthValid ? <Check size={14} /> : <Info size={14} />}
-                {MIN_PASSWORD_LENGTH}+ characters
+                {lengthValid
+                  ? "Length requirement met"
+                  : `At least ${MIN_PASSWORD_LENGTH} characters`}
               </span>
-              {passwordsMatch && (
+              {passwordsMatch ? (
                 <span className="password-pill password-pill--success">
                   <CheckCircle2 size={14} /> Passwords match
                 </span>
-              )}
-              {showMismatch && (
+              ) : showMismatch ? (
                 <span className="password-pill password-pill--warning">
                   <AlertCircle size={14} /> Passwords do not match
+                </span>
+              ) : (
+                <span className="password-pill password-pill--neutral">
+                  <Info size={14} /> Retype it to confirm
                 </span>
               )}
             </div>
 
             {message && (
               <p
-                className={`account-message ${messageSuccess ? "account-message--success" : ""}`}
+                className={`account-message ${
+                  messageSuccess ? "account-message--success" : ""
+                }`}
                 role={messageSuccess ? "status" : "alert"}
               >
                 {message}
@@ -328,19 +306,9 @@ export function PasswordSetup({
             <button
               type="submit"
               className="button button-primary account-submit"
-              disabled={
-                !ready || busy || checking || !lengthValid || !passwordsMatch
-              }
+              disabled={busy}
             >
-              {checking
-                ? "Checking secure link…"
-                : busy
-                  ? "Saving password…"
-                  : !lengthValid
-                    ? `Use ${MIN_PASSWORD_LENGTH}+ characters`
-                    : !passwordsMatch
-                      ? "Make passwords match"
-                      : "Change password"}
+              {busy ? "Saving password…" : "Change password"}
               <ArrowRight aria-hidden="true" size={17} />
             </button>
             <p className="account-switch">

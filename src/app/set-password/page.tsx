@@ -15,7 +15,7 @@ export default async function SetPasswordPage({
 }: {
   searchParams: Promise<{ mode?: string; code?: string; error?: string }>;
 }) {
-  const { mode, error } = await searchParams;
+  const { error } = await searchParams;
   let initialReady = false;
   let initialUserEmail: string | null = null;
 
@@ -34,12 +34,13 @@ export default async function SetPasswordPage({
       },
     );
 
-    const { data } = await supabase.auth.getUser();
-    const user = data?.user ?? null;
-    const recoveryMode = mode === "recovery";
-    const ownerInvite = recoveryMode || user?.user_metadata?.internal_owner_invite === true;
-    initialReady = Boolean(user && ownerInvite);
-    initialUserEmail = user?.email ?? null;
+    const { data } = await supabase.auth.getClaims();
+    const claims = data?.claims as
+      | { email?: string; user_metadata?: { internal_owner_invite?: boolean } }
+      | null
+      | undefined;
+    initialReady = Boolean(claims);
+    initialUserEmail = claims?.email ?? null;
   } catch {
     // Fall back to client verification if server cookie check fails
   }
@@ -48,7 +49,7 @@ export default async function SetPasswordPage({
     <PasswordSetup
       initialReady={initialReady}
       initialUserEmail={initialUserEmail}
-      serverError={error ?? null}
+      serverError={error ?? (!initialReady ? "missing_session" : null)}
     />
   );
 }

@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { shouldResolveAuthenticatedEntry, validAccessDestination } from "@/lib/auth/access";
+import {
+  isStaleSessionError,
+  isSupabaseAuthCookieName,
+} from "@/lib/auth/session-errors";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -25,7 +29,17 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const { data } = await supabase.auth.getClaims();
+  const { data, error } = await supabase.auth.getClaims();
+  if (isStaleSessionError(error)) {
+    const staleAuthCookies = request.cookies
+      .getAll()
+      .filter(({ name }) => isSupabaseAuthCookieName(name));
+    staleAuthCookies.forEach(({ name }) => request.cookies.delete(name));
+    response = NextResponse.next({ request });
+    staleAuthCookies.forEach(({ name }) =>
+      response.cookies.set(name, "", { path: "/", maxAge: 0 }),
+    );
+  }
   const isWorkspace = request.nextUrl.pathname.startsWith("/app") || request.nextUrl.pathname.startsWith("/manage");
   const shouldResolveEntry = shouldResolveAuthenticatedEntry({
     pathname: request.nextUrl.pathname,
@@ -53,5 +67,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/manage/:path*", "/login", "/signup"],
+  matcher: ["/app/:path*", "/manage/:path*", "/login", "/signup", "/set-password"],
 };

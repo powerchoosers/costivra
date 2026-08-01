@@ -21,8 +21,8 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; max-width: 100%; overflow-x: hidden; }
-body { max-width: 100%; overflow-x: hidden; }
+html { scroll-behavior: smooth; max-width: 100%; overflow-x: clip; }
+body { max-width: 100%; overflow-x: clip; }
 
 body {
   margin: 0;
@@ -1121,7 +1121,7 @@ body.modal-open { overflow:hidden !important; touch-action:none; }
   --motion-standard: 420ms;
 }
 html { scroll-padding-top: 92px; }
-.route-transition { animation: route-enter 520ms var(--motion-ease) both; }
+.route-transition { min-height: 100%; }
 .reveal {
   transform: translateY(22px);
   transition: opacity var(--motion-standard) var(--motion-ease), transform var(--motion-standard) var(--motion-ease);
@@ -1171,10 +1171,8 @@ html { scroll-padding-top: 92px; }
 .portal-modal { animation-duration: 280ms; animation-timing-function: var(--motion-ease); }
 .command-overlay { animation-duration: 220ms; animation-timing-function: var(--motion-ease); }
 .command-box { animation-duration: 280ms; animation-timing-function: var(--motion-ease); }
-@keyframes route-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes portal-section-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) {
-  .route-transition,
   .app-content > .portal-page-header,
   .app-content > .portal-metrics,
   .app-content > .portal-panel,

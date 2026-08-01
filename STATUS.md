@@ -135,6 +135,11 @@ The implementation was checked against the original `COSTIVRA_AGENTIC_BUSINESS_B
 - GitHub deployment route: `https://github.com/powerchoosers/costivra.git`, `main` branch to Vercel.
 - Local secrets are in ignored `.env.local`; deploy environments need the variables listed in `.env.example`.
 
+## Validation completed August 1, 2026
+
+- Marketing header stickiness — changed root horizontal overflow containment from `hidden` to `clip`, preserving horizontal clipping without creating the scroll container that caused the homepage header to scroll away. Browser QA confirmed the header remains at its configured 20px offset after a 675px scroll, with no horizontal overflow or console errors.
+- Route transitions — removed the root-level opacity/translate entrance that briefly exposed the dark document background during navigation. Pages now paint immediately, while the existing section-level portal and scroll-reveal motion provides restrained content movement without a full-screen flash.
+
 ## Validation completed July 31, 2026
 
 - Password recovery entry — `/login?mode=recovery` is now a durable recovery route and remains reachable when a valid session cookie already exists; ordinary authenticated visits to `/login` still resolve to the authorized owner or customer workspace.

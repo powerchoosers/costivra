@@ -1,26 +1,86 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  MIN_PASSWORD_LENGTH,
-  passwordMeetsMinimumLength,
-} from "@/lib/auth/password-policy";
+import { validatePasswordUpdate } from "@/lib/auth/password-policy";
+
+type PasswordPayload = {
+  password: string;
+  confirmation: string;
+};
+
+function redirectToForm(request: NextRequest, error: string) {
+  const url = new URL("/set-password", request.url);
+  url.searchParams.set("mode", "recovery");
+  url.searchParams.set("error", error);
+  return NextResponse.redirect(url, 303);
+}
+
+function failure(
+  request: NextRequest,
+  acceptsJson: boolean,
+  status: number,
+  code: string,
+  message: string,
+) {
+  return acceptsJson
+    ? NextResponse.json({ error: message, code }, { status })
+    : redirectToForm(request, code);
+}
+
+async function readPasswordPayload(request: NextRequest) {
+  const contentType = request.headers.get("content-type") ?? "";
+  const acceptsJson = contentType.includes("application/json");
+
+  if (acceptsJson) {
+    const body = (await request.json()) as Record<string, unknown>;
+    return {
+      acceptsJson,
+      password: typeof body.password === "string" ? body.password : "",
+      confirmation:
+        typeof body.confirmation === "string" ? body.confirmation : "",
+    } satisfies PasswordPayload & { acceptsJson: boolean };
+  }
+
+  const formData = await request.formData();
+  return {
+    acceptsJson,
+    password: String(formData.get("password") ?? ""),
+    confirmation: String(formData.get("confirmation") ?? ""),
+  } satisfies PasswordPayload & { acceptsJson: boolean };
+}
 
 export async function POST(request: NextRequest) {
   const requestId = request.headers.get("x-vercel-id") ?? crypto.randomUUID();
   const startedAt = Date.now();
+  let acceptsJson = request.headers
+    .get("content-type")
+    ?.includes("application/json") ?? false;
 
   try {
-    const payload: unknown = await request.json();
-    const password =
-      typeof payload === "object" && payload !== null && "password" in payload
-        ? (payload as { password?: unknown }).password
-        : null;
+    const origin = request.headers.get("origin");
+    if (origin && new URL(origin).origin !== request.nextUrl.origin) {
+      return failure(
+        request,
+        acceptsJson,
+        403,
+        "invalid_origin",
+        "This password request did not come from Costivra.",
+      );
+    }
 
-    if (typeof password !== "string" || !passwordMeetsMinimumLength(password)) {
-      return NextResponse.json(
-        { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.` },
-        { status: 400 },
+    const payload = await readPasswordPayload(request);
+    acceptsJson = payload.acceptsJson;
+    const validation = validatePasswordUpdate(
+      payload.password,
+      payload.confirmation,
+    );
+    if (!validation.ok) {
+      return failure(
+        request,
+        acceptsJson,
+        400,
+        validation.code,
+        validation.message,
       );
     }
 
@@ -51,19 +111,19 @@ export async function POST(request: NextRequest) {
       console.warn("auth.password_update.denied", {
         requestId,
         durationMs: Date.now() - startedAt,
-        reason: "missing_authenticated_recovery_session",
+        reason: userError?.code ?? "missing_authenticated_recovery_session",
       });
-      return NextResponse.json(
-        {
-          error:
-            "This secure link is no longer active. Open the newest Costivra password reset email and try again.",
-        },
-        { status: 401 },
+      return failure(
+        request,
+        acceptsJson,
+        401,
+        "invalid_session",
+        "Your recovery session has expired. Request a new reset link and try again.",
       );
     }
 
     const { error: updateError } = await supabase.auth.updateUser({
-      password,
+      password: payload.password,
       data: { internal_owner_invite: false },
     });
 
@@ -73,9 +133,12 @@ export async function POST(request: NextRequest) {
         durationMs: Date.now() - startedAt,
         reason: updateError.code ?? "supabase_update_failed",
       });
-      return NextResponse.json(
-        { error: updateError.message || "We could not save your password. Try again." },
-        { status: 400 },
+      return failure(
+        request,
+        acceptsJson,
+        400,
+        "save_failed",
+        updateError.message || "We could not save your password. Try again.",
       );
     }
 
@@ -83,16 +146,21 @@ export async function POST(request: NextRequest) {
       requestId,
       durationMs: Date.now() - startedAt,
     });
-    return NextResponse.json({ success: true });
+
+    if (acceptsJson) return NextResponse.json({ success: true });
+    return NextResponse.redirect(new URL("/access?password=changed", request.url), 303);
   } catch (error) {
     console.error("auth.password_update.exception", {
       requestId,
       durationMs: Date.now() - startedAt,
       reason: error instanceof Error ? error.name : "unknown_error",
     });
-    return NextResponse.json(
-      { error: "We could not save your password. Try again." },
-      { status: 500 },
+    return failure(
+      request,
+      acceptsJson,
+      500,
+      "save_failed",
+      "We could not save your password. Try again.",
     );
   }
 }

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   MIN_PASSWORD_LENGTH,
   passwordMeetsMinimumLength,
+  validatePasswordUpdate,
 } from "./password-policy";
 
 describe("password update policy", () => {
@@ -11,6 +12,18 @@ describe("password update policy", () => {
     expect(MIN_PASSWORD_LENGTH).toBe(12);
     expect(passwordMeetsMinimumLength("x".repeat(11))).toBe(false);
     expect(passwordMeetsMinimumLength("x".repeat(12))).toBe(true);
+  });
+
+  it("returns a specific reason when the entries cannot be saved", () => {
+    expect(validatePasswordUpdate("x".repeat(11), "x".repeat(11))).toMatchObject({
+      ok: false,
+      code: "password_short",
+    });
+    expect(validatePasswordUpdate("x".repeat(12), "y".repeat(12))).toMatchObject({
+      ok: false,
+      code: "password_mismatch",
+    });
+    expect(validatePasswordUpdate("x".repeat(12), "x".repeat(12))).toEqual({ ok: true });
   });
 
   it("does not allow the password route to target users through the admin API", () => {
