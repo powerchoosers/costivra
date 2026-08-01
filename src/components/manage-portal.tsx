@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Archive,
@@ -95,6 +95,120 @@ const initials = (value: string) =>
     .slice(0, 2)
     .join("")
     .toUpperCase() || "?";
+
+type GlobalSearchResult = {
+  id: string;
+  category: "accounts" | "contacts" | "tasks" | "mail" | "mailboxes" | "activity";
+  title: string;
+  detail: string;
+  href: string;
+};
+
+const searchCategoryLabels: Record<GlobalSearchResult["category"], string> = {
+  accounts: "Accounts",
+  contacts: "Contacts",
+  tasks: "Outreach",
+  mail: "Mail",
+  mailboxes: "Mailboxes",
+  activity: "Activity",
+};
+
+const searchCategoryIcons: Record<GlobalSearchResult["category"], typeof Building2> = {
+  accounts: Building2,
+  contacts: Users,
+  tasks: CheckCircle2,
+  mail: Mail,
+  mailboxes: AtSign,
+  activity: Activity,
+};
+
+function currentSearchOrder(section: string): GlobalSearchResult["category"][] {
+  const current =
+    section === "outreach"
+      ? "tasks"
+      : section === "overview"
+        ? "accounts"
+        : (section as GlobalSearchResult["category"]);
+  return [current, "accounts", "contacts", "tasks", "mail", "mailboxes", "activity"].filter(
+    (value, index, values): value is GlobalSearchResult["category"] =>
+      values.indexOf(value) === index && value in searchCategoryLabels,
+  );
+}
+
+function globalSearchResults(data: ManageData, query: string) {
+  const term = query.trim().toLowerCase();
+  if (!term) return [] as GlobalSearchResult[];
+  const matches = (value: string | null | undefined) =>
+    value?.toLowerCase().includes(term) ?? false;
+  const results: GlobalSearchResult[] = [];
+  data.contacts.forEach((contact) => {
+    if (matches(`${contact.fullName} ${contact.email} ${contact.organizationName} ${contact.title ?? ""}`)) {
+      results.push({
+        id: `contact-${contact.id}`,
+        category: "contacts",
+        title: contact.fullName,
+        detail: `${contact.organizationName} · ${contact.email}`,
+        href: "/manage/contacts",
+      });
+    }
+  });
+  data.accounts.forEach((account) => {
+    if (matches(`${account.name} ${account.legalName ?? ""} ${account.primaryContact ?? ""} ${account.primaryEmail ?? ""}`)) {
+      results.push({
+        id: `account-${account.id}`,
+        category: "accounts",
+        title: account.name,
+        detail: account.primaryContact || account.industry || "Client account",
+        href: "/manage/accounts",
+      });
+    }
+  });
+  data.tasks.forEach((task) => {
+    if (matches(`${task.title} ${task.organizationName} ${task.notes ?? ""} ${task.taskType}`)) {
+      results.push({
+        id: `task-${task.id}`,
+        category: "tasks",
+        title: task.title,
+        detail: `${task.organizationName} · ${pretty(task.status)}`,
+        href: "/manage/outreach",
+      });
+    }
+  });
+  data.mail.threads.forEach((thread) => {
+    if (matches(`${thread.subject} ${thread.contactName ?? ""} ${thread.contactEmail ?? ""} ${thread.organizationName ?? ""} ${thread.snippet ?? ""}`)) {
+      results.push({
+        id: `mail-${thread.id}`,
+        category: "mail",
+        title: thread.subject || "Untitled conversation",
+        detail: thread.contactName || thread.organizationName || thread.participants[0] || "Email conversation",
+        href: `/manage/mail/${thread.id}?folder=${thread.folder}${thread.mailboxId ? `&mailbox=${thread.mailboxId}` : ""}`,
+      });
+    }
+  });
+  data.mail.mailboxes.forEach((mailbox) => {
+    if (matches(`${mailbox.displayName} ${mailbox.address} ${mailbox.assignedToName ?? ""}`)) {
+      results.push({
+        id: `mailbox-${mailbox.id}`,
+        category: "mailboxes",
+        title: mailbox.displayName,
+        detail: mailbox.address,
+        href: "/manage/mailboxes",
+      });
+    }
+  });
+  data.activities.forEach((activity) => {
+    if (matches(`${activity.subject} ${activity.summary ?? ""} ${activity.organizationName} ${activity.kind}`)) {
+      results.push({
+        id: `activity-${activity.id}`,
+        category: "activity",
+        title: activity.subject,
+        detail: `${activity.organizationName} · ${pretty(activity.kind)}`,
+        href: "/manage/activity",
+      });
+    }
+  });
+  return results;
+}
 
 type ComposeContext = {
   mode: "new" | "reply" | "forward";
@@ -250,16 +364,46 @@ export function ManagePortal({
   data: ManageData;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routeSearch = searchParams.get("search") ?? "";
   const router = useRouter();
   const toast = useToast();
   const [mobileNav, setMobileNav] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(routeSearch);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [dialog, setDialog] = useState<
     "account" | "contact" | "task" | "note" | "mailbox" | null
   >(null);
   const [compose, setCompose] = useState<ComposeContext | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setSearch(routeSearch);
+  }, [routeSearch, section]);
+
+  const results = useMemo(
+    () => globalSearchResults(data, search),
+    [data, search],
+  );
+  const resultsByCategory = useMemo(() => {
+    const grouped = new Map<GlobalSearchResult["category"], GlobalSearchResult[]>();
+    for (const result of results) {
+      const categoryResults = grouped.get(result.category) ?? [];
+      if (categoryResults.length < 5) categoryResults.push(result);
+      grouped.set(result.category, categoryResults);
+    }
+    return currentSearchOrder(section)
+      .map((category) => ({ category, results: grouped.get(category) ?? [] }))
+      .filter(({ results }) => results.length > 0);
+  }, [results, section]);
+
+  function openSearchResult(result: GlobalSearchResult) {
+    setSearchFocused(false);
+    router.push(
+      `${result.href}${result.href.includes("?") ? "&" : "?"}search=${encodeURIComponent(search.trim())}`,
+    );
+  }
 
   async function run(work: () => Promise<unknown>, success: string) {
     setBusy(true);
@@ -370,7 +514,7 @@ export function ManagePortal({
       )}
       <main className={`manage-main${sidebarCollapsed ? " is-collapsed" : ""}`}>
         <header className="manage-topbar">
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="manage-topbar-leading">
             {sidebarCollapsed && (
               <button
                 className="manage-topbar-expand-toggle"
@@ -394,16 +538,70 @@ export function ManagePortal({
               <h1>{pageTitle}</h1>
             </div>
           </div>
-          <div className="manage-top-actions">
+          <div className="manage-global-search-wrap">
             <label className="manage-search">
               <Search size={16} />
               <input
-                aria-label="Search this page"
+                aria-label="Search all Costivra records"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search records"
+                onFocus={() => setSearchFocused(true)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setSearchFocused(false);
+                    event.currentTarget.blur();
+                  }
+                }}
+                placeholder={`Search ${searchCategoryLabels[currentSearchOrder(section)[0]].toLowerCase()} first, then everything`}
+                role="combobox"
+                aria-expanded={searchFocused && search.trim().length > 0}
+                aria-controls="manage-global-search-results"
               />
             </label>
+            {searchFocused && search.trim() && (
+              <div
+                className="manage-global-results"
+                id="manage-global-search-results"
+                role="listbox"
+                aria-label="Global search results"
+              >
+                {resultsByCategory.length ? (
+                  resultsByCategory.map(({ category, results: categoryResults }) => {
+                    const Icon = searchCategoryIcons[category];
+                    return (
+                      <section className="manage-global-result-group" key={category}>
+                        <h2>
+                          <Icon aria-hidden="true" size={14} />
+                          {searchCategoryLabels[category]}
+                          {category === currentSearchOrder(section)[0] && (
+                            <span>Current page</span>
+                          )}
+                        </h2>
+                        {categoryResults.map((result) => (
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={false}
+                            key={result.id}
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              openSearchResult(result);
+                            }}
+                          >
+                            <strong>{result.title}</strong>
+                            <small>{result.detail}</small>
+                          </button>
+                        ))}
+                      </section>
+                    );
+                  })
+                ) : (
+                  <p className="manage-global-no-results">No records match “{search.trim()}”.</p>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="manage-top-actions">
             {section === "mail" ? (
               <button
                 className="manage-button manage-button--primary"
