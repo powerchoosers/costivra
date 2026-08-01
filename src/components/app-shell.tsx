@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/brand";
+import { CompanyLogo } from "@/components/company-logo";
 import { useToast } from "@/components/toast-provider";
 import type { PortalData } from "@/lib/portal/types";
 import { createClient } from "@/lib/supabase/client";
@@ -191,7 +192,7 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
                   color: "#0f172a"
                 }}
               >
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+                <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-logo" />
                 {data.organization.name} <ChevronsUpDown aria-hidden="true" size={13} style={{ color: "#64748b" }} />
               </button>
 

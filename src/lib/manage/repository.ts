@@ -59,7 +59,7 @@ export async function getManageData(input?: {
   ] = await Promise.all([
     db
       .from("organizations")
-      .select("id,name,legal_name,industry,primary_contact_name,created_at")
+      .select("id,name,legal_name,industry,primary_contact_name,created_at,logo_url")
       .order("created_at", { ascending: false }),
     db
       .from("crm_account_profiles")
@@ -320,6 +320,7 @@ export async function getManageData(input?: {
       nextStep: nullable(overlay?.next_step),
       privateNotes: nullable(overlay?.private_notes),
       createdAt: text(organization.created_at),
+      logoUrl: nullable(organization.logo_url),
     };
   });
 

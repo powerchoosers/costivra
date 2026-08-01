@@ -2978,3 +2978,7 @@ html { scroll-padding-top: 92px; }
 @media (prefers-reduced-motion: reduce) {
   .record-field, .record-icon-button { transition: none; }
 }
+
+/* Authenticated Logo.dev images inherit the existing entity-avatar geometry. */
+.company-logo{display:grid;object-fit:contain;width:36px;height:36px;flex:0 0 auto;place-items:center;border:1px solid #dce2ea;border-radius:11px;color:#344f89;background:#fff;font-size:.78rem;font-weight:750;text-transform:uppercase}.company-logo--fallback{background:#f5f7fb}.manage-account-avatar.company-logo{width:32px;height:32px;border-radius:10px}.app-organization-logo{width:18px;height:18px;border:1px solid #dce2ea;border-radius:5px;background:#fff;object-fit:contain;flex:0 0 auto}
+.manage-detail-account-title{display:flex;align-items:center;gap:11px}

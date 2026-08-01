@@ -56,7 +56,7 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("organizations").select("*").eq("id", organizationId).single(),
     db.from("profiles").select("id,email,full_name").eq("id", userId).single(),
     db.from("locations").select("*").eq("organization_id", organizationId).order("name"),
-    db.from("vendors").select("id,canonical_name,category,website,search_aliases").order("canonical_name"),
+    db.from("vendors").select("id,canonical_name,category,website,search_aliases,logo_url").order("canonical_name"),
     db.from("organization_vendors").select("*").eq("organization_id", organizationId),
     db.from("expense_accounts").select("*").eq("organization_id", organizationId),
     db.from("expenses").select("*").eq("organization_id", organizationId).order("period_end", { ascending: false }),
@@ -136,7 +136,7 @@ export async function getPortalData(): Promise<PortalData> {
       id: stringValue(organization.id), name: stringValue(organization.name), legalName: nullableString(organization.legal_name),
       industry: nullableString(organization.industry), timezone: stringValue(organization.timezone, "America/Chicago"),
       currency: stringValue(organization.currency, "USD"), primaryContactName: nullableString(organization.primary_contact_name),
-      reviewThreshold: numberValue(organization.review_threshold), settings: (organization.settings as Record<string, boolean>) ?? {},
+      reviewThreshold: numberValue(organization.review_threshold), settings: (organization.settings as Record<string, boolean>) ?? {}, logoUrl: nullableString(organization.logo_url),
     },
     currentUser: {
       id: userId, email: stringValue(profile.email), fullName: stringValue(profile.full_name, stringValue(profile.email)), role: stringValue(membership.role),
@@ -146,7 +146,7 @@ export async function getPortalData(): Promise<PortalData> {
     })),
     vendors: rows(relationshipsResult.data).map((relationship) => {
       const vendor = vendorById.get(stringValue(relationship.vendor_id));
-      return { id: stringValue(vendor?.id), relationshipId: stringValue(relationship.id), name: stringValue(vendor?.canonical_name), category: stringValue(vendor?.category, "Other"), website: nullableString(vendor?.website), annualizedSpend: numberValue(relationship.annualized_spend), relationshipStatus: stringValue(relationship.relationship_status), spendCadence: stringValue(relationship.spend_cadence, "monthly"), updatedAt: stringValue(relationship.updated_at) };
+      return { id: stringValue(vendor?.id), relationshipId: stringValue(relationship.id), name: stringValue(vendor?.canonical_name), category: stringValue(vendor?.category, "Other"), website: nullableString(vendor?.website), annualizedSpend: numberValue(relationship.annualized_spend), relationshipStatus: stringValue(relationship.relationship_status), spendCadence: stringValue(relationship.spend_cadence, "monthly"), updatedAt: stringValue(relationship.updated_at), logoUrl: nullableString(vendor?.logo_url) };
     }),
     vendorCatalog: rows(vendorsResult.data).map((vendor) => ({
       id: stringValue(vendor.id),
@@ -154,6 +154,7 @@ export async function getPortalData(): Promise<PortalData> {
       category: stringValue(vendor.category, "Other"),
       website: nullableString(vendor.website),
       aliases: Array.isArray(vendor.search_aliases) ? vendor.search_aliases.filter((value): value is string => typeof value === "string") : [],
+      logoUrl: nullableString(vendor.logo_url),
     })),
     expenses: rows(expensesResult.data).map((expense) => {
       const { vendor } = resolveVendor(stringValue(expense.organization_vendor_id));

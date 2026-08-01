@@ -59,6 +59,7 @@ import { ManageLiveNotifications } from "@/components/manage-live-notifications"
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { ManageInvoiceReview } from "@/components/manage-invoice-review";
+import { CompanyLogo } from "@/components/company-logo";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 
 const nav = [
@@ -1209,9 +1210,7 @@ function AccountRows({
                 )}
                 <td className="manage-sticky-column">
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span className="manage-account-avatar">
-                      {initials(account.name)}
-                    </span>
+                    <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />
                     <span>
                       <Link href={`/manage/accounts/${account.id}`} className="manage-table-record-link" onClick={(event) => event.stopPropagation()}>
                         <strong>{account.name}</strong>
@@ -1300,7 +1299,7 @@ function AccountInspector({
     <aside className="manage-panel manage-inspector">
       <header className="manage-inspector-header">
         <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-account manage-inspector-record-link" title={`Open ${account.name}`}>
-          <span>{initials(account.name)}</span>
+          <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />
           <div>
               <h3>{account.name}</h3>
             <p>{account.industry || "Industry not set"}</p>
@@ -1878,7 +1877,7 @@ function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; a
   const tasks = data.tasks.filter((item) => item.organizationId === account.id);
   return <div className="manage-detail-page motion-page">
     <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
-    <header className="manage-detail-heading"><div><p>Client account</p><h2>{account.name}</h2><span>{account.industry || "Industry not set"}</span></div><div><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open in list</Link></div></header>
+    <header className="manage-detail-heading"><div><p>Client account</p><h2 className="manage-detail-account-title"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />{account.name}</h2><span>{account.industry || "Industry not set"}</span></div><div><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open in list</Link></div></header>
     <section className="manage-detail-stats" aria-label="Account workspace summary"><div><span>Lifecycle</span><Status value={account.stage} /></div><div><span>Open tasks</span><strong>{account.openTaskCount}</strong></div><div><span>Documents</span><strong>{account.documentCount}</strong></div><div><span>Opportunities</span><strong>{account.opportunityCount}</strong></div></section>
     <div className="manage-detail-grid">
       <section className="manage-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>

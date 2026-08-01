@@ -67,7 +67,7 @@ export function MarketingFooter() {
         </div>
         <div className="footer-bottom">
           <span>© 2026 Costivra. Every recurring cost, under command.</span>
-          <span>Built for evidence, approval, and verified outcomes.</span>
+          <span>Built for evidence, approval, and verified outcomes. <a href="https://logo.dev" target="_blank" rel="noreferrer">Logos by Logo.dev</a></span>
         </div>
       </div>
     </footer>

@@ -32,6 +32,7 @@ export type ManageAccount = {
   nextStep: string | null;
   privateNotes: string | null;
   createdAt: string;
+  logoUrl: string | null;
 };
 
 export type ManageContact = {

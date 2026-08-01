@@ -8,6 +8,7 @@ export type PortalOrganization = {
   primaryContactName: string | null;
   reviewThreshold: number;
   settings: Record<string, boolean>;
+  logoUrl: string | null;
 };
 
 export type PortalUser = {
@@ -27,6 +28,7 @@ export type PortalVendor = {
   relationshipStatus: string;
   spendCadence: string;
   updatedAt: string;
+  logoUrl: string | null;
 };
 
 export type PortalVendorCatalogEntry = {
@@ -35,6 +37,7 @@ export type PortalVendorCatalogEntry = {
   category: string;
   website: string | null;
   aliases: string[];
+  logoUrl: string | null;
 };
 
 export type PortalExpense = {

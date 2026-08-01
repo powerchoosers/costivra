@@ -49,6 +49,7 @@ import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
+import { CompanyLogo } from "@/components/company-logo";
 
 type ApiOptions = {
   method?: string;
@@ -1047,9 +1048,7 @@ function Vendors({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
                           className="vendor-name-cell"
                           href={`/app/vendors/${item.id}`}
                         >
-                          <span className="vendor-monogram">
-                            {item.name.slice(0, 1).toUpperCase()}
-                          </span>
+                          <CompanyLogo entity="vendor" id={item.id} name={item.name} className="vendor-monogram" />
                           <span>
                             <strong>{item.name}</strong>
                             <small>
@@ -1143,9 +1142,7 @@ export function VendorDetail({
       <header className="vendor-detail-header">
         <div>
           <div className="vendor-detail-title">
-            <span className="vendor-monogram large">
-              {vendor.name.slice(0, 1).toUpperCase()}
-            </span>
+            <CompanyLogo entity="vendor" id={vendor.id} name={vendor.name} className="vendor-monogram large" />
             <div>
               <h1>{vendor.name}</h1>
               <p>
@@ -2473,9 +2470,7 @@ function VendorSidePanel({
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => selectVendor(item.id)}
                     >
-                      <span className="vendor-monogram">
-                        {item.name.slice(0, 1)}
-                      </span>
+                      <CompanyLogo entity="vendor" id={item.id} name={item.name} className="vendor-monogram" />
                       <span>
                         <strong>{item.name}</strong>
                         <small>
