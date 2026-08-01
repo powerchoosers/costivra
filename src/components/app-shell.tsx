@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
-  Blocks,
   Bot,
   Building2,
   ChartNoAxesCombined,
@@ -23,7 +22,6 @@ import {
   ShieldCheck,
   Target,
   Upload,
-  Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/brand";
@@ -40,9 +38,7 @@ const navigation = [
   ["Actions", "/app/actions", CheckSquare2],
   ["Savings", "/app/savings", ChartNoAxesCombined],
   ["Vendors", "/app/vendors", Building2],
-  ["Integrations", "/app/integrations", Blocks],
   ["Reports", "/app/reports", Gauge],
-  ["Team & approvals", "/app/team", Users],
   ["Ask Costivra", "/app/ask", Bot],
   ["Settings", "/app/settings", Settings],
 ] as const;

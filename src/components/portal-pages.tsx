@@ -340,11 +340,11 @@ export function PortalPage({
     ) : (
       <Vendors data={data} onAdd={openVendorPanel} />
     ),
-    integrations: <Integrations data={data} run={run} />,
+    integrations: <Settings data={data} run={run} onInvite={() => setModal("invite")} initialTab="integrations" />,
     reports: <Reports data={data} />,
-    team: <Team data={data} onInvite={() => setModal("invite")} />,
+    team: <Settings data={data} run={run} onInvite={() => setModal("invite")} initialTab="team" />,
     ask: <Ask data={data} />,
-    settings: <Settings data={data} run={run} />,
+    settings: <Settings data={data} run={run} onInvite={() => setModal("invite")} />,
   };
   return (
     <>
@@ -1475,9 +1475,11 @@ function SpendSparkline({ expenses }: { expenses: PortalData["expenses"] }) {
 function Integrations({
   data,
   run,
+  embedded = false,
 }: {
   data: PortalData;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  embedded?: boolean;
 }) {
   const [sender, setSender] = useState("");
   const toast = useToast();
@@ -1538,10 +1540,10 @@ function Integrations({
   );
   return (
     <>
-      <PageHeader
+      {!embedded && <PageHeader
         title="Integrations"
         description="Connect the systems that supply Costivra with trusted, organization-owned records."
-      />
+      />}
       <section className="email-intake portal-panel">
         <div className="email-intake-header">
           <div className="email-intake-title">
@@ -1872,10 +1874,10 @@ function Reports({ data }: { data: PortalData }) {
   );
 }
 
-function Team({ data, onInvite }: { data: PortalData; onInvite: () => void }) {
+function Team({ data, onInvite, embedded = false }: { data: PortalData; onInvite: () => void; embedded?: boolean }) {
   return (
     <>
-      <PageHeader
+      {!embedded && <PageHeader
         title="Team & approvals"
         description="Access and decision authority are visible at the organization level."
         action={
@@ -1885,7 +1887,7 @@ function Team({ data, onInvite }: { data: PortalData; onInvite: () => void }) {
             </button>
           ) : undefined
         }
-      />
+      />}
       <section className="portal-panel">
         {data.team.length ? (
           <div className="portal-list">
@@ -2080,11 +2082,16 @@ function Ask({ data }: { data: PortalData }) {
 function Settings({
   data,
   run,
+  onInvite,
+  initialTab = "organization",
 }: {
   data: PortalData;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  onInvite: () => void;
+  initialTab?: "organization" | "integrations" | "team";
 }) {
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState(initialTab);
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setBusy(true);
@@ -2119,6 +2126,12 @@ function Settings({
         title="Settings"
         description="Organization profile, alert preferences, and review thresholds."
       />
+      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+        <button type="button" role="tab" aria-selected={tab === "organization"} className={tab === "organization" ? "active" : ""} onClick={() => setTab("organization")}>Organization</button>
+        <button type="button" role="tab" aria-selected={tab === "integrations"} className={tab === "integrations" ? "active" : ""} onClick={() => setTab("integrations")}>Integrations</button>
+        <button type="button" role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>Team & approvals</button>
+      </div>
+      {tab === "organization" && <>
       <form className="portal-panel settings-form" onSubmit={submit}>
         <div className="form-grid">
           <Field
@@ -2187,6 +2200,9 @@ function Settings({
           </button>
         </div>
       </form>
+      </>}
+      {tab === "integrations" && <div className="settings-tab-panel"><Integrations data={data} run={run} embedded /></div>}
+      {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} embedded /></div>}
     </>
   );
 }
@@ -2349,7 +2365,7 @@ function VendorSidePanel({
   }, [open, onClose]);
   if (!open || typeof document === "undefined") return null;
   const q = draft.name.trim().toLowerCase();
-  const suggestions = data.vendorCatalog
+  const suggestions = q ? data.vendorCatalog
     .filter(
       (item) =>
         !data.vendors.some((existing) => existing.id === item.id) &&
@@ -2358,7 +2374,7 @@ function VendorSidePanel({
             .toLowerCase()
             .includes(q)),
     )
-    .slice(0, 6);
+    .slice(0, 6) : [];
   const selectVendor = (id: string) => {
     const item = data.vendorCatalog.find((entry) => entry.id === id);
     if (!item) return;
@@ -2441,7 +2457,7 @@ function VendorSidePanel({
                 required
               />
             </div>
-            {showSuggestions && (
+            {showSuggestions && q && (
               <div
                 className="vendor-suggestions"
                 id="vendor-suggestions"
