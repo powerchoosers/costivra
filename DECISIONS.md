@@ -220,3 +220,13 @@ The frontend cannot auto-route an energy case or present UCEP as the only option
 **Decision:** The confirmation route writes a secure, HTTP-only, same-site `costivra-recovery-setup` cookie with a 15-minute expiry. The proxy redirects workspace requests to `/set-password?mode=recovery` while it is present. The server-side password-update route alone clears it after Supabase confirms the new password was saved.
 
 **Consequences:** A recovery email still has the expected single-use Supabase security properties, but the product experience cannot treat that recovery session as completed access. Users cannot enter `/app` or `/manage` from the reset flow until password creation actually succeeds.
+
+## 2026-08-01 — Keep internal profile photos private and server-scoped
+
+**Context:** The Manage workspace needs real operator profile photos instead of permanent letter avatars. These images identify internal staff and do not need a public, permanent URL.
+
+**Decision:** Store operator photos in a dedicated private `costivra-avatars` Supabase Storage bucket. Save only the object path on `profiles`, upload through an authenticated internal API, and render a short-lived signed URL generated on the server. Limit files to JPG, PNG, or WebP and 5 MB. Keep email identity administration under Manage Settings while preserving the old mailbox URL as a redirect.
+
+**Alternatives considered:** A public avatar bucket would make rendering simpler but would expose durable staff image URLs. Storing avatars in the document bucket would mix user identity assets with immutable customer evidence and its stricter lifecycle.
+
+**Consequences:** Staff images remain private by default and can be replaced without exposing a privileged Supabase key to the browser. Signed URLs expire, so the Manage page must refresh them during server rendering.

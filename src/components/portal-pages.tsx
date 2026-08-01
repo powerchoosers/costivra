@@ -109,7 +109,7 @@ export function PortalPage({ slug, data }: { slug?: string; data: PortalData }) 
   const pages: Record<string, ReactNode> = {
     home: <CommandCenter data={data}/>, expenses: <Expenses data={data} onAdd={() => setModal("expense")}/>, opportunities: <Opportunities data={data} run={run}/>, contracts: <Contracts data={data} onAdd={() => setModal("contract")}/>, documents: <Documents data={data} onUpload={() => setModal("upload")} run={run}/>, actions: <Actions data={data} run={run}/>, savings: <Savings data={data}/>, vendors: <Vendors data={data} onAdd={() => setModal("vendor")}/>, integrations: <Integrations data={data} run={run}/>, reports: <Reports data={data}/>, team: <Team data={data} onInvite={() => setModal("invite")}/>, ask: <Ask data={data}/>, settings: <Settings data={data} run={run}/>,
   };
-  return <><div className={page === "ask" ? "app-content app-content-chat" : "app-content"}>{pages[page] ?? <Empty title="Page not found" copy="Use the workspace navigation to continue."/>}</div><CreateModals kind={modal} setKind={setModal} data={data} run={run}/></>;
+  return <><div key={page} className={page === "ask" ? "app-content app-content-chat motion-page" : "app-content motion-page"}>{pages[page] ?? <Empty title="Page not found" copy="Use the workspace navigation to continue."/>}</div><CreateModals kind={modal} setKind={setModal} data={data} run={run}/></>;
 }
 
 function CommandCenter({ data }: { data: PortalData }) {

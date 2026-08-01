@@ -64,7 +64,7 @@ export async function getManageData(input?: {
       .select("*")
       .order("updated_at", { ascending: false }),
     db.from("organization_memberships").select("organization_id,user_id,role"),
-    db.from("profiles").select("id,email,full_name"),
+    db.from("profiles").select("id,email,full_name,avatar_path"),
     db
       .from("crm_contacts")
       .select("*")
@@ -417,12 +417,23 @@ export async function getManageData(input?: {
         }))
     : [];
 
+  const operatorProfile = profilesById.get(operator.userId);
+  const avatarPath = nullable(operatorProfile?.avatar_path);
+  let avatarUrl: string | null = null;
+  if (avatarPath) {
+    const { data: signedAvatar } = await db.storage
+      .from("costivra-avatars")
+      .createSignedUrl(avatarPath, 60 * 60);
+    avatarUrl = signedAvatar?.signedUrl ?? null;
+  }
+
   return {
     operator: {
       id: operator.userId,
       email: operator.email,
       fullName: operator.fullName,
       role: operator.role,
+      avatarUrl,
     },
     accounts,
     contacts: contacts.sort(

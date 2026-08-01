@@ -9,10 +9,13 @@ import {
   ArrowLeft,
   AtSign,
   Building2,
+  Camera,
   CalendarClock,
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   Clock3,
   Download,
@@ -31,6 +34,7 @@ import {
   Reply,
   Search,
   Send,
+  Settings,
   Star,
   Trash2,
   Users,
@@ -45,6 +49,7 @@ import type {
   ManageData,
   ManageMailbox,
   ManageMailThread,
+  ManageOperator,
 } from "@/lib/manage/types";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/toast-provider";
@@ -59,8 +64,8 @@ const nav = [
   ["Contacts", "/manage/contacts", Users],
   ["Outreach", "/manage/outreach", MessageSquareText],
   ["Mail", "/manage/mail", Mail],
-  ["Mailboxes", "/manage/mailboxes", AtSign],
   ["Activity", "/manage/activity", Activity],
+  ["Settings", "/manage/settings", Settings],
 ] as const;
 
 const stages = [
@@ -193,7 +198,7 @@ function globalSearchResults(data: ManageData, query: string) {
         category: "mailboxes",
         title: mailbox.displayName,
         detail: mailbox.address,
-        href: "/manage/mailboxes",
+        href: "/manage/settings#email-identities",
       });
     }
   });
@@ -243,6 +248,28 @@ function Status({ value }: { value: string | null }) {
     <span className={`manage-status manage-status--${key}`}>
       <i />
       {stageLabel(value)}
+    </span>
+  );
+}
+
+function OperatorAvatar({
+  operator,
+  large = false,
+}: {
+  operator: ManageOperator;
+  large?: boolean;
+}) {
+  return operator.avatarUrl ? (
+    // The URL is a short-lived, server-generated Supabase Storage URL.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className={`manage-operator-avatar${large ? " is-large" : ""}`}
+      src={operator.avatarUrl}
+      alt={`${operator.fullName} profile`}
+    />
+  ) : (
+    <span className={`manage-operator-avatar${large ? " is-large" : ""}`}>
+      {initials(operator.fullName)}
     </span>
   );
 }
@@ -381,10 +408,6 @@ export function ManagePortal({
   const [compose, setCompose] = useState<ComposeContext | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    setSearch(routeSearch);
-  }, [routeSearch, section]);
-
   const closeSearch = useCallback(() => {
     if (!searchFocused || searchClosing) return;
     setSearchClosing(true);
@@ -463,12 +486,10 @@ export function ManagePortal({
             <span className="manage-brand-mark">
               <CostivraMark size={34} />
             </span>
-            {!sidebarCollapsed && (
-              <div>
-                <strong>Costivra</strong>
-                <small>OWNER OPERATIONS</small>
-              </div>
-            )}
+            <div className="manage-brand-copy" aria-hidden={sidebarCollapsed}>
+              <strong>Costivra</strong>
+              <small>OWNER OPERATIONS</small>
+            </div>
           </Link>
           {!sidebarCollapsed && (
             <button
@@ -514,7 +535,7 @@ export function ManagePortal({
         </nav>
         <div className="manage-sidebar-foot">
           <div className="manage-operator">
-            <span>{initials(data.operator.fullName)}</span>
+            <OperatorAvatar operator={data.operator} />
             <div>
               <strong>{data.operator.fullName}</strong>
               <small>{data.operator.role}</small>
@@ -637,7 +658,7 @@ export function ManagePortal({
               >
                 <PenLine size={16} /> Compose
               </button>
-            ) : section === "mailboxes" ? null : section === "activity" ? (
+            ) : section === "settings" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => setDialog("note")}
@@ -667,7 +688,7 @@ export function ManagePortal({
             )}
           </div>
         </header>
-        <div className={`manage-page manage-page--${section}`}>
+        <div key={section} className={`manage-page manage-page--${section} motion-page`}>
           {section === "overview" && (
             <Overview
               data={data}
@@ -712,12 +733,13 @@ export function ManagePortal({
               onCompose={(context) => setCompose(context)}
             />
           )}
-          {section === "mailboxes" && (
-            <Mailboxes
+          {section === "settings" && (
+            <SettingsPage
               data={data}
               query={search}
               run={run}
               onAdd={() => setDialog("mailbox")}
+              onUpdated={() => router.refresh()}
             />
           )}
           {section === "activity" && (
@@ -1001,38 +1023,176 @@ function Overview({
   );
 }
 
+function BulkRowSelector({
+  checked,
+  index,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  index: number;
+  label: string;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={`${checked ? "Deselect" : "Select"} ${label}`}
+      className={`manage-bulk-row-selector${checked ? " is-checked" : ""}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onChange();
+      }}
+    >
+      <span>{index}</span>
+      <Check size={11} strokeWidth={3} />
+    </button>
+  );
+}
+
+function BulkHeaderSelector({
+  state,
+  onChange,
+}: {
+  state: "none" | "some" | "all";
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={state === "some" ? "mixed" : state === "all"}
+      aria-label="Select all visible rows"
+      className={`manage-bulk-header-selector is-${state}`}
+      onClick={onChange}
+    >
+      {state === "some" ? <span>−</span> : state === "all" ? <Check size={11} strokeWidth={3} /> : null}
+    </button>
+  );
+}
+
+function TableFooter({
+  count,
+  noun,
+  page,
+  pageCount,
+  onPage,
+}: {
+  count: number;
+  noun: string;
+  page: number;
+  pageCount: number;
+  onPage: (page: number) => void;
+}) {
+  return (
+    <footer className="manage-table-footer">
+      <span>{count} {count === 1 ? noun : `${noun}s`}</span>
+      <div>
+        <button disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
+          <ChevronLeft size={15} />
+        </button>
+        <span>{page} / {pageCount}</span>
+        <button disabled={page >= pageCount} onClick={() => onPage(page + 1)} aria-label="Next page">
+          <ChevronRight size={15} />
+        </button>
+      </div>
+    </footer>
+  );
+}
+
+function BulkActionBar({
+  count,
+  noun,
+  onExport,
+  onPrimary,
+  primaryLabel,
+  onClear,
+}: {
+  count: number;
+  noun: string;
+  onExport: () => void;
+  onPrimary?: () => void;
+  primaryLabel?: string;
+  onClear: () => void;
+}) {
+  if (!count) return null;
+  return (
+    <div className="manage-bulk-action-bar" role="region" aria-label="Bulk actions">
+      <strong>{count}</strong>
+      <span>{count === 1 ? noun : `${noun}s`} selected</span>
+      <div>
+        {onPrimary && primaryLabel && (
+          <button onClick={onPrimary} disabled={count !== 1}>{primaryLabel}</button>
+        )}
+        <button onClick={onExport}><Download size={14} /> Export selected</button>
+        <button className="manage-bulk-clear" onClick={onClear} aria-label="Clear selection"><X size={15} /></button>
+      </div>
+    </div>
+  );
+}
+
 function AccountRows({
   accounts,
   selectedId,
   onSelectAccount,
+  selectedIds,
+  onToggle,
+  onTogglePage,
 }: {
   accounts: ManageAccount[];
   selectedId?: string;
   onSelectAccount?: (account: ManageAccount) => void;
+  selectedIds?: Set<string>;
+  onToggle?: (id: string) => void;
+  onTogglePage?: () => void;
 }) {
+  const pageSelection = accounts.length > 0 && accounts.every((account) => selectedIds?.has(account.id));
+  const someSelected = accounts.some((account) => selectedIds?.has(account.id));
   return (
     <div className="manage-table-wrap">
-      <table>
+      <table className="manage-data-table manage-account-data-table">
         <thead>
           <tr>
-            <th>Account</th>
+            {onToggle && (
+              <th className="manage-row-number-cell">
+                <BulkHeaderSelector
+                  state={pageSelection ? "all" : someSelected ? "some" : "none"}
+                  onChange={() => onTogglePage?.()}
+                />
+              </th>
+            )}
+            <th className="manage-sticky-column">Account</th>
             <th>Primary contact</th>
+            <th>Marketing</th>
             <th>Stage</th>
             <th>Last touch</th>
             <th>Next step</th>
           </tr>
         </thead>
         <tbody>
-          {accounts.map((account) => {
+          {accounts.map((account, index) => {
             const isSelected = account.id === selectedId;
+            const isBulkSelected = selectedIds?.has(account.id) ?? false;
             return (
               <tr
                 key={account.id}
-                className={isSelected ? "is-selected" : ""}
+                className={`${isSelected ? "is-selected" : ""}${isBulkSelected ? " is-bulk-selected" : ""}`}
                 onClick={() => onSelectAccount?.(account)}
                 style={{ cursor: onSelectAccount ? "pointer" : "default" }}
               >
-                <td>
+                {onToggle && (
+                  <td className="manage-row-number-cell">
+                    <BulkRowSelector
+                      checked={isBulkSelected}
+                      index={index + 1}
+                      label={account.name}
+                      onChange={() => onToggle(account.id)}
+                    />
+                  </td>
+                )}
+                <td className="manage-sticky-column">
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span className="manage-account-avatar">
                       {initials(account.name)}
@@ -1046,12 +1206,9 @@ function AccountRows({
                 <td>
                   <strong>{account.primaryContact || "No contact"}</strong>
                   <small>{account.primaryEmail || "—"}</small>
-                  {account.marketingOptInCount > 0 && (
-                    <MarketingConsent
-                      count={account.marketingOptInCount}
-                      compact
-                    />
-                  )}
+                </td>
+                <td>
+                  <MarketingConsent count={account.marketingOptInCount} compact />
                 </td>
                 <td>
                   <Status value={account.stage} />
@@ -1290,7 +1447,10 @@ function Accounts({
   query: string;
   onEdit: () => void;
 }) {
+  const pageSize = 25;
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     data.accounts[0]?.id ?? null,
   );
@@ -1306,6 +1466,10 @@ function Accounts({
 
   const selectedAccount =
     data.accounts.find((a) => a.id === selectedAccountId) ?? filtered[0];
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const selectedAccounts = filtered.filter((account) => selectedIds.has(account.id));
 
   const accountActivities = useMemo(
     () =>
@@ -1325,8 +1489,8 @@ function Accounts({
     [data.contacts, selectedAccount],
   );
 
-  const exportAccountsCsv = () => {
-    const exportRows = filtered.map((a) => ({
+  const exportAccountsCsv = (accounts = filtered) => {
+    const exportRows = accounts.map((a) => ({
       ID: a.id,
       Name: a.name,
       LegalName: a.legalName ?? "",
@@ -1347,39 +1511,19 @@ function Accounts({
 
   return (
     <>
-      <section className="manage-page-heading">
-        <div>
-          <h2>Accounts</h2>
-          <p>
-            Every row below comes from the live Supabase organizations table. Select a row to inspect details.
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            className="manage-button manage-button--quiet"
-            onClick={exportAccountsCsv}
-            title="Export filtered accounts to CSV"
-          >
-            <Download size={15} /> Export CSV
-          </button>
-          <span className="manage-live">
-            <i /> LIVE DATABASE
-          </span>
-        </div>
-      </section>
-      <div className="manage-overview-grid">
+      <div className="manage-overview-grid manage-record-workspace">
         <section className="manage-panel manage-account-table manage-account-table--full">
           <div className="manage-tabs">
             <button
               className={filter === "all" ? "active" : ""}
-              onClick={() => setFilter("all")}
+              onClick={() => { setFilter("all"); setPage(1); setSelectedIds(new Set()); }}
             >
               All <span>{data.accounts.length}</span>
             </button>
             {stages.slice(0, 4).map((stage) => (
               <button
                 className={filter === stage ? "active" : ""}
-                onClick={() => setFilter(stage)}
+                onClick={() => { setFilter(stage); setPage(1); setSelectedIds(new Set()); }}
                 key={stage}
               >
                 {pretty(stage)}{" "}
@@ -1393,9 +1537,21 @@ function Accounts({
             ))}
           </div>
           <AccountRows
-            accounts={filtered}
+            accounts={pageRows}
             selectedId={selectedAccount?.id}
             onSelectAccount={(account) => setSelectedAccountId(account.id)}
+            selectedIds={selectedIds}
+            onToggle={(id) => setSelectedIds((current) => {
+              const next = new Set(current);
+              if (next.has(id)) next.delete(id); else next.add(id);
+              return next;
+            })}
+            onTogglePage={() => setSelectedIds((current) => {
+              const next = new Set(current);
+              const allSelected = pageRows.every((account) => next.has(account.id));
+              pageRows.forEach((account) => allSelected ? next.delete(account.id) : next.add(account.id));
+              return next;
+            })}
           />
           {!filtered.length && (
             <Empty
@@ -1408,6 +1564,7 @@ function Accounts({
               }
             />
           )}
+          <TableFooter count={filtered.length} noun="account" page={currentPage} pageCount={pageCount} onPage={setPage} />
         </section>
         <AccountInspector
           account={selectedAccount}
@@ -1416,10 +1573,51 @@ function Accounts({
           onEdit={(account) => setEditing(account)}
         />
       </div>
+      <BulkActionBar
+        count={selectedAccounts.length}
+        noun="account"
+        primaryLabel="Edit follow-up"
+        onPrimary={() => selectedAccounts[0] && setEditing(selectedAccounts[0])}
+        onExport={() => exportAccountsCsv(selectedAccounts)}
+        onClear={() => setSelectedIds(new Set())}
+      />
       {editing && (
         <EditAccount account={editing} onClose={() => setEditing(null)} />
       )}
     </>
+  );
+}
+
+function ContactInspector({
+  contact,
+  onCompose,
+}: {
+  contact?: ManageContact;
+  onCompose: (contact: ManageContact) => void;
+}) {
+  if (!contact) {
+    return <aside className="manage-panel manage-inspector"><Empty icon={Users} title="No contact selected" copy="Select a contact to see their account and communication details." /></aside>;
+  }
+  return (
+    <aside className="manage-panel manage-inspector manage-contact-inspector">
+      <header>
+        <div className="manage-inspector-account">
+          <span>{initials(contact.fullName)}</span>
+          <div><h3>{contact.fullName}</h3><p>{contact.title || "Role not set"}</p></div>
+        </div>
+        <button onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={16} /></button>
+      </header>
+      <div className="manage-inspector-tabs"><button className="active">Overview</button></div>
+      <dl>
+        <div><dt>Account</dt><dd><strong>{contact.organizationName}</strong><span>{contact.isPrimary ? "Primary contact" : "Client contact"}</span></dd></div>
+        <div><dt>Email</dt><dd><strong>{contact.email}</strong></dd></div>
+        <div><dt>Phone</dt><dd><strong>{contact.phone || "Not recorded"}</strong></dd></div>
+        <div><dt>Access</dt><dd><Status value={contact.status} /><span>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</span></dd></div>
+        <div><dt>Email marketing</dt><dd><Status value={contact.marketingStatus || "not recorded"} /><span>{contact.marketingConsentAt ? `Recorded ${date(contact.marketingConsentAt, true)}` : "No explicit consent timestamp"}</span></dd></div>
+      </dl>
+      <div className="manage-inspector-actions"><button className="manage-button manage-button--quiet manage-full" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></div>
+      <p className="manage-inspector-note">Marketing consent is shown separately from workspace access. Costivra will not treat account membership as email consent.</p>
+    </aside>
   );
 }
 
@@ -1432,7 +1630,11 @@ function Contacts({
   query: string;
   onCompose: (contact: ManageData["contacts"][number]) => void;
 }) {
+  const pageSize = 25;
   const [filter, setFilter] = useState<"all" | "primary" | "workspace" | "crm">("all");
+  const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(data.contacts[0]?.id ?? null);
 
   const rows = data.contacts.filter((contact) => {
     const matchesFilter =
@@ -1449,8 +1651,14 @@ function Contacts({
     return matchesFilter && matchesQuery;
   });
 
-  const exportContactsCsv = () => {
-    const exportRows = rows.map((c) => ({
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const selectedContacts = rows.filter((contact) => selectedIds.has(contact.id));
+  const selectedContact = data.contacts.find((contact) => contact.id === selectedContactId) ?? rows[0];
+
+  const exportContactsCsv = (contacts = rows) => {
+    const exportRows = contacts.map((c) => ({
       ID: c.id,
       Organization: c.organizationName,
       FullName: c.fullName,
@@ -1467,94 +1675,57 @@ function Contacts({
 
   return (
     <>
-      <section className="manage-page-heading">
-        <div>
-          <h2>Contacts</h2>
-          <p>
-            Workspace users and owner-added client contacts in one directory.
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            className="manage-button manage-button--quiet"
-            onClick={exportContactsCsv}
-            title="Export contacts to CSV"
-          >
-            <Download size={15} /> Export CSV
-          </button>
-          <span>
-            {rows.length} contact{rows.length === 1 ? "" : "s"}
-          </span>
-        </div>
-      </section>
-      <section className="manage-panel manage-contact-list">
-        <div className="manage-tabs">
+      <div className="manage-overview-grid manage-record-workspace">
+      <section className="manage-panel manage-account-table manage-contact-table">
+        <div className="manage-tabs manage-record-tabs">
           <button
             className={filter === "all" ? "active" : ""}
-            onClick={() => setFilter("all")}
+            onClick={() => { setFilter("all"); setPage(1); setSelectedIds(new Set()); }}
           >
             All Contacts <span>{data.contacts.length}</span>
           </button>
           <button
             className={filter === "primary" ? "active" : ""}
-            onClick={() => setFilter("primary")}
+            onClick={() => { setFilter("primary"); setPage(1); setSelectedIds(new Set()); }}
           >
             Primary Contacts{" "}
             <span>{data.contacts.filter((c) => c.isPrimary).length}</span>
           </button>
           <button
             className={filter === "workspace" ? "active" : ""}
-            onClick={() => setFilter("workspace")}
+            onClick={() => { setFilter("workspace"); setPage(1); setSelectedIds(new Set()); }}
           >
             Workspace Members{" "}
             <span>{data.contacts.filter((c) => c.source === "workspace").length}</span>
           </button>
           <button
             className={filter === "crm" ? "active" : ""}
-            onClick={() => setFilter("crm")}
+            onClick={() => { setFilter("crm"); setPage(1); setSelectedIds(new Set()); }}
           >
             CRM Contacts{" "}
             <span>{data.contacts.filter((c) => c.source === "crm").length}</span>
           </button>
         </div>
-        <div className="manage-contact-head">
-          <span>Person</span>
-          <span>Account</span>
-          <span>Role</span>
-          <span>Source</span>
-          <span />
+        <div className="manage-table-wrap">
+          <table className="manage-data-table manage-contact-data-table">
+            <thead><tr>
+              <th className="manage-row-number-cell"><BulkHeaderSelector state={pageRows.length && pageRows.every((c) => selectedIds.has(c.id)) ? "all" : pageRows.some((c) => selectedIds.has(c.id)) ? "some" : "none"} onChange={() => setSelectedIds((current) => { const next = new Set(current); const all = pageRows.every((c) => next.has(c.id)); pageRows.forEach((c) => all ? next.delete(c.id) : next.add(c.id)); return next; })} /></th>
+              <th className="manage-sticky-column">Contact</th><th>Account</th><th>Role</th><th>Marketing</th><th>Source</th><th aria-label="Actions" />
+            </tr></thead>
+            <tbody>{pageRows.map((contact, index) => {
+              const bulkSelected = selectedIds.has(contact.id);
+              return <tr key={contact.id} className={`${selectedContact?.id === contact.id ? "is-selected" : ""}${bulkSelected ? " is-bulk-selected" : ""}`} onClick={() => setSelectedContactId(contact.id)}>
+                <td className="manage-row-number-cell"><BulkRowSelector checked={bulkSelected} index={(currentPage - 1) * pageSize + index + 1} label={contact.fullName} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
+                <td className="manage-sticky-column"><div className="manage-table-person"><span className="manage-person-avatar">{initials(contact.fullName)}</span><span><strong>{contact.fullName}</strong><small>{contact.email}</small></span></div></td>
+                <td><strong>{contact.organizationName}</strong><small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small></td>
+                <td>{contact.title || "Not set"}</td>
+                <td><Status value={contact.marketingStatus || "not recorded"} /></td>
+                <td><span className="manage-source">{contact.source === "workspace" ? "Workspace" : "CRM"}</span></td>
+                <td><button className="manage-icon-button" onClick={(event) => { event.stopPropagation(); onCompose(contact); }} aria-label={`Email ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={16} /></button></td>
+              </tr>;
+            })}</tbody>
+          </table>
         </div>
-        {rows.map((contact) => (
-          <article key={contact.id}>
-            <div>
-              <span className="manage-person-avatar">
-                {initials(contact.fullName)}
-              </span>
-              <div>
-                <strong>{contact.fullName}</strong>
-                <a href={`mailto:${contact.email}`}>{contact.email}</a>
-              </div>
-            </div>
-            <div>
-              <strong>{contact.organizationName}</strong>
-              <small>
-                {contact.isPrimary ? "Primary contact" : "Client contact"}
-              </small>
-            </div>
-            <span>{contact.title || "Not set"}</span>
-            <span className="manage-source">
-              {contact.source === "workspace" ? "Workspace" : "CRM"}
-            </span>
-            <button
-              className="manage-icon-button"
-              onClick={() => onCompose(contact)}
-              aria-label={`Email ${contact.fullName}`}
-              title={`Compose email to ${contact.fullName}`}
-            >
-              <Mail size={16} />
-            </button>
-          </article>
-        ))}
         {!rows.length && (
           <Empty
             icon={Users}
@@ -1566,7 +1737,11 @@ function Contacts({
             }
           />
         )}
+        <TableFooter count={rows.length} noun="contact" page={currentPage} pageCount={pageCount} onPage={setPage} />
       </section>
+      <ContactInspector contact={selectedContact} onCompose={onCompose} />
+      </div>
+      <BulkActionBar count={selectedContacts.length} noun="contact" primaryLabel="Compose email" onPrimary={() => selectedContacts[0] && onCompose(selectedContacts[0])} onExport={() => exportContactsCsv(selectedContacts)} onClear={() => setSelectedIds(new Set())} />
     </>
   );
 }
@@ -1738,16 +1913,103 @@ function Outreach({
   );
 }
 
-function Mailboxes({
+function SettingsPage({
   data,
   query,
   run,
   onAdd,
+  onUpdated,
 }: {
   data: ManageData;
   query: string;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
   onAdd: () => void;
+  onUpdated: () => void;
+}) {
+  const toast = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function uploadAvatar(file: File) {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.set("avatar", file);
+      const response = await fetch("/api/manage/profile/avatar", {
+        method: "POST",
+        body: form,
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "The photo could not be uploaded.");
+      toast.success("Profile photo updated.");
+      onUpdated();
+    } catch (error) {
+      toast.error(
+        "Photo upload failed",
+        error instanceof Error ? error.message : "Please try another image.",
+      );
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="manage-settings-layout">
+      <section className="manage-page-heading">
+        <div>
+          <p>Your profile and Costivra communication setup.</p>
+          <h2>Settings</h2>
+        </div>
+      </section>
+      <section className="manage-panel manage-settings-profile" aria-labelledby="profile-settings-title">
+        <div className="manage-settings-profile-copy">
+          <OperatorAvatar operator={data.operator} large />
+          <div>
+            <h3 id="profile-settings-title">Profile photo</h3>
+            <p>Shown in Costivra instead of your initials. JPG, PNG, or WebP; up to 5 MB.</p>
+            <strong>{data.operator.fullName}</strong>
+            <small>{data.operator.email}</small>
+          </div>
+        </div>
+        <input
+          ref={inputRef}
+          className="manage-visually-hidden"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void uploadAvatar(file);
+          }}
+        />
+        <button
+          type="button"
+          className="manage-button manage-button--quiet"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          <Camera size={15} /> {uploading ? "Uploading…" : data.operator.avatarUrl ? "Replace photo" : "Upload photo"}
+        </button>
+      </section>
+      <section id="email-identities" className="manage-settings-section">
+        <Mailboxes data={data} query={query} run={run} onAdd={onAdd} embedded />
+      </section>
+    </div>
+  );
+}
+
+function Mailboxes({
+  data,
+  query,
+  run,
+  onAdd,
+  embedded = false,
+}: {
+  data: ManageData;
+  query: string;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  onAdd: () => void;
+  embedded?: boolean;
 }) {
   const mailboxes = data.mail.mailboxes.filter((mailbox) =>
     `${mailbox.displayName} ${mailbox.address} ${mailbox.mailboxType} ${mailbox.assignedToName || ""}`
@@ -1756,11 +2018,11 @@ function Mailboxes({
   );
   return (
     <>
-      <section className="manage-page-heading">
+      <section className={embedded ? "manage-settings-section-heading" : "manage-page-heading"}>
         <div>
-          <p>Approved sender and receiving identities on costivra.ai.</p>
+          <p>Manage the addresses Costivra sends and receives through Resend.</p>
           <div className="manage-mailbox-heading-row">
-            <h2>Mailbox seats</h2>
+            <h2>Email identities</h2>
             <span>
               {mailboxes.length} mailbox{mailboxes.length === 1 ? "" : "es"}
             </span>
@@ -1831,7 +2093,7 @@ function Mailboxes({
         )}
       </section>
       <p className="manage-mailbox-footnote">
-        Mailbox seats work inside Costivra through Resend. They do not create an
+        Email identities work inside Costivra through Resend. They do not create an
         IMAP, Gmail, or Outlook account.
       </p>
     </>
@@ -2158,26 +2420,6 @@ function MailPage({
               {threads.length} conversation{threads.length === 1 ? "" : "s"}
             </span>
           </div>
-          <CostivraSelect
-            className="manage-mailbox-mobile-switch"
-            aria-label="Current mailbox"
-            value={data.mail.selectedMailboxId || ""}
-            onChange={(val) =>
-              router.push(
-                `/manage/mail?folder=${data.mail.folder}&mailbox=${val}`,
-              )
-            }
-            size="sm"
-            variant="compact"
-            options={
-              !activeMailboxes.length
-                ? [{ value: "", label: "No active mailbox" }]
-                : activeMailboxes.map((mailbox) => ({
-                    value: mailbox.id,
-                    label: mailbox.address,
-                  }))
-            }
-          />
           <button aria-label="Refresh" onClick={() => router.refresh()}>
             <RefreshCw size={16} />
           </button>

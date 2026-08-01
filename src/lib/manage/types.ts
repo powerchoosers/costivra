@@ -3,6 +3,7 @@ export type ManageOperator = {
   email: string;
   fullName: string;
   role: "owner" | "operator";
+  avatarUrl: string | null;
 };
 
 export type ManageAccount = {

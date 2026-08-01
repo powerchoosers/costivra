@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ManageAccessDenied } from "@/components/manage-access-denied";
 import { ManagePortal } from "@/components/manage-portal";
 import { getManageData } from "@/lib/manage/repository";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Owner operations",
@@ -38,6 +39,7 @@ export default async function Page({
   const { slug = [] } = await params;
   const { folder, mailbox } = await searchParams;
   const section = slug[0] || "overview";
+  if (section === "mailboxes") redirect("/manage/settings#email-identities");
   const result = await loadManagePageData({
     folder,
     mailboxId: mailbox,
