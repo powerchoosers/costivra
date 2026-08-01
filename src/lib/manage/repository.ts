@@ -7,6 +7,7 @@ import type {
   ManageMailbox,
   ManageMailMessage,
   ManageMailThread,
+  ManageStaffMember,
 } from "@/lib/manage/types";
 import { canUseMailbox, formatMailboxSender } from "@/lib/manage/mailboxes";
 import { hiddenOrganizationIds } from "@/lib/manage/visibility";
@@ -45,6 +46,7 @@ export async function getManageData(input?: {
     overlaysResult,
     membershipsResult,
     profilesResult,
+    staffResult,
     crmContactsResult,
     marketingConsentsResult,
     tasksResult,
@@ -65,6 +67,7 @@ export async function getManageData(input?: {
       .order("updated_at", { ascending: false }),
     db.from("organization_memberships").select("organization_id,user_id,role"),
     db.from("profiles").select("id,email,full_name,avatar_path"),
+    db.from("internal_staff_users").select("user_id,role,status"),
     db
       .from("crm_contacts")
       .select("*")
@@ -105,6 +108,7 @@ export async function getManageData(input?: {
     overlaysResult,
     membershipsResult,
     profilesResult,
+    staffResult,
     crmContactsResult,
     marketingConsentsResult,
     tasksResult,
@@ -136,6 +140,19 @@ export async function getManageData(input?: {
   const profilesById = new Map(
     rows(profilesResult.data).map((row) => [text(row.id), row]),
   );
+  const staff: ManageStaffMember[] = rows(staffResult.data)
+    .filter((staffMember) => text(staffMember.status) === "active")
+    .map((staffMember) => {
+      const id = text(staffMember.user_id);
+      const profile = profilesById.get(id);
+      return {
+        id,
+        email: text(profile?.email),
+        fullName: text(profile?.full_name, text(profile?.email)),
+        role: (staffMember.role === "owner" ? "owner" : "operator") as ManageStaffMember["role"],
+      };
+    })
+    .filter((staffMember) => Boolean(staffMember.id && staffMember.email));
   const memberships = rows(membershipsResult.data).filter((row) =>
     isVisibleOrganization(text(row.organization_id)),
   );
@@ -435,6 +452,7 @@ export async function getManageData(input?: {
       role: operator.role,
       avatarUrl,
     },
+    staff,
     accounts,
     contacts: contacts.sort(
       (a, b) =>

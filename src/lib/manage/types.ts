@@ -6,6 +6,13 @@ export type ManageOperator = {
   avatarUrl: string | null;
 };
 
+export type ManageStaffMember = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: "owner" | "operator";
+};
+
 export type ManageAccount = {
   id: string;
   name: string;
@@ -125,6 +132,7 @@ export type ManageMailThread = {
 
 export type ManageData = {
   operator: ManageOperator;
+  staff: ManageStaffMember[];
   accounts: ManageAccount[];
   contacts: ManageContact[];
   tasks: ManageTask[];

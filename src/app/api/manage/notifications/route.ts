@@ -11,6 +11,7 @@ export async function GET() {
         db
           .from("internal_notifications")
           .select("id,title,body,action_href,created_at")
+          .or(`recipient_user_id.is.null,recipient_user_id.eq.${userId}`)
           .gte(
             "created_at",
             new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000).toISOString(),

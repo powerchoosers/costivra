@@ -247,6 +247,13 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added one shared cursor rule for public pages, the customer workspace, and the owner portal. Links, enabled buttons, select controls, checkboxes/radios, and custom button controls now use the hand cursor; disabled controls show that they are unavailable.
 - Validation passed: `npm run typecheck`, `npx eslint src/app/globals.css`, and `npm test` (18 files, 56 tests).
 
+## 2026-08-01 — Owner account workspace refinement
+
+- Owner account and contact rows now link to dedicated internal detail pages. The account inspector supports inline lifecycle, follow-up, next-step, and private-note updates through the existing server-authorized CRM API.
+- Added account-scoped task and note actions, moving tab/content motion, and deliberate row-number selection behavior: the checkbox appears only when the number cell itself is hovered.
+- Internal notes can notify selected active Costivra teammates. Each mention is stored in a server-only relation, creates a recipient-specific in-app notification, records its Resend side effect, and sends a branded internal email that links to the account. The live Supabase migration is applied with RLS and no browser access.
+- Validation passed: `npm run typecheck`, targeted ESLint, and `npm test` (18 files, 56 tests). A local `npm run build` could not start because another Next build process already held the build lock; Vercel production build remains the deployment gate.
+
 ## 2026-08-01 — Public invoice evaluation fixtures
 
 - Added four public sample PDFs under `tests/fixtures/invoices/` for local extraction and review-queue evaluation: two telecom/VoIP samples, one utility bill, and one generic software invoice.

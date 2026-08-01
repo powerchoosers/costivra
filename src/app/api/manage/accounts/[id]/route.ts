@@ -35,10 +35,10 @@ export async function PATCH(
       );
     const record = {
       organization_id: organizationId,
-      ...(stage ? { lifecycle_stage: stage } : {}),
-      next_follow_up_at: nextFollowUpAt,
-      next_step: cleanText(body.nextStep, 500) || null,
-      private_notes: cleanText(body.privateNotes, 4_000) || null,
+      ...("stage" in body ? { lifecycle_stage: stage || "onboarding" } : {}),
+      ...("nextFollowUpAt" in body ? { next_follow_up_at: nextFollowUpAt } : {}),
+      ...("nextStep" in body ? { next_step: cleanText(body.nextStep, 500) || null } : {}),
+      ...("privateNotes" in body ? { private_notes: cleanText(body.privateNotes, 4_000) || null } : {}),
       updated_at: new Date().toISOString(),
     };
     const { error } = await db
@@ -64,7 +64,7 @@ export async function PATCH(
         resource_type: "organization",
         resource_id: organizationId,
         safe_metadata: {
-          stage: stage || null,
+          stage: "stage" in body ? stage || "onboarding" : null,
           follow_up_changed: "nextFollowUpAt" in body,
         },
       });

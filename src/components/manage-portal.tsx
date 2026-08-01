@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Archive,
@@ -390,10 +390,12 @@ function FormActions({
 
 export function ManagePortal({
   section,
+  detailId,
   data,
   invoiceReview,
 }: {
   section: string;
+  detailId?: string | null;
   data: ManageData;
   invoiceReview?: ManageInvoiceReviewData | null;
 }) {
@@ -412,6 +414,7 @@ export function ManagePortal({
     "account" | "contact" | "task" | "note" | "mailbox" | null
   >(null);
   const [compose, setCompose] = useState<ComposeContext | null>(null);
+  const [contextAccount, setContextAccount] = useState<ManageAccount | null>(null);
   const [busy, setBusy] = useState(false);
 
   const closeSearch = useCallback(() => {
@@ -704,14 +707,15 @@ export function ManagePortal({
             />
           )}
           {section === "accounts" && (
-            <Accounts
+            detailId ? <AccountDetailPage data={data} accountId={detailId} onCompose={(contact) => setCompose({ mode: "new", organizationId: contact.organizationId, to: contact.email })} /> : <Accounts
               data={data}
               query={search}
-              onEdit={() => router.refresh()}
+              onAddTask={(account) => { setContextAccount(account); setDialog("task"); }}
+              onAddNote={(account) => { setContextAccount(account); setDialog("note"); }}
             />
           )}
           {section === "contacts" && (
-            <Contacts
+            detailId ? <ContactDetailPage data={data} contactId={detailId} onCompose={(contact) => setCompose({ mode: "new", organizationId: contact.organizationId, to: contact.email })} /> : <Contacts
               data={data}
               query={search}
               onCompose={(contact) =>
@@ -801,8 +805,9 @@ export function ManagePortal({
       {dialog === "task" && (
         <TaskForm
           data={data}
+          defaultAccount={contextAccount}
           busy={busy}
-          onClose={() => setDialog(null)}
+          onClose={() => { setDialog(null); setContextAccount(null); }}
           onSubmit={(form) =>
             run(
               () =>
@@ -818,8 +823,9 @@ export function ManagePortal({
       {dialog === "note" && (
         <NoteForm
           data={data}
+          defaultAccount={contextAccount}
           busy={busy}
-          onClose={() => setDialog(null)}
+          onClose={() => { setDialog(null); setContextAccount(null); }}
           onSubmit={(form) =>
             run(
               () =>
@@ -871,7 +877,6 @@ function Overview({
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     data.accounts[0]?.id ?? null,
   );
-  const [editingAccount, setEditingAccount] = useState<ManageAccount | null>(null);
 
   const active = data.accounts.filter(
     (account) => account.stage === "active",
@@ -982,7 +987,6 @@ function Overview({
           account={selectedAccount}
           activities={accountActivities}
           contacts={accountContacts}
-          onEdit={(account) => setEditingAccount(account)}
         />
       </div>
       <div className="manage-lower-grid">
@@ -1027,12 +1031,6 @@ function Overview({
           )}
         </section>
       </div>
-      {editingAccount && (
-        <EditAccount
-          account={editingAccount}
-          onClose={() => setEditingAccount(null)}
-        />
-      )}
     </>
   );
 }
@@ -1212,7 +1210,9 @@ function AccountRows({
                       {initials(account.name)}
                     </span>
                     <span>
-                      <strong>{account.name}</strong>
+                      <Link href={`/manage/accounts/${account.id}`} className="manage-table-record-link" onClick={(event) => event.stopPropagation()}>
+                        <strong>{account.name}</strong>
+                      </Link>
                       <small>{account.industry || "Industry not set"}</small>
                     </span>
                   </div>
@@ -1245,12 +1245,14 @@ function AccountInspector({
   account,
   activities = [],
   contacts = [],
-  onEdit,
+  onAddTask,
+  onAddNote,
 }: {
   account?: ManageAccount;
   activities?: ManageActivity[];
   contacts?: ManageContact[];
-  onEdit?: (account: ManageAccount) => void;
+  onAddTask?: (account: ManageAccount) => void;
+  onAddNote?: (account: ManageAccount) => void;
 }) {
   const [tab, setTab] = useState<"overview" | "timeline" | "contacts">("overview");
 
@@ -1267,26 +1269,18 @@ function AccountInspector({
 
   return (
     <aside className="manage-panel manage-inspector">
-      <header>
+      <header className="manage-inspector-header">
         <div className="manage-inspector-account">
           <span>{initials(account.name)}</span>
           <div>
-            <h3>{account.name}</h3>
+            <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-record-link" title={`Open ${account.name}`}>
+              <h3>{account.name}</h3>
+            </Link>
             <p>{account.industry || "Industry not set"}</p>
           </div>
         </div>
-        {onEdit && (
-          <button
-            onClick={() => onEdit(account)}
-            aria-label="Edit account follow-up"
-            title="Edit follow-up"
-            style={{ background: "none", border: 0, color: "#667085", cursor: "pointer", padding: 4 }}
-          >
-            <PenLine size={16} />
-          </button>
-        )}
       </header>
-      <div className="manage-inspector-tabs">
+      <div className="manage-inspector-tabs" style={{ "--active-tab": tab === "overview" ? 0 : tab === "timeline" ? 1 : 2 } as CSSProperties}>
         <button
           className={tab === "overview" ? "active" : ""}
           onClick={() => setTab("overview")}
@@ -1307,13 +1301,14 @@ function AccountInspector({
         </button>
       </div>
 
+      <div key={tab} className="manage-inspector-tab-panel">
       {tab === "overview" && (
         <>
           <dl>
             <div>
               <dt>Lifecycle</dt>
               <dd>
-                <Status value={account.stage} />
+                <InlineAccountStage account={account} />
               </dd>
             </div>
             <div>
@@ -1337,17 +1332,15 @@ function AccountInspector({
             <div>
               <dt>Next follow-up</dt>
               <dd>
-                <strong>{date(account.nextFollowUpAt)}</strong>
-                <span>{account.nextStep || "No next step recorded"}</span>
+                <InlineAccountText account={account} field="nextFollowUpAt" type="datetime-local" value={account.nextFollowUpAt?.slice(0, 16) ?? ""} display={date(account.nextFollowUpAt, true)} placeholder="Set a follow-up" />
+                <InlineAccountText account={account} field="nextStep" value={account.nextStep ?? ""} display={account.nextStep || "No next step recorded"} placeholder="Add next step" />
               </dd>
             </div>
             {account.privateNotes && (
               <div>
                 <dt>Private notes</dt>
                 <dd style={{ maxWidth: 190, textAlign: "right" }}>
-                  <span style={{ fontSize: "0.65rem", color: "#475467", lineHeight: 1.4 }}>
-                    {account.privateNotes}
-                  </span>
+                  <InlineAccountText account={account} field="privateNotes" value={account.privateNotes} display={account.privateNotes} placeholder="Add private note" multiline />
                 </dd>
               </div>
             )}
@@ -1364,16 +1357,10 @@ function AccountInspector({
               </dd>
             </div>
           </dl>
-          {onEdit && (
-            <div style={{ padding: "0 18px 14px" }}>
-              <button
-                className="manage-button manage-button--quiet manage-full"
-                onClick={() => onEdit(account)}
-              >
-                Edit follow-up & notes
-              </button>
-            </div>
-          )}
+          <div className="manage-inspector-actions manage-inspector-actions--split">
+            <button className="manage-button manage-button--quiet manage-full" onClick={() => onAddTask?.(account)}><CalendarClock size={15} /> Add task</button>
+            <button className="manage-button manage-button--quiet manage-full" onClick={() => onAddNote?.(account)}><MessageSquareText size={15} /> Add note</button>
+          </div>
         </>
       )}
 
@@ -1401,7 +1388,7 @@ function AccountInspector({
                     {initials(contact.fullName)}
                   </span>
                   <div>
-                    <strong>{contact.fullName}</strong>
+                    <Link href={`/manage/contacts/${contact.id}`} className="manage-compact-record-link"><strong>{contact.fullName}</strong></Link>
                     <p>{contact.title || contact.email}</p>
                   </div>
                   {contact.isPrimary && (
@@ -1419,6 +1406,7 @@ function AccountInspector({
           )}
         </div>
       )}
+      </div>
 
       <p className="manage-inspector-note">
         Customer workspaces stay tenant-isolated. This portal shows operational
@@ -1426,6 +1414,67 @@ function AccountInspector({
       </p>
     </aside>
   );
+}
+
+type InlineAccountField = "nextFollowUpAt" | "nextStep" | "privateNotes";
+
+function InlineAccountStage({ account }: { account: ManageAccount }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(account.stage || "onboarding");
+  const [busy, setBusy] = useState(false);
+
+  async function save(nextValue: string) {
+    setBusy(true);
+    try {
+      await api(`/api/manage/accounts/${account.id}`, { method: "PATCH", body: JSON.stringify({ stage: nextValue }) });
+      setValue(nextValue);
+      setEditing(false);
+      router.refresh();
+    } catch (error) {
+      toast.error("Couldn’t update lifecycle", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!editing) return <button type="button" className="manage-inline-status" onClick={() => setEditing(true)} title="Change lifecycle"><Status value={account.stage} /></button>;
+  return <div className="manage-inline-select"><CostivraSelect aria-label="Lifecycle stage" value={value} disabled={busy} autoFocus variant="compact" options={stages.map((stage) => ({ value: stage, label: pretty(stage) }))} onChange={(nextValue) => void save(nextValue)} /></div>;
+}
+
+function InlineAccountText({ account, field, value, display, placeholder, type = "text", multiline = false }: {
+  account: ManageAccount;
+  field: InlineAccountField;
+  value: string | null;
+  display: string;
+  placeholder: string;
+  type?: "text" | "datetime-local";
+  multiline?: boolean;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const saving = useRef(false);
+
+  useEffect(() => { setDraft(value ?? ""); }, [value]);
+  async function save() {
+    if (saving.current) return;
+    saving.current = true;
+    try {
+      await api(`/api/manage/accounts/${account.id}`, { method: "PATCH", body: JSON.stringify({ [field]: draft }) });
+      setEditing(false);
+      router.refresh();
+    } catch (error) {
+      toast.error("Couldn’t save that change", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      saving.current = false;
+    }
+  }
+  if (!editing) return <button type="button" className="manage-inline-value" onClick={() => setEditing(true)} title={`Edit ${field === "nextStep" ? "next step" : field === "nextFollowUpAt" ? "follow-up" : "private notes"}`}>{display || placeholder}</button>;
+  const shared = { autoFocus: true, value: draft, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft(event.target.value), onBlur: () => void save(), onKeyDown: (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => { if (event.key === "Escape") { setDraft(value ?? ""); setEditing(false); } if (event.key === "Enter" && (!multiline || event.metaKey || event.ctrlKey)) { event.preventDefault(); void save(); } } };
+  return multiline ? <textarea className="manage-inline-textarea" rows={3} {...shared} /> : <input className="manage-inline-input" type={type} {...shared} />;
 }
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
@@ -1456,10 +1505,13 @@ function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
 function Accounts({
   data,
   query,
+  onAddTask,
+  onAddNote,
 }: {
   data: ManageData;
   query: string;
-  onEdit: () => void;
+  onAddTask: (account: ManageAccount) => void;
+  onAddNote: (account: ManageAccount) => void;
 }) {
   const pageSize = 25;
   const [filter, setFilter] = useState("all");
@@ -1584,7 +1636,8 @@ function Accounts({
           account={selectedAccount}
           activities={accountActivities}
           contacts={accountContacts}
-          onEdit={(account) => setEditing(account)}
+          onAddTask={onAddTask}
+          onAddNote={onAddNote}
         />
       </div>
       <BulkActionBar
@@ -1730,8 +1783,8 @@ function Contacts({
               const bulkSelected = selectedIds.has(contact.id);
               return <tr key={contact.id} className={`${selectedContact?.id === contact.id ? "is-selected" : ""}${bulkSelected ? " is-bulk-selected" : ""}`} onClick={() => setSelectedContactId(contact.id)}>
                 <td className="manage-row-number-cell"><BulkRowSelector checked={bulkSelected} index={(currentPage - 1) * pageSize + index + 1} label={contact.fullName} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
-                <td className="manage-sticky-column"><div className="manage-table-person"><span className="manage-person-avatar">{initials(contact.fullName)}</span><span><strong>{contact.fullName}</strong><small>{contact.email}</small></span></div></td>
-                <td><strong>{contact.organizationName}</strong><small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small></td>
+                <td className="manage-sticky-column"><div className="manage-table-person"><span className="manage-person-avatar">{initials(contact.fullName)}</span><span><Link href={`/manage/contacts/${contact.id}`} className="manage-table-record-link" onClick={(event) => event.stopPropagation()}><strong>{contact.fullName}</strong></Link><small>{contact.email}</small></span></div></td>
+                <td><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-table-record-link" onClick={(event) => event.stopPropagation()}><strong>{contact.organizationName}</strong></Link><small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small></td>
                 <td>{contact.title || "Not set"}</td>
                 <td><Status value={contact.marketingStatus || "not recorded"} /></td>
                 <td><span className="manage-source">{contact.source === "workspace" ? "Workspace" : "CRM"}</span></td>
@@ -1758,6 +1811,31 @@ function Contacts({
       <BulkActionBar count={selectedContacts.length} noun="contact" primaryLabel="Compose email" onPrimary={() => selectedContacts[0] && onCompose(selectedContacts[0])} onExport={() => exportContactsCsv(selectedContacts)} onClear={() => setSelectedIds(new Set())} />
     </>
   );
+}
+
+function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; accountId: string; onCompose: (contact: ManageContact) => void }) {
+  const account = data.accounts.find((item) => item.id === accountId);
+  if (!account) return <Empty icon={Building2} title="Account not found" copy="This account may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/accounts"><ArrowLeft size={15} /> Back to accounts</Link>} />;
+  const contacts = data.contacts.filter((item) => item.organizationId === account.id);
+  const activities = data.activities.filter((item) => item.organizationId === account.id);
+  const tasks = data.tasks.filter((item) => item.organizationId === account.id);
+  return <div className="manage-detail-page motion-page">
+    <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
+    <header className="manage-detail-heading"><div><p>Client account</p><h2>{account.name}</h2><span>{account.industry || "Industry not set"}</span></div><div><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open in list</Link></div></header>
+    <section className="manage-detail-stats" aria-label="Account workspace summary"><div><span>Lifecycle</span><Status value={account.stage} /></div><div><span>Open tasks</span><strong>{account.openTaskCount}</strong></div><div><span>Documents</span><strong>{account.documentCount}</strong></div><div><span>Opportunities</span><strong>{account.opportunityCount}</strong></div></section>
+    <div className="manage-detail-grid">
+      <section className="manage-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>
+      <section className="manage-panel"><header><div><h3>Contacts</h3><p>People connected to this customer account.</p></div></header>{contacts.length ? <div className="manage-compact-list">{contacts.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><Link href={`/manage/contacts/${contact.id}`} className="manage-compact-record-link"><strong>{contact.fullName}</strong></Link><p>{contact.title || contact.email}</p></div><button className="manage-icon-button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>
+      <section className="manage-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>
+    </div>
+  </div>;
+}
+
+function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; contactId: string; onCompose: (contact: ManageContact) => void }) {
+  const contact = data.contacts.find((item) => item.id === contactId);
+  if (!contact) return <Empty icon={Users} title="Contact not found" copy="This contact may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/contacts"><ArrowLeft size={15} /> Back to contacts</Link>} />;
+  const activities = data.activities.filter((item) => item.organizationId === contact.organizationId);
+  return <div className="manage-detail-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-detail-heading"><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div><button className="manage-button manage-button--primary" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></header><div className="manage-detail-grid"><section className="manage-panel"><header><div><h3>Contact details</h3><p>Relationship and consent context.</p></div></header><dl className="manage-detail-list"><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd>{contact.email}</dd></div><div><dt>Phone</dt><dd>{contact.phone || "Not recorded"}</dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div></dl></section><section className="manage-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section></div></div>;
 }
 
 function Outreach({
@@ -2989,11 +3067,13 @@ function ContactForm({
 }
 function TaskForm({
   data,
+  defaultAccount,
   busy,
   onClose,
   onSubmit,
 }: {
   data: ManageData;
+  defaultAccount?: ManageAccount | null;
   busy: boolean;
   onClose: () => void;
   onSubmit: (form: FormData) => void;
@@ -3017,6 +3097,7 @@ function TaskForm({
               name="organizationId"
               required
               autoFocus
+              value={defaultAccount?.id}
               placeholder="Choose an account"
               options={[
                 { value: "", label: "Choose an account" },
@@ -3073,15 +3154,19 @@ function TaskForm({
 }
 function NoteForm({
   data,
+  defaultAccount,
   busy,
   onClose,
   onSubmit,
 }: {
   data: ManageData;
+  defaultAccount?: ManageAccount | null;
   busy: boolean;
   onClose: () => void;
   onSubmit: (form: FormData) => void;
 }) {
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const staff = data.staff.filter((member) => member.id !== data.operator.id);
   return (
     <Modal
       title="Add internal note"
@@ -3101,6 +3186,7 @@ function NoteForm({
               name="organizationId"
               required
               autoFocus
+              value={defaultAccount?.id}
               placeholder="Choose an account"
               options={[
                 { value: "", label: "Choose an account" },
@@ -3117,8 +3203,14 @@ function NoteForm({
           </label>
           <label className="wide">
             <span>Note</span>
-            <textarea name="summary" rows={7} />
+            <textarea name="summary" rows={7} placeholder="Write an internal note. Use @ below to notify a teammate." />
           </label>
+          <div className="wide manage-mention-picker">
+            <input type="hidden" name="mentionedUserIds" value={JSON.stringify(mentionedUserIds)} />
+            <span>Notify teammate</span>
+            <p>Choose a teammate to add an @mention. They will receive an in-app notification and a branded internal email after the note saves.</p>
+            {staff.length ? <div>{staff.map((member) => { const selected = mentionedUserIds.includes(member.id); return <button type="button" className={selected ? "is-selected" : ""} key={member.id} onClick={() => setMentionedUserIds((current) => selected ? current.filter((id) => id !== member.id) : [...current, member.id])}><AtSign size={13} /> {member.fullName}</button>; })}</div> : <small>No other active internal teammates are available to mention.</small>}
+          </div>
         </div>
         <FormActions busy={busy} submit="Save note" onClose={onClose} />
       </form>

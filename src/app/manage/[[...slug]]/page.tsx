@@ -50,5 +50,10 @@ export default async function Page({
   const invoiceReview = section === "invoice-review"
     ? await getManageInvoiceReviewData(slug[1] ?? null)
     : null;
-  return <ManagePortal section={section} data={result.data} invoiceReview={invoiceReview} />;
+  return <ManagePortal
+    section={section}
+    detailId={section === "accounts" || section === "contacts" ? slug[1] ?? null : null}
+    data={result.data}
+    invoiceReview={invoiceReview}
+  />;
 }
