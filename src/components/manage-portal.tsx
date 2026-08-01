@@ -698,7 +698,7 @@ export function ManagePortal({
             )}
           </div>
         </header>
-        <div key={section} className={`manage-page manage-page--${section} motion-page`}>
+        <div key={section} className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}>
           {section === "overview" && (
             <Overview
               data={data}
@@ -1686,12 +1686,32 @@ function Accounts({
 }
 
 function ContactInspector({
+  data,
   contact,
   onCompose,
 }: {
+  data: ManageData;
   contact?: ManageContact;
   onCompose: (contact: ManageContact) => void;
 }) {
+  const [composer, setComposer] = useState<"task" | "note" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const router = useRouter();
+  const toast = useToast();
+  async function submitComposer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!contact || !composer) return;
+    setBusy(true);
+    try {
+      const form = new FormData(event.currentTarget);
+      form.set("organizationId", contact.organizationId);
+      await api(composer === "task" ? "/api/manage/tasks" : "/api/manage/activities", { method: "POST", body: JSON.stringify(Object.fromEntries(form)) });
+      toast.success(composer === "task" ? "Follow-up task created." : "Note added to the activity record.");
+      setComposer(null); setMentionedUserIds([]); router.refresh();
+    } catch (error) { toast.error("That didn’t work", error instanceof Error ? error.message : "Please try again."); }
+    finally { setBusy(false); }
+  }
   if (!contact) {
     return <aside className="manage-panel manage-inspector"><Empty icon={Users} title="No contact selected" copy="Select a contact to see their account and communication details." /></aside>;
   }
@@ -1712,7 +1732,13 @@ function ContactInspector({
         <div><dt>Access</dt><dd><Status value={contact.status} /><span>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</span></dd></div>
         <div><dt>Email marketing</dt><dd><Status value={contact.marketingStatus || "not recorded"} /><span>{contact.marketingConsentAt ? `Recorded ${date(contact.marketingConsentAt, true)}` : "No explicit consent timestamp"}</span></dd></div>
       </dl>
-      <div className="manage-inspector-actions"><button className="manage-button manage-button--quiet manage-full" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></div>
+      <div className="manage-inspector-actions">
+        {composer ? <form className="manage-inspector-composer" onSubmit={submitComposer}>
+          <header><strong>{composer === "task" ? "Add task" : "Add internal note"}</strong><button type="button" onClick={() => { setComposer(null); setMentionedUserIds([]); }} aria-label="Close composer"><X size={15} /></button></header>
+          {composer === "task" ? <><label><span>Task</span><input name="title" required autoFocus placeholder="What needs to happen?" /></label><div className="manage-inspector-composer-grid"><label><span>Type</span><CostivraSelect name="taskType" defaultValue="follow_up" options={[{ value: "follow_up", label: "Follow-up" }, { value: "email", label: "Email" }, { value: "call", label: "Call" }, { value: "meeting", label: "Meeting" }, { value: "review", label: "Review" }]} /></label><label><span>Priority</span><CostivraSelect name="priority" defaultValue="normal" options={[{ value: "low", label: "Low" }, { value: "normal", label: "Normal" }, { value: "high", label: "High" }]} /></label></div><label><span>Due</span><CostivraDateTimePicker name="dueAt" /></label><label><span>Notes</span><textarea name="notes" rows={3} placeholder="Optional context" /></label></> : <><input type="hidden" name="mentionedUserIds" value={JSON.stringify(mentionedUserIds)} /><label><span>Title</span><input name="subject" required autoFocus placeholder="What is this note about?" /></label><label><span>Note</span><textarea name="summary" rows={5} placeholder="Write the internal note." /></label><div className="manage-mention-picker"><span>Notify teammate</span>{data.staff.filter((member) => member.id !== data.operator.id).length ? <div>{data.staff.filter((member) => member.id !== data.operator.id).map((member) => { const selected = mentionedUserIds.includes(member.id); return <button type="button" className={selected ? "is-selected" : ""} key={member.id} onClick={() => setMentionedUserIds((current) => selected ? current.filter((id) => id !== member.id) : [...current, member.id])}><AtSign size={13} /> {member.fullName}</button>; })}</div> : <small>No other active internal teammates are available to mention.</small>}</div></>}
+          <footer><button type="button" className="manage-button manage-button--quiet" onClick={() => setComposer(null)}>Cancel</button><button className="manage-button manage-button--primary" disabled={busy}>{busy ? "Saving…" : composer === "task" ? "Create task" : "Save note"}</button></footer>
+        </form> : <div className="manage-inspector-actions--split"><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("task")}><CalendarClock size={15} /> Add task</button><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("note")}><MessageSquareText size={15} /> Add note</button></div>}
+      </div>
       <p className="manage-inspector-note">Marketing consent is shown separately from workspace access. Costivra will not treat account membership as email consent.</p>
     </aside>
   );
@@ -1836,7 +1862,7 @@ function Contacts({
         )}
         <TableFooter count={rows.length} noun="contact" page={currentPage} pageCount={pageCount} onPage={setPage} />
       </section>
-      <ContactInspector contact={selectedContact} onCompose={onCompose} />
+      <ContactInspector data={data} contact={selectedContact} onCompose={onCompose} />
       </div>
       <BulkActionBar count={selectedContacts.length} noun="contact" primaryLabel="Compose email" onPrimary={() => selectedContacts[0] && onCompose(selectedContacts[0])} onExport={() => exportContactsCsv(selectedContacts)} onClear={() => setSelectedIds(new Set())} />
     </>
@@ -1845,6 +1871,7 @@ function Contacts({
 
 function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; accountId: string; onCompose: (contact: ManageContact) => void }) {
   const account = data.accounts.find((item) => item.id === accountId);
+  const router = useRouter();
   if (!account) return <Empty icon={Building2} title="Account not found" copy="This account may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/accounts"><ArrowLeft size={15} /> Back to accounts</Link>} />;
   const contacts = data.contacts.filter((item) => item.organizationId === account.id);
   const activities = data.activities.filter((item) => item.organizationId === account.id);
@@ -1855,7 +1882,7 @@ function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; a
     <section className="manage-detail-stats" aria-label="Account workspace summary"><div><span>Lifecycle</span><Status value={account.stage} /></div><div><span>Open tasks</span><strong>{account.openTaskCount}</strong></div><div><span>Documents</span><strong>{account.documentCount}</strong></div><div><span>Opportunities</span><strong>{account.opportunityCount}</strong></div></section>
     <div className="manage-detail-grid">
       <section className="manage-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>
-      <section className="manage-panel"><header><div><h3>Contacts</h3><p>People connected to this customer account.</p></div></header>{contacts.length ? <div className="manage-compact-list">{contacts.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><Link href={`/manage/contacts/${contact.id}`} className="manage-compact-record-link"><strong>{contact.fullName}</strong></Link><p>{contact.title || contact.email}</p></div><button className="manage-icon-button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>
+      <section className="manage-panel"><header><div><h3>Contacts</h3><p>People connected to this customer account.</p></div></header>{contacts.length ? <div className="manage-compact-list">{contacts.map((contact) => <article className="manage-compact-record-row" key={contact.id} role="link" tabIndex={0} onClick={() => router.push(`/manage/contacts/${contact.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); router.push(`/manage/contacts/${contact.id}`); } }}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><strong>{contact.fullName}</strong><p>{contact.title || contact.email}</p></div><button className="manage-icon-button" onClick={(event) => { event.stopPropagation(); onCompose(contact); }} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>
       <section className="manage-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>
     </div>
   </div>;
@@ -1865,7 +1892,7 @@ function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; c
   const contact = data.contacts.find((item) => item.id === contactId);
   if (!contact) return <Empty icon={Users} title="Contact not found" copy="This contact may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/contacts"><ArrowLeft size={15} /> Back to contacts</Link>} />;
   const activities = data.activities.filter((item) => item.organizationId === contact.organizationId);
-  return <div className="manage-detail-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-detail-heading"><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div><button className="manage-button manage-button--primary" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></header><div className="manage-detail-grid"><section className="manage-panel"><header><div><h3>Contact details</h3><p>Relationship and consent context.</p></div></header><dl className="manage-detail-list"><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd>{contact.email}</dd></div><div><dt>Phone</dt><dd>{contact.phone || "Not recorded"}</dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div></dl></section><section className="manage-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section></div></div>;
+  return <div className="manage-detail-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-detail-heading"><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div><button className="manage-button manage-button--primary" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></header><div className="manage-detail-grid manage-contact-detail-grid"><section className="manage-panel"><header><div><h3>Contact details</h3><p>Relationship and consent context.</p></div></header><dl className="manage-detail-list"><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd>{contact.email}</dd></div><div><dt>Phone</dt><dd>{contact.phone || "Not recorded"}</dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div></dl></section><section className="manage-panel"><header><div><h3>Relationship overview</h3><p>Internal CRM context for this contact.</p></div></header><dl className="manage-detail-list"><div><dt>Record source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div><div><dt>Contact role</dt><dd>{contact.isPrimary ? "Primary contact" : "Client contact"}</dd></div><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Account</dt><dd>{contact.organizationName}</dd></div></dl></section><section className="manage-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section></div></div>;
 }
 
 function Outreach({
