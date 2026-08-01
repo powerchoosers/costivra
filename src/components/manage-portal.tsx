@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Archive,
@@ -12,6 +12,7 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  ChevronDown,
   CircleAlert,
   Clock3,
   Download,
@@ -372,6 +373,8 @@ export function ManagePortal({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [search, setSearch] = useState(routeSearch);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchClosing, setSearchClosing] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const [dialog, setDialog] = useState<
     "account" | "contact" | "task" | "note" | "mailbox" | null
   >(null);
@@ -381,6 +384,23 @@ export function ManagePortal({
   useEffect(() => {
     setSearch(routeSearch);
   }, [routeSearch, section]);
+
+  const closeSearch = useCallback(() => {
+    if (!searchFocused || searchClosing) return;
+    setSearchClosing(true);
+    window.setTimeout(() => {
+      setSearchFocused(false);
+      setSearchClosing(false);
+    }, 160);
+  }, [searchClosing, searchFocused]);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (!searchContainerRef.current?.contains(event.target as Node)) closeSearch();
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [closeSearch]);
 
   const results = useMemo(
     () => globalSearchResults(data, search),
@@ -400,6 +420,7 @@ export function ManagePortal({
 
   function openSearchResult(result: GlobalSearchResult) {
     setSearchFocused(false);
+    setSearchClosing(false);
     router.push(
       `${result.href}${result.href.includes("?") ? "&" : "?"}search=${encodeURIComponent(search.trim())}`,
     );
@@ -538,17 +559,20 @@ export function ManagePortal({
               <h1>{pageTitle}</h1>
             </div>
           </div>
-          <div className="manage-global-search-wrap">
+          <div className="manage-global-search-wrap" ref={searchContainerRef}>
             <label className="manage-search">
               <Search size={16} />
               <input
                 aria-label="Search all Costivra records"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                onFocus={() => setSearchFocused(true)}
+                onFocus={() => {
+                  setSearchFocused(true);
+                  setSearchClosing(false);
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
-                    setSearchFocused(false);
+                    closeSearch();
                     event.currentTarget.blur();
                   }
                 }}
@@ -558,9 +582,9 @@ export function ManagePortal({
                 aria-controls="manage-global-search-results"
               />
             </label>
-            {searchFocused && search.trim() && (
+            {(searchFocused || searchClosing) && search.trim() && (
               <div
-                className="manage-global-results"
+                className={`manage-global-results${searchClosing ? " is-closing" : ""}`}
                 id="manage-global-search-results"
                 role="listbox"
                 aria-label="Global search results"
@@ -1946,6 +1970,73 @@ function MailboxRow({
   );
 }
 
+function ThreadMessage({
+  message,
+  senderName,
+  initiallyOpen,
+  onReply,
+}: {
+  message: ManageData["mail"]["messages"][number];
+  senderName: string;
+  initiallyOpen: boolean;
+  onReply: () => void;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const timestamp = message.sentAt || message.receivedAt || message.createdAt;
+
+  return (
+    <article className={`manage-message${open ? " is-open" : ""}`}>
+      <button
+        className="manage-message-summary"
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={`message-${message.id}`}
+      >
+        <span className="manage-person-avatar">
+          {initials(senderName || message.fromAddress)}
+        </span>
+        <span className="manage-message-addresses">
+          <strong>{senderName}</strong>
+          <small>
+            {message.fromAddress} → {message.toAddresses.join(", ")}
+          </small>
+          {!open && (
+            <span>{message.textBody || "No plain-text body was available."}</span>
+          )}
+        </span>
+        <time>{date(timestamp, true)}</time>
+        <ChevronDown className="manage-message-chevron" size={16} />
+      </button>
+      <div
+        className="manage-message-collapse"
+        id={`message-${message.id}`}
+        aria-hidden={!open}
+      >
+        <div className="manage-message-content">
+          <pre>{message.textBody || "No plain-text body was available."}</pre>
+          {message.attachments.length > 0 && (
+            <div className="manage-attachments">
+              {message.attachments.map((attachment) => (
+                <span key={attachment.filename}>
+                  <Paperclip size={14} /> {attachment.filename}
+                </span>
+              ))}
+            </div>
+          )}
+          <button
+            className="manage-message-reply"
+            type="button"
+            onClick={onReply}
+          >
+            <Reply size={15} /> Reply to this email
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function MailPage({
   data,
   query,
@@ -1990,21 +2081,25 @@ function MailPage({
           `Conversation ${operation === "read" ? "marked read" : operation + "d"}.`,
         )
       : Promise.resolve();
+  const replyToMessage = (message: ManageData["mail"]["messages"][number]) => {
+    if (!current) return;
+    onCompose({
+      mode: "reply",
+      organizationId: current.organizationId || undefined,
+      to:
+        message.direction === "inbound"
+          ? message.fromAddress
+          : current.contactEmail || current.participants[0],
+      subject: current.subject.toLowerCase().startsWith("re:")
+        ? current.subject
+        : `Re: ${current.subject}`,
+      threadId: current.id,
+      mailboxId: current.mailboxId || undefined,
+    });
+  };
   return (
     <div className={`manage-mail-shell${current ? " has-thread" : ""}`}>
       <aside className="manage-mail-folders">
-        <button
-          className="manage-compose"
-          disabled={!activeMailboxes.some((mailbox) => mailbox.canSend)}
-          onClick={() =>
-            onCompose({
-              mode: "new",
-              mailboxId: data.mail.selectedMailboxId || undefined,
-            })
-          }
-        >
-          <PenLine size={17} /> Compose
-        </button>
         <label className="manage-mailbox-switch">
           <span>Mailbox</span>
           <CostivraSelect
@@ -2176,41 +2271,18 @@ function MailPage({
               <Status value={current.latestStatus} />
             </div>
             <div className="manage-message-stack">
-              {data.mail.messages.map((message) => (
-                <article className="manage-message" key={message.id}>
-                  <header>
-                    <div>
-                      <strong>
-                        {message.direction === "outbound"
-                          ? data.operator.fullName
-                          : current.contactName || message.fromAddress}
-                      </strong>
-                      <span>
-                        {message.fromAddress} → {message.toAddresses.join(", ")}
-                      </span>
-                    </div>
-                    <time>
-                      {date(
-                        message.sentAt ||
-                          message.receivedAt ||
-                          message.createdAt,
-                        true,
-                      )}
-                    </time>
-                  </header>
-                  <pre>
-                    {message.textBody || "No plain-text body was available."}
-                  </pre>
-                  {message.attachments.length > 0 && (
-                    <div className="manage-attachments">
-                      {message.attachments.map((attachment) => (
-                        <span key={attachment.filename}>
-                          <Paperclip size={14} /> {attachment.filename}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </article>
+              {data.mail.messages.map((message, index) => (
+                <ThreadMessage
+                  key={message.id}
+                  message={message}
+                  senderName={
+                    message.direction === "outbound"
+                      ? data.operator.fullName
+                      : current.contactName || message.fromAddress
+                  }
+                  initiallyOpen={index === data.mail.messages.length - 1}
+                  onReply={() => replyToMessage(message)}
+                />
               ))}
             </div>
             <footer className="manage-reader-reply">
