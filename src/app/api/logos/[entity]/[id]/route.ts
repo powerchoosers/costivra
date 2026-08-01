@@ -4,6 +4,12 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createSessionSupabaseClient } from "@/lib/supabase/session";
 
 type Entity = "organization" | "vendor";
+type LogoRecord = {
+  name?: unknown;
+  canonical_name?: unknown;
+  website?: unknown;
+  logo_url?: unknown;
+};
 
 async function actorId() {
   const session = await createSessionSupabaseClient();
@@ -44,13 +50,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ entity: st
   let existing: string | null = null;
   if (table === "organization") {
     const { data } = await db.from("organizations").select("id,name,logo_url").eq("id", id).maybeSingle();
-    name = typeof data?.name === "string" ? data.name : null;
-    existing = typeof data?.logo_url === "string" ? data.logo_url : null;
+    const record = data as LogoRecord | null;
+    name = typeof record?.name === "string" ? record.name : null;
+    existing = typeof record?.logo_url === "string" ? record.logo_url : null;
   } else {
     const { data } = await db.from("vendors").select("id,canonical_name,website,logo_url").eq("id", id).maybeSingle();
-    name = typeof data?.canonical_name === "string" ? data.canonical_name : null;
-    website = typeof data?.website === "string" ? data.website : null;
-    existing = typeof data?.logo_url === "string" ? data.logo_url : null;
+    const record = data as LogoRecord | null;
+    name = typeof record?.canonical_name === "string" ? record.canonical_name : null;
+    website = typeof record?.website === "string" ? record.website : null;
+    existing = typeof record?.logo_url === "string" ? record.logo_url : null;
   }
   if (typeof name !== "string" || !name.trim()) return new NextResponse(null, { status: 404 });
   const reference = existing ?? logoDevReference(name, website);
