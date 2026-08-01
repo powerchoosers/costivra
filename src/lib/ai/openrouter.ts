@@ -1,6 +1,9 @@
 type OpenRouterMessage = {
   role: "system" | "user";
-  content: string;
+  content: string | Array<
+    | { type: "text"; text: string }
+    | { type: "file"; file: { filename: string; file_data: string } }
+  >;
 };
 
 type OpenRouterResponse = {
@@ -34,9 +37,11 @@ function getOpenRouterKey(): string {
 export async function generateJson({
   messages,
   maxTokens = 1_200,
+  plugins,
 }: {
   messages: OpenRouterMessage[];
   maxTokens?: number;
+  plugins?: Array<{ id: "file-parser"; pdf: { engine: "mistral-ocr" | "cloudflare-ai" | "native" } }>;
 }): Promise<unknown> {
   const response = await fetch(OPENROUTER_URL, {
     method: "POST",
@@ -47,6 +52,7 @@ export async function generateJson({
     body: JSON.stringify({
       model: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
       messages,
+      ...(plugins ? { plugins } : {}),
       response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: maxTokens,

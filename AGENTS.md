@@ -6,6 +6,10 @@ Costivra is an agentic business cost intelligence and recovery platform for smal
 
 The product promise is: **Costivra finds where operating margin is leaking, shows the evidence, and helps the business take action.**
 
+Costivra is being built to become a billion-dollar company. That ambition sets the quality bar: every product decision should earn trust with finance leaders and business owners, make complex expense information easy to understand, and feel credible enough for serious operating and financial decisions. Build for the product Costivra is becoming, not for a disposable prototype.
+
+The experience should be high-caliber, simple, visual, and calm. It should feel like it was designed by a senior product designer for CFOs, controllers, owners, and operations leaders who need to organize expenses, understand what is happening, and decide what to do next. Prefer clear evidence, useful visual comparisons, readable tables, restrained charts, and obvious next actions over decoration or conversational novelty.
+
 The north-star metric is **verified customer value created per month**, not AI usage, message count, or number of generated findings.
 
 ## How to Work in This Repository
@@ -267,10 +271,14 @@ Do not implement commercial UCEP data sharing until the founder has written clar
 
 - Design for owners, controllers, CFOs, office managers, and operations leaders—not AI specialists.
 - **No AI slop.** Every interface, interaction, and visual asset must feel deliberately designed by an experienced human product designer and senior front-end engineer. Do not ship generic AI-SaaS patterns, filler dashboards, stock “magic” effects, random gradients, decorative bento grids, excessive pills, or interchangeable marketing copy.
+- Treat the billion-dollar-company ambition as a product-quality requirement: work must be polished, coherent, durable, and worthy of trust from a finance leader reviewing real operating expenses.
+- Make the interface easy to understand without technical or AI knowledge. Put the evidence, amount, period, confidence, assumption, deadline, and next action close together; use plain-language labels and explain unfamiliar terms at the point of use.
+- Make information visual when that improves comprehension: use purposeful charts, comparisons, timelines, tables, and status states. Every visual must answer a business question; do not add charts, motion, or decorative illustrations merely to make a screen look busy.
 - **Apple-Style Simplicity Doctrine**:
   - Never use heavy colored left-border accent lines (`border-left: 4px solid ...`) or loud tinted box fills on cards—these look like generic AI template widgets ("AI slop").
-  - All cards, widgets, and panels must use clean, uniform, subtle 1px neutral borders (`border: 1px solid #e2e8f0` or `rgba(0,0,0,0.06)`), soft squircle corners (`16px` to `22px`), clean white or translucent glass surfaces, and quiet indicator pills.
+  - All cards, widgets, and panels must use clean, uniform, subtle 1px neutral borders (`border: 1px solid #e2e8f0` or `rgba(0,0,0,0.06)`), soft rounded/squircle corners (`16px` to `22px`), clean white or translucent glass surfaces, and quiet indicator pills.
   - Rely on precise typography, subtle status dots, generous whitespace, and restrained micro-chips to indicate status and priority.
+- Do not use the conventional three-star/sparkle icon, `Sparkles`, a magic wand, or a similar generic Lucide glyph as shorthand for AI, “generated,” intelligence, premium, or “magic.” It is visually interchangeable with thousands of AI products and is not Costivra’s design language. Use a literal domain icon, a clear text label, a small status dot, or a custom approved Costivra visual instead. Icons must clarify a task or state; they must not decorate empty space.
 - Use a clear design point of view: intentional typography, layout, spacing, hierarchy, color, motion, states, and information density. Each choice must support the user’s task or the Costivra brand; if it does not, remove it.
 - Prefer fewer, stronger visual elements over ornament. Premium means precise, calm, legible, and distinctive—not louder, shinier, or more crowded.
 - Treat mobile, tablet, and desktop as purpose-built experiences. Do not simply squeeze desktop layouts into smaller screens; adapt navigation, information priority, touch targets, and workflows to the device.

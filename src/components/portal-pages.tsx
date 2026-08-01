@@ -48,6 +48,7 @@ import { useToast } from "@/components/toast-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { formatMoneyInput } from "@/lib/vendors/spend";
+import { PortalRecordDetail } from "@/components/portal-record-detail";
 
 type ApiOptions = {
   method?: string;
@@ -291,7 +292,7 @@ export function PortalPage({
 }) {
   const page = slug?.[0] ?? "home";
   const [modal, setModal] = useState<ModalState>(null);
-  const [presetVendor, setPresetVendor] = useState<string>();
+  const presetVendor: string | undefined = undefined;
   const [vendorPanelOpen, setVendorPanelOpen] = useState(false);
   const router = useRouter();
   const toast = useToast();
@@ -307,13 +308,6 @@ export function PortalPage({
     sessionStorage.removeItem("costivra.vendor-panel.open");
     sessionStorage.removeItem("costivra.vendor-panel.draft");
     setVendorPanelOpen(false);
-  };
-  const openRelated = (
-    kind: Exclude<ModalState, null>,
-    relationshipId: string,
-  ) => {
-    setPresetVendor(relationshipId);
-    setModal(kind);
   };
   const run = async (
     work: () => Promise<unknown>,
@@ -333,16 +327,16 @@ export function PortalPage({
   };
   const pages: Record<string, ReactNode> = {
     home: <CommandCenter data={data} />,
-    expenses: <Expenses data={data} onAdd={() => setModal("expense")} />,
-    opportunities: <Opportunities data={data} run={run} />,
-    contracts: <Contracts data={data} onAdd={() => setModal("contract")} />,
+    expenses: slug?.[1] ? <PortalRecordDetail data={data} kind="expense" id={slug[1]} /> : <Expenses data={data} onAdd={() => setModal("expense")} />,
+    opportunities: slug?.[1] ? <PortalRecordDetail data={data} kind="opportunity" id={slug[1]} /> : <Opportunities data={data} run={run} />,
+    contracts: slug?.[1] ? <PortalRecordDetail data={data} kind="contract" id={slug[1]} /> : <Contracts data={data} onAdd={() => setModal("contract")} />,
     documents: (
-      <Documents data={data} onUpload={() => setModal("upload")} run={run} />
+      slug?.[1] ? (data.invoices.some((item) => item.id === slug[1]) ? <PortalRecordDetail data={data} kind="invoice" id={slug[1]} /> : <PortalRecordDetail data={data} kind="document" id={slug[1]} />) : <Documents data={data} onUpload={() => setModal("upload")} run={run} />
     ),
-    actions: <Actions data={data} run={run} />,
-    savings: <Savings data={data} />,
+    actions: slug?.[1] ? <PortalRecordDetail data={data} kind="action" id={slug[1]} /> : <Actions data={data} run={run} />,
+    savings: slug?.[1] ? <PortalRecordDetail data={data} kind="savings" id={slug[1]} /> : <Savings data={data} run={run} />,
     vendors: slug?.[1] ? (
-      <VendorDetail data={data} vendorId={slug[1]} onAdd={openRelated} />
+      <PortalRecordDetail data={data} kind="vendor" id={slug[1]} />
     ) : (
       <Vendors data={data} onAdd={openVendorPanel} />
     ),
@@ -537,7 +531,7 @@ function Expenses({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
                   return (
                     <tr key={item.id}>
                       <td>
-                        <strong>{item.vendorName}</strong>
+                        <Link className="record-link" href={`/app/expenses/${item.id}`}><strong>{item.vendorName}</strong></Link>
                       </td>
                       <td>{item.category}</td>
                       <td>{date(item.periodEnd)}</td>
@@ -595,6 +589,11 @@ function Opportunities({
         }),
       "Opportunity updated.",
     );
+  const statusOptions = (status: string) => {
+    if (status === "open") return [{ value: "open", label: "Open" }, { value: "under_review", label: "Review" }, { value: "declined", label: "Decline" }];
+    if (status === "under_review") return [{ value: "under_review", label: "Under review" }, { value: "approved", label: "Approve plan" }, { value: "declined", label: "Decline" }];
+    return [{ value: status, label: status.replaceAll("_", " ") }];
+  };
   return (
     <>
       <PageHeader
@@ -615,7 +614,7 @@ function Opportunities({
                 {Math.round((item.confidence ?? 0) * 100)}% confidence
               </span>
             </header>
-            <h2>{item.title}</h2>
+            <h2><Link className="record-link" href={`/app/opportunities/${item.id}`}>{item.title}</Link></h2>
             <p>{item.summary}</p>
             <dl>
               <div>
@@ -631,6 +630,10 @@ function Opportunities({
                 <dd>{item.evidenceCount} references</dd>
               </div>
               <div>
+                <dt>Calculation</dt>
+                <dd>{item.ruleVersion ?? "Human-entered"}</dd>
+              </div>
+              <div>
                 <dt>Deadline</dt>
                 <dd>{date(item.deadlineAt)}</dd>
               </div>
@@ -643,14 +646,7 @@ function Opportunities({
                 variant="badge"
                 size="sm"
                 onChange={(newStatus) => void update(item.id, newStatus)}
-                options={[
-                  { value: "open", label: "Open" },
-                  { value: "under_review", label: "Under review" },
-                  { value: "approved", label: "Approved" },
-                  { value: "declined", label: "Declined" },
-                  { value: "in_progress", label: "In progress" },
-                  { value: "closed", label: "Closed" },
-                ]}
+                options={statusOptions(item.status)}
               />
             </footer>
           </article>
@@ -706,7 +702,7 @@ function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
                 {rows.map((item) => (
                   <tr key={item.id}>
                     <td>
-                      <strong>{item.title}</strong>
+                      <Link className="record-link" href={`/app/contracts/${item.id}`}><strong>{item.title}</strong></Link>
                       <small>{item.category}</small>
                     </td>
                     <td>{item.vendorName}</td>
@@ -788,7 +784,7 @@ function Documents({
                   <FileText />
                 </div>
                 <div className="grow">
-                  <h3>{item.originalFilename}</h3>
+                  <h3><Link className="record-link" href={`/app/documents/${item.id}`}>{item.originalFilename}</Link></h3>
                   <p>
                     {item.summary || "No extraction summary is available yet."}
                   </p>
@@ -800,7 +796,7 @@ function Documents({
                     const invoice = invoiceByDocument.get(item.id)!;
                     return (
                       <div className="document-invoice-facts" aria-label="Extracted invoice record">
-                        <span><strong>{invoice.invoiceNumber ?? "Number missing"}</strong>Invoice</span>
+                        <Link className="document-invoice-link" href={`/app/documents/${invoice.id}`}><span><strong>{invoice.invoiceNumber ?? "Number missing"}</strong>Invoice</span></Link>
                         <span><strong>{invoice.totalAmount == null ? "Amount missing" : new Intl.NumberFormat("en-US", { style: "currency", currency: invoice.currency ?? "USD" }).format(invoice.totalAmount)}</strong>Total</span>
                         <span><strong>{invoice.lineItemCount}</strong>Line items</span>
                         <Status value={invoice.reconciliationStatus} />
@@ -869,7 +865,7 @@ function Actions({
               <Status value={item.priority} />
               <Status value={item.status} />
             </header>
-            <h2>{item.title}</h2>
+            <h2><Link className="record-link" href={`/app/actions/${item.id}`}>{item.title}</Link></h2>
             <p>{item.description}</p>
             <dl>
               <div>
@@ -928,11 +924,15 @@ function Actions({
   );
 }
 
-function Savings({ data }: { data: PortalData }) {
+function Savings({ data, run }: { data: PortalData; run: (work: () => Promise<unknown>, success: string) => Promise<void> }) {
   const total = data.savings.reduce((s, x) => s + x.amount, 0);
   const verified = data.savings
     .filter((x) => x.status === "verified")
     .reduce((s, x) => s + x.amount, 0);
+  const operate = (id: string, operation: "accept_baseline" | "verify") => run(
+    () => api(`/api/portal/savings/${id}`, { method: "PATCH", body: { operation } }),
+    operation === "accept_baseline" ? "Baseline accepted." : "Savings verified.",
+  );
   return (
     <>
       <PageHeader
@@ -957,14 +957,17 @@ function Savings({ data }: { data: PortalData }) {
         {data.savings.length ? (
           <div className="portal-list">
             {data.savings.map((item) => (
-              <div className="portal-list-row" key={item.id}>
+              <div className="portal-list-row savings-workflow-row" key={item.id}>
                 <CheckCircle2 />
                 <div className="grow">
-                  <strong>{item.title}</strong>
+                  <Link className="record-link" href={`/app/savings/${item.id}`}><strong>{item.title}</strong></Link>
                   <span>{item.method}</span>
+                  {item.baselineAmount !== null ? <small>Baseline {money(item.baselineAmount)}{item.comparisonAmount !== null ? ` · Later invoice ${money(item.comparisonAmount)}` : " · Waiting for a later approved invoice"}</small> : null}
                 </div>
                 <strong className="money-value">{money(item.amount)}</strong>
                 <Status value={item.status} />
+                {item.status === "baseline_review" ? <button className="button button-primary button-compact" onClick={() => void operate(item.id, "accept_baseline")}>Accept baseline</button> : null}
+                {item.status === "ready_for_review" ? <button className="button button-primary button-compact" onClick={() => void operate(item.id, "verify")}><ShieldCheck size={15} /> Verify</button> : null}
               </div>
             ))}
           </div>
@@ -1095,7 +1098,7 @@ function Vendors({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
   );
 }
 
-function VendorDetail({
+export function VendorDetail({
   data,
   vendorId,
   onAdd,

@@ -260,3 +260,34 @@ The frontend cannot auto-route an energy case or present UCEP as the only option
 **Alternatives considered:** Reviewing every invoice would not scale and would train reviewers to rubber-stamp. Auto-approving all high-confidence model output would treat a probability as authorization. Keeping approved expenses disconnected from invoices would break provenance and permit duplicates.
 
 **Consequences:** Human time stays concentrated on uncertainty while clean invoices continue through the pipeline. Every correction and assignment is attributable, repeated approval cannot duplicate expenses, and the client portal updates from the approved structured record. The queue can remain honestly empty until real invoice intake produces records.
+
+## 2026-08-01 — Calculate opportunity and verified value outside the model
+
+**Context:** Approved invoices can now become authoritative expenses, but the product still needed a traceable way to identify material price changes and later prove whether an approved action produced savings. A model-generated dollar amount is not sufficiently reproducible or auditable.
+
+**Decision:** Use versioned, integer-cent domain functions for normalized period comparisons and annualization. Software and telecom price increases require the same tenant account, category, currency, and a 10% threshold. Energy variance may create a review case at 15%, but it deliberately receives no savings value without usage, rate, and weather evidence. Opportunity, action, baseline, comparison invoice, calculation inputs, result, and actor are persisted. Legal server-side state transitions require owners or administrators for consequential decisions, and a price action cannot start until its savings baseline is explicitly accepted.
+
+**Consequences:** AI may extract and cite candidate facts, but it cannot calculate authoritative value, approve action, or mark savings verified. A later approved invoice can populate comparison evidence; a human must still verify the deterministic result. The first rule set is intentionally narrow and requires real customer fixtures before category or threshold expansion.
+
+## 2026-08-01 — Use OpenRouter PDF parsing only as a scanned-document fallback
+
+**Context:** Native PDF parsing is inexpensive and keeps text processing local, but image-only invoices contain no native text. Costivra already has a server-only OpenRouter boundary and cannot safely pretend such documents were extracted.
+
+**Decision:** Attempt native extraction first. When and only when a PDF yields no meaningful text, submit the private base64 document through OpenRouter's PDF parser with Mistral OCR by default, then apply the same versioned schema, evidence, reconciliation, review, and prompt-injection boundaries. Keep the parser selectable through `OPENROUTER_PDF_ENGINE` for controlled evaluation.
+
+**Consequences:** Scanned PDFs no longer require a second AI credential, and native PDFs do not incur OCR cost. Malware scanning remains a separate fail-closed boundary: an unscanned file is quarantined and must never reach this fallback. Real scanned invoice fixtures are still required to measure field and evidence accuracy before launch.
+
+## 2026-08-01 — Make the repository release gate executable in CI
+
+**Context:** Typechecking and isolated unit tests did not prove that the essential financial loop or responsive navigation worked together, and package vulnerabilities could reappear unnoticed.
+
+**Decision:** Add a dedicated integration suite for the financial loop, Chromium browser tests for desktop/mobile public navigation and sign-in states, and a GitHub Actions workflow that runs install, typecheck, lint, unit, integration, build, and browser tests. Pin/override patched compatible versions of Playwright, PostCSS, and Sharp after validating the production build.
+
+**Consequences:** A future change cannot reach the release branch unnoticed when these gates fail. Authenticated tenant isolation, upload, invoice review, and provider-webhook end-to-end tests remain required before general availability; the current browser suite is the first release slice, not a complete production certification.
+## 2026-08-01 — Use field-scoped editing instead of generic record mutation
+
+**Context:** Customer records need fast inline correction, but a generic table/column editor would let browser input reach protected financial, evidence, approval, or verification fields.
+
+**Decision:** Detail pages use a server-owned allowlist for each resource and field. The API maps public field names to fixed database columns, validates values by field type, verifies membership and tenant ownership, limits mutation to owner/admin/member roles, checks `updated_at` when available, and records before/after hashes in the audit trail. Calculated opportunity value, source-document identity, reconciled invoice totals, workflow states, approvals, and verified savings remain read-only outside their dedicated workflows.
+
+**Consequences:** Common descriptive and operational corrections are quick and consistent, while material financial claims cannot be rewritten through a convenient UI shortcut. Adding another editable field requires an explicit code review rather than becoming editable automatically.

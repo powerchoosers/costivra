@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { analyzeDocument } from "@/lib/ai/document-intelligence";
+import { analyzeDocument, analyzeScannedPdf } from "@/lib/ai/document-intelligence";
 import { createInvoiceRecordFromExtraction } from "@/lib/documents/invoice-record";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -75,12 +75,15 @@ export async function ingestDocumentBuffer(input: {
 
   try {
     const extracted = await extractText(input.buffer, input.mimeType);
-    if (!extracted.text.trim()) throw new Error("No readable text was found in this document.");
-    const intelligence = await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text });
+    const usedPdfOcr = input.mimeType === "application/pdf" && !extracted.text.trim();
+    if (!extracted.text.trim() && !usedPdfOcr) throw new Error("No readable text was found in this document.");
+    const intelligence = usedPdfOcr
+      ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer })
+      : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text });
     const { data: version, error: versionError } = await input.db.from("document_extraction_versions").insert({
       document_id: document.id,
-      extractor_version: "costivra-intake-v2",
-      provider: "openrouter",
+      extractor_version: "costivra-intake-v3",
+      provider: usedPdfOcr ? "openrouter-pdf-ocr" : "openrouter",
       model_identifier: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
       schema_version: "cost-document-v2",
       status: intelligence.confidence < .75 ? "needs_review" : "completed",
@@ -108,7 +111,7 @@ export async function ingestDocumentBuffer(input: {
     await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: document.id });
     return { duplicate: false as const, documentId: document.id as string, extractionVersionId: version.id as string, invoiceRecord, status: finalStatus, sha256 };
   } catch (analysisError) {
-    await input.db.from("document_extraction_versions").insert({ document_id: document.id, extractor_version: "costivra-intake-v2", provider: "openrouter", schema_version: "cost-document-v2", status: "failed", error_message: analysisError instanceof Error ? analysisError.message.slice(0, 1000) : "Extraction failed" });
+    await input.db.from("document_extraction_versions").insert({ document_id: document.id, extractor_version: "costivra-intake-v3", provider: "openrouter", schema_version: "cost-document-v2", status: "failed", error_message: analysisError instanceof Error ? analysisError.message.slice(0, 1000) : "Extraction failed" });
     await input.db.from("documents").update({ status: "needs_review", updated_at: new Date().toISOString() }).eq("id", document.id);
     await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: document.id });
     return { duplicate: false as const, documentId: document.id as string, status: "needs_review" as const, warning: "Automatic extraction needs review.", sha256 };

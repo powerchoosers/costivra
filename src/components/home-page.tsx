@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   Check,
@@ -39,11 +40,18 @@ export function HomePage() {
       <section className="hero">
         <div className="container hero-inner">
           <div className="hero-copy">
-            <h1>Put every recurring business cost under intelligent control.</h1>
-            <p>Connect bills, contracts, and vendor accounts. Costivra identifies margin leaks, renewal risks, and savings opportunities—then helps your team act with evidence and approval controls.</p>
+            <span className="hero-eyebrow">Operating-margin intelligence for finance and operations</span>
+            <h1>Find the costs hiding in your operating margin.</h1>
+            <p>Costivra turns bills, contracts, and vendor records into an evidence-backed control system. Find price drift, unused services, duplicate spend, and renewal risk—then route the next decision to the right owner.</p>
+            <p className="hero-fit">For teams managing recurring spend across vendors, locations, and contracts.</p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/scan">Run a free cost scan <ArrowRight aria-hidden="true" size={17} /></Link>
-              <Link className="button button-secondary" href="#how-it-works">See how it works</Link>
+              <Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link>
+              <Link className="button button-secondary" href="#how-it-works">See the platform</Link>
+            </div>
+            <div className="hero-assurance" aria-label="Costivra product assurances">
+              <span><ShieldCheck aria-hidden="true" size={15} /> Source-linked findings</span>
+              <span><Users aria-hidden="true" size={15} /> Approval before action</span>
+              <span><LockKeyhole aria-hidden="true" size={15} /> Private by organization</span>
             </div>
           </div>
           <OpportunityPreview />
@@ -52,17 +60,20 @@ export function HomePage() {
 
       <section className="workflow" id="how-it-works">
         <div className="container">
-          <h2 className="section-heading" style={{ maxWidth: "none", fontSize: "clamp(2.2rem, 3vw, 2.8rem)" }}>From document to verified value.</h2>
-          <div className="steps">
-            {steps.map(([title, copy], index) => (
-              <div className="step" key={title}>
-                <span className="step-number">{index + 1}</span>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-              </div>
-            ))}
-          </div>
-          <div className="doctrine-line">AI interprets. Code calculates. Policies control. Humans authorize. Evidence proves.</div>
+          <ScrollReveal className="workflow-reveal">
+            <h2 className="section-heading" style={{ maxWidth: "none", fontSize: "clamp(2.2rem, 3vw, 2.8rem)" }}>From scattered bills to a controlled cost base.</h2>
+            <p className="section-lede">Costivra gives finance and operations one place to see what changed, why it matters, who owns the decision, and what the outcome proves.</p>
+            <div className="steps">
+              {steps.map(([title, copy], index) => (
+                <div className="step" key={title}>
+                  <span className="step-number">{index + 1}</span>
+                  <h3>{title}</h3>
+                  <p>{copy}</p>
+                </div>
+              ))}
+            </div>
+            <div className="doctrine-line">AI interprets. Code calculates. Policies control. Humans authorize. Evidence proves.</div>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -126,14 +137,34 @@ export function HomePage() {
 }
 
 function OpportunityPreview() {
+  const [stage, setStage] = useState(0);
+  const previewStages = [
+    ["01", "Source document classified", "Bill uploaded and ready for extraction."],
+    ["02", "Charge change detected", "A recurring rate moved outside the expected pattern."],
+    ["03", "Evidence linked", "The finding is tied to the source page and calculation."],
+    ["04", "Approval requested", "The next action is waiting for the right owner."],
+  ] as const;
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setStage((current) => (current + 1) % previewStages.length), 3800);
+    return () => window.clearInterval(interval);
+  }, [previewStages.length]);
+
+  const currentStage = previewStages[stage];
+
   return (
     <div className="product-frame" aria-label="Costivra opportunity preview">
       <div className="preview-shell">
         <div className="preview-sidebar" aria-hidden="true"><span className="mini-mark"><CostivraMark size={20} /></span><LayoutDashboard size={17} /><FileText size={17} /><Gauge size={17} /><ShieldCheck size={17} /></div>
         <div className="preview-main">
           <div className="frame-top">
-            <div className="frame-org">Northstar Hospitality</div>
-            <span className="eyebrow">Top opportunity</span>
+            <div className="frame-org">Illustrative workspace</div>
+            <span className="eyebrow">Example finding</span>
+          </div>
+          <div className="preview-stage" aria-live="polite">
+            <span>{currentStage[0]}</span>
+            <div key={currentStage[0]} className="preview-stage-message"><strong>{currentStage[1]}</strong><small>{currentStage[2]}</small></div>
+            <div className="preview-stage-dots" aria-hidden="true">{previewStages.map((_, index) => <i key={index} className={index === stage ? "is-active" : ""} />)}</div>
           </div>
           <div className="frame-body">
             <div className="opportunity-preview">
@@ -142,7 +173,7 @@ function OpportunityPreview() {
                 <div><h3>Telecom bill increase</h3><span className="muted">Rate increase detected on primary business internet service.</span></div>
               </div>
               <div className="fact-grid">
-                <div className="fact"><span>Estimated annual value</span><strong className="value">$12,480</strong></div>
+              <div className="fact"><span>Potential annual value</span><strong className="value">$12,480</strong></div>
                 <div className="fact"><span>Confidence</span><strong>92%</strong></div>
                 <div className="fact"><span>Renewal date</span><strong>59 days</strong></div>
                 <div className="fact"><span>Evidence</span><strong>7 refs</strong></div>
@@ -164,8 +195,6 @@ function OpportunityPreview() {
     </div>
   );
 }
-
-import { useState } from "react";
 
 function EvidenceViewer() {
   const [category, setCategory] = useState<"software" | "telecom" | "energy">("software");
@@ -252,7 +281,7 @@ function EvidenceViewer() {
           ))}
         </div>
       </div>
-      <div className="viewer-content">
+      <div className="viewer-content" key={category} aria-live="polite">
         <div className="invoice">
           <div className="invoice-top">
             <div>
@@ -296,6 +325,29 @@ function EvidenceViewer() {
       </div>
     </div>
   );
+}
+
+function ScrollReveal({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || !("IntersectionObserver" in window)) {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { threshold: 0.14 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return <div ref={ref} className={`scroll-reveal ${visible ? "is-visible" : ""} ${className}`}>{children}</div>;
 }
 
 function Plan({ name, price, copy }: { name: string; price: string; copy: string }) {

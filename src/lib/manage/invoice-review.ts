@@ -20,7 +20,12 @@ const stringArray = (value: unknown) => Array.isArray(value)
   : [];
 
 export function deriveInvoiceIssueCodes(invoice: Row): string[] {
-  const codes = new Set(stringArray(invoice.review_issue_codes));
+  const standardCodes = new Set([
+    "vendor_unmatched", "invoice_number_missing", "invoice_date_missing", "service_period_missing",
+    "total_missing", "currency_missing", "category_missing", "arithmetic_mismatch",
+    "reconciliation_incomplete", "low_confidence",
+  ]);
+  const codes = new Set(stringArray(invoice.review_issue_codes).filter((code) => !standardCodes.has(code)));
   if (!invoice.organization_vendor_id) codes.add("vendor_unmatched");
   if (!invoice.invoice_number) codes.add("invoice_number_missing");
   if (!invoice.invoice_date) codes.add("invoice_date_missing");
@@ -31,7 +36,7 @@ export function deriveInvoiceIssueCodes(invoice: Row): string[] {
   if (invoice.reconciliation_status === "mismatch") codes.add("arithmetic_mismatch");
   if (invoice.reconciliation_status === "incomplete") codes.add("reconciliation_incomplete");
   const confidence = Number(invoice.extraction_confidence);
-  if (Number.isFinite(confidence) && confidence < 0.85) codes.add("low_confidence");
+  if (!Number.isFinite(confidence) || confidence < 0.85) codes.add("low_confidence");
   return [...codes];
 }
 

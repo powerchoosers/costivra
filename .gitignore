@@ -7,6 +7,8 @@
 /coverage
 /.next
 /out
+/playwright-report
+/test-results
 
 # local environment
 .env*

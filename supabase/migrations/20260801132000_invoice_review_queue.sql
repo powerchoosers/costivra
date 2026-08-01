@@ -82,6 +82,7 @@ begin
 
   update public.invoices set
     organization_vendor_id = case when p_changes ? 'organization_vendor_id' then nullif(p_changes->>'organization_vendor_id','')::uuid else organization_vendor_id end,
+    vendor_match_status = case when p_changes ? 'organization_vendor_id' then case when nullif(p_changes->>'organization_vendor_id','') is null then 'unmatched' else 'provided' end else vendor_match_status end,
     expense_account_id = case when p_changes ? 'expense_account_id' then nullif(p_changes->>'expense_account_id','')::uuid else expense_account_id end,
     invoice_number = case when p_changes ? 'invoice_number' then nullif(btrim(p_changes->>'invoice_number'),'') else invoice_number end,
     invoice_date = case when p_changes ? 'invoice_date' then nullif(p_changes->>'invoice_date','')::date else invoice_date end,

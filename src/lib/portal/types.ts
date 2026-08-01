@@ -25,6 +25,8 @@ export type PortalVendor = {
   website: string | null;
   annualizedSpend: number;
   relationshipStatus: string;
+  spendCadence: string;
+  updatedAt: string;
 };
 
 export type PortalVendorCatalogEntry = {
@@ -45,6 +47,9 @@ export type PortalExpense = {
   amount: number;
   priorPeriodAmount: number | null;
   status: string;
+  documentId: string | null;
+  invoiceId: string | null;
+  updatedAt: string;
 };
 
 export type PortalContract = {
@@ -60,6 +65,8 @@ export type PortalContract = {
   status: string;
   autoRenews: boolean;
   ownerName: string | null;
+  documentId: string | null;
+  updatedAt: string;
 };
 
 export type PortalDocument = {
@@ -74,6 +81,9 @@ export type PortalDocument = {
   summary: string | null;
   confidence: number | null;
   createdAt: string;
+  pageCount: number | null;
+  sha256: string;
+  updatedAt: string;
 };
 
 export type PortalInvoice = {
@@ -89,6 +99,22 @@ export type PortalInvoice = {
   vendorMatchStatus: string;
   reconciliationStatus: string;
   lineItemCount: number;
+  vendorId: string | null;
+  servicePeriodStart: string | null;
+  servicePeriodEnd: string | null;
+  accountNumberLast4: string | null;
+  purchaseOrderNumber: string | null;
+  subtotal: number | null;
+  taxTotal: number | null;
+  feeTotal: number | null;
+  creditTotal: number | null;
+  amountDue: number | null;
+  extractionConfidence: number | null;
+  reconciliationDifference: number | null;
+  reviewPriority: string;
+  reviewNotes: string | null;
+  expenseCategory: string | null;
+  updatedAt: string;
 };
 
 export type PortalOpportunity = {
@@ -105,6 +131,11 @@ export type PortalOpportunity = {
   vendorName: string;
   vendorId: string | null;
   evidenceCount: number;
+  ruleVersion: string | null;
+  calculationResult: Record<string, string>;
+  assumptions: string[];
+  calculationInputs: Record<string, unknown>;
+  updatedAt: string;
 };
 
 export type PortalAction = {
@@ -120,6 +151,7 @@ export type PortalAction = {
   vendorId: string | null;
   approvalId: string | null;
   approvalDecision: string | null;
+  updatedAt: string;
 };
 
 export type PortalSavingsOutcome = {
@@ -130,6 +162,33 @@ export type PortalSavingsOutcome = {
   method: string;
   status: string;
   verifiedAt: string | null;
+  baselineAmount: number | null;
+  comparisonAmount: number | null;
+  baselineAcceptedAt: string | null;
+  methodVersion: string | null;
+  calculationResult: Record<string, string>;
+  opportunityId: string | null;
+  assumptions: string[];
+  exclusions: string[];
+};
+
+export type PortalAuditEvent = {
+  id: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  actorType: string;
+  actorName: string;
+  createdAt: string;
+};
+
+export type PortalEvidenceReference = {
+  id: string;
+  documentId: string;
+  opportunityId: string | null;
+  pageNumber: number;
+  fieldPath: string | null;
+  textExcerpt: string;
 };
 
 export type PortalIntegration = {
@@ -213,4 +272,6 @@ export type PortalData = {
   reports: PortalReport[];
   team: PortalTeamMember[];
   notifications: PortalNotification[];
+  auditEvents: PortalAuditEvent[];
+  evidenceReferences: PortalEvidenceReference[];
 };

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
+import { evaluateApprovedExpense } from "@/lib/workflows/value-engine";
 
 const allowedFields = new Set([
   "organization_vendor_id", "expense_account_id", "invoice_number", "invoice_date", "due_date",
@@ -25,7 +26,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         p_actor_id: operator.userId,
       });
       if (error) return NextResponse.json({ error: friendlyReviewError(error.message) }, { status: 400 });
-      return NextResponse.json({ expenseId });
+      try {
+        const evaluation = await evaluateApprovedExpense({
+          db: operator.db,
+          organizationId: invoice.organization_id as string,
+          expenseId: expenseId as string,
+          actorId: operator.userId,
+        });
+        await operator.db.from("invoices").update({
+          metadata: { ...(invoice.metadata as Record<string, unknown> ?? {}), valueEngineStatus: "complete" },
+        }).eq("id", id);
+        return NextResponse.json({ expenseId, evaluation });
+      } catch (evaluationError) {
+        console.error("Invoice value evaluation failed", evaluationError instanceof Error ? evaluationError.message : "Unknown error");
+        await operator.db.from("invoices").update({
+          metadata: { ...(invoice.metadata as Record<string, unknown> ?? {}), valueEngineStatus: "retry_required" },
+        }).eq("id", id);
+        return NextResponse.json({ expenseId, warning: "The invoice was approved, but opportunity evaluation needs to be retried." });
+      }
     }
 
     if (action === "follow_up") {
@@ -73,6 +91,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       p_reason: reason,
     });
     if (error) return NextResponse.json({ error: friendlyReviewError(error.message) }, { status: 400 });
+    if ("organization_vendor_id" in changes) {
+      const relationshipId = typeof changes.organization_vendor_id === "string" && changes.organization_vendor_id
+        ? changes.organization_vendor_id
+        : null;
+      const { error: matchError } = await operator.db.from("invoices").update({
+        vendor_match_status: relationshipId ? "provided" : "unmatched",
+      }).eq("id", id);
+      if (matchError) throw matchError;
+      const { error: documentError } = await operator.db.from("documents").update({
+        organization_vendor_id: relationshipId,
+      }).eq("id", invoice.document_id).eq("organization_id", invoice.organization_id);
+      if (documentError) throw documentError;
+    }
     return NextResponse.json({ updated: true });
   } catch (error) {
     const result = manageApiError(error);
