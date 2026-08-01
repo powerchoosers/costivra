@@ -76,6 +76,21 @@ export type PortalDocument = {
   createdAt: string;
 };
 
+export type PortalInvoice = {
+  id: string;
+  documentId: string;
+  vendorName: string;
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  currency: string | null;
+  totalAmount: number | null;
+  reviewStatus: string;
+  vendorMatchStatus: string;
+  reconciliationStatus: string;
+  lineItemCount: number;
+};
+
 export type PortalOpportunity = {
   id: string;
   title: string;
@@ -188,6 +203,7 @@ export type PortalData = {
   expenses: PortalExpense[];
   contracts: PortalContract[];
   documents: PortalDocument[];
+  invoices: PortalInvoice[];
   opportunities: PortalOpportunity[];
   actions: PortalAction[];
   savings: PortalSavingsOutcome[];

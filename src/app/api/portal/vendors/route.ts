@@ -14,7 +14,10 @@ function normalizeWebsite(value: unknown): string | null {
 
 export async function POST(request: Request) {
   try {
-    const { db, organizationId } = await requirePortalContext();
+    const { db, organizationId, role } = await requirePortalContext();
+    if (!['owner', 'admin', 'member'].includes(role)) {
+      return NextResponse.json({ error: 'You do not have permission to add vendors.' }, { status: 403 });
+    }
     const body = await request.json() as Record<string, unknown>;
     const catalogVendorId = cleanUuid(body.vendorId);
     let name = cleanText(body.name, 160);

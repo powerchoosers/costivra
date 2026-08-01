@@ -230,3 +230,13 @@ The frontend cannot auto-route an energy case or present UCEP as the only option
 **Alternatives considered:** A public avatar bucket would make rendering simpler but would expose durable staff image URLs. Storing avatars in the document bucket would mix user identity assets with immutable customer evidence and its stricter lifecycle.
 
 **Consequences:** Staff images remain private by default and can be replaced without exposing a privileged Supabase key to the browser. Signed URLs expire, so the Manage page must refresh them during server rendering.
+
+## 2026-08-01 — Treat extracted invoices as reviewable structured records
+
+**Context:** Document intake previously stopped after saving a document summary and a few candidate facts. It could not preserve invoice identity, line items, reconciliation results, or a durable correction history, and email intake could not safely connect an extracted vendor name to an organization vendor.
+
+**Decision:** Add tenant-scoped invoice, line-item, and append-only correction tables. AI returns typed candidate fields using decimal strings. Deterministic code performs exact-cent arithmetic and only exact canonical-name or curated-alias vendor matching. A supplied vendor is accepted only after organization validation. Ambiguous, unmatched, incomplete, low-confidence, or non-reconciling invoices remain in `needs_review`; AI output never silently becomes an approved financial fact.
+
+**Alternatives considered:** Fuzzy vendor matching would attach more invoices automatically but risks contaminating customer history. Storing invoice fields only inside extraction JSON would avoid new tables but make reconciliation, history, correction, and evidence queries unreliable. Using JavaScript numbers for money would be simpler but would introduce binary floating-point risk.
+
+**Consequences:** New native-text invoices can become queryable records with line items, vendor-match status, exact arithmetic checks, and visible review state. Scanned documents still require OCR, and a human correction/approval interface remains the next vertical slice before extracted records become authoritative expenses.

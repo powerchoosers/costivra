@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       mimeType: file.type,
       buffer: Buffer.from(await file.arrayBuffer()),
       organizationVendorId: organizationVendorId || null,
+      sourceType: "manual_upload",
       auditAction: "document.uploaded_and_extracted",
     });
     if (result.duplicate) return NextResponse.json({ error: `This file already exists as ${result.originalFilename}.`, documentId: result.documentId }, { status: 409 });

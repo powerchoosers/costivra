@@ -50,7 +50,7 @@ export async function getPortalData(): Promise<PortalData> {
     documentsResult, extractionsResult, opportunitiesResult, opportunityEvidenceResult,
     actionsResult, approvalsResult, savingsResult, integrationsResult,
     reportsResult, membershipsResult, profilesResult, notificationsResult,
-    emailIntakeResult, inboundEmailEventsResult,
+    emailIntakeResult, inboundEmailEventsResult, invoicesResult, invoiceLineItemsResult,
   ] = await Promise.all([
     db.from("organizations").select("*").eq("id", organizationId).single(),
     db.from("profiles").select("id,email,full_name").eq("id", userId).single(),
@@ -74,13 +74,16 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("notifications").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
     db.from("inbound_email_addresses").select("id,local_part,domain,status,trusted_senders").eq("organization_id", organizationId).maybeSingle(),
     db.from("inbound_email_events").select("id,sender_address,subject,status,attachment_count,processed_attachment_count,error_message,received_at").eq("organization_id", organizationId).order("received_at", { ascending: false }).limit(12),
+    db.from("invoices").select("id,document_id,organization_vendor_id,invoice_number,invoice_date,due_date,currency,total_amount,review_status,vendor_match_status,reconciliation_status").eq("organization_id", organizationId).order("invoice_date", { ascending: false }),
+    db.from("invoice_line_items").select("invoice_id").eq("organization_id", organizationId),
   ]);
 
   const results = [organizationResult, profileResult, locationsResult, vendorsResult,
     relationshipsResult, accountsResult, expensesResult, contractsResult, documentsResult,
     extractionsResult, opportunitiesResult, opportunityEvidenceResult, actionsResult,
     approvalsResult, savingsResult, integrationsResult, reportsResult, membershipsResult,
-    profilesResult, notificationsResult, emailIntakeResult, inboundEmailEventsResult];
+    profilesResult, notificationsResult, emailIntakeResult, inboundEmailEventsResult,
+    invoicesResult, invoiceLineItemsResult];
   const failed = results.find((result) => result.error);
   if (failed?.error) throw failed.error;
 
@@ -98,6 +101,11 @@ export async function getPortalData(): Promise<PortalData> {
   for (const evidence of rows(opportunityEvidenceResult.data)) {
     const id = stringValue(evidence.opportunity_id);
     evidenceCount.set(id, (evidenceCount.get(id) ?? 0) + 1);
+  }
+  const invoiceLineItemCount = new Map<string, number>();
+  for (const line of rows(invoiceLineItemsResult.data)) {
+    const invoiceId = stringValue(line.invoice_id);
+    invoiceLineItemCount.set(invoiceId, (invoiceLineItemCount.get(invoiceId) ?? 0) + 1);
   }
   const opportunityById = new Map(rows(opportunitiesResult.data).map((opportunity) => [stringValue(opportunity.id), opportunity]));
   const approvalByResource = new Map(rows(approvalsResult.data).map((approval) => [stringValue(approval.resource_id), approval]));
@@ -149,6 +157,11 @@ export async function getPortalData(): Promise<PortalData> {
       const { vendor } = resolveVendor(nullableString(document.organization_vendor_id));
       const extraction = extractionByDocument.get(stringValue(document.id));
       return { id: stringValue(document.id), vendorId: vendor ? stringValue(vendor.id) : null, vendorName: stringValue(vendor?.canonical_name, "Unassigned"), originalFilename: stringValue(document.original_filename), mimeType: stringValue(document.mime_type), byteSize: numberValue(document.byte_size), status: stringValue(document.status), documentType: nullableString(document.document_type), summary: nullableString(document.extraction_summary), confidence: extraction?.confidence == null ? null : numberValue(extraction.confidence), createdAt: stringValue(document.created_at) };
+    }),
+    invoices: rows(invoicesResult.data).map((invoice) => {
+      const { vendor } = resolveVendor(nullableString(invoice.organization_vendor_id));
+      const id = stringValue(invoice.id);
+      return { id, documentId: stringValue(invoice.document_id), vendorName: stringValue(vendor?.canonical_name, "Unassigned"), invoiceNumber: nullableString(invoice.invoice_number), invoiceDate: nullableString(invoice.invoice_date), dueDate: nullableString(invoice.due_date), currency: nullableString(invoice.currency), totalAmount: invoice.total_amount == null ? null : numberValue(invoice.total_amount), reviewStatus: stringValue(invoice.review_status), vendorMatchStatus: stringValue(invoice.vendor_match_status), reconciliationStatus: stringValue(invoice.reconciliation_status), lineItemCount: invoiceLineItemCount.get(id) ?? 0 };
     }),
     opportunities: rows(opportunitiesResult.data).map((opportunity) => {
       const vendor = vendorForAccount(opportunity.expense_account_id);

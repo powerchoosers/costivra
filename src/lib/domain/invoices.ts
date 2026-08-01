@@ -1,0 +1,144 @@
+export type InvoiceLineCandidate = {
+  description: string;
+  quantity: string | null;
+  unitPrice: string | null;
+  amount: string;
+  category: string | null;
+  servicePeriodStart: string | null;
+  servicePeriodEnd: string | null;
+};
+
+export type InvoiceCandidate = {
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  servicePeriodStart: string | null;
+  servicePeriodEnd: string | null;
+  accountNumberLast4: string | null;
+  purchaseOrderNumber: string | null;
+  subtotal: string | null;
+  taxTotal: string | null;
+  feeTotal: string | null;
+  creditTotal: string | null;
+  totalAmount: string | null;
+  amountDue: string | null;
+  lineItems: InvoiceLineCandidate[];
+};
+
+export type InvoiceReconciliation = {
+  status: "reconciled" | "mismatch" | "incomplete";
+  difference: string | null;
+  checks: Array<{
+    name: "line_items_to_subtotal" | "components_to_total";
+    status: "passed" | "failed";
+    difference: string;
+  }>;
+};
+
+const moneyPattern = /^-?\d{1,16}(?:\.\d{1,2})?$/;
+const decimalPattern = /^-?\d{1,16}(?:\.\d{1,6})?$/;
+
+export function normalizeMoney(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().replaceAll(",", "");
+  if (!moneyPattern.test(normalized)) return null;
+  const negative = normalized.startsWith("-");
+  const unsigned = negative ? normalized.slice(1) : normalized;
+  const [whole, fraction = ""] = unsigned.split(".");
+  const result = `${whole}.${fraction.padEnd(2, "0")}`;
+  return negative ? `-${result}` : result;
+}
+
+export function normalizeDecimal(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().replaceAll(",", "");
+  return decimalPattern.test(normalized) ? normalized : null;
+}
+
+function toMinorUnits(value: string): bigint {
+  const normalized = normalizeMoney(value);
+  if (normalized === null) throw new Error(`Invalid money value: ${value}`);
+  const negative = normalized.startsWith("-");
+  const unsigned = negative ? normalized.slice(1) : normalized;
+  const [whole, fraction] = unsigned.split(".");
+  const cents = BigInt(whole) * BigInt(100) + BigInt(fraction);
+  return negative ? -cents : cents;
+}
+
+function fromMinorUnits(value: bigint): string {
+  const negative = value < BigInt(0);
+  const absolute = negative ? -value : value;
+  const result = `${absolute / BigInt(100)}.${String(absolute % BigInt(100)).padStart(2, "0")}`;
+  return negative ? `-${result}` : result;
+}
+
+export function reconcileInvoice(candidate: InvoiceCandidate): InvoiceReconciliation {
+  const checks: InvoiceReconciliation["checks"] = [];
+
+  if (candidate.lineItems.length > 0 && candidate.subtotal !== null) {
+    const lineTotal = candidate.lineItems.reduce(
+      (sum, line) => sum + toMinorUnits(line.amount),
+      BigInt(0),
+    );
+    const difference = lineTotal - toMinorUnits(candidate.subtotal);
+    checks.push({
+      name: "line_items_to_subtotal",
+      status: difference === BigInt(0) ? "passed" : "failed",
+      difference: fromMinorUnits(difference),
+    });
+  }
+
+  if (
+    candidate.subtotal !== null &&
+    candidate.taxTotal !== null &&
+    candidate.feeTotal !== null &&
+    candidate.creditTotal !== null &&
+    candidate.totalAmount !== null
+  ) {
+    const expected =
+      toMinorUnits(candidate.subtotal) +
+      toMinorUnits(candidate.taxTotal) +
+      toMinorUnits(candidate.feeTotal) -
+      toMinorUnits(candidate.creditTotal);
+    const difference = expected - toMinorUnits(candidate.totalAmount);
+    checks.push({
+      name: "components_to_total",
+      status: difference === BigInt(0) ? "passed" : "failed",
+      difference: fromMinorUnits(difference),
+    });
+  }
+
+  if (!checks.length) return { status: "incomplete", difference: null, checks };
+  const failed = checks.find((check) => check.status === "failed");
+  return {
+    status: failed ? "mismatch" : "reconciled",
+    difference: failed?.difference ?? "0.00",
+    checks,
+  };
+}
+
+export function normalizeVendorName(value: string): string {
+  return value
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(incorporated|inc|limited|ltd|llc|corporation|corp|company|co)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function findExactVendorMatches(
+  candidateName: string,
+  vendors: Array<{ relationshipId: string; canonicalName: string; aliases: string[] }>,
+): string[] {
+  const candidate = normalizeVendorName(candidateName);
+  if (!candidate) return [];
+  return vendors
+    .filter((vendor) =>
+      [vendor.canonicalName, ...vendor.aliases].some(
+        (name) => normalizeVendorName(name) === candidate,
+      ),
+    )
+    .map((vendor) => vendor.relationshipId);
+}

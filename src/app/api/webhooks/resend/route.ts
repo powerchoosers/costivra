@@ -580,6 +580,7 @@ export async function POST(request: Request) {
         filename,
         mimeType: contentType,
         buffer,
+        sourceType: "email_forwarding",
         auditAction: "document.received_by_email",
       });
       processedCount += 1;
