@@ -63,6 +63,7 @@ import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { ManageInvoiceReview } from "@/components/manage-invoice-review";
 import { CompanyLogo } from "@/components/company-logo";
+import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 
 const nav = [
@@ -423,6 +424,7 @@ export function ManagePortal({
   const [compose, setCompose] = useState<ComposeContext | null>(null);
   const [contextAccount, setContextAccount] = useState<ManageAccount | null>(null);
   const [busy, setBusy] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const closeSearch = useCallback(() => {
     if (!searchFocused || searchClosing) return;
@@ -501,7 +503,7 @@ export function ManagePortal({
     ? "Client operations"
     : section === "invoice-review" ? "Invoice review" : pretty(section);
   return (
-    <div className="manage-app">
+    <div className={`manage-app${assistantOpen ? " is-assistant-open" : ""}`}>
       <ManageLiveNotifications />
       <aside
         className={`manage-sidebar${mobileNav ? " is-open" : ""}${
@@ -691,7 +693,7 @@ export function ManagePortal({
           <div className="manage-top-actions">
             <div className="manage-topbar-utilities" aria-label="Workspace utilities">
               <button type="button" className="manage-topbar-icon" aria-label="Phone" title="Phone"><PhoneCall size={18} /></button>
-              <button type="button" className="manage-topbar-icon" aria-label="Ask Costivra" title="Ask Costivra"><Bot size={23} strokeWidth={2.25} /></button>
+              <button type="button" className="manage-topbar-icon" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><Bot size={18} strokeWidth={2} /></button>
               <button type="button" className="manage-topbar-icon" aria-label="Notifications" title="Notifications"><Bell size={18} /></button>
             </div>
             {section === "mail" ? (
@@ -805,6 +807,14 @@ export function ManagePortal({
           )}
         </div>
       </main>
+      <div id="manage-ai-drawer">
+        <ManageAiDrawer
+          open={assistantOpen}
+          onClose={() => setAssistantOpen(false)}
+          section={section}
+          detailId={detailId}
+        />
+      </div>
       {dialog === "account" && (
         <AccountForm
           busy={busy}
