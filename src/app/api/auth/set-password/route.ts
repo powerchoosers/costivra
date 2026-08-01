@@ -1,21 +1,31 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  MIN_PASSWORD_LENGTH,
+  passwordMeetsMinimumLength,
+} from "@/lib/auth/password-policy";
 
 export async function POST(request: NextRequest) {
-  try {
-    const { password } = await request.json();
+  const requestId = request.headers.get("x-vercel-id") ?? crypto.randomUUID();
+  const startedAt = Date.now();
 
-    if (!password || typeof password !== "string" || password.length < 8) {
+  try {
+    const payload: unknown = await request.json();
+    const password =
+      typeof payload === "object" && payload !== null && "password" in payload
+        ? (payload as { password?: unknown }).password
+        : null;
+
+    if (typeof password !== "string" || !passwordMeetsMinimumLength(password)) {
       return NextResponse.json(
-        { error: "Password must be at least 8 characters long." },
+        { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.` },
         { status: 400 },
       );
     }
 
     const cookieStore = await cookies();
-    const ssrClient = createServerClient(
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
       {
@@ -25,11 +35,7 @@ export async function POST(request: NextRequest) {
           },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) => {
-              try {
-                cookieStore.set(name, value, options);
-              } catch {
-                // Ignore cookie set errors in Server Components
-              }
+              cookieStore.set(name, value, options);
             });
           },
         },
@@ -37,74 +43,55 @@ export async function POST(request: NextRequest) {
     );
 
     const {
-      data: { user: ssrUser },
-    } = await ssrClient.auth.getUser();
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    let targetUserId = ssrUser?.id;
-
-    // Fallback: If no SSR cookie session user, lookup l.patterson@costivra.ai in Supabase Admin
-    if (!targetUserId) {
-      const adminClient = createServerSupabaseClient();
-      const { data: usersData } = await adminClient.auth.admin.listUsers();
-      const patterson = usersData?.users?.find(
-        (u) => u.email === "l.patterson@costivra.ai",
-      );
-      if (patterson) {
-        targetUserId = patterson.id;
-      }
-    }
-
-    if (!targetUserId) {
+    if (userError || !user) {
+      console.warn("auth.password_update.denied", {
+        requestId,
+        durationMs: Date.now() - startedAt,
+        reason: "missing_authenticated_recovery_session",
+      });
       return NextResponse.json(
         {
           error:
-            "No account user found to set password for. Please open your password reset email again.",
+            "This secure link is no longer active. Open the newest Costivra password reset email and try again.",
         },
         { status: 401 },
       );
     }
 
-    // Call Admin API to guarantee encrypted_password is updated in Supabase auth.users!
-    const adminClient = createServerSupabaseClient();
-    const { data: updatedUser, error: updateError } =
-      await adminClient.auth.admin.updateUserById(targetUserId, {
-        password,
-        email_confirm: true,
-        user_metadata: {
-          email_verified: true,
-          internal_owner_invite: false,
-        },
-      });
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+      data: { internal_owner_invite: false },
+    });
 
     if (updateError) {
-      console.error("Admin updateUserById error:", updateError);
+      console.error("auth.password_update.failed", {
+        requestId,
+        durationMs: Date.now() - startedAt,
+        reason: updateError.code ?? "supabase_update_failed",
+      });
       return NextResponse.json(
-        { error: updateError.message || "Failed to update password in Supabase." },
+        { error: updateError.message || "We could not save your password. Try again." },
         { status: 400 },
       );
     }
 
-    // Also attempt SSR client update to keep session synchronized
-    if (ssrUser) {
-      try {
-        await ssrClient.auth.updateUser({
-          password,
-          data: { internal_owner_invite: false },
-        });
-      } catch {
-        // Ignore SSR update catch if Admin succeeded
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Password saved successfully in Supabase!",
-      userEmail: updatedUser?.user?.email || "l.patterson@costivra.ai",
+    console.info("auth.password_update.completed", {
+      requestId,
+      durationMs: Date.now() - startedAt,
     });
-  } catch (err: any) {
-    console.error("Set password API exception:", err);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("auth.password_update.exception", {
+      requestId,
+      durationMs: Date.now() - startedAt,
+      reason: error instanceof Error ? error.name : "unknown_error",
+    });
     return NextResponse.json(
-      { error: err?.message || "An unexpected error occurred while setting password." },
+      { error: "We could not save your password. Try again." },
       { status: 500 },
     );
   }

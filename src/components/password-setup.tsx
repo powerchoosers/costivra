@@ -15,7 +15,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { CostivraMark } from "@/components/brand";
+import {
+  MIN_PASSWORD_LENGTH,
+  passwordMeetsMinimumLength,
+} from "@/lib/auth/password-policy";
 import { createClient } from "@/lib/supabase/client";
+
+const PASSWORD_UPDATE_TIMEOUT_MS = 15_000;
 
 export function PasswordSetup({
   initialReady = false,
@@ -125,8 +131,8 @@ export function PasswordSetup({
       setMessage("Please enter a new password.");
       return;
     }
-    if (password.length < 8) {
-      setMessage("Password must be at least 8 characters long.");
+    if (!passwordMeetsMinimumLength(password)) {
+      setMessage(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
       return;
     }
     if (password !== confirmation) {
@@ -138,48 +144,45 @@ export function PasswordSetup({
     setMessage("");
 
     try {
-      // 1. Call server API endpoint using Supabase Admin API to guarantee encrypted_password is set
+      const controller = new AbortController();
+      const timeout = window.setTimeout(
+        () => controller.abort(),
+        PASSWORD_UPDATE_TIMEOUT_MS,
+      );
       const response = await fetch("/api/auth/set-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
+        signal: controller.signal,
       });
-      const data = await response.json();
+      window.clearTimeout(timeout);
+      const data = (await response.json().catch(() => null)) as
+        | { success?: boolean; error?: string }
+        | null;
 
-      if (!response.ok || !data.success) {
-        console.error("Set password API error:", data);
-        setMessage(data.error || "Failed to update password. Please try again.");
+      if (!response.ok || !data?.success) {
+        setMessage(data?.error || "We could not save your password. Try again.");
         setBusy(false);
         return;
       }
 
-      // 2. Also update browser client session if active
-      try {
-        const client = createClient();
-        await client.auth.updateUser({ password });
-        // Attempt sign in with new password to refresh session cookies
-        const targetEmail = userEmail || data.userEmail || "l.patterson@costivra.ai";
-        await client.auth.signInWithPassword({
-          email: targetEmail,
-          password,
-        });
-      } catch {
-        // Ignore client session error if server update succeeded
-      }
-
       setMessageSuccess(true);
-      setMessage("Password saved successfully in Supabase! Redirecting to your workspace...");
+      setMessage("Password changed. Taking you to your Costivra workspace…");
+      setBusy(false);
       setTimeout(() => {
         window.location.href = "/access";
       }, 1000);
-    } catch (err: any) {
-      console.error("Password update exception:", err);
-      setMessage(err?.message || "An unexpected error occurred while updating your password. Please try again.");
+    } catch (error) {
+      setMessage(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "Saving took too long. Check your connection and try again."
+          : "We could not save your password. Try again.",
+      );
       setBusy(false);
     }
   }
 
-  const lengthValid = password.length >= 8;
+  const lengthValid = passwordMeetsMinimumLength(password);
   const passwordsMatch = password.length > 0 && confirmation.length > 0 && password === confirmation;
   const showMismatch = confirmation.length > 0 && password !== confirmation;
 
@@ -229,12 +232,12 @@ export function PasswordSetup({
                     id="owner-password"
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    minLength={8}
+                    minLength={MIN_PASSWORD_LENGTH}
                     autoComplete="new-password"
                     required
-                    disabled={busy}
+                    disabled={!ready || busy}
                     className={
-                      password.length >= 8
+                      passwordMeetsMinimumLength(password)
                         ? "is-valid"
                         : password.length > 0
                         ? "is-invalid"
@@ -242,7 +245,6 @@ export function PasswordSetup({
                     }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    onInput={(e) => setPassword(e.currentTarget.value)}
                     placeholder="Enter your new password"
                   />
                   <button
@@ -265,10 +267,10 @@ export function PasswordSetup({
                     id="owner-password-confirmation"
                     name="confirmation"
                     type={showConfirmation ? "text" : "password"}
-                    minLength={8}
+                    minLength={MIN_PASSWORD_LENGTH}
                     autoComplete="new-password"
                     required
-                    disabled={busy}
+                    disabled={!ready || busy}
                     className={
                       passwordsMatch
                         ? "is-valid"
@@ -278,7 +280,6 @@ export function PasswordSetup({
                     }
                     value={confirmation}
                     onChange={(e) => setConfirmation(e.target.value)}
-                    onInput={(e) => setConfirmation(e.currentTarget.value)}
                     placeholder="Re-enter your new password"
                   />
                   <button
@@ -301,7 +302,7 @@ export function PasswordSetup({
                 }`}
               >
                 {lengthValid ? <Check size={14} /> : <Info size={14} />}
-                8+ characters
+                {MIN_PASSWORD_LENGTH}+ characters
               </span>
               {passwordsMatch && (
                 <span className="password-pill password-pill--success">
@@ -318,7 +319,7 @@ export function PasswordSetup({
             {message && (
               <p
                 className={`account-message ${messageSuccess ? "account-message--success" : ""}`}
-                role="alert"
+                role={messageSuccess ? "status" : "alert"}
               >
                 {message}
               </p>
@@ -327,9 +328,19 @@ export function PasswordSetup({
             <button
               type="submit"
               className="button button-primary account-submit"
-              disabled={busy || checking}
+              disabled={
+                !ready || busy || checking || !lengthValid || !passwordsMatch
+              }
             >
-              {checking ? "Checking secure link…" : busy ? "Saving password…" : "Set password"}
+              {checking
+                ? "Checking secure link…"
+                : busy
+                  ? "Saving password…"
+                  : !lengthValid
+                    ? `Use ${MIN_PASSWORD_LENGTH}+ characters`
+                    : !passwordsMatch
+                      ? "Make passwords match"
+                      : "Change password"}
               <ArrowRight aria-hidden="true" size={17} />
             </button>
             <p className="account-switch">
