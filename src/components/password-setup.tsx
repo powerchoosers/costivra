@@ -138,23 +138,40 @@ export function PasswordSetup({
     setMessage("");
 
     try {
-      const client = createClient();
-      const recoveryMode = typeof window !== "undefined" && new URL(window.location.href).searchParams.get("mode") === "recovery";
-      const { error } = await client.auth.updateUser({
-        password,
-        data: recoveryMode ? undefined : { internal_owner_invite: false },
+      // 1. Call server API endpoint using Supabase Admin API to guarantee encrypted_password is set
+      const response = await fetch("/api/auth/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
       });
+      const data = await response.json();
 
-      if (error) {
-        console.error("Password update error:", error);
-        setMessage(error.message || "Failed to update password. Please check your password and try again.");
+      if (!response.ok || !data.success) {
+        console.error("Set password API error:", data);
+        setMessage(data.error || "Failed to update password. Please try again.");
         setBusy(false);
         return;
       }
 
+      // 2. Also update browser client session if active
+      try {
+        const client = createClient();
+        await client.auth.updateUser({ password });
+        // Attempt sign in with new password to refresh session cookies
+        const targetEmail = userEmail || data.userEmail || "l.patterson@costivra.ai";
+        await client.auth.signInWithPassword({
+          email: targetEmail,
+          password,
+        });
+      } catch {
+        // Ignore client session error if server update succeeded
+      }
+
       setMessageSuccess(true);
-      setMessage("Password saved successfully! Redirecting to your workspace...");
-      window.location.href = "/access";
+      setMessage("Password saved successfully in Supabase! Redirecting to your workspace...");
+      setTimeout(() => {
+        window.location.href = "/access";
+      }, 1000);
     } catch (err: any) {
       console.error("Password update exception:", err);
       setMessage(err?.message || "An unexpected error occurred while updating your password. Please try again.");
@@ -215,7 +232,14 @@ export function PasswordSetup({
                     minLength={8}
                     autoComplete="new-password"
                     required
-                    disabled={!ready || busy}
+                    disabled={busy}
+                    className={
+                      password.length >= 8
+                        ? "is-valid"
+                        : password.length > 0
+                        ? "is-invalid"
+                        : ""
+                    }
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onInput={(e) => setPassword(e.currentTarget.value)}
@@ -223,17 +247,12 @@ export function PasswordSetup({
                   />
                   <button
                     type="button"
-                    className="password-toggle-button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowPassword((prev) => !prev);
-                    }}
-                    tabIndex={-1}
+                    className={`password-toggle-button ${showPassword ? "is-visible" : ""}`}
+                    onClick={() => setShowPassword((prev) => !prev)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    <span>{showPassword ? "Hide" : "Show"}</span>
                   </button>
                 </div>
               </div>
@@ -249,7 +268,14 @@ export function PasswordSetup({
                     minLength={8}
                     autoComplete="new-password"
                     required
-                    disabled={!ready || busy}
+                    disabled={busy}
+                    className={
+                      passwordsMatch
+                        ? "is-valid"
+                        : showMismatch
+                        ? "is-invalid"
+                        : ""
+                    }
                     value={confirmation}
                     onChange={(e) => setConfirmation(e.target.value)}
                     onInput={(e) => setConfirmation(e.currentTarget.value)}
@@ -257,17 +283,12 @@ export function PasswordSetup({
                   />
                   <button
                     type="button"
-                    className="password-toggle-button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowConfirmation((prev) => !prev);
-                    }}
-                    tabIndex={-1}
+                    className={`password-toggle-button ${showConfirmation ? "is-visible" : ""}`}
+                    onClick={() => setShowConfirmation((prev) => !prev)}
                     aria-label={showConfirmation ? "Hide confirm password" : "Show confirm password"}
                   >
-                    {showConfirmation ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showConfirmation ? <EyeOff size={15} /> : <Eye size={15} />}
+                    <span>{showConfirmation ? "Hide" : "Show"}</span>
                   </button>
                 </div>
               </div>
@@ -306,9 +327,9 @@ export function PasswordSetup({
             <button
               type="submit"
               className="button button-primary account-submit"
-              disabled={!ready || busy || checking}
+              disabled={busy || checking}
             >
-              {checking ? "Checking secure link…" : busy ? "Saving…" : "Set password"}
+              {checking ? "Checking secure link…" : busy ? "Saving password…" : "Set password"}
               <ArrowRight aria-hidden="true" size={17} />
             </button>
             <p className="account-switch">
