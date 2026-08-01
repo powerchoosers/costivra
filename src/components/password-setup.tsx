@@ -37,6 +37,7 @@ export function PasswordSetup({
       ? "This secure link is invalid or expired. Open the newest Costivra owner password email and try again."
       : "",
   );
+  const [messageSuccess, setMessageSuccess] = useState(false);
 
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -118,12 +119,18 @@ export function PasswordSetup({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (password.length < 12) {
-      setMessage("Password must be at least 12 characters long.");
+    setMessageSuccess(false);
+
+    if (!password) {
+      setMessage("Please enter a new password.");
+      return;
+    }
+    if (password.length < 8) {
+      setMessage("Password must be at least 8 characters long.");
       return;
     }
     if (password !== confirmation) {
-      setMessage("The two passwords do not match.");
+      setMessage("The two passwords do not match. Please verify both fields.");
       return;
     }
 
@@ -139,22 +146,25 @@ export function PasswordSetup({
       });
 
       if (error) {
-        setMessage(error.message);
+        console.error("Password update error:", error);
+        setMessage(error.message || "Failed to update password. Please check your password and try again.");
         setBusy(false);
         return;
       }
 
-      setMessage("Password saved successfully. Redirecting to your workspace...");
+      setMessageSuccess(true);
+      setMessage("Password saved successfully! Redirecting to your workspace...");
       window.location.href = "/access";
     } catch (err: any) {
-      setMessage(err?.message || "Failed to update password. Please try again.");
+      console.error("Password update exception:", err);
+      setMessage(err?.message || "An unexpected error occurred while updating your password. Please try again.");
       setBusy(false);
     }
   }
 
-  const lengthValid = password.length >= 12;
-  const passwordsMatch = password.length > 0 && password === confirmation;
-  const showMismatch = confirmation.length > 0 && !passwordsMatch;
+  const lengthValid = password.length >= 8;
+  const passwordsMatch = password.length > 0 && confirmation.length > 0 && password === confirmation;
+  const showMismatch = confirmation.length > 0 && password !== confirmation;
 
   return (
     <main className="paper-texture">
@@ -191,7 +201,7 @@ export function PasswordSetup({
               <p>
                 {userEmail
                   ? `Set a new password for ${userEmail}.`
-                  : "Use at least 12 characters and do not reuse another password."}
+                  : "Choose a secure password to protect your account."}
               </p>
             </div>
             <div className="account-fields">
@@ -202,18 +212,24 @@ export function PasswordSetup({
                     id="owner-password"
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    minLength={12}
+                    minLength={8}
                     autoComplete="new-password"
                     required
                     disabled={!ready || busy}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter at least 12 characters"
+                    onInput={(e) => setPassword(e.currentTarget.value)}
+                    placeholder="Enter your new password"
                   />
                   <button
                     type="button"
                     className="password-toggle-button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowPassword((prev) => !prev);
+                    }}
                     tabIndex={-1}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
@@ -230,18 +246,24 @@ export function PasswordSetup({
                     id="owner-password-confirmation"
                     name="confirmation"
                     type={showConfirmation ? "text" : "password"}
-                    minLength={12}
+                    minLength={8}
                     autoComplete="new-password"
                     required
                     disabled={!ready || busy}
                     value={confirmation}
                     onChange={(e) => setConfirmation(e.target.value)}
-                    placeholder="Re-enter your password"
+                    onInput={(e) => setConfirmation(e.currentTarget.value)}
+                    placeholder="Re-enter your new password"
                   />
                   <button
                     type="button"
                     className="password-toggle-button"
-                    onClick={() => setShowConfirmation(!showConfirmation)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowConfirmation((prev) => !prev);
+                    }}
                     tabIndex={-1}
                     aria-label={showConfirmation ? "Hide confirm password" : "Show confirm password"}
                   >
@@ -258,7 +280,7 @@ export function PasswordSetup({
                 }`}
               >
                 {lengthValid ? <Check size={14} /> : <Info size={14} />}
-                12+ characters
+                8+ characters
               </span>
               {passwordsMatch && (
                 <span className="password-pill password-pill--success">
@@ -272,7 +294,14 @@ export function PasswordSetup({
               )}
             </div>
 
-            {message && <p className="account-message" role="alert">{message}</p>}
+            {message && (
+              <p
+                className={`account-message ${messageSuccess ? "account-message--success" : ""}`}
+                role="alert"
+              >
+                {message}
+              </p>
+            )}
 
             <button
               type="submit"

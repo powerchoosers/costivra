@@ -58,7 +58,6 @@ export default async function ConfirmRecoveryPage({
                   : "Request a fresh password email from the Costivra sign-in page."}
               </p>
             </div>
-            <KeyRound aria-hidden="true" size={28} className="card-icon" />
             {confirmedTokenHash ? (
               <a
                 className="button button-primary account-submit"
