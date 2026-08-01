@@ -528,6 +528,68 @@ textarea:focus-visible {
 .account-switch { margin: 22px 0 0; color: var(--muted); font-size: .78rem; text-align: center; }
 .account-switch a { color: var(--blue-dark); font-weight: 750; }
 
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.password-input-wrapper input {
+  width: 100%;
+  padding-right: 44px !important;
+}
+.password-toggle-button {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.password-toggle-button:hover {
+  color: #18181b;
+  background: #f4f4f5;
+}
+.password-intelligence-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.password-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.password-pill--neutral {
+  background: #f4f4f5;
+  color: #71717a;
+  border: 1px solid #e4e4e7;
+}
+.password-pill--success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.password-pill--warning {
+  background: #fffbebf5;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
 @media (max-width: 860px) {
   .account-page { grid-template-columns: 1fr; max-width: 560px; }
   .account-intro { min-height: auto; gap: 70px; padding: 30px; }
@@ -658,8 +720,16 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
   .marketing-header .logo-mark { width: 31px; height: 29px; }
   .header-actions { margin-left: auto; }
   .header-actions .sign-in, .header-actions > .button-primary { display: none; }
-  .mobile-menu { display: inline-grid; width: 42px; min-height: 42px; place-items: center; border-color: var(--ink); padding: 0; }
-  .mobile-drawer { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--line); padding: 18px 18px 20px; background: var(--paper); }
+  .mobile-menu { position: relative; display: inline-grid; width: 38px; min-height: 38px; place-items: center; border: 0; border-radius: 50%; color: var(--ink); background: transparent; padding: 0; cursor: pointer; transition: color .22s ease, background .22s ease; }
+  .mobile-menu:hover { color: var(--blue); background: rgba(49,92,255,.07); transform: none; }
+  .mobile-menu:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+  .mobile-menu svg { position: absolute; transition: opacity .24s ease, transform .32s cubic-bezier(.23,1,.32,1); }
+  .mobile-menu-open-icon { opacity: 1; transform: rotate(0deg) scale(1); }
+  .mobile-menu-close-icon { opacity: 0; transform: rotate(-45deg) scale(.72); }
+  .mobile-menu.is-open .mobile-menu-open-icon { opacity: 0; transform: rotate(45deg) scale(.72); }
+  .mobile-menu.is-open .mobile-menu-close-icon { opacity: 1; transform: rotate(0deg) scale(1); }
+  .mobile-drawer { position: absolute; top: calc(100% + 10px); right: 0; left: 0; display: flex; max-height: calc(100dvh - 106px); overflow-y: auto; flex-direction: column; gap: 0; border: 1px solid rgba(8,11,20,.1); border-radius: 18px; padding: 18px 18px 20px; background: rgba(247,248,252,.98); box-shadow: 0 24px 60px rgba(8,11,20,.2); opacity: 0; pointer-events: none; transform: translateY(-10px) scale(.985); transform-origin: top center; visibility: hidden; transition: opacity .24s ease, transform .32s cubic-bezier(.23,1,.32,1), visibility 0s linear .32s; }
+  .mobile-drawer.is-open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); visibility: visible; transition-delay: 0s; }
   .mobile-drawer-label { margin: 0 0 8px; color: var(--muted); font: 700 .68rem/1.2 "SFMono-Regular", Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
   .mobile-drawer a:not(.mobile-drawer-cta) { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; min-height: 52px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 1rem; font-weight: 650; }
   .mobile-drawer a:not(.mobile-drawer-cta) span { color: var(--blue); font: 700 .68rem "SFMono-Regular", Consolas, monospace; }

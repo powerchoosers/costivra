@@ -26,19 +26,18 @@ export function MarketingHeader() {
         <div className="header-actions">
           <Link className="sign-in" href="/login">Sign in</Link>
           <Link className="button button-primary" href="/scan">Run a free cost scan <ArrowRight aria-hidden="true" size={17} /></Link>
-          <button className="button button-quiet mobile-menu" type="button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-            {open ? <X aria-hidden="true" size={20} /> : <Menu aria-hidden="true" size={20} />}
+          <button className={`mobile-menu${open ? " is-open" : ""}`} type="button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="mobile-navigation" onClick={() => setOpen((value) => !value)}>
+            <Menu className="mobile-menu-open-icon" aria-hidden="true" size={22} />
+            <X className="mobile-menu-close-icon" aria-hidden="true" size={22} />
           </button>
         </div>
       </div>
-      {open ? (
-        <nav className="mobile-drawer" aria-label="Mobile navigation">
-          <span className="mobile-drawer-label">Explore Costivra</span>
-          {nav.map(([label, href], index) => <Link key={href} href={href} onClick={() => setOpen(false)}><span>0{index + 1}</span>{label}<ArrowRight aria-hidden="true" size={17} /></Link>)}
-          <Link href="/login" onClick={() => setOpen(false)}><span>06</span>Sign in<ArrowRight aria-hidden="true" size={17} /></Link>
-          <Link className="button button-primary mobile-drawer-cta" href="/scan" onClick={() => setOpen(false)}>Run a free cost scan <ArrowRight aria-hidden="true" size={17} /></Link>
-        </nav>
-      ) : null}
+      <nav id="mobile-navigation" className={`mobile-drawer${open ? " is-open" : ""}`} aria-label="Mobile navigation" aria-hidden={!open} inert={!open}>
+        <span className="mobile-drawer-label">Explore Costivra</span>
+        {nav.map(([label, href], index) => <Link key={href} href={href} onClick={() => setOpen(false)}><span>0{index + 1}</span>{label}<ArrowRight aria-hidden="true" size={17} /></Link>)}
+        <Link href="/login" onClick={() => setOpen(false)}><span>06</span>Sign in<ArrowRight aria-hidden="true" size={17} /></Link>
+        <Link className="button button-primary mobile-drawer-cta" href="/scan" onClick={() => setOpen(false)}>Run a free cost scan <ArrowRight aria-hidden="true" size={17} /></Link>
+      </nav>
     </header>
   );
 }

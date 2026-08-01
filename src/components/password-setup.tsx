@@ -1,13 +1,21 @@
 "use client";
 
-import { ArrowRight, BadgeCheck, KeyRound, LockKeyhole } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  BadgeCheck,
+  Check,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Info,
+  LockKeyhole,
+} from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { CostivraMark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
-
-import { useSearchParams } from "next/navigation";
 
 export function PasswordSetup({
   initialReady = false,
@@ -30,10 +38,14 @@ export function PasswordSetup({
       : "",
   );
 
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
   useEffect(() => {
     let active = true;
     async function establishSession() {
-      // If initialReady was already validated on the server and no code/hash is in URL, skip redundant client call
       const code = searchParams?.get("code");
       const hasHash = typeof window !== "undefined" && Boolean(window.location.hash);
       if (initialReady && !code && !hasHash) {
@@ -106,29 +118,43 @@ export function PasswordSetup({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const password = String(form.get("password") ?? "");
-    const confirmation = String(form.get("confirmation") ?? "");
+    if (password.length < 12) {
+      setMessage("Password must be at least 12 characters long.");
+      return;
+    }
     if (password !== confirmation) {
       setMessage("The two passwords do not match.");
       return;
     }
+
     setBusy(true);
     setMessage("");
-    const client = createClient();
-    const recoveryMode = new URL(window.location.href).searchParams.get("mode") === "recovery";
-    const { error } = await client.auth.updateUser({
-      password,
-      data: recoveryMode ? undefined : { internal_owner_invite: false },
-    });
-    if (error) {
-      setMessage(error.message);
+
+    try {
+      const client = createClient();
+      const recoveryMode = typeof window !== "undefined" && new URL(window.location.href).searchParams.get("mode") === "recovery";
+      const { error } = await client.auth.updateUser({
+        password,
+        data: recoveryMode ? undefined : { internal_owner_invite: false },
+      });
+
+      if (error) {
+        setMessage(error.message);
+        setBusy(false);
+        return;
+      }
+
+      setMessage("Password saved successfully. Redirecting to your workspace...");
+      window.location.href = "/access";
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to update password. Please try again.");
       setBusy(false);
-      return;
     }
-    router.replace("/access");
-    router.refresh();
   }
+
+  const lengthValid = password.length >= 12;
+  const passwordsMatch = password.length > 0 && password === confirmation;
+  const showMismatch = confirmation.length > 0 && !passwordsMatch;
 
   return (
     <main className="paper-texture">
@@ -162,39 +188,94 @@ export function PasswordSetup({
             <div className="account-card-heading">
               <span className="account-card-kicker">Owner credentials</span>
               <h2>Set your permanent password.</h2>
-              <p>Use at least 12 characters and do not reuse another password.</p>
+              <p>
+                {userEmail
+                  ? `Set a new password for ${userEmail}.`
+                  : "Use at least 12 characters and do not reuse another password."}
+              </p>
             </div>
-            <KeyRound aria-hidden="true" size={28} className="card-icon" />
             <div className="account-fields">
               <div className="field">
                 <label htmlFor="owner-password">New password</label>
-                <input
-                  id="owner-password"
-                  name="password"
-                  type="password"
-                  minLength={12}
-                  autoComplete="new-password"
-                  required
-                  disabled={!ready || busy}
-                />
+                <div className="password-input-wrapper">
+                  <input
+                    id="owner-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    minLength={12}
+                    autoComplete="new-password"
+                    required
+                    disabled={!ready || busy}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter at least 12 characters"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
               <div className="field">
                 <label htmlFor="owner-password-confirmation">
                   Confirm password
                 </label>
-                <input
-                  id="owner-password-confirmation"
-                  name="confirmation"
-                  type="password"
-                  minLength={12}
-                  autoComplete="new-password"
-                  required
-                  disabled={!ready || busy}
-                />
+                <div className="password-input-wrapper">
+                  <input
+                    id="owner-password-confirmation"
+                    name="confirmation"
+                    type={showConfirmation ? "text" : "password"}
+                    minLength={12}
+                    autoComplete="new-password"
+                    required
+                    disabled={!ready || busy}
+                    value={confirmation}
+                    onChange={(e) => setConfirmation(e.target.value)}
+                    placeholder="Re-enter your password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-button"
+                    onClick={() => setShowConfirmation(!showConfirmation)}
+                    tabIndex={-1}
+                    aria-label={showConfirmation ? "Hide confirm password" : "Show confirm password"}
+                  >
+                    {showConfirmation ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             </div>
+
+            <div className="password-intelligence-strip" aria-live="polite">
+              <span
+                className={`password-pill ${
+                  lengthValid ? "password-pill--success" : "password-pill--neutral"
+                }`}
+              >
+                {lengthValid ? <Check size={14} /> : <Info size={14} />}
+                12+ characters
+              </span>
+              {passwordsMatch && (
+                <span className="password-pill password-pill--success">
+                  <CheckCircle2 size={14} /> Passwords match
+                </span>
+              )}
+              {showMismatch && (
+                <span className="password-pill password-pill--warning">
+                  <AlertCircle size={14} /> Passwords do not match
+                </span>
+              )}
+            </div>
+
             {message && <p className="account-message" role="alert">{message}</p>}
+
             <button
+              type="submit"
               className="button button-primary account-submit"
               disabled={!ready || busy || checking}
             >
