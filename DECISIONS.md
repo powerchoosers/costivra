@@ -240,3 +240,23 @@ The frontend cannot auto-route an energy case or present UCEP as the only option
 **Alternatives considered:** Fuzzy vendor matching would attach more invoices automatically but risks contaminating customer history. Storing invoice fields only inside extraction JSON would avoid new tables but make reconciliation, history, correction, and evidence queries unreliable. Using JavaScript numbers for money would be simpler but would introduce binary floating-point risk.
 
 **Consequences:** New native-text invoices can become queryable records with line items, vendor-match status, exact arithmetic checks, and visible review state. Scanned documents still require OCR, and a human correction/approval interface remains the next vertical slice before extracted records become authoritative expenses.
+
+## 2026-08-01 — Use a canonical vendor directory with tenant relationships
+
+**Context:** Adding a vendor required manual entry and produced a disconnected relationship record. Costivra also needs a useful vendor page without inventing missing invoices, savings, or contract terms.
+
+**Decision:** Keep researched vendor names, aliases, categories, and websites in the shared `vendors` directory, while spend, cadence, status, and all customer records remain on tenant-scoped relationships. A directory selection is reloaded on the server so browser-supplied names and websites are not trusted. Custom vendors remain possible. Money is parsed into integer cents and annualized by deterministic code. The add flow is a non-modal right panel whose draft survives navigation for the current browser session. Individual vendor pages assemble only saved tenant documents, expenses, contracts, findings, and actions.
+
+**Alternatives considered:** A frontend-only suggestion list would drift and could be manipulated. Scraping a very large vendor database would introduce poor-quality matches and categories outside the MVP. Copying contract dates onto vendor relationships would create conflicting sources of truth.
+
+**Consequences:** Suggestions can improve centrally without exposing customer records across tenants. The UI is faster to complete and remains usable while the panel is open. Contract and financial gaps stay visibly unknown until evidence is added. Creating a vendor is limited to members, admins, and owners; viewers remain read-only.
+
+## 2026-08-01 — Route only invoice exceptions through human review
+
+**Context:** Reviewing every recurring bill would create operational drag and obscure the records that actually need judgment. At the same time, extracted invoice data must not silently become an authoritative expense when required facts, vendor identity, or arithmetic are uncertain.
+
+**Decision:** Keep every extracted invoice queryable, but place only exception records in the default Manage review queue. Exceptions include unmatched vendors, missing required fields, missing categories or service periods, low confidence, and incomplete or failed deterministic reconciliation. Owners may bulk-assign exception records; reviewers correct them in a source-and-fields split view. Approval is a protected database transaction that requires complete reconciled fields and idempotently writes the linked tenant expense.
+
+**Alternatives considered:** Reviewing every invoice would not scale and would train reviewers to rubber-stamp. Auto-approving all high-confidence model output would treat a probability as authorization. Keeping approved expenses disconnected from invoices would break provenance and permit duplicates.
+
+**Consequences:** Human time stays concentrated on uncertainty while clean invoices continue through the pipeline. Every correction and assignment is attributable, repeated approval cannot duplicate expenses, and the client portal updates from the approved structured record. The queue can remain honestly empty until real invoice intake produces records.

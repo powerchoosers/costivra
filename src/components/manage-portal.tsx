@@ -20,6 +20,7 @@ import {
   Clock3,
   Download,
   FileText,
+  FileCheck2,
   Inbox,
   LayoutDashboard,
   Mail,
@@ -57,6 +58,8 @@ import { CostivraMark } from "@/components/brand";
 import { ManageLiveNotifications } from "@/components/manage-live-notifications";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
+import { ManageInvoiceReview } from "@/components/manage-invoice-review";
+import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 
 const nav = [
   ["Overview", "/manage", LayoutDashboard],
@@ -64,6 +67,7 @@ const nav = [
   ["Contacts", "/manage/contacts", Users],
   ["Outreach", "/manage/outreach", MessageSquareText],
   ["Mail", "/manage/mail", Mail],
+  ["Invoice review", "/manage/invoice-review", FileCheck2],
   ["Activity", "/manage/activity", Activity],
   ["Settings", "/manage/settings", Settings],
 ] as const;
@@ -387,9 +391,11 @@ function FormActions({
 export function ManagePortal({
   section,
   data,
+  invoiceReview,
 }: {
   section: string;
   data: ManageData;
+  invoiceReview?: ManageInvoiceReviewData | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -471,8 +477,9 @@ export function ManagePortal({
     router.refresh();
   }
 
-  const pageTitle =
-    section === "overview" ? "Client operations" : pretty(section);
+  const pageTitle = section === "overview"
+    ? "Client operations"
+    : section === "invoice-review" ? "Invoice review" : pretty(section);
   return (
     <div className="manage-app">
       <ManageLiveNotifications />
@@ -658,7 +665,7 @@ export function ManagePortal({
               >
                 <PenLine size={16} /> Compose
               </button>
-            ) : section === "settings" ? null : section === "activity" ? (
+            ) : section === "settings" || section === "invoice-review" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => setDialog("note")}
@@ -740,6 +747,13 @@ export function ManagePortal({
               run={run}
               onAdd={() => setDialog("mailbox")}
               onUpdated={() => router.refresh()}
+            />
+          )}
+          {section === "invoice-review" && invoiceReview && (
+            <ManageInvoiceReview
+              data={invoiceReview}
+              currentOperatorId={data.operator.id}
+              owner={data.operator.role === "owner"}
             />
           )}
           {section === "activity" && (

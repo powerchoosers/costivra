@@ -28,7 +28,6 @@ import {
   FileText,
   Globe2,
   Info,
-  Link2,
   LoaderCircle,
   Mail,
   MessageSquareText,
@@ -297,9 +296,8 @@ export function PortalPage({
   const router = useRouter();
   const toast = useToast();
   useEffect(() => {
-    setVendorPanelOpen(
-      sessionStorage.getItem("costivra.vendor-panel.open") === "true",
-    );
+    const wasOpen = sessionStorage.getItem("costivra.vendor-panel.open") === "true";
+    queueMicrotask(() => setVendorPanelOpen(wasOpen));
   }, []);
   const openVendorPanel = () => {
     sessionStorage.setItem("costivra.vendor-panel.open", "true");
@@ -2325,7 +2323,10 @@ function VendorSidePanel({
     if (!open) return;
     try {
       const saved = sessionStorage.getItem("costivra.vendor-panel.draft");
-      if (saved) setDraft({ ...emptyVendorDraft, ...JSON.parse(saved) });
+      if (saved) {
+        const restored = { ...emptyVendorDraft, ...JSON.parse(saved) };
+        queueMicrotask(() => setDraft(restored));
+      }
     } catch {}
   }, [open]);
   useEffect(() => {

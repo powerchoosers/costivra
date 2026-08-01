@@ -1,5 +1,6 @@
 import type { DocumentIntelligence } from "@/lib/ai/document-intelligence";
 import { findExactVendorMatches, reconcileInvoice } from "@/lib/domain/invoices";
+import { classifyInvoiceReview } from "@/lib/domain/invoice-review";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
@@ -14,7 +15,7 @@ async function resolveVendor(input: {
 }) {
   const { data: relationships, error: relationshipError } = await input.db
     .from("organization_vendors")
-    .select("id,vendor_id")
+    .select("id,vendor_id,vendors(category)")
     .eq("organization_id", input.organizationId);
   if (relationshipError) throw relationshipError;
 
@@ -24,11 +25,16 @@ async function resolveVendor(input: {
       (row) => row.id === input.providedRelationshipId,
     );
     if (!provided) throw new Error("The supplied vendor relationship is outside this organization.");
-    return { relationshipId: input.providedRelationshipId, status: "provided" as const };
+    const vendor = vendorByRelationship(relationshipRows, input.providedRelationshipId);
+    return {
+      relationshipId: input.providedRelationshipId,
+      status: "provided" as const,
+      category: typeof vendor?.category === "string" ? vendor.category : null,
+    };
   }
 
   if (!input.vendorName || !relationshipRows.length) {
-    return { relationshipId: null, status: "unmatched" as const };
+    return { relationshipId: null, status: "unmatched" as const, category: null };
   }
 
   const vendorIds = relationshipRows
@@ -36,7 +42,7 @@ async function resolveVendor(input: {
     .filter((value): value is string => typeof value === "string");
   const { data: vendors, error: vendorError } = await input.db
     .from("vendors")
-    .select("id,canonical_name,search_aliases")
+    .select("id,canonical_name,category,search_aliases")
     .in("id", vendorIds);
   if (vendorError) throw vendorError;
 
@@ -58,9 +64,26 @@ async function resolveVendor(input: {
     }),
   );
 
-  if (matches.length === 1) return { relationshipId: matches[0], status: "exact" as const };
-  if (matches.length > 1) return { relationshipId: null, status: "ambiguous" as const };
-  return { relationshipId: null, status: "unmatched" as const };
+  if (matches.length === 1) {
+    const relationship = relationshipRows.find((row) => row.id === matches[0]);
+    const matchedVendor = relationship ? vendorById.get(relationship.vendor_id) : null;
+    return {
+      relationshipId: matches[0],
+      status: "exact" as const,
+      category: typeof matchedVendor?.category === "string" ? matchedVendor.category : null,
+    };
+  }
+  if (matches.length > 1) return { relationshipId: null, status: "ambiguous" as const, category: null };
+  return { relationshipId: null, status: "unmatched" as const, category: null };
+}
+
+function vendorByRelationship(relationships: Row[], relationshipId: string) {
+  const relationship = relationships.find((row) => row.id === relationshipId);
+  if (!relationship) return null;
+  const vendor = Array.isArray(relationship.vendors)
+    ? relationship.vendors[0]
+    : relationship.vendors;
+  return vendor && typeof vendor === "object" ? (vendor as Row) : null;
 }
 
 export async function createInvoiceRecordFromExtraction(input: {
@@ -84,19 +107,19 @@ export async function createInvoiceRecordFromExtraction(input: {
     vendorName: input.intelligence.vendorName,
   });
   const reconciliation = reconcileInvoice(candidate);
-  const hasRequiredFields = Boolean(
-    candidate.invoiceNumber &&
-    candidate.invoiceDate &&
-    candidate.totalAmount &&
-    input.intelligence.currency,
-  );
-  const reviewStatus =
-    vendor.relationshipId &&
-    hasRequiredFields &&
-    reconciliation.status === "reconciled" &&
-    input.intelligence.confidence >= 0.85
-      ? "ready"
-      : "needs_review";
+  const review = classifyInvoiceReview({
+    hasVendor: Boolean(vendor.relationshipId),
+    invoiceNumber: candidate.invoiceNumber,
+    invoiceDate: candidate.invoiceDate,
+    servicePeriodStart: candidate.servicePeriodStart,
+    servicePeriodEnd: candidate.servicePeriodEnd,
+    currency: input.intelligence.currency,
+    totalAmount: candidate.totalAmount,
+    expenseCategory: vendor.category,
+    reconciliationStatus: reconciliation.status,
+    confidence: input.intelligence.confidence,
+  });
+  const reviewStatus = review.reviewStatus;
 
   const { data: invoice, error: invoiceError } = await input.db
     .from("invoices")
@@ -119,12 +142,14 @@ export async function createInvoiceRecordFromExtraction(input: {
       credit_total: candidate.creditTotal,
       total_amount: candidate.totalAmount,
       amount_due: candidate.amountDue,
+      expense_category: vendor.category,
       extraction_confidence: input.intelligence.confidence,
       vendor_match_status: vendor.status,
       reconciliation_status: reconciliation.status,
       reconciliation_difference: reconciliation.difference,
       review_status: reviewStatus,
       source_type: input.sourceType,
+      review_issue_codes: review.issueCodes,
       metadata: {
         schemaVersion: "invoice-v1",
         reconciliationChecks: reconciliation.checks,

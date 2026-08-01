@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ManageAccessDenied } from "@/components/manage-access-denied";
 import { ManagePortal } from "@/components/manage-portal";
 import { getManageData } from "@/lib/manage/repository";
+import { getManageInvoiceReviewData } from "@/lib/manage/invoice-review";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -46,5 +47,8 @@ export default async function Page({
     threadId: section === "mail" ? slug[1] : null,
   });
   if (!result.authorized) return <ManageAccessDenied />;
-  return <ManagePortal section={section} data={result.data} />;
+  const invoiceReview = section === "invoice-review"
+    ? await getManageInvoiceReviewData(slug[1] ?? null)
+    : null;
+  return <ManagePortal section={section} data={result.data} invoiceReview={invoiceReview} />;
 }
