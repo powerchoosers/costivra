@@ -246,3 +246,9 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 
 - Added one shared cursor rule for public pages, the customer workspace, and the owner portal. Links, enabled buttons, select controls, checkboxes/radios, and custom button controls now use the hand cursor; disabled controls show that they are unavailable.
 - Validation passed: `npm run typecheck`, `npx eslint src/app/globals.css`, and `npm test` (18 files, 56 tests).
+
+## 2026-08-01 — Public invoice evaluation fixtures
+
+- Added four public sample PDFs under `tests/fixtures/invoices/` for local extraction and review-queue evaluation: two telecom/VoIP samples, one utility bill, and one generic software invoice.
+- Each fixture is documented with its source URL. These are templates/sample documents only, not customer records or production evidence.
+- Verified all four downloads begin with the PDF signature (`%PDF-`). Full extraction scoring remains a follow-up once the golden-data harness is connected.
