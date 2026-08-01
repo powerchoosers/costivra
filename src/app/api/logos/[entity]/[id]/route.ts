@@ -39,13 +39,21 @@ export async function GET(_: Request, { params }: { params: Promise<{ entity: st
     }
   }
 
-  const select = table === "organization" ? "id,name,logo_url" : "id,canonical_name,website,logo_url";
-  const { data: record } = await db.from(table === "organization" ? "organizations" : "vendors").select(select).eq("id", id).maybeSingle();
-  if (!record) return new NextResponse(null, { status: 404 });
-  const name = table === "organization" ? record.name : record.canonical_name;
+  let name: string | null = null;
+  let website: string | null = null;
+  let existing: string | null = null;
+  if (table === "organization") {
+    const { data } = await db.from("organizations").select("id,name,logo_url").eq("id", id).maybeSingle();
+    name = typeof data?.name === "string" ? data.name : null;
+    existing = typeof data?.logo_url === "string" ? data.logo_url : null;
+  } else {
+    const { data } = await db.from("vendors").select("id,canonical_name,website,logo_url").eq("id", id).maybeSingle();
+    name = typeof data?.canonical_name === "string" ? data.canonical_name : null;
+    website = typeof data?.website === "string" ? data.website : null;
+    existing = typeof data?.logo_url === "string" ? data.logo_url : null;
+  }
   if (typeof name !== "string" || !name.trim()) return new NextResponse(null, { status: 404 });
-  const existing = typeof record.logo_url === "string" ? record.logo_url : null;
-  const reference = existing ?? logoDevReference(name, table === "vendor" && typeof record.website === "string" ? record.website : null);
+  const reference = existing ?? logoDevReference(name, website);
   const image = await fetchLogoDevImage(reference);
   if (!image) return new NextResponse(null, { status: 404 });
 
