@@ -19,5 +19,5 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
     }
     throw error;
   }
-  return <AppShell data={data}><PortalPage slug={slug?.[0]} data={data} /></AppShell>;
+  return <AppShell data={data}><PortalPage slug={slug} data={data} /></AppShell>;
 }

@@ -55,7 +55,7 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("organizations").select("*").eq("id", organizationId).single(),
     db.from("profiles").select("id,email,full_name").eq("id", userId).single(),
     db.from("locations").select("*").eq("organization_id", organizationId).order("name"),
-    db.from("vendors").select("id,canonical_name,category,website"),
+    db.from("vendors").select("id,canonical_name,category,website,search_aliases").order("canonical_name"),
     db.from("organization_vendors").select("*").eq("organization_id", organizationId),
     db.from("expense_accounts").select("*").eq("organization_id", organizationId),
     db.from("expenses").select("*").eq("organization_id", organizationId).order("period_end", { ascending: false }),
@@ -130,6 +130,13 @@ export async function getPortalData(): Promise<PortalData> {
       const vendor = vendorById.get(stringValue(relationship.vendor_id));
       return { id: stringValue(vendor?.id), relationshipId: stringValue(relationship.id), name: stringValue(vendor?.canonical_name), category: stringValue(vendor?.category, "Other"), website: nullableString(vendor?.website), annualizedSpend: numberValue(relationship.annualized_spend), relationshipStatus: stringValue(relationship.relationship_status) };
     }),
+    vendorCatalog: rows(vendorsResult.data).map((vendor) => ({
+      id: stringValue(vendor.id),
+      name: stringValue(vendor.canonical_name),
+      category: stringValue(vendor.category, "Other"),
+      website: nullableString(vendor.website),
+      aliases: Array.isArray(vendor.search_aliases) ? vendor.search_aliases.filter((value): value is string => typeof value === "string") : [],
+    })),
     expenses: rows(expensesResult.data).map((expense) => {
       const { vendor } = resolveVendor(stringValue(expense.organization_vendor_id));
       return { id: stringValue(expense.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), category: stringValue(expense.category), periodStart: stringValue(expense.period_start), periodEnd: stringValue(expense.period_end), amount: numberValue(expense.amount), priorPeriodAmount: expense.prior_period_amount == null ? null : numberValue(expense.prior_period_amount), status: stringValue(expense.status) };
@@ -141,18 +148,18 @@ export async function getPortalData(): Promise<PortalData> {
     documents: rows(documentsResult.data).map((document) => {
       const { vendor } = resolveVendor(nullableString(document.organization_vendor_id));
       const extraction = extractionByDocument.get(stringValue(document.id));
-      return { id: stringValue(document.id), vendorName: stringValue(vendor?.canonical_name, "Unassigned"), originalFilename: stringValue(document.original_filename), mimeType: stringValue(document.mime_type), byteSize: numberValue(document.byte_size), status: stringValue(document.status), documentType: nullableString(document.document_type), summary: nullableString(document.extraction_summary), confidence: extraction?.confidence == null ? null : numberValue(extraction.confidence), createdAt: stringValue(document.created_at) };
+      return { id: stringValue(document.id), vendorId: vendor ? stringValue(vendor.id) : null, vendorName: stringValue(vendor?.canonical_name, "Unassigned"), originalFilename: stringValue(document.original_filename), mimeType: stringValue(document.mime_type), byteSize: numberValue(document.byte_size), status: stringValue(document.status), documentType: nullableString(document.document_type), summary: nullableString(document.extraction_summary), confidence: extraction?.confidence == null ? null : numberValue(extraction.confidence), createdAt: stringValue(document.created_at) };
     }),
     opportunities: rows(opportunitiesResult.data).map((opportunity) => {
       const vendor = vendorForAccount(opportunity.expense_account_id);
-      return { id: stringValue(opportunity.id), title: stringValue(opportunity.title), summary: stringValue(opportunity.summary), type: stringValue(opportunity.type), category: nullableString(opportunity.category), status: stringValue(opportunity.status), priority: stringValue(opportunity.priority, "medium") as "high" | "medium" | "low", confidence: opportunity.confidence == null ? null : numberValue(opportunity.confidence), estimatedAnnualValue: opportunity.estimated_annual_value == null ? null : numberValue(opportunity.estimated_annual_value), deadlineAt: nullableString(opportunity.deadline_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), evidenceCount: evidenceCount.get(stringValue(opportunity.id)) ?? 0 };
+      return { id: stringValue(opportunity.id), title: stringValue(opportunity.title), summary: stringValue(opportunity.summary), type: stringValue(opportunity.type), category: nullableString(opportunity.category), status: stringValue(opportunity.status), priority: stringValue(opportunity.priority, "medium") as "high" | "medium" | "low", confidence: opportunity.confidence == null ? null : numberValue(opportunity.confidence), estimatedAnnualValue: opportunity.estimated_annual_value == null ? null : numberValue(opportunity.estimated_annual_value), deadlineAt: nullableString(opportunity.deadline_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), vendorId: vendor ? stringValue(vendor.id) : null, evidenceCount: evidenceCount.get(stringValue(opportunity.id)) ?? 0 };
     }),
     actions: rows(actionsResult.data).flatMap((action) => {
       const opportunity = opportunityById.get(stringValue(action.opportunity_id));
       if (!opportunity || stringValue(opportunity.organization_id) !== organizationId) return [];
       const vendor = vendorForAccount(opportunity.expense_account_id);
       const approval = approvalByResource.get(stringValue(action.id));
-      return [{ id: stringValue(action.id), opportunityId: stringValue(action.opportunity_id), title: stringValue(action.title), description: stringValue(action.description), actionType: stringValue(action.action_type), priority: stringValue(action.priority), status: stringValue(action.status), dueAt: nullableString(action.due_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), approvalId: approval ? stringValue(approval.id) : null, approvalDecision: approval ? stringValue(approval.decision) : null }];
+      return [{ id: stringValue(action.id), opportunityId: stringValue(action.opportunity_id), title: stringValue(action.title), description: stringValue(action.description), actionType: stringValue(action.action_type), priority: stringValue(action.priority), status: stringValue(action.status), dueAt: nullableString(action.due_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), vendorId: vendor ? stringValue(vendor.id) : null, approvalId: approval ? stringValue(approval.id) : null, approvalDecision: approval ? stringValue(approval.decision) : null }];
     }),
     savings: rows(savingsResult.data).map((outcome) => ({ id: stringValue(outcome.id), title: stringValue(outcome.title), valueType: stringValue(outcome.value_type), amount: numberValue(outcome.amount), method: stringValue(outcome.method), status: stringValue(outcome.status), verifiedAt: nullableString(outcome.verified_at) })),
     integrations: rows(integrationsResult.data).map((integration) => ({ id: stringValue(integration.id), provider: stringValue(integration.provider), displayName: stringValue(integration.display_name), description: stringValue(integration.description), status: stringValue(integration.status), lastSyncedAt: nullableString(integration.last_synced_at) })),

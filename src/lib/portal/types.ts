@@ -27,6 +27,14 @@ export type PortalVendor = {
   relationshipStatus: string;
 };
 
+export type PortalVendorCatalogEntry = {
+  id: string;
+  name: string;
+  category: string;
+  website: string | null;
+  aliases: string[];
+};
+
 export type PortalExpense = {
   id: string;
   vendorId: string;
@@ -56,6 +64,7 @@ export type PortalContract = {
 
 export type PortalDocument = {
   id: string;
+  vendorId: string | null;
   vendorName: string;
   originalFilename: string;
   mimeType: string;
@@ -79,6 +88,7 @@ export type PortalOpportunity = {
   estimatedAnnualValue: number | null;
   deadlineAt: string | null;
   vendorName: string;
+  vendorId: string | null;
   evidenceCount: number;
 };
 
@@ -92,6 +102,7 @@ export type PortalAction = {
   status: string;
   dueAt: string | null;
   vendorName: string;
+  vendorId: string | null;
   approvalId: string | null;
   approvalDecision: string | null;
 };
@@ -173,6 +184,7 @@ export type PortalData = {
   currentUser: PortalUser;
   locations: PortalLocation[];
   vendors: PortalVendor[];
+  vendorCatalog: PortalVendorCatalogEntry[];
   expenses: PortalExpense[];
   contracts: PortalContract[];
   documents: PortalDocument[];
