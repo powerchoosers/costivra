@@ -30,6 +30,20 @@ Recovery links work across browsers and devices while remaining single-use and t
 
 The email now lands on `/confirm-recovery`, which requires an explicit user button before the server verifies the token. This prevents email-client security scanners and link previewers from consuming the single-use recovery token with an automated GET request. The reproducible hosted template is stored at `docs/SUPABASE_RECOVERY_EMAIL_TEMPLATE.html` and includes the approved Costivra logo and complete footer.
 
+## 2026-08-01 — Keep password recovery authorization server-authoritative
+
+### Context
+
+The password page repeated session verification in the browser and disabled its inputs and submit control from React state. A stale rotated refresh token could leave the page gray without identifying the session failure. Browser password managers could also fill the visible inputs without synchronizing that React state, making valid entries appear unmatched and preventing submission entirely.
+
+### Decision
+
+Verify the Supabase session on the server, include `/set-password` in the cookie-refresh proxy, and remove stale Supabase auth cookies when refresh-token rotation has invalidated them. Render a separate reset-link screen when no authenticated session exists. For an active session, use uncontrolled password fields, read the submitted DOM values, validate both entries again on the server, and keep a standard POST form action as a progressive fallback. The update route may modify only the authenticated user and must never search for or target a hardcoded owner account.
+
+### Consequences
+
+Password-manager autofill cannot silently keep the submit action disabled, expired sessions produce an honest recovery instruction, and password saving still works if client-side form enhancement fails. The server remains the final authorization and validation boundary. A consumed or expired link still requires a fresh recovery email; the application does not weaken Supabase's single-use-token policy.
+
 ## 2026-07-31 — Promote website inquiries into auditable CRM leads
 
 ### Context
