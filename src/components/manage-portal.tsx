@@ -674,7 +674,7 @@ export function ManagePortal({
           {(["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") && (
             <div className="manage-create-wrap" ref={createMenuRef}>
               <button className="manage-button manage-button--primary manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
-                <Plus size={18} />
+                <Plus size={23} strokeWidth={3} />
               </button>
               {(createMenuOpen || createMenuClosing) && (
                 <div className={`manage-create-menu${createMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="Create a new record">
