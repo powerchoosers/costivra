@@ -122,7 +122,7 @@ export function HomePage() {
             <Plan name="Growth" price="$599" copy="Multiple locations, approvals, team access, advanced reports, and weekly monitoring." />
             <Plan name="Enterprise" price="Let's talk" copy="SSO, custom policies, integrations, retention controls, and dedicated support." />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Run a free cost scan <ArrowRight aria-hidden="true" size={17} /></Link></div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link></div>
         </div>
       </section>
 
