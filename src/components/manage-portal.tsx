@@ -411,6 +411,9 @@ export function ManagePortal({
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchClosing, setSearchClosing] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const createMenuRef = useRef<HTMLDivElement>(null);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const [createMenuClosing, setCreateMenuClosing] = useState(false);
   const [dialog, setDialog] = useState<
     "account" | "contact" | "task" | "note" | "mailbox" | null
   >(null);
@@ -427,13 +430,23 @@ export function ManagePortal({
     }, 160);
   }, [searchClosing, searchFocused]);
 
+  const closeCreateMenu = useCallback(() => {
+    if (!createMenuOpen || createMenuClosing) return;
+    setCreateMenuClosing(true);
+    window.setTimeout(() => {
+      setCreateMenuOpen(false);
+      setCreateMenuClosing(false);
+    }, 150);
+  }, [createMenuClosing, createMenuOpen]);
+
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
       if (!searchContainerRef.current?.contains(event.target as Node)) closeSearch();
+      if (!createMenuRef.current?.contains(event.target as Node)) closeCreateMenu();
     }
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [closeSearch]);
+  }, [closeCreateMenu, closeSearch]);
 
   const results = useMemo(
     () => globalSearchResults(data, search),
@@ -591,6 +604,7 @@ export function ManagePortal({
               <h1>{pageTitle}</h1>
             </div>
           </div>
+          <div className="manage-topbar-center">
           <div className="manage-global-search-wrap" ref={searchContainerRef}>
             <label className="manage-search">
               <Search size={16} />
@@ -657,6 +671,20 @@ export function ManagePortal({
               </div>
             )}
           </div>
+          {(["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") && (
+            <div className="manage-create-wrap" ref={createMenuRef}>
+              <button className="manage-button manage-button--primary manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
+                <Plus size={18} />
+              </button>
+              {(createMenuOpen || createMenuClosing) && (
+                <div className={`manage-create-menu${createMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="Create a new record">
+                  <button type="button" role="menuitem" onClick={() => { setDialog("account"); closeCreateMenu(); }}><Building2 size={16} />Add account</button>
+                  <button type="button" role="menuitem" onClick={() => { setDialog("contact"); closeCreateMenu(); }}><Users size={16} />Add contact</button>
+                </div>
+              )}
+            </div>
+          )}
+          </div>
           <div className="manage-top-actions">
             {section === "mail" ? (
               <button
@@ -676,7 +704,7 @@ export function ManagePortal({
               >
                 <Plus size={16} /> Add note
               </button>
-            ) : (
+            ) : (["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") ? null : (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() =>
@@ -703,7 +731,6 @@ export function ManagePortal({
           {section === "overview" && (
             <Overview
               data={data}
-              onAdd={() => setDialog("account")}
               onTask={() => setDialog("task")}
             />
           )}
@@ -868,11 +895,9 @@ export function ManagePortal({
 
 function Overview({
   data,
-  onAdd,
   onTask,
 }: {
   data: ManageData;
-  onAdd: () => void;
   onTask: () => void;
 }) {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
@@ -923,12 +948,6 @@ function Overview({
             onClick={onTask}
           >
             <CalendarClock size={16} /> Add follow-up
-          </button>
-          <button
-            className="manage-button manage-button--primary"
-            onClick={onAdd}
-          >
-            <Plus size={16} /> Add account
           </button>
         </div>
       </section>
