@@ -8,6 +8,8 @@ import {
   Archive,
   ArrowLeft,
   AtSign,
+  Bell,
+  Bot,
   Building2,
   Camera,
   CalendarClock,
@@ -30,6 +32,7 @@ import {
   MoreHorizontal,
   Paperclip,
   PenLine,
+  PhoneCall,
   Plus,
   RefreshCw,
   Reply,
@@ -674,7 +677,7 @@ export function ManagePortal({
           {(["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") && (
             <div className="manage-create-wrap" ref={createMenuRef}>
               <button className="manage-button manage-button--primary manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
-                <Plus size={23} strokeWidth={3} />
+                <Plus size={28} strokeWidth={3.25} />
               </button>
               {(createMenuOpen || createMenuClosing) && (
                 <div className={`manage-create-menu${createMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="Create a new record">
@@ -686,6 +689,11 @@ export function ManagePortal({
           )}
           </div>
           <div className="manage-top-actions">
+            <div className="manage-topbar-utilities" aria-label="Workspace utilities">
+              <button type="button" className="manage-topbar-icon" aria-label="Phone" title="Phone"><PhoneCall size={18} /></button>
+              <button type="button" className="manage-topbar-icon" aria-label="Ask Costivra" title="Ask Costivra"><Bot size={18} /></button>
+              <button type="button" className="manage-topbar-icon" aria-label="Notifications" title="Notifications"><Bell size={18} /></button>
+            </div>
             {section === "mail" ? (
               <button
                 className="manage-button manage-button--primary"
