@@ -2539,12 +2539,13 @@ function VendorSidePanel({
                         ),
                       }))
                     }
-                    onBlur={() =>
+                    onBlur={(event) => {
+                      const formatted = formatMoneyInput(event.currentTarget.value);
                       setDraft((current) => ({
                         ...current,
-                        spendAmount: formatMoneyInput(current.spendAmount),
-                      }))
-                    }
+                        spendAmount: formatted,
+                      }));
+                    }}
                     inputMode="decimal"
                     aria-describedby="spend-help"
                     required
