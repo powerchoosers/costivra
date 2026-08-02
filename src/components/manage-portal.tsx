@@ -84,6 +84,7 @@ import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
+import type { SystemReadiness } from "@/lib/manage/system-readiness";
 import { formatManageDate } from "@/lib/manage/date-format";
 import {
   buildRecipientCandidates,
@@ -2505,6 +2506,8 @@ function SettingsPage({
     data.operator.notificationSoundEnabled,
   );
   const [savingNotifications, setSavingNotifications] = useState(false);
+  const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
+  const [checkingReadiness, setCheckingReadiness] = useState(false);
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -2568,6 +2571,34 @@ function SettingsPage({
       toast.error("Notification settings were not saved", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setSavingNotifications(false);
+    }
+  }
+
+  async function runReadinessCheck() {
+    setCheckingReadiness(true);
+    try {
+      const response = await fetch("/api/manage/system-readiness", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => ({}))) as SystemReadiness & {
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(payload.error || "The readiness check could not be completed.");
+      setReadiness(payload);
+      if (payload.overall === "ready") toast.success("Production services are ready.");
+      else if (payload.overall === "warning")
+        toast.info("Readiness check completed", "Review the services marked for attention.");
+      else
+        toast.error("Launch blockers found", "Review the blocked services before accepting customer data.");
+    } catch (error) {
+      toast.error(
+        "Readiness check failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setCheckingReadiness(false);
     }
   }
 
@@ -2650,6 +2681,74 @@ function SettingsPage({
           <i aria-hidden="true" />
         </label>
       </section>
+      {data.operator.role === "owner" && (
+        <section className="manage-panel manage-settings-readiness" aria-labelledby="system-readiness-title">
+          <header>
+            <div>
+              <span className="manage-settings-kicker">Owner controls</span>
+              <h3 id="system-readiness-title">Production readiness</h3>
+              <p>Check the live services behind intake, extraction, enrichment, and email. Secret values never leave the server.</p>
+            </div>
+            <button
+              type="button"
+              className="manage-button manage-button--quiet"
+              disabled={checkingReadiness}
+              onClick={() => void runReadinessCheck()}
+            >
+              <RefreshCw className={checkingReadiness ? "is-spinning" : undefined} size={15} />
+              {checkingReadiness ? "Checking…" : readiness ? "Run again" : "Run readiness check"}
+            </button>
+          </header>
+          {readiness ? (
+            <div className="manage-readiness-results" aria-live="polite">
+              <div className={`manage-readiness-summary manage-readiness-summary--${readiness.overall}`}>
+                {readiness.overall === "ready" ? (
+                  <CheckCircle2 size={18} />
+                ) : readiness.overall === "warning" ? (
+                  <ShieldAlert size={18} />
+                ) : (
+                  <CircleAlert size={18} />
+                )}
+                <div>
+                  <strong>
+                    {readiness.overall === "ready"
+                      ? "Ready for controlled production use"
+                      : readiness.overall === "warning"
+                        ? "Usable with items to review"
+                        : "Launch blockers need attention"}
+                  </strong>
+                  <small>Checked {new Date(readiness.checkedAt).toLocaleString()}</small>
+                </div>
+              </div>
+              <div className="manage-readiness-grid">
+                {readiness.services.map((service) => (
+                  <article className={`manage-readiness-service manage-readiness-service--${service.status}`} key={service.id}>
+                    <div aria-hidden="true">
+                      {service.status === "ready" ? (
+                        <CheckCircle2 size={16} />
+                      ) : service.status === "warning" ? (
+                        <ShieldAlert size={16} />
+                      ) : (
+                        <CircleAlert size={16} />
+                      )}
+                    </div>
+                    <span>
+                      <strong>{service.name}</strong>
+                      <small>{service.message}</small>
+                    </span>
+                    <em>{service.status === "ready" ? "Ready" : service.status === "warning" ? "Review" : "Blocked"}</em>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="manage-readiness-empty">
+              <ShieldAlert size={18} aria-hidden="true" />
+              <p>Run this check after changing a production key, domain, webhook, worker, or provider.</p>
+            </div>
+          )}
+        </section>
+      )}
       <section id="email-identities" className="manage-settings-section">
         <Mailboxes data={data} query={query} run={run} onAdd={onAdd} embedded />
       </section>

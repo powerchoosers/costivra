@@ -110,7 +110,7 @@ export function manageApiError(error: unknown) {
   if (message === "OWNER_ACCESS_REQUIRED")
     return {
       status: 403,
-      error: "Only a Costivra owner can manage mailbox seats.",
+      error: "Only a Costivra owner can complete this action.",
     };
   if (message === "MAILBOX_ACCESS_REQUIRED")
     return {
