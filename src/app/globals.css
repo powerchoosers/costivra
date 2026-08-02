@@ -1072,6 +1072,8 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
   .manage-page--intake { padding:24px 16px 44px; }
   .intake-event-actions { align-items:stretch; width:100%; }
   .intake-event-actions .manage-button { flex:1; justify-content:center; }
+  .intake-event-actions .manage-button:disabled { border-color:#d6dce6; background:#e7ebf1; color:#768196; box-shadow:none; opacity:1; }
+  .intake-event-title { align-items:flex-start; flex-direction:column; gap:10px; }
   .intake-event-overview,.intake-event-files { padding:18px; border-radius:17px; }
   .intake-event-facts { grid-template-columns:1fr; }
   .intake-event-files article { grid-template-columns:auto minmax(0,1fr); }
@@ -3367,6 +3369,13 @@ html { scroll-padding-top: 92px; }
 /* Authenticated Logo.dev images inherit the existing entity-avatar geometry. */
 .company-logo{display:grid;object-fit:contain;width:36px;height:36px;flex:0 0 auto;place-items:center;border:1px solid #dce2ea;border-radius:11px;color:#344f89;background:#fff;font-size:.78rem;font-weight:750;text-transform:uppercase;animation:company-logo-reveal 300ms cubic-bezier(.23,1,.32,1) both}@keyframes company-logo-reveal{from{opacity:.01;filter:blur(5px);transform:scale(1.035)}to{opacity:1;filter:blur(0);transform:scale(1)}}.company-logo--fallback{background:#f5f7fb;animation:none;opacity:1;filter:none;transform:none}.manage-account-avatar.company-logo{width:32px;height:32px;border-radius:10px}.app-organization-logo{width:18px;height:18px;border:1px solid #dce2ea;border-radius:5px;background:#fff;object-fit:contain;flex:0 0 auto}
 .manage-detail-account-title{display:flex;align-items:center;gap:11px}
+
+@media (max-width:520px){
+  .manage-topbar{grid-template-columns:auto minmax(0,1fr) auto;padding-right:10px;padding-left:10px}
+  .manage-kbd{display:none}
+  .manage-topbar-utilities .manage-topbar-icon:first-child{display:none}
+  .manage-topbar-utilities .manage-topbar-icon:nth-child(2)::before{display:none}
+}
 
 /* The row selector and frozen-record boundary should remain visually exact while the table scrolls. */
 .manage-data-table .manage-row-number-cell{padding:0 8px 0 14px;vertical-align:middle}.manage-data-table .manage-row-number-cell>.manage-bulk-row-selector{margin:0 auto;line-height:0;transform:translateY(-1px)}.manage-bulk-row-selector svg{display:none;flex:0 0 auto}.manage-data-table .manage-sticky-column{border-right:0;box-shadow:8px 0 13px -14px rgba(26,43,72,.9)}
