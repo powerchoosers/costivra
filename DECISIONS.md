@@ -373,3 +373,25 @@ The frontend cannot auto-route an energy case or present UCEP as the only option
 **Decision:** The Manage assistant uses one authenticated server route, a bounded record snapshot, allowlisted source links, and live suggestion counts derived from accounts, tasks, mail, and receiving webhook events. It may explain and prioritize existing records, but it cannot send email, invoke webhooks, alter records, approve work, or calculate authoritative savings. Questions remain session-local; safe request metadata is written to the internal audit ledger without storing raw prompts.
 
 **Consequences:** Operators get useful, source-linked answers while human workflows remain the only path to external or financial side effects. Persistent assistant history and approved action tools require separate schemas, authorization, and explicit review before they can be added.
+# Durable inbound email processing through a server-only database queue
+
+**Date:** August 2, 2026
+
+**Context:** The Resend webhook downloaded, scanned, stored, and extracted every attachment
+inside the provider request. A normal multi-page invoice or temporary provider slowdown could
+exceed the webhook's 60-second window, causing Resend to retry a partially completed operation.
+
+**Decision:** Treat `inbound_email_events` as the durable job record. The signed webhook now
+validates tenant routing and trusted senders, records the event, and returns `202`. A protected
+Vercel Cron route atomically claims at most two jobs with `FOR UPDATE SKIP LOCKED`, processes
+attachments idempotently, and schedules bounded retries. Stale locks can be reclaimed; five
+failed attempts move the event to `dead_letter` and notify workspace owners.
+
+**Alternatives considered:** Processing inline was operationally fragile. Exposing Supabase
+Queues through the Data API would add another permission surface without improving this small,
+already-audited intake ledger. A third-party workflow engine remains appropriate when Costivra
+outgrows this bounded worker.
+
+**Consequences:** Production must provide `CRON_SECRET` and a Vercel plan capable of a one-minute
+cron. The queue remains server-only, retries are visible to customers, and document ingestion
+continues to use the same malware, evidence, reconciliation, and human-review boundaries.

@@ -16,6 +16,7 @@ export async function PATCH(request: Request) {
     if (!['owner','admin'].includes(role)) return NextResponse.json({ error: "Only an owner or administrator can change email intake settings." }, { status: 403 });
     const body = await request.json() as Record<string, unknown>;
     const operation = cleanText(body.operation, 40);
+    const eventId = cleanText(body.eventId, 50);
     const { data: intake, error: intakeError } = await db.from("inbound_email_addresses").select("id,status,trusted_senders,local_part,domain").eq("organization_id", organizationId).single();
     if (intakeError || !intake) return NextResponse.json({ error: "Email intake is not available for this workspace." }, { status: 404 });
 
@@ -65,11 +66,17 @@ export async function PATCH(request: Request) {
         const processed = (states ?? []).filter((state) => state.processing_status === "processed" || state.processing_status === "duplicate").length;
         await db.from("inbound_email_events").update({ status: remaining ? "quarantined" : failed ? "needs_review" : "processed", processed_attachment_count: processed, processed_at: remaining ? null : new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", eventId).eq("organization_id", organizationId);
       }
+    } else if (operation === "retry_failed") {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventId)) return NextResponse.json({ error: "Choose a valid intake event to retry." }, { status: 400 });
+      const now = new Date().toISOString();
+      const { data: queued, error } = await db.from("inbound_email_events").update({ status: "queued", attempt_count: 0, next_attempt_at: now, last_attempt_at: null, locked_at: null, lock_token: null, processed_at: null, error_message: null, updated_at: now }).eq("id", eventId).eq("organization_id", organizationId).eq("status", "dead_letter").select("id").maybeSingle();
+      if (error) throw error;
+      if (!queued) return NextResponse.json({ error: "This intake event is no longer waiting for a manual retry." }, { status: 409 });
     } else {
       return NextResponse.json({ error: "Unsupported email intake operation." }, { status: 400 });
     }
 
-    await db.from("audit_events").insert({ organization_id: organizationId, actor_type: "user", actor_id: userId, action: `email_intake.${operation}`, resource_type: "inbound_email_address", resource_id: intake.id });
+    await db.from("audit_events").insert({ organization_id: organizationId, actor_type: "user", actor_id: userId, action: `email_intake.${operation}`, resource_type: operation === "retry_failed" ? "inbound_email_event" : "inbound_email_address", resource_id: operation === "retry_failed" ? eventId : intake.id });
     return NextResponse.json({ ok: true });
   } catch (error) { return apiError(error); }
 }

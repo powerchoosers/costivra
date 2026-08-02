@@ -18,7 +18,9 @@ test("public site navigates without runtime errors", async ({ page }, testInfo) 
   test.skip(testInfo.project.name.startsWith("mobile"), "Desktop navigation has its own interaction model");
   const failures = failOnConsoleErrors(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("recurring business cost");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "costs hiding in your operating margin",
+  );
   await page.getByRole("link", { name: "Pricing", exact: true }).first().click();
   await expect(page).toHaveURL(/\/pricing$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -32,6 +34,11 @@ test("sign-in clearly separates working and future providers", async ({ page }) 
   await expect(page.getByRole("button", { name: /google/i })).toBeDisabled();
   await expect(page.getByRole("button", { name: /outlook/i })).toBeDisabled();
   expect(failures).toEqual([]);
+});
+
+test("inbound email worker rejects public requests", async ({ request }) => {
+  const response = await request.get("/api/cron/inbound-email");
+  expect(response.status()).toBe(401);
 });
 
 test("mobile navigation opens without shifting or clipping the page", async ({ page }, testInfo) => {

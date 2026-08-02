@@ -1494,12 +1494,12 @@ function Integrations({
         }),
       "Integration status updated.",
     );
-  const intakeOperation = (operation: string, email?: string) =>
+  const intakeOperation = (operation: string, email?: string, eventId?: string) =>
     run(
       () =>
         api("/api/portal/email-intake", {
           method: "PATCH",
-          body: { operation, sender: email },
+          body: { operation, sender: email, eventId },
         }),
       operation === "activate"
         ? "Automatic email intake is active."
@@ -1507,6 +1507,8 @@ function Integrations({
           ? "Automatic email intake is paused."
           : operation === "retry"
             ? "Quarantined files were checked again."
+            : operation === "retry_failed"
+              ? "The email was queued for another safe attempt."
             : operation === "add_sender"
               ? "Forwarding address approved."
               : "Forwarding address removed.",
@@ -1744,9 +1746,25 @@ function Integrations({
                       <div className="email-event-result">
                         <Status value={event.status} />
                         <small>
-                          {event.processedAttachmentCount}/
-                          {event.attachmentCount} files processed
+                          {event.status === "queued"
+                            ? "Waiting for secure processing"
+                            : event.status === "processing"
+                              ? "Scanning and reading attachments"
+                              : event.status === "retrying"
+                                ? "Retry scheduled automatically"
+                                : event.status === "dead_letter"
+                                  ? "Manual review required"
+                                  : `${event.processedAttachmentCount}/${event.attachmentCount} files processed`}
                         </small>
+                        {canManage && event.status === "dead_letter" && (
+                          <button
+                            className="button button-quiet"
+                            type="button"
+                            onClick={() => void intakeOperation("retry_failed", undefined, event.id)}
+                          >
+                            <RotateCcw size={15} /> Retry
+                          </button>
+                        )}
                       </div>
                     </article>
                   ))}

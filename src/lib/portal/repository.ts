@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createSessionSupabaseClient } from "@/lib/supabase/session";
+import { isInboundEmailPlatformReady } from "@/lib/email/resend";
 import type { PortalData } from "@/lib/portal/types";
 
 type Row = Record<string, unknown>;
@@ -192,7 +193,7 @@ export async function getPortalData(): Promise<PortalData> {
       address: `${stringValue(emailIntakeResult.data.local_part)}@${stringValue(emailIntakeResult.data.domain)}`,
       status: stringValue(emailIntakeResult.data.status),
       trustedSenders: Array.isArray(emailIntakeResult.data.trusted_senders) ? emailIntakeResult.data.trusted_senders.filter((value): value is string => typeof value === "string") : [],
-      platformReady: Boolean(process.env.RESEND_API_KEY && process.env.RESEND_WEBHOOK_SECRET && process.env.RESEND_INBOUND_DOMAIN),
+      platformReady: isInboundEmailPlatformReady(),
     } : null,
     inboundEmailEvents: rows(inboundEmailEventsResult.data).map((event) => ({ id: stringValue(event.id), senderAddress: stringValue(event.sender_address), subject: stringValue(event.subject), status: stringValue(event.status), attachmentCount: numberValue(event.attachment_count), processedAttachmentCount: numberValue(event.processed_attachment_count), errorMessage: nullableString(event.error_message), receivedAt: stringValue(event.received_at) })),
     reports: rows(reportsResult.data).map((report) => ({ id: stringValue(report.id), name: stringValue(report.name), description: stringValue(report.description), reportType: stringValue(report.report_type), status: stringValue(report.status), lastGeneratedAt: nullableString(report.last_generated_at) })),

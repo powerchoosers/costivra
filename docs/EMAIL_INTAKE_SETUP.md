@@ -39,3 +39,15 @@ The malware scanner receives a multipart request containing a `file` part and mu
 - SHA-256 prevents organization-level duplicate ingestion.
 - Resend attachment URLs are downloaded immediately because they expire.
 - Every accepted, rejected, quarantined, and retried message produces tenant-scoped records and audit events.
+## Durable processing and retries
+
+Resend delivery and document processing are separate steps. The signed webhook records an
+accepted message immediately, then a protected server worker claims queued messages every
+minute. The worker downloads attachments, scans them, stores clean originals privately, and
+runs extraction. Transient provider or network failures are retried after 1 minute, 5 minutes,
+30 minutes, and 2 hours. After five failed attempts, the event moves to manual review and the
+workspace owners are notified.
+
+Production requires a server-only `CRON_SECRET` in Vercel. Vercel supplies it as the Bearer
+token when calling `/api/cron/inbound-email`; browsers and customer sessions cannot run the
+worker. The one-minute schedule requires a Vercel plan that supports per-minute cron jobs.

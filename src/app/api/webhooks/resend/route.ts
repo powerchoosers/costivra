@@ -1,11 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { EmailReceivedEvent, WebhookEventPayload } from "resend";
-import {
-  DOCUMENT_MIME_TYPES,
-  ingestDocumentBuffer,
-  MAX_DOCUMENT_SIZE,
-} from "@/lib/documents/intake";
+import { notifyOrganizationOwners } from "@/lib/email/inbound-intake";
 import {
   isTrustedInboundSender,
   matchesIntakeAddress,
@@ -493,31 +489,6 @@ async function persistOwnerMailboxMessage(
   return { duplicate: false, threadId };
 }
 
-async function notifyOwners(
-  db: ReturnType<typeof createServerSupabaseClient>,
-  organizationId: string,
-  title: string,
-  body: string,
-  resourceId: string,
-) {
-  const { data: members } = await db
-    .from("organization_memberships")
-    .select("user_id,role")
-    .eq("organization_id", organizationId)
-    .in("role", ["owner", "admin"]);
-  if (!members?.length) return;
-  await db.from("notifications").insert(
-    members.map((member) => ({
-      organization_id: organizationId,
-      recipient_user_id: member.user_id,
-      title,
-      body,
-      resource_type: "inbound_email_event",
-      resource_id: resourceId,
-    })),
-  );
-}
-
 export async function POST(request: Request) {
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
   if (!webhookSecret)
@@ -660,7 +631,7 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", eventId);
-    await notifyOwners(
+    await notifyOrganizationOwners(
       db,
       intake.organization_id,
       "Email intake blocked",
@@ -677,234 +648,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, status: "rejected" });
   }
 
-  await db
+  const queuedAt = new Date().toISOString();
+  const { error: queueError } = await db
     .from("inbound_email_events")
-    .update({ status: "processing", updated_at: new Date().toISOString() })
+    .update({
+      status: "queued",
+      next_attempt_at: queuedAt,
+      error_message: null,
+      updated_at: queuedAt,
+    })
     .eq("id", eventId);
-  try {
-    const emailResult = await resend.emails.receiving.get(
-      received.data.email_id,
-      { html_format: "cid" },
-    );
-    if (emailResult.error || !emailResult.data)
-      throw new Error(
-        emailResult.error?.message ||
-          "The received email could not be retrieved.",
-      );
-    const preview =
-      (emailResult.data.text || "").replace(/\s+/g, " ").trim().slice(0, 600) ||
-      null;
-    await db
-      .from("inbound_email_events")
-      .update({ body_preview: preview })
-      .eq("id", eventId);
-
-    const attachmentResult = await resend.emails.receiving.attachments.list({
-      emailId: received.data.email_id,
-      limit: 20,
-    });
-    if (attachmentResult.error || !attachmentResult.data)
-      throw new Error(
-        attachmentResult.error?.message ||
-          "Attachments could not be retrieved.",
-      );
-    const attachments = attachmentResult.data.data.slice(0, 12);
-    let processedCount = 0;
-    let quarantinedCount = 0;
-    let reviewCount =
-      attachmentResult.data.data.length > attachments.length ? 1 : 0;
-
-    for (const attachment of attachments) {
-      const filename = (attachment.filename || `attachment-${attachment.id}`)
-        .replace(/[\\/]/g, "-")
-        .slice(0, 255);
-      const contentType = attachment.content_type
-        .split(";", 1)[0]
-        .trim()
-        .toLowerCase();
-      const row = await db
-        .from("inbound_email_attachments")
-        .insert({
-          organization_id: intake.organization_id,
-          event_id: eventId,
-          resend_attachment_id: attachment.id,
-          filename,
-          content_type: contentType,
-          byte_size: attachment.size,
-        })
-        .select("id")
-        .single();
-      if (row.error) {
-        if (row.error.code === "23505") continue;
-        throw row.error;
-      }
-      const attachmentRowId = row.data.id as string;
-      if (
-        !DOCUMENT_MIME_TYPES.has(contentType) ||
-        attachment.size <= 0 ||
-        attachment.size > MAX_DOCUMENT_SIZE
-      ) {
-        reviewCount += 1;
-        await db
-          .from("inbound_email_attachments")
-          .update({
-            processing_status: "unsupported",
-            error_message: "File type or size is not supported.",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", attachmentRowId);
-        continue;
-      }
-
-      const response = await fetch(attachment.download_url, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!response.ok)
-        throw new Error(
-          `Attachment download returned HTTP ${response.status}.`,
-        );
-      const buffer = Buffer.from(await response.arrayBuffer());
-      if (!buffer.length || buffer.length > MAX_DOCUMENT_SIZE)
-        throw new Error(
-          "Downloaded attachment size is outside the supported range.",
-        );
-      const sha256 = createHash("sha256").update(buffer).digest("hex");
-      const scan = await scanFileForMalware({
-        buffer,
-        filename,
-        mimeType: contentType,
-      });
-
-      if (scan.status !== "clean") {
-        if (scan.status === "infected") {
-          reviewCount += 1;
-          await db
-            .from("inbound_email_attachments")
-            .update({
-              sha256,
-              scan_status: "infected",
-              processing_status: "failed",
-              error_message: "Malware scanner rejected this attachment.",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", attachmentRowId);
-          continue;
-        }
-        const safeName =
-          filename.replace(/[^A-Za-z0-9._-]/g, "-").slice(-180) || "attachment";
-        const quarantinePath = `${intake.organization_id}/quarantine/email/${eventId}/${randomUUID()}-${safeName}`;
-        const upload = await db.storage
-          .from("costivra-documents")
-          .upload(quarantinePath, buffer, { contentType, upsert: false });
-        if (upload.error) throw upload.error;
-        quarantinedCount += 1;
-        await db
-          .from("inbound_email_attachments")
-          .update({
-            sha256,
-            scan_status: scan.status,
-            processing_status: "quarantined",
-            quarantine_storage_path: quarantinePath,
-            error_message:
-              scan.detail || "Attachment is waiting for malware scanning.",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", attachmentRowId);
-        continue;
-      }
-
-      const result = await ingestDocumentBuffer({
-        db,
-        organizationId: intake.organization_id,
-        actorType: "service",
-        actorId: null,
-        filename,
-        mimeType: contentType,
-        buffer,
-        sourceType: "email_forwarding",
-        auditAction: "document.received_by_email",
-      });
-      processedCount += 1;
-      await db
-        .from("inbound_email_attachments")
-        .update({
-          sha256,
-          scan_status: "clean",
-          processing_status: result.duplicate ? "duplicate" : "processed",
-          document_id: result.documentId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", attachmentRowId);
-    }
-
-    const finalStatus = quarantinedCount
-      ? "quarantined"
-      : reviewCount
-        ? "needs_review"
-        : "processed";
-    await db
-      .from("inbound_email_events")
-      .update({
-        status: finalStatus,
-        processed_attachment_count: processedCount,
-        processed_at: new Date().toISOString(),
-        error_message: quarantinedCount
-          ? "One or more attachments are waiting for malware scanning."
-          : reviewCount
-            ? "One or more attachments need review."
-            : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", eventId);
-    await db
-      .from("integrations")
-      .update({
-        status: "connected",
-        last_synced_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("organization_id", intake.organization_id)
-      .eq("provider", "resend_inbound");
-    await db.from("audit_events").insert({
-      organization_id: intake.organization_id,
-      actor_type: "service",
-      action: `inbound_email.${finalStatus}`,
-      resource_type: "inbound_email_event",
-      resource_id: eventId,
-    });
-    await notifyOwners(
-      db,
-      intake.organization_id,
-      finalStatus === "processed"
-        ? "Email documents received"
-        : "Email intake needs attention",
-      `${received.data.attachments?.length ?? 0} attachment${received.data.attachments?.length === 1 ? "" : "s"} received from ${senderAddress}.`,
-      eventId,
-    );
-    return NextResponse.json({ received: true, status: finalStatus });
-  } catch (error) {
-    await db
-      .from("inbound_email_events")
-      .update({
-        status: "failed",
-        error_message:
-          error instanceof Error
-            ? error.message.slice(0, 1000)
-            : "Inbound processing failed.",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", eventId);
-    await notifyOwners(
-      db,
-      intake.organization_id,
-      "Email intake failed",
-      "Costivra received an email but could not finish processing it. Open Integrations to review the event.",
-      eventId,
-    );
-    return NextResponse.json(
-      { error: "Inbound processing failed." },
-      { status: 500 },
-    );
-  }
+  if (queueError) throw queueError;
+  await db.from("audit_events").insert({
+    organization_id: intake.organization_id,
+    actor_type: "service",
+    action: "inbound_email.queued",
+    resource_type: "inbound_email_event",
+    resource_id: eventId,
+  });
+  return NextResponse.json({ received: true, status: "queued" }, { status: 202 });
 }

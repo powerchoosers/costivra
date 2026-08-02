@@ -1,5 +1,27 @@
 # Costivra Status
 
+## Durable inbound invoice processing — August 2, 2026
+
+- Moved customer invoice attachment processing out of the Resend webhook request and into a
+  durable, server-only work queue backed by `inbound_email_events`.
+- Added atomic job claiming, stale-lock recovery, idempotent attachment continuation, bounded
+  retries at 1 minute, 5 minutes, 30 minutes, and 2 hours, plus a dead-letter/manual-review state
+  after five failures.
+- Added a protected one-minute Vercel Cron worker. The webhook now returns `202` after routing,
+  trusted-sender validation, durable persistence, and audit logging.
+- Added plain-language queued, processing, retry, and manual-review states to the customer
+  Integrations page.
+- Applied `20260802155628_durable_inbound_email_queue.sql` to the live Costivra Supabase project.
+  Anonymous and authenticated roles cannot claim jobs; the server role can. A rollback-only live
+  database test confirmed the same job was not claimed twice.
+- Added a generated `CRON_SECRET` to the Vercel Production environment as a sensitive value.
+- Validation passed: `npm run typecheck`; `npm run lint` (four pre-existing warnings, zero errors);
+  `npm test -- --run` (23 files, 73 tests); `npm run test:integration` (1 test); `npm run build`
+  (33 pages); and `npm run test:e2e` (6 passed, 2 intentionally skipped by project targeting).
+- Verified the Vercel team is on the Pro plan, which supports the configured one-minute worker.
+- Remaining deployment requirement: run one real forwarded-invoice test after configuring the
+  malware scanner.
+
 ## Bulk row selector visibility — August 2, 2026
 
 - Fixed the shared Accounts/Contacts row selector CSS so the check icon is hidden for unselected rows and appears only on hover, keyboard focus, or selection.
