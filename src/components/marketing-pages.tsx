@@ -341,14 +341,12 @@ function HelpPage() { const guides = [{ title: "Uploading bills and contracts", 
 function StatusPage() {
   const [systemStatus, setSystemStatus] = useState<PublicSystemStatus | null>(null);
   const [statusError, setStatusError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useState(true);
   const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     let current = true;
-    setRefreshing(true);
-    setStatusError("");
     fetch("/api/status", { signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json().catch(() => ({}))) as PublicSystemStatus & { error?: string };
@@ -395,7 +393,16 @@ function StatusPage() {
                 : statusError || "This normally takes only a few seconds."}
             </p>
           </div>
-          <button type="button" className="button button-secondary public-status-refresh" disabled={refreshing} onClick={() => setRefreshToken((value) => value + 1)}>
+          <button
+            type="button"
+            className="button button-secondary public-status-refresh"
+            disabled={refreshing}
+            onClick={() => {
+              setRefreshing(true);
+              setStatusError("");
+              setRefreshToken((value) => value + 1);
+            }}
+          >
             <RefreshCw className={refreshing ? "is-spinning" : undefined} aria-hidden="true" size={15} />
             {refreshing ? "Checking…" : "Refresh"}
           </button>
