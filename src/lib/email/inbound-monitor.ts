@@ -60,14 +60,33 @@ export async function monitorInboundEmailQueue(
       provider_event_id: `intake:${record.id}:${incident.key}`,
     })),
   );
+  const providerEventIds = Array.from(
+    new Set(notifications.map((notification) => notification.provider_event_id)),
+  );
+  const { data: existing, error: existingError } = await db
+    .from("internal_notifications")
+    .select("provider_event_id,recipient_user_id")
+    .in("provider_event_id", providerEventIds)
+    .in("recipient_user_id", recipientIds);
+  if (existingError) throw existingError;
+  const existingKeys = new Set(
+    (existing ?? []).map(
+      (notification) =>
+        `${notification.provider_event_id as string}:${notification.recipient_user_id as string}`,
+    ),
+  );
+  const pending = notifications.filter(
+    (notification) =>
+      !existingKeys.has(`${notification.provider_event_id}:${notification.recipient_user_id}`),
+  );
+  if (!pending.length) {
+    return { inspected: records?.length ?? 0, incidents: incidents.length, created: 0 };
+  }
   const { data: inserted, error: insertError } = await db
     .from("internal_notifications")
-    .upsert(notifications, {
-      onConflict: "provider_event_id,recipient_user_id",
-      ignoreDuplicates: true,
-    })
+    .insert(pending)
     .select("id");
-  if (insertError) throw insertError;
+  if (insertError?.code !== "23505" && insertError) throw insertError;
   return {
     inspected: records?.length ?? 0,
     incidents: incidents.length,

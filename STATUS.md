@@ -1,5 +1,17 @@
 # Costivra Status
 
+## Built-in intake operations watchdog — August 2, 2026
+
+- Extended the one-minute inbound worker with an operational health pass for dead-lettered jobs,
+  processing or queued work that has not advanced for 15 minutes, and attachments left in private
+  quarantine for 24 hours.
+- Each incident creates an in-app notification for active Costivra operators. Stable incident and
+  recipient keys use the existing unique index, so the one-minute worker cannot generate duplicate
+  alerts for the same condition.
+- Added pure threshold tests for normal retries, stuck processing, stuck queues, dead letters, and
+  aging quarantine. Applied the notification-kind migration to live Supabase and verified the
+  duplicate-prevention index remains active.
+
 ## Tenant download and document prompt-injection regressions — August 2, 2026
 
 - Added route-level tests proving the customer document download endpoint scopes its lookup by

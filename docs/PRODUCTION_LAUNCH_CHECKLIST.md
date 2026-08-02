@@ -16,7 +16,10 @@ This is the short list of work that cannot be completed honestly with code alone
 - [ ] Add the selected malware-scanner secret to local, Vercel Preview, and Vercel Production environments. Never use a `NEXT_PUBLIC_` name for it.
 - [ ] Confirm Vercel has server-only OpenRouter, Supabase secret, Resend API, and Resend webhook secrets plus browser-safe Supabase URL/publishable key in each intended environment.
 - [ ] Configure production SMTP/auth email branding, delivery monitoring, and redirect URLs for `https://costivra.ai`.
-- [ ] Configure error monitoring and alerts for failed uploads, quarantined intake, extraction failures, webhook signature failures, value-engine retries, and ambiguous external effects.
+- [ ] The built-in one-minute watchdog now alerts Costivra operators about dead-lettered, stuck,
+  and aging-quarantine invoice emails without duplicate notification spam. Connect an external
+  error-monitoring provider before broad launch for failed uploads, extraction exceptions, webhook
+  signature failures, value-engine failures, and ambiguous external effects.
 - [ ] Set retention windows for originals, quarantined files, extracted data, audit events, and deleted organizations.
 
 ## Release evidence required
