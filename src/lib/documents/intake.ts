@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { analyzeDocument, analyzeScannedPdf } from "@/lib/ai/document-intelligence";
 import { createInvoiceRecordFromExtraction } from "@/lib/documents/invoice-record";
+import { extractDocumentText } from "@/lib/documents/text-extraction";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024;
@@ -11,28 +12,6 @@ export const DOCUMENT_MIME_TYPES = new Set([
 ]);
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
-
-async function extractText(buffer: Buffer, mimeType: string) {
-  if (mimeType === "text/plain") return { text: buffer.toString("utf8"), pageCount: 1 };
-  if (mimeType === "application/pdf") {
-    const { PDFParse } = await import("pdf-parse");
-    // Load the worker into the Node process before parsing. This avoids the
-    // browser-oriented fake-worker path that Turbopack otherwise rewrites to a
-    // missing .next chunk in local development and serverless functions.
-    await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    try {
-      const result = await parser.getText();
-      return { text: result.text, pageCount: result.total };
-    } finally { await parser.destroy(); }
-  }
-  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    const mammoth = await import("mammoth");
-    const result = await mammoth.extractRawText({ buffer });
-    return { text: result.value, pageCount: null };
-  }
-  return { text: "", pageCount: null };
-}
 
 export async function ingestDocumentBuffer(input: {
   db: DatabaseClient;
@@ -78,7 +57,7 @@ export async function ingestDocumentBuffer(input: {
   await input.db.from("documents").update({ status: "processing" }).eq("id", document.id);
 
   try {
-    const extracted = await extractText(input.buffer, input.mimeType);
+    const extracted = await extractDocumentText(input.buffer, input.mimeType);
     const usedPdfOcr = input.mimeType === "application/pdf" && !extracted.text.trim();
     if (!extracted.text.trim() && !usedPdfOcr) throw new Error("No readable text was found in this document.");
     const intelligence = usedPdfOcr

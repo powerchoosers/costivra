@@ -23,6 +23,7 @@ yarn-debug.log*
 pnpm-debug.log*
 qa-server.*.log
 /docs/qa/
+/artifacts/invoice-evaluation/
 
 .vercel
 .env*

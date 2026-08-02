@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test:integration:live": "cross-env RUN_LIVE_SUPABASE_TESTS=1 vitest run --config vitest.integration.config.mts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "eval:invoices": "tsx --env-file-if-exists=.env.local scripts/evaluate-invoice-extraction.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
@@ -35,6 +36,7 @@
     "eslint": "^9.39.2",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.20.6",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
