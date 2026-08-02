@@ -1969,8 +1969,8 @@ html { scroll-padding-top: 92px; }
 .manage-topbar-center { position:relative; display:flex; min-width:0; align-items:center; gap:8px; }
 .manage-global-search-wrap { position:relative; width:100%; }
 .manage-create-wrap { position:relative; flex:0 0 auto; }
-.manage-button.manage-create-trigger { width:40px; min-width:40px; height:40px; min-height:40px; max-height:40px; flex:0 0 40px; padding:0; }
-.manage-create-trigger svg{width:34px;height:34px;stroke-width:4.25;transform:scale(1.08);transform-origin:center}
+.manage-button.manage-create-trigger { width:40px; min-width:40px; height:40px; min-height:40px; max-height:40px; flex:0 0 40px; padding:0; border-radius:11px; }
+.manage-create-trigger svg{width:18px;height:18px;stroke-width:2.2;transform:none}
 .manage-create-menu { position:absolute; z-index:130; top:calc(100% + 9px); left:50%; display:grid; min-width:166px; margin-left:-83px; overflow:hidden; padding:5px; border:1px solid #dfe4eb; border-radius:12px; background:rgba(255,255,255,.98); box-shadow:0 18px 44px rgba(18,31,51,.16); backdrop-filter:blur(16px); animation:manage-create-menu-in 180ms cubic-bezier(.23,1,.32,1) both; transform-origin:top center; }
 .manage-create-menu.is-closing { pointer-events:none; animation:manage-create-menu-out 150ms ease-in both; }
 .manage-create-menu button { display:flex; align-items:center; gap:9px; border:0; border-radius:8px; color:#344054; background:transparent; padding:10px; font:680 .74rem/1 inherit; cursor:pointer; text-align:left; white-space:nowrap; }
@@ -2373,7 +2373,8 @@ html { scroll-padding-top: 92px; }
 .manage-compose-window form { height:min(650px,calc(100dvh - 36px)); display:flex; max-height:calc(100dvh - 36px); flex-direction:column; transition:height 360ms cubic-bezier(.23,1,.32,1); }
 .manage-compose-window.is-minimized { width:min(360px,calc(100vw - 44px)); box-shadow:0 14px 38px rgba(7,17,31,.2); transform:translate3d(0,2px,0) scale(1); }
 .manage-compose-window.is-minimized form { height:48px; }
-.manage-compose-window.is-closing { opacity:0; pointer-events:none; transform:translate3d(0,28px,0) scale(.97); transition:transform 260ms cubic-bezier(.4,0,1,1),opacity 180ms ease; }
+.manage-compose-window.is-closing { pointer-events:none; animation:compose-descend 260ms cubic-bezier(.4,0,1,1) both; }
+@keyframes compose-descend { from { opacity:1; transform:translate3d(0,0,0) scale(1); } to { opacity:0; transform:translate3d(0,28px,0) scale(.97); } }
 .manage-compose-window form>header { height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 15px; background:#0a1525; color:#fff; }
 .manage-compose-body { display:flex; min-height:0; flex:1 1 auto; flex-direction:column; max-height:none; overflow:hidden; opacity:1; transform:translate3d(0,0,0); transform-origin:bottom; transition:max-height 420ms cubic-bezier(.23,1,.32,1),opacity 180ms ease,transform 360ms cubic-bezier(.23,1,.32,1); }
 .manage-compose-window.is-minimized .manage-compose-body { max-height:0; opacity:0; pointer-events:none; transform:translate3d(0,24px,0); }

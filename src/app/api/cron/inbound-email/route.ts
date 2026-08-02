@@ -4,6 +4,7 @@ import {
   recordInboundEmailJobFailure,
   type InboundEmailJob,
 } from "@/lib/email/inbound-intake";
+import { monitorInboundEmailQueue } from "@/lib/email/inbound-monitor";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -34,5 +35,6 @@ export async function GET(request: Request) {
       results.push({ id: job.id, status: decision.status });
     }
   }
-  return NextResponse.json({ claimed: jobs.length, results });
+  const monitoring = await monitorInboundEmailQueue(db);
+  return NextResponse.json({ claimed: jobs.length, results, monitoring });
 }
