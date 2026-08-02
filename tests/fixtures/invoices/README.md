@@ -11,6 +11,7 @@ These PDFs are public sample/template documents downloaded for local extraction 
 | `sample-azure-msdn-invoice.pdf` | Microsoft Azure / cloud | https://www.microsoft.com/en-us/download/details.aspx?id=38805 |
 | `sample-azure-payg-invoice.pdf` | Microsoft Azure / cloud | https://www.microsoft.com/en-us/download/details.aspx?id=38805 |
 | `sample-aws-vat-invoice.pdf` | Amazon Web Services / cloud | https://d1.awsstatic.com/aws-answers/answers-images/AWSEurope_Mocks_Website_VATinvoice.pdf |
+| `adversarial-invoice-prompt-injection.txt` | Security regression fixture | Synthetic Costivra test data |
 | `sample-aws-receipt.pdf` | Amazon Web Services / cloud receipt | https://d1.awsstatic.com/aws-answers/answers-images/AWSEurope_Mocks_Website_Receipt.pdf |
 
 Downloaded 2026-08-01 for Costivra extraction evaluation. Microsoft and AWS files are official sample/mock documents. Verify each source and license before redistributing these files outside the repository.

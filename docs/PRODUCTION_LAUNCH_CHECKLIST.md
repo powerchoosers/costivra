@@ -29,10 +29,14 @@ This is the short list of work that cannot be completed honestly with code alone
   membership, document, or invoice records. The reusable two-tenant test at
   `src/lib/integration/tenant-isolation.live.integration.test.ts` also verifies authenticated
   API reads and denied cross-tenant writes; run it with `npm run test:integration:live` from an
-  environment containing real Supabase server credentials. Private files remain server-only and
-  still need an authenticated route-level cross-tenant regression test before broad launch.
+  environment containing real Supabase server credentials. The private document download route
+  now has a regression test proving a foreign document produces `404` without requesting a signed
+  storage URL.
 - [ ] End-to-end tests cover upload, deduplication, malware outcomes, extraction versioning, correction, approval, opportunity creation, baseline acceptance, later-invoice comparison, and human verification.
-- [ ] Prompt-injection fixtures prove document text cannot reveal secrets, change policy, expand tools, approve action, or create external side effects.
+- [x] A synthetic prompt-injection invoice proves hostile instructions remain inside the bounded
+  source-text payload. The parser discards secret/action/approval fields and non-allowlisted
+  evidence; extraction has no tools or mutation authority. Continue expanding this adversarial set
+  as real document formats are added.
 - [ ] A restore exercise proves database and private-document recovery; a deletion exercise proves the documented retention/deletion process.
 - [ ] The full CI gate passes on the exact release commit and the deployed Preview is manually checked on desktop, iPhone-size, and tablet-size layouts.
 

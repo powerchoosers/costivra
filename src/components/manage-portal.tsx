@@ -347,6 +347,14 @@ function Status({ value }: { value: string | null }) {
   );
 }
 
+function Sparkline({ path, stroke = "#2563eb" }: { path: string; stroke?: string }) {
+  return (
+    <svg className="manage-sparkline" viewBox="0 0 68 24" aria-hidden="true">
+      <path d={path} stroke={stroke} strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function OperatorAvatar({
   operator,
   large = false,
@@ -504,6 +512,19 @@ export function ManagePortal({
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchClosing, setSearchClosing] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchFocused(true);
+        setSearchClosing(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -860,6 +881,7 @@ export function ManagePortal({
             <label className="manage-search">
               <Search size={16} />
               <input
+                ref={searchInputRef}
                 aria-label="Search all Costivra records"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -878,6 +900,7 @@ export function ManagePortal({
                 aria-expanded={searchFocused && search.trim().length > 0}
                 aria-controls="manage-global-search-results"
               />
+              <span className="manage-kbd">⌘K</span>
             </label>
             {(searchFocused || searchClosing) && search.trim() && (
               <div
@@ -1190,19 +1213,31 @@ function Overview({ data }: { data: ManageData }) {
       </section>
       <section className="manage-summary" aria-label="CRM summary">
         <div>
-          <small>ALL ACCOUNTS</small>
+          <div className="manage-sparkline-head">
+            <small>ALL ACCOUNTS</small>
+            <Sparkline path="M 2 18 Q 18 10, 34 14 T 66 5" stroke="#2563eb" />
+          </div>
           <strong>{data.accounts.length}</strong>
         </div>
         <div>
-          <small>ACTIVE</small>
+          <div className="manage-sparkline-head">
+            <small>ACTIVE</small>
+            <Sparkline path="M 2 20 Q 20 14, 38 8 T 66 4" stroke="#12b76a" />
+          </div>
           <strong>{active}</strong>
         </div>
         <div>
-          <small>NEEDS FOLLOW-UP</small>
+          <div className="manage-sparkline-head">
+            <small>NEEDS FOLLOW-UP</small>
+            <Sparkline path="M 2 8 Q 18 14, 36 18 T 66 20" stroke="#f79009" />
+          </div>
           <strong>{followUps}</strong>
         </div>
         <div>
-          <small>ONBOARDING</small>
+          <div className="manage-sparkline-head">
+            <small>ONBOARDING</small>
+            <Sparkline path="M 2 16 Q 22 18, 42 10 T 66 6" stroke="#2e60d4" />
+          </div>
           <strong>{onboarding}</strong>
         </div>
       </section>

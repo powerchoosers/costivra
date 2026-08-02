@@ -1,5 +1,16 @@
 # Costivra Status
 
+## Tenant download and document prompt-injection regressions — August 2, 2026
+
+- Added route-level tests proving the customer document download endpoint scopes its lookup by
+  both document ID and active organization before asking private storage for a signed URL. A
+  foreign document returns `404`, and no signed URL is created.
+- Added a synthetic hostile invoice fixture containing requests to reveal environment variables,
+  cross tenant data, approve an invoice, cancel a contract, and send external email. Tests prove
+  the text stays inside the untrusted source payload, extraction exposes no action tools, unknown
+  secret/action/approval properties are discarded, and non-allowlisted evidence is removed.
+- Targeted validation passed with six tests plus TypeScript checking.
+
 ## Verified Resend intake domain — August 2, 2026
 
 - A live Costivra-to-demo-workspace probe proved sending and signed webhook delivery, then exposed
