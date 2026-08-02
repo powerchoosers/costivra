@@ -10,11 +10,9 @@ This is the short list of work that cannot be completed honestly with code alone
 - [ ] Upgrade Supabase if leaked-password protection is required for launch, then enable it in Authentication settings. The current plan does not expose that control.
 - [ ] Name an incident owner and a support channel for security, failed intake, incorrect extraction, and provider outages.
 - [ ] Decide the first pilot tenants and restrict onboarding to them until the evaluation and cross-tenant security gates pass.
-- [ ] Decide whether Costivra will move to a dedicated Supabase project or whether the unrelated
-  legacy Luxor/Nodal tables in the connected project will be formally inventoried and isolated.
-  Supabase's security advisor still reports permissive legacy policies outside Costivra's schema
-  ownership. Do not place real Costivra customer data beside those tables without an approved
-  isolation and migration plan.
+- [x] Costivra uses its own Supabase project. A fresh schema inventory confirmed that no Luxor or
+  Nodal tables share the project. Browser table grants are now explicitly least-privilege in
+  addition to tenant-scoped RLS.
 
 ## Configuration to complete
 

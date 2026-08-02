@@ -499,7 +499,13 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 
 - Added an explicitly gated Playwright regression for the real customer login and financial workflow. It creates a disposable confirmed Supabase Auth user and organization, signs in through `/login`, approves an opportunity, approves its generated action, accepts the evidence baseline, starts and completes the action, and verifies the resulting opportunity, action, savings, attribution, and audit records directly in Supabase.
 - The fixture is randomized and self-cleaning. Remote execution is refused unless `E2E_ALLOW_PRODUCTION=1`; placeholders and build-only keys are rejected; cleanup checks the exact organization prefix before deletion. Normal CI and ordinary local Playwright runs remain non-mutating and skip this test.
-- Added a manual GitHub Actions workflow so the production regression can be repeated without keeping a reusable demo password or adding an authentication bypass. It remains unavailable until the three documented GitHub Actions secrets are configured.
+- Added a manual GitHub Actions workflow so the production regression can be repeated without keeping a reusable demo password or adding an authentication bypass. It remains unavailable until the documented `E2E_SUPABASE_SECRET_KEY` GitHub Actions secret is configured.
+
+## 2026-08-02 — Least-privilege browser database grants
+
+- Audited every public table, RLS policy, and browser-role grant in the dedicated Costivra Supabase project. No unrelated Luxor or Nodal tables are present. The only external security-advisor warning is Supabase Auth leaked-password protection, which remains a dashboard/plan action for Lewis.
+- Replaced bootstrap-era ownership-style table grants with explicit browser privileges. `anon` receives no public-table access. `authenticated` receives only tenant-policy-protected reads, the recipient-scoped internal notification read needed by Realtime, and updates to five non-authoritative self-profile columns. All customer business mutations continue through the Costivra server APIs; `service_role` is unchanged.
+- Added a repeatable SQL assertion for anonymous grants, authenticated writes, required reads, profile column boundaries, and retained server access. The migration passed a transaction-scoped production dry run, was applied as Supabase migration `20260802234849`, and passed the same assertion against the live schema.
 
 ## Record workspace and internal CRM polish — August 2, 2026
 

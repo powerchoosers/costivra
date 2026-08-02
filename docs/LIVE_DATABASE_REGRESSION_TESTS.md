@@ -75,3 +75,8 @@ an existing owner identity only inside its transaction, creates an isolated temp
 exercises every atomic workflow operation, asserts the final states and audit events, and rolls back
 all rows. Run it with a trusted database administrator connection; do not paste it into a browser or
 customer-facing SQL client.
+
+`supabase/tests/browser_table_privileges.sql` verifies the database-level least-privilege boundary:
+`anon` has no public-table grants, `authenticated` has tenant-scoped read access plus only the
+allowlisted self-profile columns for updates, internal realtime notifications remain readable under
+their recipient policy, and `service_role` retains the server operations used by Costivra APIs.
