@@ -19,7 +19,9 @@ This is the short list of work that cannot be completed honestly with code alone
 - [ ] The built-in one-minute watchdog now alerts Costivra operators about dead-lettered, stuck,
   and aging-quarantine invoice emails without duplicate notification spam. Connect an external
   error-monitoring provider before broad launch for failed uploads, extraction exceptions, webhook
-  signature failures, value-engine failures, and ambiguous external effects.
+  signature failures, value-engine failures, and ambiguous external effects. Internal alerts now
+  open the event-specific `/manage/intake/[id]` recovery view, where operators can inspect file
+  states, retry terminal queue failures, and rescan quarantine only after the scanner is configured.
 - [ ] Set retention windows for originals, quarantined files, extracted data, audit events, and deleted organizations.
 
 ## Release evidence required

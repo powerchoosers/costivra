@@ -1,5 +1,23 @@
 # Costivra Status
 
+## Intake operations and recovery workspace — August 2, 2026
+
+- Added `/manage/intake` as the internal source-of-truth queue for every forwarded client email,
+  including active work, attention states, quarantine, attempts, timestamps, sender, client, and
+  attachment-level scan and processing results.
+- Added `/manage/intake/[id]` as the event detail page. Operators can inspect the message preview,
+  latest processing error, each source file, and the resulting invoice-review link without opening
+  private quarantine storage directly.
+- Dead-lettered and failed jobs can be safely returned to the durable worker. Quarantined files can
+  be rescanned only when a server-side malware scanner is configured; the UI explains why that
+  action is unavailable otherwise.
+- Customer and internal rescan flows now share one fail-closed quarantine-release service. A
+  confirmed infected file is rejected and removed from private quarantine, unavailable scans stay
+  quarantined, and clean/duplicate files update the parent event deterministically.
+- Watchdog notifications now open the exact intake event instead of the general owner dashboard.
+- Added policy tests for attention grouping, retry eligibility, scanner gating, partial quarantine,
+  rejected files, and clean/duplicate completion.
+
 ## Built-in intake operations watchdog — August 2, 2026
 
 - Extended the one-minute inbound worker with an operational health pass for dead-lettered jobs,
