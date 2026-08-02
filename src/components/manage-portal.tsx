@@ -80,6 +80,14 @@ import { ManageInvoiceReview } from "@/components/manage-invoice-review";
 import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
+import {
+  buildRecipientCandidates,
+  isRecipientEmail,
+  normalizeRecipientEmail,
+  searchRecipientCandidates,
+  splitRecipientValues,
+  type RecipientCandidate,
+} from "@/lib/manage/recipient-search";
 
 const navGroups = [
   {
@@ -3730,6 +3738,147 @@ function plainTextToComposerHtml(value: string) {
     .replace(/\n/g, "<br>");
 }
 
+function ComposeRecipientField({
+  label,
+  name,
+  values,
+  onChange,
+  candidates,
+  placeholder,
+  action,
+}: {
+  label: string;
+  name: "to" | "cc" | "bcc";
+  values: string[];
+  onChange: (values: string[]) => void;
+  candidates: RecipientCandidate[];
+  placeholder: string;
+  action?: ReactNode;
+}) {
+  const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const matchingCandidates = useMemo(
+    () => searchRecipientCandidates(candidates, query, values),
+    [candidates, query, values],
+  );
+  const candidateByEmail = useMemo(
+    () => new Map(candidates.map((candidate) => [candidate.email, candidate])),
+    [candidates],
+  );
+  const normalizedQuery = normalizeRecipientEmail(query);
+  const canAddExternal = isRecipientEmail(normalizedQuery) && !values.includes(normalizedQuery) && !matchingCandidates.some((candidate) => candidate.email === normalizedQuery);
+  const resultCount = matchingCandidates.length + (canAddExternal ? 1 : 0);
+
+  useEffect(() => setHighlighted(0), [query]);
+
+  function addRecipient(email: string) {
+    const normalized = normalizeRecipientEmail(email);
+    if (!isRecipientEmail(normalized) || values.includes(normalized)) return;
+    onChange([...values, normalized]);
+    setQuery("");
+    setFocused(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function removeRecipient(email: string) {
+    onChange(values.filter((value) => value !== email));
+  }
+
+  function chooseHighlighted() {
+    const candidate = matchingCandidates[highlighted];
+    if (candidate) addRecipient(candidate.email);
+    else if (canAddExternal) addRecipient(normalizedQuery);
+  }
+
+  return (
+    <div className="manage-compose-line manage-compose-recipient-row">
+      <span>{label}</span>
+      <div
+        className="manage-compose-recipient-control"
+        onClick={() => inputRef.current?.focus()}
+      >
+        {values.map((email) => {
+          const candidate = candidateByEmail.get(email);
+          return (
+            <span className="manage-compose-recipient-chip" title={candidate ? `${candidate.name} · ${email}` : email} key={email}>
+              <span>{candidate?.name || email}</span>
+              <button type="button" onClick={(event) => { event.stopPropagation(); removeRecipient(email); }} aria-label={`Remove ${candidate?.name || email}`}>
+                <X size={11} aria-hidden="true" />
+              </button>
+            </span>
+          );
+        })}
+        <input type="hidden" name={name} value={values.join(",")} />
+        <input
+          ref={inputRef}
+          className="manage-compose-recipient-search"
+          value={query}
+          placeholder={values.length ? "Add another" : placeholder}
+          aria-label={`${label} recipients`}
+          aria-autocomplete="list"
+          aria-expanded={focused && resultCount > 0}
+          onFocus={() => setFocused(true)}
+          onBlur={() => window.setTimeout(() => setFocused(false), 100)}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" && resultCount) {
+              event.preventDefault();
+              setHighlighted((value) => (value + 1) % resultCount);
+            } else if (event.key === "ArrowUp" && resultCount) {
+              event.preventDefault();
+              setHighlighted((value) => (value - 1 + resultCount) % resultCount);
+            } else if (event.key === "Enter" || event.key === "Tab" || event.key === "," || event.key === ";") {
+              if (resultCount || isRecipientEmail(normalizedQuery)) {
+                event.preventDefault();
+                chooseHighlighted();
+              }
+            } else if (event.key === "Backspace" && !query && values.length) {
+              removeRecipient(values[values.length - 1]);
+            } else if (event.key === "Escape") {
+              setFocused(false);
+            }
+          }}
+        />
+        {focused && resultCount > 0 && (
+          <div className="manage-compose-recipient-results" role="listbox" aria-label={`${label} recipient suggestions`}>
+            {matchingCandidates.map((candidate, index) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected={highlighted === index}
+                className={highlighted === index ? "is-highlighted" : ""}
+                key={candidate.email}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => addRecipient(candidate.email)}
+              >
+                <span className="manage-person-avatar">{initials(candidate.name)}</span>
+                <span><strong>{candidate.name}</strong><small>{candidate.email} · {candidate.detail}</small></span>
+                <i>{candidate.source === "account" ? "This account" : candidate.source === "staff" ? "Costivra" : "Contact"}</i>
+              </button>
+            ))}
+            {canAddExternal && (
+              <button
+                type="button"
+                role="option"
+                aria-selected={highlighted === matchingCandidates.length}
+                className={highlighted === matchingCandidates.length ? "is-highlighted" : ""}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => addRecipient(normalizedQuery)}
+              >
+                <span className="manage-person-avatar"><AtSign size={14} aria-hidden="true" /></span>
+                <span><strong>Add {normalizedQuery}</strong><small>This address is not in the CRM yet.</small></span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
 function Compose({
   data,
   context,
@@ -3745,6 +3894,9 @@ function Compose({
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [showCc, setShowCc] = useState(false);
+  const [toRecipients, setToRecipients] = useState(() => splitRecipientValues(context.to));
+  const [ccRecipients, setCcRecipients] = useState<string[]>([]);
+  const [bccRecipients, setBccRecipients] = useState<string[]>([]);
   const [minimized, setMinimized] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
@@ -3766,11 +3918,9 @@ function Compose({
   const [selectedMailbox, setSelectedMailbox] = useState(
     context.mailboxId || data.mail.selectedMailboxId || "",
   );
-  const accountContacts = useMemo(
-    () => selectedAccount
-      ? data.contacts.filter((contact) => contact.organizationId === selectedAccount)
-      : data.contacts,
-    [data.contacts, selectedAccount],
+  const recipientCandidates = useMemo(
+    () => buildRecipientCandidates(data.contacts, data.staff, selectedAccount),
+    [data.contacts, data.staff, selectedAccount],
   );
   useEffect(() => {
     const editor = editorRef.current;
@@ -3787,6 +3937,10 @@ function Compose({
   }, []);
   async function submitForm(element: HTMLFormElement, mode: "draft" | "send") {
     const form = new FormData(element);
+    if (mode === "send" && splitRecipientValues(String(form.get("to") || "")).length === 0) {
+      toast.error("Add a recipient", "Choose a contact or enter an email address before sending.");
+      return;
+    }
     form.set("body", editorRef.current?.innerText ?? "");
     form.set("htmlBody", editorRef.current?.innerHTML ?? "");
     form.set("mode", mode);
@@ -3953,40 +4107,23 @@ function Compose({
             {selectedAccount && <input type="hidden" name="organizationId" value={selectedAccount} />}
           </div>
         </div>
-        <div className={`manage-compose-line manage-compose-subject-row${drafting ? " is-generating" : ""}${draftReveal ? " is-draft-revealing" : ""}`}>
-          <span>To</span>
-          <input
-            name="to"
-            type="email"
-            list="manage-contact-emails"
-            required
-            placeholder="recipient@company.com"
-            defaultValue={context.to || ""}
-          />
-          <button type="button" onClick={() => setShowCc((value) => !value)}>
-            Cc/Bcc
-          </button>
-          <datalist id="manage-contact-emails">
-            {accountContacts.map((contact) => (
-              <option value={contact.email} key={contact.id}>
-                {contact.fullName}
-              </option>
-            ))}
-          </datalist>
+        <ComposeRecipientField
+          label="To"
+          name="to"
+          values={toRecipients}
+          onChange={setToRecipients}
+          candidates={recipientCandidates}
+          placeholder="Search a name or email"
+          action={<button type="button" className={showCc ? "is-open" : ""} onClick={() => setShowCc((value) => !value)} aria-expanded={showCc}>Cc/Bcc</button>}
+        />
+        <div className={`manage-compose-copy-fields${showCc ? " is-open" : ""}`} aria-hidden={!showCc} inert={!showCc}>
+          <div>
+            <ComposeRecipientField label="Cc" name="cc" values={ccRecipients} onChange={setCcRecipients} candidates={recipientCandidates} placeholder="Search a name or email" />
+            <ComposeRecipientField label="Bcc" name="bcc" values={bccRecipients} onChange={setBccRecipients} candidates={recipientCandidates} placeholder="Search a name or email" />
+          </div>
         </div>
-        {showCc && (
-          <>
-            <div className="manage-compose-line">
-              <span>Cc</span>
-              <input name="cc" placeholder="Separate addresses with commas" />
-            </div>
-            <div className="manage-compose-line">
-              <span>Bcc</span>
-              <input name="bcc" placeholder="Separate addresses with commas" />
-            </div>
-          </>
-        )}
-        <div className="manage-compose-line">
+        <div className={`manage-compose-line manage-compose-subject-row${drafting ? " is-generating" : ""}${draftReveal ? " is-draft-revealing" : ""}`}>
+          <span>Sub</span>
           <input
             className="subject"
             name="subject"
@@ -4092,11 +4229,11 @@ function Compose({
           <div className="manage-compose-signature-main">
             <span className="manage-compose-signature-rail" aria-hidden="true" />
             <div className="manage-compose-signature-content">
-              <div className="manage-compose-signature-brand"><CostivraMark size={28} /><strong>Costivra</strong></div>
+              <div className="manage-compose-signature-brand"><CostivraMark size={34} /><strong>Costivra</strong></div>
               <div className="manage-compose-signature-person">
-                <span className="manage-compose-signature-avatar">
-                  {data.operator.avatarUrl ? <img src={data.operator.avatarUrl} alt="" /> : data.operator.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
-                </span>
+                {data.operator.avatarUrl
+                  ? <img className="manage-person-avatar large manage-compose-signature-avatar" src={data.operator.avatarUrl} alt="" />
+                  : <span className="manage-person-avatar large manage-compose-signature-avatar">{initials(data.operator.fullName)}</span>}
                 <div className="manage-compose-signature-copy">
                   <strong>{data.operator.fullName}</strong>
                   {data.operator.jobTitle && <span className="manage-compose-signature-title">{data.operator.jobTitle}</span>}

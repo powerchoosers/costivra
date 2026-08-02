@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { generateJson } from "@/lib/ai/openrouter";
 import { buildEmailDraftContext, firstName, normalizeEmailDraft } from "@/lib/manage/email-draft";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
-import { normalizeEmailAddress } from "@/lib/manage/mail";
+import { parseAddressList } from "@/lib/manage/mail";
 import { cleanText } from "@/lib/portal/http";
 
 type Row = Record<string, unknown>;
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const operator = await requireInternalOperator();
     const requestBody = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const instruction = cleanText(requestBody?.instruction, 1_500);
-    const recipientEmail = normalizeEmailAddress(cleanText(requestBody?.recipientEmail, 320));
+    const recipientEmail = parseAddressList(cleanText(requestBody?.recipientEmail, 1_000))[0] ?? "";
     const currentSubject = cleanText(requestBody?.subject, 500);
     if (instruction.length < 3)
       return NextResponse.json({ error: "Describe the email you want to write." }, { status: 400 });
