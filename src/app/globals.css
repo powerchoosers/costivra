@@ -1929,7 +1929,7 @@ html { scroll-padding-top: 92px; }
 .marketing-consent-field small { color:var(--muted); font-size:.75rem; line-height:1.5; }
 .marketing-consent-field:focus-within { outline:2px solid color-mix(in srgb,var(--blue) 45%,transparent); outline-offset:2px; }
 :where(.manage-app,.manage-compose-window) { --manage-navy:#07111f; --manage-blue:#1f4fd6; --manage-lime:#c9ff3f; --manage-ink:#111827; --manage-muted:#667085; --manage-line:#e4e7ec; --manage-soft:#f7f8fa; }
-.manage-app { min-height:100vh; background-color:#f7f8fa; background-image:radial-gradient(rgba(16,24,40,.025) 0.65px,transparent 0.65px),linear-gradient(180deg,rgba(255,255,255,.5),transparent 40%); background-size:6px 6px,100% 100%; color:var(--manage-ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.manage-app { min-height:100vh; background:#f7f8fa; background-image:radial-gradient(at 0% 0%,rgba(31,79,214,.04) 0px,transparent 50%),radial-gradient(at 100% 0%,rgba(116,157,0,.04) 0px,transparent 50%),linear-gradient(135deg,#f3f5fa 0%,#f9f8f6 100%); color:var(--manage-ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 .manage-app ::-webkit-scrollbar { width:6px; height:6px; }
 .manage-app ::-webkit-scrollbar-track { background:transparent; }
 .manage-app ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:99px; }
