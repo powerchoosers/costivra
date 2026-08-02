@@ -3,6 +3,7 @@ import {
   INBOUND_EMAIL_RETRY_DELAYS_SECONDS,
   inboundEmailRetryDecision,
 } from "@/lib/email/inbound-retry";
+import { inboundEmailOutcomeMessage } from "@/lib/email/inbound-outcome";
 
 describe("inbound email retry policy", () => {
   it("uses bounded exponential-style delays for retryable failures", () => {
@@ -29,5 +30,27 @@ describe("inbound email retry policy", () => {
       nextAttemptAt: null,
     });
     expect(INBOUND_EMAIL_RETRY_DELAYS_SECONDS).toHaveLength(4);
+  });
+});
+
+describe("inbound email completion messages", () => {
+  it("explains an attachment-free message without implying a missing review decision", () => {
+    expect(
+      inboundEmailOutcomeMessage({
+        hasQuarantine: false,
+        attachmentCount: 0,
+        needsReview: true,
+      }),
+    ).toBe("No supported attachments were included in this email.");
+  });
+
+  it("keeps the malware boundary explicit", () => {
+    expect(
+      inboundEmailOutcomeMessage({
+        hasQuarantine: true,
+        attachmentCount: 1,
+        needsReview: false,
+      }),
+    ).toBe("One or more attachments are waiting for malware scanning.");
   });
 });

@@ -22,6 +22,9 @@ This is the short list of work that cannot be completed honestly with code alone
 ## Release evidence required
 
 - [ ] Golden-set extraction evaluation passes agreed precision/recall and evidence-citation thresholds for critical invoice fields.
+- [x] A real Resend production probe proves sending, receiving, signed webhook routing, tenant
+  matching, durable queue claim, retry-worker execution, attachment retrieval, and fail-closed
+  quarantine when malware scanning is unavailable.
 - [x] Live Supabase RLS probing proves one tenant cannot read another tenant's organization,
   membership, document, or invoice records. The reusable two-tenant test at
   `src/lib/integration/tenant-isolation.live.integration.test.ts` also verifies authenticated

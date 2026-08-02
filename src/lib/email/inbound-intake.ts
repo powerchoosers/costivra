@@ -7,6 +7,7 @@ import {
   MAX_DOCUMENT_SIZE,
 } from "@/lib/documents/intake";
 import { inboundEmailRetryDecision } from "@/lib/email/inbound-retry";
+import { inboundEmailOutcomeMessage } from "@/lib/email/inbound-outcome";
 import { getResendClient } from "@/lib/email/resend";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -335,11 +336,11 @@ export async function processInboundEmailJob(
       next_attempt_at: null,
       locked_at: null,
       lock_token: null,
-      error_message: hasQuarantine
-        ? "One or more attachments are waiting for malware scanning."
-        : needsReview
-          ? "One or more attachments need review."
-          : null,
+      error_message: inboundEmailOutcomeMessage({
+        hasQuarantine,
+        attachmentCount: attachments.length,
+        needsReview,
+      }),
       updated_at: now,
     })
     .eq("id", job.id)

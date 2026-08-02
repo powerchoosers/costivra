@@ -8,6 +8,13 @@
 - Added a migration that moves existing and future customer intake addresses to the verified
   `costivra.ai` domain. Vercel Production uses the same value. A dedicated intake subdomain remains
   the preferred future layout after upgrading the Resend domain allowance.
+- Production probes then passed through the real system. An attachment-free message reached the
+  correct demo tenant, was claimed once by the cron, and completed as needs-review. A public sample
+  invoice PDF followed the same route and was placed in private quarantine with
+  `scan_status=unavailable`; no document or invoice was created while malware scanning was absent.
+  This proves the current system fails closed instead of silently trusting an unscanned file.
+- A misleading zero-attachment review message was corrected to say that no supported attachments
+  were included.
 
 ## Durable inbound invoice processing — August 2, 2026
 
