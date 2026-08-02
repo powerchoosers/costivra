@@ -11,7 +11,6 @@ import {
   AlignLeft,
   AlignRight,
   AtSign,
-  Bell,
   Bold,
   Bot,
   Building2,
@@ -44,7 +43,6 @@ import {
   Minimize2,
   Paperclip,
   Palette,
-  PhoneCall,
   Plus,
   RefreshCw,
   Reply,
@@ -957,9 +955,7 @@ export function ManagePortal({
           </div>
           <div className="manage-top-actions">
             <div className="manage-topbar-utilities" aria-label="Workspace utilities">
-              <button type="button" className="manage-topbar-icon" aria-label="Phone" title="Phone"><PhoneCall size={18} /></button>
-              <button type="button" className="manage-topbar-icon" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><Bot size={18} strokeWidth={2} /></button>
-              <button type="button" className="manage-topbar-icon" aria-label="Notifications" title="Notifications"><Bell size={18} /></button>
+              <button type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><Bot size={18} strokeWidth={2} /></button>
             </div>
             {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" ? null : section === "activity" ? (
               <button
