@@ -420,3 +420,15 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added `npm run eval:invoices` with live, validate-only, and saved-prediction replay modes. Private source sets and generated prediction/report artifacts are ignored by Git. The production default requires 20 software, 20 telecom/internet, and 10 scanned cases.
 - Added a deterministic hostile-invoice smoke manifest and prediction. GitHub Actions now executes the smoke gate on every pull request and `main` push without using an AI secret or spending model credits.
 - Validation passed: TypeScript; full ESLint; 98 unit tests with two intentional live-environment skips; the integration suite with two intentional credential-gated skips; production build; Playwright browser smoke (`status: passed`); manifest validation; and deterministic evaluator replay with every metric at 100%. This proves the gate works; it does not prove production extraction accuracy. A live local probe correctly failed before launch-quality scoring because `.env.local` contains a redacted OpenRouter placeholder. Lewis still needs to supply the de-identified set and a valid local OpenRouter key to run the real gate.
+
+## 2026-08-02 — Live invoice-review database regression
+
+- Added a reusable credential-gated Supabase integration test for the actual `internal_update_invoice_review` and `internal_approve_invoice` functions. It creates isolated temporary records, verifies unmatched-vendor and arithmetic rejection, persists two field corrections, recalculates reconciliation, approves twice idempotently, creates exactly one linked expense, attributes the reviewer, and records both approval audit attempts before cleanup.
+- Ran the equivalent assertions against the live Supabase project inside one explicit transaction followed by `ROLLBACK`. The database returned `invoice_review_database_regression_passed`; no fixture rows were retained.
+- Documented the exact local secrets, command, cleanup boundary, and remaining coverage in `docs/LIVE_DATABASE_REGRESSION_TESTS.md`. The broader end-to-end gate remains open for real upload/malware/extraction versioning and the complete customer opportunity-to-verified-savings browser sequence.
+
+## 2026-08-02 — Fresh Resend production verification
+
+- Revalidated the newly supplied local Resend key without exposing it. Resend accepted the key, reported `costivra.ai` verified in `us-east-1`, and delivered an idempotency-protected loopback message from `hello@costivra.ai` to the owner mailbox.
+- Resend then received the loopback at `l.patterson@costivra.ai`. Production runtime logs recorded three successful `POST /api/webhooks/resend` responses for the outbound and inbound events, and the inbound processing cron continued returning `200` every minute.
+- A forged unsigned webhook remained fail-closed with HTTP `400`; all 21 email-focused unit tests passed. Local inbound processing still cannot be exercised faithfully until `.env.local` has the real Resend webhook secret and valid Costivra Supabase server credentials. The production deployment already has those working credentials.
