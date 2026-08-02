@@ -1,5 +1,27 @@
 # Costivra Status
 
+## Atomic customer financial workflow — August 2, 2026
+
+- Moved opportunity approval, action authorization/start/completion, savings-baseline acceptance,
+  and savings verification into three service-role-only Supabase transactions. Each customer
+  decision now either updates every dependent record and its audit event or changes nothing.
+- The database functions lock the current workflow rows, re-check organization membership and
+  role, reject stale transitions, and require an accepted baseline before work starts. Savings can
+  become verified only after a later comparison expense exists and the opportunity is in progress.
+- Corrected the savings opportunity uniqueness index. The previous partial index could not be used
+  by PostgreSQL's conflict target, so the first real baseline creation would have failed. The new
+  index preserves one savings record per opportunity while still allowing unrelated null values.
+- Added a reusable rollback-only Supabase probe and a credential-gated live integration test for
+  the complete approval-to-verified-savings sequence. The production probe passed, proved that a
+  premature start rolls back cleanly, confirmed all six audit events, and left zero fixture rows.
+- Validation passed: TypeScript, full lint, 150 unit tests with five intentional environment-gated
+  skips, integration tests, production build, and eight applicable desktop/mobile browser checks.
+- Supabase's post-migration advisor reports no exposure on the new workflow functions: they are
+  security-invoker functions with a fixed empty search path, and only `service_role` can execute
+  them. The same advisor still flags permissive policies on unrelated legacy Luxor/Nodal tables in
+  the shared project. Those tables were not changed because their owning applications must be
+  inventoried first; database isolation is now an explicit launch decision.
+
 ## Live public system status — August 2, 2026
 
 - Replaced the old hard-coded preview status page with a live, customer-safe production view at

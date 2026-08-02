@@ -10,6 +10,11 @@ This is the short list of work that cannot be completed honestly with code alone
 - [ ] Upgrade Supabase if leaked-password protection is required for launch, then enable it in Authentication settings. The current plan does not expose that control.
 - [ ] Name an incident owner and a support channel for security, failed intake, incorrect extraction, and provider outages.
 - [ ] Decide the first pilot tenants and restrict onboarding to them until the evaluation and cross-tenant security gates pass.
+- [ ] Decide whether Costivra will move to a dedicated Supabase project or whether the unrelated
+  legacy Luxor/Nodal tables in the connected project will be formally inventoried and isolated.
+  Supabase's security advisor still reports permissive legacy policies outside Costivra's schema
+  ownership. Do not place real Costivra customer data beside those tables without an approved
+  isolation and migration plan.
 
 ## Configuration to complete
 
@@ -42,7 +47,7 @@ This is the short list of work that cannot be completed honestly with code alone
   environment containing real Supabase server credentials. The private document download route
   now has a regression test proving a foreign document produces `404` without requesting a signed
   storage URL.
-- [ ] End-to-end tests cover upload, deduplication, malware outcomes, extraction versioning, correction, approval, opportunity creation, baseline acceptance, later-invoice comparison, and human verification. The reusable live Supabase suite now proves cross-tenant reads/writes, correction-ledger persistence, reconciliation, fail-closed approval, idempotent expense creation, reviewer attribution, and audit events. A rollback-only production SQL probe passed on August 2. Upload/scanner/versioning and the complete customer opportunity-to-savings browser sequence remain open.
+- [ ] End-to-end tests cover upload, deduplication, malware outcomes, extraction versioning, correction, approval, opportunity creation, baseline acceptance, later-invoice comparison, and human verification. The reusable live Supabase suite now proves cross-tenant reads/writes, correction-ledger persistence, reconciliation, fail-closed approval, idempotent expense creation, reviewer attribution, and audit events. Rollback-only production probes passed for invoice approval and the complete atomic opportunity/action/baseline/comparison/verification database sequence. Authenticated browser coverage for the complete customer sequence and a live clean/infected scanner exercise remain open.
 - [x] Manual portal uploads fail closed before AI extraction: clean files may process, infected files
   are rejected, unavailable scans are privately quarantined, quarantined downloads are blocked,
   and a digest-verified rescan can release the file. Policy, intake-boundary, authorization, and
