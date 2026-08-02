@@ -51,6 +51,7 @@ import { formatMoneyInput } from "@/lib/vendors/spend";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
+import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 
 type ApiOptions = {
   method?: string;
@@ -893,7 +894,7 @@ function Actions({
           method: "PATCH",
           body: { operation },
         }),
-      `Action ${operation === "complete" ? "completed" : `${operation}d`}.`,
+      actionOperationConfirmation(operation),
     );
   return (
     <>

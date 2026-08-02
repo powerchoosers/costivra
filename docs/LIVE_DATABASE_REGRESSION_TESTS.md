@@ -39,7 +39,36 @@ The command intentionally refuses redacted placeholders. The invoice workflow te
 
 These tests are safe for a controlled production verification because fixture identifiers are random and cleanup runs in `afterAll`, but a non-production Supabase branch is preferable once the project plan supports routine branching. If a test process is forcibly terminated, search for organizations beginning with `Costivra workflow regression` or users beginning with `costivra-tenant-test-` and remove only those exact fixtures.
 
-The live suite does not replace malware-provider, OpenRouter accuracy, backup/restore, or full browser workflow testing.
+The live suite does not replace malware-provider, OpenRouter accuracy, or backup/restore testing.
+
+## Authenticated browser regression
+
+The credential-gated Playwright test creates one temporary customer owner and workspace, signs in through the real login page, approves an opportunity, approves its action, accepts the savings baseline, starts and completes the work, and verifies the final database states and audit events. Cleanup deletes the exact temporary organization, vendor, and Auth user even when an assertion fails.
+
+Add these ignored local values:
+
+```text
+RUN_AUTHENTICATED_E2E=1
+E2E_SUPABASE_SECRET_KEY=<Costivra server secret>
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100
+```
+
+For a deliberate test against `https://costivra.ai`, also set:
+
+```text
+E2E_ALLOW_PRODUCTION=1
+PLAYWRIGHT_BASE_URL=https://costivra.ai
+```
+
+Then run:
+
+```powershell
+npm run test:e2e:authenticated
+```
+
+The remote safety flag is mandatory. The test refuses placeholders and build-only keys, never sends a confirmation email, uses only `@example.invalid`, checks the organization-name prefix before deletion, and runs the mutation sequence only once on desktop. If the process is forcibly terminated, remove only users beginning with `costivra-auth-e2e-` and organizations beginning with `Costivra authenticated E2E `.
+
+GitHub also exposes the manual **Authenticated production regression** workflow. Lewis only needs to add `E2E_SUPABASE_SECRET_KEY` as a GitHub Actions secret before running it; the Costivra project URL is public and already fixed in the workflow. The server secret must belong to Costivra, never Luxor, and must not be added as a `NEXT_PUBLIC_` value.
 
 `supabase/tests/atomic_financial_workflow.sql` is a second, rollback-only production probe. It uses
 an existing owner identity only inside its transaction, creates an isolated temporary organization,

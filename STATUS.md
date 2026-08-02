@@ -495,6 +495,12 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Sent a second live message with a PDF attachment to the Northstar dummy workspace intake address. Resend received it, the production webhook returned `202`, the minute worker returned `200`, and live Supabase recorded the queued and quarantined audit events. The attachment object exists in private storage and no document row was created because a malware scanner is not configured; that is the intended fail-closed boundary.
 - The webhook remains signature-protected, the production email/cron routes had no runtime errors during the test, and all 33 email-focused unit tests passed. The local Resend key and webhook secret are present, but the local Supabase server credential and `CRON_SECRET` do not match production; production itself has valid working credentials.
 
+## 2026-08-02 — Authenticated customer-workflow browser gate
+
+- Added an explicitly gated Playwright regression for the real customer login and financial workflow. It creates a disposable confirmed Supabase Auth user and organization, signs in through `/login`, approves an opportunity, approves its generated action, accepts the evidence baseline, starts and completes the action, and verifies the resulting opportunity, action, savings, attribution, and audit records directly in Supabase.
+- The fixture is randomized and self-cleaning. Remote execution is refused unless `E2E_ALLOW_PRODUCTION=1`; placeholders and build-only keys are rejected; cleanup checks the exact organization prefix before deletion. Normal CI and ordinary local Playwright runs remain non-mutating and skip this test.
+- Added a manual GitHub Actions workflow so the production regression can be repeated without keeping a reusable demo password or adding an authentication bypass. It remains unavailable until the three documented GitHub Actions secrets are configured.
+
 ## Record workspace and internal CRM polish — August 2, 2026
 
 - Rebuilt internal account and contact record pages into one shared, task-oriented workspace: identity and highlights first, then Overview, People/Shared files, Activity, and Work tabs. The account and contact views now make the next action, relationship details, internal context, and evidence easier to scan without turning the page into a form.
