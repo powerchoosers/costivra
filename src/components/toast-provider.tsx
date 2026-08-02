@@ -1,11 +1,12 @@
 "use client";
 
 import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from "lucide-react";
+import Link from "next/link";
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 type ToastTone = "success" | "error" | "warning" | "info";
-type ToastInput = { title: string; message?: string; tone?: ToastTone; duration?: number };
-type ToastItem = Required<Pick<ToastInput, "title" | "tone">> & Pick<ToastInput, "message"> & { id: number; leaving: boolean };
+type ToastInput = { title: string; message?: string; tone?: ToastTone; duration?: number; actionHref?: string; actionLabel?: string };
+type ToastItem = Required<Pick<ToastInput, "title" | "tone">> & Pick<ToastInput, "message" | "actionHref" | "actionLabel"> & { id: number; leaving: boolean };
 type ToastContextValue = {
   show: (input: ToastInput) => number;
   success: (title: string, message?: string) => number;
@@ -56,7 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const Icon = icons[item.tone];
     return <div className={`app-toast toast-${item.tone}${item.leaving ? " is-leaving" : ""}`} role={item.tone === "error" ? "alert" : "status"} key={item.id}>
       <Icon className="app-toast-icon" aria-hidden="true" size={18}/>
-      <div><strong>{item.title}</strong>{item.message && <p>{item.message}</p>}</div>
+      <div><strong>{item.title}</strong>{item.message && <p>{item.message}</p>}{item.actionHref && <Link className="app-toast-action" href={item.actionHref} onClick={() => dismiss(item.id)}>{item.actionLabel || "Open"}</Link>}</div>
       <button type="button" onClick={() => dismiss(item.id)} aria-label={`Dismiss ${item.title}`}><X aria-hidden="true" size={15}/></button>
     </div>;
   })}</div></ToastContext.Provider>;

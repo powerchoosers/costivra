@@ -1,5 +1,49 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-02 — Deliver live mail activity through targeted notifications and scan-gated private attachments
+
+### Context
+
+Owner mail needs timely notice of inbound messages, opens, clicks, and delivery problems. Resend webhooks are the authoritative provider signal, but a webhook alone does not safely deliver tenant-specific updates to a browser. Incoming attachments also cannot be exposed directly from short-lived provider URLs or released before malware screening.
+
+### Decision
+
+Verify every Resend webhook with the configured Svix secret, deduplicate provider event IDs, translate useful events into `internal_notifications` addressed to explicit internal recipients, and deliver those records through Supabase Realtime with polling as a recovery path. Use the existing shared toast provider for visual alerts and a browser-generated, user-disableable chime after audio permission is unlocked.
+
+For ordinary inbound attachments, copy provider files into a dedicated private Supabase bucket through the server. Enforce count and size limits, compute SHA-256, run the existing malware scanner boundary, and store server-only attachment metadata. Expose a file only through an authenticated route that rechecks internal mailbox access, scan status, storage metadata, and byte length. Keep invoice-intake attachments on the stricter document-ingestion path rather than merging both systems.
+
+### Consequences
+
+The browser receives only notifications for the signed-in operator, while provider payloads, private storage paths, and unsafe files stay server-side. Realtime normally feels immediate, and polling recovers missed socket events. Sound is a preference rather than a mandatory interruption. Attachments are unavailable until a scanner is configured and returns a clean result; this intentionally fails closed. Open and click alerts additionally depend on Resend domain tracking being enabled, not only webhook subscription.
+
+## 2026-08-02 — Persist organization members as CRM contacts
+
+### Context
+
+The owner contacts list synthesized workspace members with IDs that were not stored in `crm_contacts`. Those rows could appear in the list but could not reliably open as contact records or retain CRM history.
+
+### Decision
+
+Create a durable `crm_contacts` row for each organization membership, linked to the member's `profiles.id`. A database trigger handles future memberships, and a backfill repairs existing memberships. Existing CRM contacts are matched by profile or organization/email before insertion to avoid duplicates.
+
+### Consequences
+
+Workspace members now have permanent contact IDs and can use the normal contact detail and activity flows. Membership remains authoritative for access; the CRM row is the durable relationship record. A member's profile email/name is captured at membership creation and future profile-sync behavior remains a separate decision.
+
+## 2026-08-02 — Resolve composer recipients from existing CRM and staff records
+
+### Context
+
+The owner composer needs fast multi-recipient addressing without creating a second employee directory or making the user know exact email addresses. Contacts from the active customer account are usually the most relevant, but operators also need other CRM contacts, internal Costivra teammates, and valid outside addresses.
+
+### Decision
+
+Build one client-side suggestion list from the tenant-scoped contact data and the existing `internal_staff_users` profile relation already returned by the authenticated Manage repository. Rank contacts on the selected account first, then other contacts, then active Costivra staff. Store only normalized email addresses in the form and render names as removable presentation chips. Permit a syntactically valid address that is not yet in the CRM. The server remains authoritative for recipient validation, account matching, sending, and AI drafting context; when several To recipients exist, the first address supplies drafting context.
+
+### Consequences
+
+The flow is ready for future employees as soon as they are added through the existing staff membership path, with no duplicate table or browser write access. Multi-recipient sends work with the current mail API, while generated draft context intentionally follows only the first To recipient to avoid mixing unrelated customer records into one AI prompt.
+
 ## 2026-08-02 — Generate CRM-grounded email drafts server-side and append canonical signatures at send time
 
 ### Context

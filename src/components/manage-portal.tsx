@@ -278,10 +278,11 @@ type ComposeContext = {
 type ActiveComposer = { data: ManageData; context: ComposeContext };
 type ManageComposerController = {
   openComposer: (data: ManageData, context: ComposeContext) => void;
-  closeComposer: () => void;
+  closeComposer: (afterClose?: () => void) => void;
 };
 
 const ManageComposerContext = createContext<ManageComposerController | null>(null);
+const COMPOSER_CLOSE_DURATION_MS = 280;
 
 export function ManageComposerProvider({ children }: { children: ReactNode }) {
   const [activeComposer, setActiveComposer] = useState<ActiveComposer | null>(null);
@@ -293,14 +294,15 @@ export function ManageComposerProvider({ children }: { children: ReactNode }) {
     setComposerClosing(false);
     setActiveComposer({ data, context });
   }, []);
-  const closeComposer = useCallback(() => {
+  const closeComposer = useCallback((afterClose?: () => void) => {
     if (!activeComposer || composerClosing) return;
     setComposerClosing(true);
     closeTimer.current = window.setTimeout(() => {
       setActiveComposer(null);
       setComposerClosing(false);
       closeTimer.current = null;
-    }, 240);
+      afterClose?.();
+    }, COMPOSER_CLOSE_DURATION_MS);
   }, [activeComposer, composerClosing]);
   useEffect(() => () => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
@@ -691,7 +693,7 @@ export function ManagePortal({
     : section === "invoice-review" ? "Invoice review" : pretty(section);
   return (
     <div className={`manage-app${assistantOpen ? " is-assistant-open" : ""}`}>
-      <ManageLiveNotifications />
+      <ManageLiveNotifications soundEnabled={data.operator.notificationSoundEnabled} />
       <aside
         id="manage-owner-sidebar"
         ref={sidebarRef}
@@ -923,7 +925,7 @@ export function ManagePortal({
           {(["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") && (
             <div className="manage-create-wrap" ref={createMenuRef}>
               <button className="manage-button manage-button--primary manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
-                <Plus size={30} strokeWidth={3.5} />
+                <Plus aria-hidden="true" />
               </button>
               {(createMenuOpen || createMenuClosing) && (
                 <div className={`manage-create-menu${createMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="Create a new record">
@@ -2342,12 +2344,10 @@ function SettingsPage({
   const [jobTitle, setJobTitle] = useState(data.operator.jobTitle || "");
   const [phone, setPhone] = useState(data.operator.phone || "");
   const [linkedinUrl, setLinkedinUrl] = useState(data.operator.linkedinUrl || "");
-
-  useEffect(() => {
-    setJobTitle(data.operator.jobTitle || "");
-    setPhone(data.operator.phone || "");
-    setLinkedinUrl(data.operator.linkedinUrl || "");
-  }, [data.operator.jobTitle, data.operator.phone, data.operator.linkedinUrl]);
+  const [notificationSoundEnabled, setNotificationSoundEnabled] = useState(
+    data.operator.notificationSoundEnabled,
+  );
+  const [savingNotifications, setSavingNotifications] = useState(false);
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -2390,6 +2390,27 @@ function SettingsPage({
       toast.error("Signature details were not saved", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setSavingSignature(false);
+    }
+  }
+
+  async function saveNotificationSound(enabled: boolean) {
+    setNotificationSoundEnabled(enabled);
+    setSavingNotifications(true);
+    try {
+      const response = await fetch("/api/manage/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationSoundEnabled: enabled }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Notification settings could not be saved.");
+      toast.success(enabled ? "Notification sounds are on." : "Notification sounds are off.");
+      onUpdated();
+    } catch (error) {
+      setNotificationSoundEnabled(!enabled);
+      toast.error("Notification settings were not saved", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setSavingNotifications(false);
     }
   }
 
@@ -2452,6 +2473,25 @@ function SettingsPage({
             {savingSignature ? "Saving…" : "Save signature"}
           </button>
         </form>
+      </section>
+      <section className="manage-panel manage-settings-notifications" aria-labelledby="notification-settings-title">
+        <div>
+          <h3 id="notification-settings-title">Notifications</h3>
+          <p>New mail, opens, clicks, and delivery problems appear immediately. Sound is optional and visual alerts always remain on.</p>
+        </div>
+        <label className="manage-preference-toggle">
+          <span>
+            <strong>Notification sound</strong>
+            <small>A soft chime for new live alerts.</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={notificationSoundEnabled}
+            disabled={savingNotifications}
+            onChange={(event) => void saveNotificationSound(event.target.checked)}
+          />
+          <i aria-hidden="true" />
+        </label>
       </section>
       <section id="email-identities" className="manage-settings-section">
         <Mailboxes data={data} query={query} run={run} onAdd={onAdd} embedded />
@@ -2741,11 +2781,13 @@ function ThreadMessage({
           <pre>{message.textBody || "No plain-text body was available."}</pre>
           {message.attachments.length > 0 && (
             <div className="manage-attachments">
-              {message.attachments.map((attachment) => (
-                <span key={attachment.filename}>
-                  <Paperclip size={14} /> {attachment.filename}
-                </span>
-              ))}
+              {message.attachments.map((attachment) => {
+                const ready = attachment.id && attachment.status === "clean";
+                const content = <><Paperclip size={14} /> <span>{attachment.filename}</span>{attachment.status && attachment.status !== "clean" && <small>{attachment.status === "infected" ? "Blocked" : "Scanning"}</small>}</>;
+                return ready
+                  ? <a href={`/api/manage/mail/attachments/${attachment.id}`} target="_blank" rel="noreferrer" key={attachment.id}>{content}</a>
+                  : <span className="is-unavailable" title="This attachment is waiting for a security scan." key={attachment.id || attachment.filename}>{content}</span>;
+              })}
             </div>
           )}
           <button
@@ -3770,14 +3812,14 @@ function ComposeRecipientField({
   const normalizedQuery = normalizeRecipientEmail(query);
   const canAddExternal = isRecipientEmail(normalizedQuery) && !values.includes(normalizedQuery) && !matchingCandidates.some((candidate) => candidate.email === normalizedQuery);
   const resultCount = matchingCandidates.length + (canAddExternal ? 1 : 0);
-
-  useEffect(() => setHighlighted(0), [query]);
+  const showResults = focused && query.trim().length > 0 && resultCount > 0;
 
   function addRecipient(email: string) {
     const normalized = normalizeRecipientEmail(email);
     if (!isRecipientEmail(normalized) || values.includes(normalized)) return;
     onChange([...values, normalized]);
     setQuery("");
+    setHighlighted(0);
     setFocused(true);
     requestAnimationFrame(() => inputRef.current?.focus());
   }
@@ -3818,10 +3860,15 @@ function ComposeRecipientField({
           placeholder={values.length ? "Add another" : placeholder}
           aria-label={`${label} recipients`}
           aria-autocomplete="list"
-          aria-expanded={focused && resultCount > 0}
+          aria-controls={`${name}-recipient-results`}
+          aria-expanded={showResults}
+          role="combobox"
           onFocus={() => setFocused(true)}
           onBlur={() => window.setTimeout(() => setFocused(false), 100)}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setHighlighted(0);
+          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" && resultCount) {
               event.preventDefault();
@@ -3841,8 +3888,8 @@ function ComposeRecipientField({
             }
           }}
         />
-        {focused && resultCount > 0 && (
-          <div className="manage-compose-recipient-results" role="listbox" aria-label={`${label} recipient suggestions`}>
+        {showResults && (
+          <div id={`${name}-recipient-results`} className="manage-compose-recipient-results" role="listbox" aria-label={`${label} recipient suggestions`}>
             {matchingCandidates.map((candidate, index) => (
               <button
                 type="button"
@@ -3887,7 +3934,7 @@ function Compose({
 }: {
   data: ManageData;
   context: ComposeContext;
-  onClose: () => void;
+  onClose: (afterClose?: () => void) => void;
   closing?: boolean;
 }) {
   const router = useRouter();
@@ -3960,13 +4007,13 @@ function Compose({
             ? "Email accepted by Resend."
             : "Email sent.",
       );
-      onClose();
-      router.push(
-        result.threadId
-          ? `/manage/mail/${result.threadId}?folder=${mode === "draft" ? "drafts" : "sent"}&mailbox=${selectedMailbox}`
-          : `/manage/mail?mailbox=${selectedMailbox}`,
-      );
-      router.refresh();
+      const destination = result.threadId
+        ? `/manage/mail/${result.threadId}?folder=${mode === "draft" ? "drafts" : "sent"}&mailbox=${selectedMailbox}`
+        : `/manage/mail?mailbox=${selectedMailbox}`;
+      onClose(() => {
+        router.push(destination);
+        router.refresh();
+      });
     } catch (error) {
       toast.error(
         mode === "draft" ? "Draft was not saved" : "Email was not sent",
@@ -4229,7 +4276,7 @@ function Compose({
           <div className="manage-compose-signature-main">
             <span className="manage-compose-signature-rail" aria-hidden="true" />
             <div className="manage-compose-signature-content">
-              <div className="manage-compose-signature-brand"><CostivraMark size={34} /><strong>Costivra</strong></div>
+              <div className="manage-compose-signature-brand"><CostivraMark size={42} /><strong>Costivra</strong></div>
               <div className="manage-compose-signature-person">
                 {data.operator.avatarUrl
                   ? <img className="manage-person-avatar large manage-compose-signature-avatar" src={data.operator.avatarUrl} alt="" />

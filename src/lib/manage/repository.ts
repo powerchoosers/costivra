@@ -430,6 +430,9 @@ export async function getManageData(input?: {
                   filename: string;
                   contentType?: string;
                   size?: number;
+                  id?: string;
+                  status?: "pending" | "clean" | "infected" | "unavailable" | "failed";
+                  disposition?: "inline" | "attachment";
                 } =>
                   Boolean(item) &&
                   typeof item === "object" &&
@@ -462,6 +465,7 @@ export async function getManageData(input?: {
       jobTitle: nullable(operatorProfile?.job_title),
       phone: nullable(operatorProfile?.phone),
       linkedinUrl: nullable(operatorProfile?.linkedin_url),
+      notificationSoundEnabled: operatorProfile?.notification_sound_enabled !== false,
     },
     staff,
     accounts,

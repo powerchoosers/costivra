@@ -4,7 +4,7 @@ import type { ManageData } from "@/lib/manage/types";
 
 function fixture(): ManageData {
   return {
-    operator: { id: "staff-1", email: "owner@example.test", fullName: "Owner", role: "owner", avatarUrl: null, jobTitle: null, phone: null, linkedinUrl: null },
+    operator: { id: "staff-1", email: "owner@example.test", fullName: "Owner", role: "owner", avatarUrl: null, jobTitle: null, phone: null, linkedinUrl: null, notificationSoundEnabled: true },
     staff: [],
     accounts: [
       {

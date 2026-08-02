@@ -30,6 +30,61 @@ const deliveryStatuses: Partial<Record<WebhookEventPayload["type"], string>> = {
   "email.failed": "failed",
   "email.suppressed": "suppressed",
 };
+const MAX_MAIL_ATTACHMENT_SIZE = 20 * 1024 * 1024;
+
+function safeDeliveryMetadata(event: WebhookEventPayload) {
+  if (event.type !== "email.clicked") return {};
+  try {
+    const link = new URL(event.data.click.link);
+    return { link_host: link.host.slice(0, 255), link_path: link.pathname.slice(0, 500) };
+  } catch {
+    return {};
+  }
+}
+
+async function internalNotificationRecipients(
+  db: ReturnType<typeof createServerSupabaseClient>,
+  preferredUserId?: string | null,
+) {
+  if (preferredUserId) return [preferredUserId];
+  const { data, error } = await db
+    .from("internal_staff_users")
+    .select("user_id")
+    .eq("status", "active");
+  if (error) throw error;
+  return (data ?? []).map((staff) => staff.user_id as string);
+}
+
+async function insertInternalMailNotification(
+  db: ReturnType<typeof createServerSupabaseClient>,
+  input: {
+    kind: "email_received" | "email_opened" | "email_clicked" | "email_delivery_failed";
+    title: string;
+    body: string;
+    resourceId: string;
+    actionHref: string;
+    organizationId?: string | null;
+    providerEventId?: string;
+    preferredUserId?: string | null;
+  },
+) {
+  const recipientIds = await internalNotificationRecipients(db, input.preferredUserId);
+  if (!recipientIds.length) return;
+  const { error } = await db.from("internal_notifications").insert(
+    recipientIds.map((recipientUserId) => ({
+      organization_id: input.organizationId ?? null,
+      recipient_user_id: recipientUserId,
+      kind: input.kind,
+      title: input.title,
+      body: input.body,
+      resource_type: "crm_email_thread",
+      resource_id: input.resourceId,
+      action_href: input.actionHref,
+      provider_event_id: input.providerEventId ?? null,
+    })),
+  );
+  if (error?.code !== "23505" && error) throw error;
+}
 
 function headerValue(headers: Record<string, string> | null, name: string) {
   const entry = Object.entries(headers ?? {}).find(
@@ -50,24 +105,184 @@ async function recordDeliveryEvent(
     provider_message_id: providerMessageId,
     event_type: event.type,
     occurred_at: event.created_at,
-    safe_metadata: {},
+    safe_metadata: safeDeliveryMetadata(event),
   });
   if (error?.code === "23505") return;
   if (error) throw error;
   const status = deliveryStatuses[event.type];
-  if (!status) return;
-  const updates: Record<string, unknown> = {
-    provider_status: status,
-    updated_at: new Date().toISOString(),
-  };
-  if (event.type === "email.sent") {
-    updates.folder = "sent";
-    updates.sent_at = event.created_at;
+  if (status) {
+    const updates: Record<string, unknown> = {
+      provider_status: status,
+      updated_at: new Date().toISOString(),
+    };
+    if (event.type === "email.sent") {
+      updates.folder = "sent";
+      updates.sent_at = event.created_at;
+    }
+    await db
+      .from("crm_email_messages")
+      .update(updates)
+      .eq("provider_message_id", providerMessageId);
   }
-  await db
+
+  if (!["email.opened", "email.clicked", "email.bounced", "email.failed"].includes(event.type))
+    return;
+  const { data: message, error: messageError } = await db
     .from("crm_email_messages")
-    .update(updates)
-    .eq("provider_message_id", providerMessageId);
+    .select("thread_id,organization_id,actor_id,subject,to_addresses")
+    .eq("provider_message_id", providerMessageId)
+    .maybeSingle();
+  if (messageError) throw messageError;
+  if (!message?.thread_id) return;
+  const recipient = Array.isArray(message.to_addresses) ? message.to_addresses[0] : null;
+  const kind = event.type === "email.opened"
+    ? "email_opened"
+    : event.type === "email.clicked"
+      ? "email_clicked"
+      : "email_delivery_failed";
+  const title = event.type === "email.opened"
+    ? "Email opened"
+    : event.type === "email.clicked"
+      ? "Link clicked"
+      : "Email delivery problem";
+  const body = event.type === "email.opened"
+    ? `${recipient || "The recipient"} opened “${message.subject}”.`
+    : event.type === "email.clicked"
+      ? `${recipient || "The recipient"} clicked a link in “${message.subject}”.`
+      : `“${message.subject}” could not be delivered normally. Open the conversation for details.`;
+  await insertInternalMailNotification(db, {
+    kind,
+    title,
+    body,
+    resourceId: message.thread_id,
+    actionHref: `/manage/mail/${message.thread_id}`,
+    organizationId: message.organization_id,
+    providerEventId,
+    preferredUserId: message.actor_id,
+  });
+}
+
+async function persistOwnerMailboxAttachments(
+  db: ReturnType<typeof createServerSupabaseClient>,
+  resend: ReturnType<typeof getResendClient>,
+  input: {
+    providerEmailId: string;
+    messageId: string;
+    mailboxId: string;
+    organizationId: string | null;
+  },
+) {
+  const result = await resend.emails.receiving.attachments.list({
+    emailId: input.providerEmailId,
+    limit: 20,
+  });
+  if (result.error || !result.data)
+    throw new Error(result.error?.message || "Inbound attachments could not be retrieved.");
+  const attachments = result.data.data.slice(0, 12);
+  let downloadedBytes = 0;
+
+  for (const attachment of attachments) {
+    const filename = (attachment.filename || `attachment-${attachment.id}`)
+      .replace(/[\\/]/g, "-")
+      .slice(0, 255);
+    const contentType = attachment.content_type
+      .split(";", 1)[0]
+      .trim()
+      .toLowerCase() || "application/octet-stream";
+    const disposition = attachment.content_disposition === "inline" ? "inline" : "attachment";
+    const inserted = await db
+      .from("crm_email_attachments")
+      .insert({
+        message_id: input.messageId,
+        mailbox_id: input.mailboxId,
+        organization_id: input.organizationId,
+        provider_attachment_id: attachment.id,
+        filename,
+        content_type: contentType,
+        content_disposition: disposition,
+        content_id: attachment.content_id || null,
+        byte_size: attachment.size,
+      })
+      .select("id")
+      .single();
+    if (inserted.error) {
+      if (inserted.error.code === "23505") continue;
+      throw inserted.error;
+    }
+    const attachmentId = inserted.data.id as string;
+    if (
+      attachment.size <= 0 ||
+      attachment.size > MAX_MAIL_ATTACHMENT_SIZE ||
+      downloadedBytes + attachment.size > 40 * 1024 * 1024
+    ) {
+      await db
+        .from("crm_email_attachments")
+        .update({
+          scan_status: "failed",
+          error_message: "The attachment exceeds the safe inbox download limit.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", attachmentId);
+      continue;
+    }
+    const response = await fetch(attachment.download_url, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`Attachment download returned HTTP ${response.status}.`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    downloadedBytes += buffer.length;
+    if (!buffer.length || buffer.length > MAX_MAIL_ATTACHMENT_SIZE)
+      throw new Error("Downloaded attachment size is outside the supported range.");
+    const sha256 = createHash("sha256").update(buffer).digest("hex");
+    const scan = await scanFileForMalware({ buffer, filename, mimeType: contentType });
+    if (scan.status === "infected") {
+      await db
+        .from("crm_email_attachments")
+        .update({
+          sha256,
+          scan_status: "infected",
+          error_message: "Malware scanning blocked this attachment.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", attachmentId);
+      continue;
+    }
+
+    const safeName = filename.replace(/[^A-Za-z0-9._-]/g, "-").slice(-180) || "attachment";
+    const readiness = scan.status === "clean" ? "ready" : "quarantine";
+    const storagePath = `${input.mailboxId}/${readiness}/${input.messageId}/${randomUUID()}-${safeName}`;
+    const upload = await db.storage
+      .from("costivra-mail-attachments")
+      .upload(storagePath, buffer, { contentType, upsert: false });
+    if (upload.error) throw upload.error;
+    await db
+      .from("crm_email_attachments")
+      .update({
+        sha256,
+        scan_status: scan.status,
+        storage_path: storagePath,
+        error_message: scan.status === "clean"
+          ? null
+          : scan.detail || "The attachment is waiting for malware scanning.",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", attachmentId);
+  }
+  const { data: stored, error: storedError } = await db
+    .from("crm_email_attachments")
+    .select("id,filename,content_type,byte_size,scan_status,content_disposition")
+    .eq("message_id", input.messageId)
+    .order("created_at", { ascending: true });
+  if (storedError) throw storedError;
+  return (stored ?? []).map((attachment) => ({
+    id: attachment.id,
+    filename: attachment.filename,
+    contentType: attachment.content_type,
+    size: attachment.byte_size,
+    status: attachment.scan_status,
+    disposition: attachment.content_disposition,
+  }));
 }
 
 async function persistOwnerMailboxMessage(
@@ -75,15 +290,24 @@ async function persistOwnerMailboxMessage(
   resend: ReturnType<typeof getResendClient>,
   received: EmailReceivedEvent,
   recipientAddresses: string[],
-  mailbox: { id: string; address: string },
+  mailbox: { id: string; address: string; assigned_to: string | null },
 ) {
   const senderAddress = normalizeEmailAddress(received.data.from);
   const { data: existing } = await db
     .from("crm_email_messages")
-    .select("id")
+    .select("id,organization_id")
     .eq("provider_message_id", received.data.email_id)
     .maybeSingle();
-  if (existing) return { duplicate: true };
+  if (existing) {
+    const attachments = await persistOwnerMailboxAttachments(db, resend, {
+      providerEmailId: received.data.email_id,
+      messageId: existing.id,
+      mailboxId: mailbox.id,
+      organizationId: existing.organization_id,
+    });
+    await db.from("crm_email_messages").update({ attachments }).eq("id", existing.id);
+    return { duplicate: true };
+  }
 
   const emailResult = await resend.emails.receiving.get(
     received.data.email_id,
@@ -196,14 +420,9 @@ async function persistOwnerMailboxMessage(
       })
       .eq("id", threadId);
   }
+  if (!threadId) throw new Error("Inbound email thread could not be resolved.");
 
-  const attachmentMetadata = full.attachments.map((attachment) => ({
-    filename: attachment.filename || `attachment-${attachment.id}`,
-    contentType: attachment.content_type,
-    size: attachment.size,
-    providerAttachmentId: attachment.id,
-  }));
-  const { error: messageError } = await db.from("crm_email_messages").insert({
+  const { data: message, error: messageError } = await db.from("crm_email_messages").insert({
     thread_id: threadId,
     organization_id: organizationId,
     mailbox_id: mailbox.id,
@@ -222,10 +441,23 @@ async function persistOwnerMailboxMessage(
     internet_message_id: full.message_id,
     in_reply_to: inReplyTo,
     message_references: references,
-    attachments: attachmentMetadata,
+    attachments: [],
     received_at: now,
-  });
+  }).select("id").single();
   if (messageError) throw messageError;
+  const attachmentMetadata = await persistOwnerMailboxAttachments(db, resend, {
+    providerEmailId: received.data.email_id,
+    messageId: message.id,
+    mailboxId: mailbox.id,
+    organizationId,
+  });
+  if (attachmentMetadata.length) {
+    const { error: attachmentUpdateError } = await db
+      .from("crm_email_messages")
+      .update({ attachments: attachmentMetadata })
+      .eq("id", message.id);
+    if (attachmentUpdateError) throw attachmentUpdateError;
+  }
   if (organizationId) {
     await db.from("crm_activities").insert({
       organization_id: organizationId,
@@ -247,6 +479,16 @@ async function persistOwnerMailboxMessage(
       linked_to_account: Boolean(organizationId),
       mailbox: mailbox.address,
     },
+  });
+  await insertInternalMailNotification(db, {
+    kind: "email_received",
+    title: "New email",
+    body: `${senderAddress} sent “${subject}”.`,
+    resourceId: threadId,
+    actionHref: `/manage/mail/${threadId}?mailbox=${mailbox.id}`,
+    organizationId,
+    providerEventId: `received:${received.data.email_id}`,
+    preferredUserId: mailbox.assigned_to,
   });
   return { duplicate: false, threadId };
 }
@@ -341,7 +583,7 @@ export async function POST(request: Request) {
   if (!intake) {
     const { data: mailboxCandidates, error: mailboxError } = await db
       .from("crm_mailboxes")
-      .select("id,address")
+      .select("id,address,assigned_to")
       .in("address", recipientAddresses)
       .eq("status", "active")
       .eq("can_receive", true)

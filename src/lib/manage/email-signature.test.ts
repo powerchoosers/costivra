@@ -23,8 +23,10 @@ describe("email signatures", () => {
   it("uses a CID image only when one is provided", () => {
     expect(buildEmailSignatureHtml({ fullName: "Lewis Patterson", avatarCid: "profile" }))
       .toContain('src="cid:profile"');
-    expect(appendEmailSignatureHtml("<p>Hello</p>", { fullName: "Lewis Patterson" }))
-      .toContain("<p>Hello</p><br><table");
+    const appended = appendEmailSignatureHtml("<p>Hello</p>", { fullName: "Lewis Patterson" });
+    expect(appended).toContain("<p>Hello</p><br>");
+    expect(appended).toContain("<table");
+    expect(appended).toContain("@media (prefers-color-scheme: dark)");
   });
 
   it("allows only https LinkedIn profile URLs", () => {

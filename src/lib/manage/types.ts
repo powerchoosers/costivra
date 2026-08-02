@@ -7,6 +7,7 @@ export type ManageOperator = {
   jobTitle: string | null;
   phone: string | null;
   linkedinUrl: string | null;
+  notificationSoundEnabled: boolean;
 };
 
 export type ManageStaffMember = {
@@ -108,7 +109,14 @@ export type ManageMailMessage = {
   textBody: string | null;
   htmlBody: string | null;
   providerStatus: string;
-  attachments: Array<{ filename: string; contentType?: string; size?: number }>;
+  attachments: Array<{
+    id?: string;
+    filename: string;
+    contentType?: string;
+    size?: number;
+    status?: "pending" | "clean" | "infected" | "unavailable" | "failed";
+    disposition?: "inline" | "attachment";
+  }>;
   sentAt: string | null;
   receivedAt: string | null;
   createdAt: string;

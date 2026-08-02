@@ -1,12 +1,39 @@
 # Costivra Status
 
+## Bulk row selector visibility — August 2, 2026
+
+- Fixed the shared Accounts/Contacts row selector CSS so the check icon is hidden for unselected rows and appears only on hover, keyboard focus, or selection.
+- Validation: `npm test -- --run` passed (71 tests). The local Playwright CLI could not attach to the authenticated in-app browser session, so visual confirmation should be done by refreshing the open Manage page.
+
+## Realtime Resend events, notifications, and mail attachments — August 2, 2026
+
+- Expanded the production Resend webhook subscription to cover inbound messages, scheduled/sent/delivered/delayed mail, opens, clicks, bounces, complaints, failures, and suppressions. The existing route continues to verify each webhook signature before processing it.
+- Added recipient-scoped Supabase Realtime notifications for new inbound mail, opens, clicks, and delivery failures, with a 30-second polling fallback. The shared toast system now supports a direct **View** action, restrained entrance/exit motion, and a soft Web Audio chime that only starts after the browser permits audio.
+- Added a persisted **Notification sounds** preference in owner Settings. It defaults on, can be disabled per operator, and updates without overwriting unrelated profile or signature fields.
+- Added private storage and server-only metadata for regular mailbox attachments. Inbound Resend attachments are fetched from their short-lived provider URLs, size-limited, hashed, malware-scanned, and stored in the private `costivra-mail-attachments` bucket. Only clean attachments can be opened through the authenticated Manage attachment route; unavailable or infected files remain quarantined.
+- Existing invoice-intake attachments continue through the document pipeline, including the same malware boundary, private source storage, extraction, evidence, and review behavior. Outbound compose attachments remain limited to five files, 10 MB each, and 20 MB total before Resend submission.
+- Applied `20260802115030_realtime_mail_notifications_and_attachments.sql` to the Costivra Supabase project. The migration adds the sound preference, targeted notification fields and RLS, Realtime publication, the restricted attachment table, and private storage bucket.
+- Validation passed: `npm run typecheck`, `npm run lint` (four existing warnings, no errors), and `npx vitest run --reporter=dot` (22 files, 71 tests). A production build was not repeated while the active local development session was being used for review.
+- Remaining deployment requirements: configure `MALWARE_SCANNER_URL` or `CLOUDMERSIVE_API_KEY` before inbound attachments can be released from quarantine. Resend still reports domain-level open and click tracking as disabled even after its update API acknowledged the change; those two dashboard toggles must be confirmed before open/click events can arrive. The webhook is already subscribed for them.
+
+## Durable workspace-member CRM contacts — August 2, 2026
+
+- Added `20260802120301_persist_membership_crm_contacts.sql`, which creates a restricted database trigger that persists organization members as `crm_contacts` linked to `profiles.id`.
+- Backfilled existing memberships, including Lewis A Patterson for the Gmail account, without duplicating existing CRM contacts.
+- Supabase verification passed: Lewis now has a permanent CRM contact ID, and the membership trigger is enabled.
+- Remaining follow-up: run the normal typecheck/lint/test/build suite before the next deployment.
+
 ## Contextual email drafts and profile signatures — August 2, 2026
 
 - Added optional **Title**, **Phone number**, and **LinkedIn profile** fields beside the owner profile photo in Settings. Blank fields stay out of the signature. The details are validated server-side, write only to the authenticated operator profile, and create an audit event without recording the raw phone or URL.
 - Added a `/`-triggered composer prompt: “Describe what you want to write.” It retrieves only the recipient-matched contact/account, related vendors, recent CRM activities, and recent conversations on the server, bounds the context, and asks the AI for a short human email in plain language. The operator still reviews and explicitly sends it; the drafting route cannot send mail or change CRM data.
 - Refined the `/` drafting interaction into an editor overlay. The prompt now enters and exits over the message area, hides the editor placeholder while active, transitions into a restrained Costivra progress state during generation, animates the subject and message into place, and respects reduced-motion preferences. Generated drafts are also deterministically framed with the recipient's first name (or `[First name]`) and a natural sign-off followed by the operator's first name.
 - Added a sender signature preview in the composer. At delivery, the server appends a canonical signature using the latest profile values. Profile photos stay private and are attached to the email by CID; without one, recipients get a circular initials fallback. Signature fields are omitted when unset.
+- Refined the composer’s addressing flow: To, Cc, and Bcc accept multiple removable recipient chips, search contacts by name or email, rank contacts from the selected account first, include active Costivra staff from the existing internal staff relation, and still accept a valid outside address. Cc/Bcc now animate into the fixed-height composer while the message area yields space instead of increasing the modal height. The subject row uses a matching **Sub** label.
+- Matched the signature fallback avatar to the CRM’s standard circular person glyph and fixed its centering. The Costivra lockup is larger and sits on an explicit white email-safe tile so the real mark remains legible in clients that force dark mode; the canonical sent signature uses the same treatment.
+- Follow-up polish: recipient suggestions now wait for a search term instead of opening on field focus; the sender title is forced onto its own line below the name; and the normal signature lockup is unboxed and enlarged. Supporting email clients apply the protective white treatment only when they render in dark mode.
 - Applied `20260802101500_profile_email_signature_fields.sql` to Supabase. Existing profile RLS remains in force. The Supabase security advisor still reports only the pre-existing leaked-password-protection warning; performance advice is existing unused-index information.
+- Validation passed: `npm run typecheck`, `npm run lint`, `npx vitest run --reporter=dot` (22 files, 71 tests), and `npm run build` (33 static pages). The in-app browser refused control of the existing localhost tab under its URL policy, so authenticated visual QA was not repeated in this pass; the local development server was restarted for manual refresh.
 
 ## Owner navigation hover rail — August 1, 2026
 
@@ -19,6 +46,7 @@
 - Matched Mail’s folder tabs to the Accounts tab treatment: plain text labels, identical spacing and typography, and the same label-width underline behavior. The mailbox selector sits to the left of Inbox; the redundant inbound-status card was removed.
 - Rebuilt the mail composer as a rich HTML editor with text styles, emphasis, lists, alignment, links, clear formatting, undo/redo, file and image attachment controls, attachment-name feedback, an animated scheduling popover, and animated minimize/maximize behavior. Recipient emails now resolve their CRM account server-side, rich HTML is sanitized and stored beside a plain-text fallback, Resend receives both formats, and closing a non-empty composer saves a draft.
 - Lifted the composer into the persistent `/manage` layout so its draft, recipient context, expanded/minimized state, and attachments follow the operator between Mail, Accounts, Contacts, Settings, and other owner pages. Minimize now animates width, vertical body height, opacity, and position together; close runs a dedicated downward fade/scale exit before unmounting. Reduced-motion preferences disable these transitions.
+- Fixed the close path so saving a draft or sending a message waits for the composer’s 280ms exit before routing to the resulting mailbox. This prevents the abrupt disappearance that was cutting off the close animation.
 - Validation: `npm run typecheck`, `npm run lint`, `npm test` (61 tests), and `git diff --check` passed. Browser QA at `/manage/mail` confirmed the connected workspace, full rich-text toolbar, scheduling popover, minimize/maximize interaction, and zero console warnings/errors. A real outbound send was intentionally not triggered during QA.
 
 ## Demo invoice import and extraction QA — August 1, 2026
