@@ -21,6 +21,11 @@ Production requires these server-only variables:
 - `RESEND_API_KEY`
 - `RESEND_WEBHOOK_SECRET`
 - `RESEND_INBOUND_DOMAIN=costivra.ai`
+
+The current Resend plan permits one verified domain. Costivra therefore uses unique generated
+addresses on `costivra.ai` for both customer intake and normal platform mail. When the Resend plan
+supports another domain, migrate intake to `inbound.costivra.ai` before changing this variable or
+provisioned database addresses; configuring only one side silently prevents mail from arriving.
 - `MALWARE_SCANNER_URL`
 - `MALWARE_SCANNER_TOKEN` when required by the selected scanner
 

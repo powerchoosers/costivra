@@ -22,7 +22,12 @@ This is the short list of work that cannot be completed honestly with code alone
 ## Release evidence required
 
 - [ ] Golden-set extraction evaluation passes agreed precision/recall and evidence-citation thresholds for critical invoice fields.
-- [ ] Real or representative Supabase tests prove one tenant cannot read or mutate another tenant's records or files.
+- [x] Live Supabase RLS probing proves one tenant cannot read another tenant's organization,
+  membership, document, or invoice records. The reusable two-tenant test at
+  `src/lib/integration/tenant-isolation.live.integration.test.ts` also verifies authenticated
+  API reads and denied cross-tenant writes; run it with `npm run test:integration:live` from an
+  environment containing real Supabase server credentials. Private files remain server-only and
+  still need an authenticated route-level cross-tenant regression test before broad launch.
 - [ ] End-to-end tests cover upload, deduplication, malware outcomes, extraction versioning, correction, approval, opportunity creation, baseline acceptance, later-invoice comparison, and human verification.
 - [ ] Prompt-injection fixtures prove document text cannot reveal secrets, change policy, expand tools, approve action, or create external side effects.
 - [ ] A restore exercise proves database and private-document recovery; a deletion exercise proves the documented retention/deletion process.

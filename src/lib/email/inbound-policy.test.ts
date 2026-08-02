@@ -20,8 +20,8 @@ describe("inbound email policy", () => {
   });
 
   it("requires the complete workspace address instead of a local-part-only match", () => {
-    const intake = { local_part: "northstar-a1b2c3", domain: "inbound.costivra.ai" };
-    expect(matchesIntakeAddress(["northstar-a1b2c3@inbound.costivra.ai"], intake)).toBe(true);
+    const intake = { local_part: "northstar-a1b2c3", domain: "costivra.ai" };
+    expect(matchesIntakeAddress(["northstar-a1b2c3@costivra.ai"], intake)).toBe(true);
     expect(matchesIntakeAddress(["northstar-a1b2c3@wrong.example"], intake)).toBe(false);
   });
 });

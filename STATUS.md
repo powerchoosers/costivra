@@ -1,5 +1,14 @@
 # Costivra Status
 
+## Verified Resend intake domain — August 2, 2026
+
+- A live Costivra-to-demo-workspace probe proved sending and signed webhook delivery, then exposed
+  that provisioned customer addresses used `inbound.costivra.ai` while the single Resend receiving
+  domain was `costivra.ai`. The current Resend plan rejected a second domain.
+- Added a migration that moves existing and future customer intake addresses to the verified
+  `costivra.ai` domain. Vercel Production uses the same value. A dedicated intake subdomain remains
+  the preferred future layout after upgrading the Resend domain allowance.
+
 ## Durable inbound invoice processing — August 2, 2026
 
 - Moved customer invoice attachment processing out of the Resend webhook request and into a
