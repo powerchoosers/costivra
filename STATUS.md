@@ -1,5 +1,29 @@
 # Costivra Status
 
+## Fail-closed manual uploads and viewer permissions — August 2, 2026
+
+- Manual portal uploads now pass through the same server-side malware boundary as emailed source
+  files. Clean files may enter extraction, confirmed malware is rejected without being stored, and
+  unavailable or failed scans are stored in private quarantine without reaching document AI.
+- Quarantined manual uploads retain their SHA-256 digest and can be rescanned by an editor after a
+  scanner is configured. A digest mismatch stops processing. Confirmed malware is marked rejected,
+  audited, and removed from private storage.
+- The document download route now refuses signed URLs for quarantined, rejected, pending, or
+  processing files. Regression coverage proves quarantined content never asks storage for a signed
+  URL.
+- Portal viewers are now consistently read-only across document upload/rescan/delete, contract and
+  expense creation, and integration changes. Customer UI actions are hidden for viewers, while the
+  API independently enforces the same boundary.
+- Live schema inspection confirmed the existing `documents` table accepts quarantine/rejection
+  states without a migration. Validation passed: TypeScript; lint with zero errors; 121 unit tests;
+  integration tests; production build; and six production Playwright checks with two intentional
+  device-target skips.
+- Resend credential verification passed again, and Resend reports `costivra.ai` as verified in
+  `us-east-1`. Manual and emailed files will remain quarantined until Lewis configures a supported
+  malware scanner.
+- `npm audit --omit=dev` now reports zero production dependency vulnerabilities across the current
+  dependency tree.
+
 ## Intake operations and recovery workspace — August 2, 2026
 
 - Added `/manage/intake` as the internal source-of-truth queue for every forwarded client email,
@@ -214,7 +238,8 @@
 - Added and deployed `/set-password` for the owner activation link. It accepts Supabase PKCE or implicit invite sessions, removes tokens from the visible URL, refuses sessions without the one-time owner-invite metadata, requires a 12-character password, clears the invite flag, and routes the completed owner to `/manage`.
 - Sent the auditable owner-only message **Set your Costivra owner password** from `hello@costivra.ai` to `l.patterson@costivra.ai`. Resend reports it delivered, and the signed inbound webhook stored the same message in the CRM inbox.
 - Remaining production check: open the newest owner-password message in Resend Receiving, set the password, sign in, then send one deliberately authorized message linked to a real client account. No customer email was sent during setup or testing.
-- Dependency audit: `npm audit --omit=dev --json` currently reports three high-severity production findings through Next.js transitive `postcss` and `sharp` packages. npm proposes an unsafe major downgrade rather than a compatible patched Next.js release, so no automated force-fix was applied. Track the upstream patched Next.js/sharp/postcss release before production launch.
+- Dependency audit follow-up: the affected Next.js dependency tree has since been upgraded, and the
+  August 2 production audit reports zero known vulnerabilities.
 
 ## Automatic email document intake — July 31, 2026
 
@@ -432,3 +457,18 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Revalidated the newly supplied local Resend key without exposing it. Resend accepted the key, reported `costivra.ai` verified in `us-east-1`, and delivered an idempotency-protected loopback message from `hello@costivra.ai` to the owner mailbox.
 - Resend then received the loopback at `l.patterson@costivra.ai`. Production runtime logs recorded three successful `POST /api/webhooks/resend` responses for the outbound and inbound events, and the inbound processing cron continued returning `200` every minute.
 - A forged unsigned webhook remained fail-closed with HTTP `400`; all 21 email-focused unit tests passed. Local inbound processing still cannot be exercised faithfully until `.env.local` has the real Resend webhook secret and valid Costivra Supabase server credentials. The production deployment already has those working credentials.
+
+## Record workspace and internal CRM polish — August 2, 2026
+
+- Rebuilt internal account and contact record pages into one shared, task-oriented workspace: identity and highlights first, then Overview, People/Shared files, Activity, and Work tabs. The account and contact views now make the next action, relationship details, internal context, and evidence easier to scan without turning the page into a form.
+- Activated the stronger dedicated vendor record page in the customer App and added the same protected document-library experience to vendor and generic record pages. The library has virtual collections, search, list/grid view, status states, a selected-file inspector, and secure download actions. Collections are metadata views only; original storage paths and provenance remain immutable.
+- Made the customer App rail use the same compact, expand-on-hover/focus geometry as Manage. The desktop rails now share dark surface, widths, active-state treatment, tooltips, and keyboard expansion behavior while keeping their customer/internal destinations distinct.
+- Added the internal-only Apollo enrichment foundation: normalized public account lookup website, separate provider snapshots, manual refresh routes, a 30-day cache, an atomic refresh claim, allowlisted response fields, safe audit events, and a private internal document-download route. Apollo-derived content is intentionally absent from `/app` pending the required Apollo data-sharing permission.
+- Visual QA used temporary local preview fixtures at desktop and 390×844 mobile for Manage account/contact and App vendor records. The selected file library, mobile action stack, record tabs, and rails rendered without browser console errors. The temporary preview routes will be removed before handoff.
+- Validation so far: `npm run typecheck`, `npm run lint`, and focused Vitest coverage for the Apollo adapter, internal document download authorization, manual-enrichment cache behavior, and existing Manage assistant fixture all pass. No live Apollo request was made and no provider credits were spent.
+
+### Remaining release work
+
+- Apply and review `20260802194859_add_internal_crm_enrichment_records.sql` in Supabase before exposing the manual refresh controls in a deployed environment, then run the Supabase security and performance advisors.
+- Apollo's terms must be cleared in writing before any provider-derived summary appears in the customer App. Until then, only organization-controlled facts may appear there.
+- The broad Manage data loader still fetches more email data than an individual record page needs. A follow-up should add scoped server-side record view models and pagination before very large CRM datasets are expected.

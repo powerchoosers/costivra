@@ -86,6 +86,7 @@ export async function releaseQuarantinedInboundAttachments(input: {
       mimeType: attachment.content_type,
       buffer,
       auditAction: "document.email_quarantine_released",
+      malwareScan: scan,
     });
     await db.from("inbound_email_attachments").update({
       scan_status: "clean",

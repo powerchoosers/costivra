@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { analyzeDocument, analyzeScannedPdf } from "@/lib/ai/document-intelligence";
 import { createInvoiceRecordFromExtraction } from "@/lib/documents/invoice-record";
 import { extractDocumentText } from "@/lib/documents/text-extraction";
+import type { MalwareScanResult } from "@/lib/security/malware-scanner";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024;
@@ -24,9 +25,13 @@ export async function ingestDocumentBuffer(input: {
   organizationVendorId?: string | null;
   sourceType?: "manual_upload" | "email_forwarding" | "provider_integration";
   auditAction: string;
+  malwareScan: MalwareScanResult;
 }) {
   if (!DOCUMENT_MIME_TYPES.has(input.mimeType)) throw new Error("Unsupported document type.");
   if (!input.buffer.length || input.buffer.length > MAX_DOCUMENT_SIZE) throw new Error("Document size is outside the supported range.");
+  if (input.malwareScan.status !== "clean") {
+    throw new Error("A document cannot enter extraction until malware scanning reports it clean.");
+  }
 
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
   const { data: duplicate, error: duplicateError } = await input.db.from("documents").select("id,original_filename").eq("organization_id", input.organizationId).eq("sha256", sha256).maybeSingle();
@@ -54,7 +59,42 @@ export async function ingestDocumentBuffer(input: {
     await input.db.from("documents").delete().eq("id", document.id);
     throw uploaded.error;
   }
-  await input.db.from("documents").update({ status: "processing" }).eq("id", document.id);
+  return processDocumentBuffer({
+    db: input.db,
+    documentId: document.id as string,
+    organizationId: input.organizationId,
+    actorId: input.actorId,
+    actorType: input.actorType,
+    filename: input.filename,
+    mimeType: input.mimeType,
+    buffer: input.buffer,
+    organizationVendorId: input.organizationVendorId,
+    sourceType: input.sourceType,
+    auditAction: input.auditAction,
+    sha256,
+  });
+}
+
+export async function processDocumentBuffer(input: {
+  db: DatabaseClient;
+  documentId: string;
+  organizationId: string;
+  actorId?: string | null;
+  actorType: "user" | "service";
+  filename: string;
+  mimeType: string;
+  buffer: Buffer;
+  organizationVendorId?: string | null;
+  sourceType?: "manual_upload" | "email_forwarding" | "provider_integration";
+  auditAction: string;
+  sha256: string;
+}) {
+  const { error: processingError } = await input.db
+    .from("documents")
+    .update({ status: "processing", extraction_summary: null, updated_at: new Date().toISOString() })
+    .eq("id", input.documentId)
+    .eq("organization_id", input.organizationId);
+  if (processingError) throw processingError;
 
   try {
     const extracted = await extractDocumentText(input.buffer, input.mimeType);
@@ -64,7 +104,7 @@ export async function ingestDocumentBuffer(input: {
       ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer })
       : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text });
     const { data: version, error: versionError } = await input.db.from("document_extraction_versions").insert({
-      document_id: document.id,
+      document_id: input.documentId,
       extractor_version: "costivra-intake-v3",
       provider: usedPdfOcr ? "openrouter-pdf-ocr" : "openrouter",
       model_identifier: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
@@ -76,27 +116,29 @@ export async function ingestDocumentBuffer(input: {
     }).select("id").single();
     if (versionError) throw versionError;
     if (intelligence.evidence.length) {
-      const evidenceRows = intelligence.evidence.map((evidence) => ({ document_id: document.id, page_number: 1, text_excerpt: evidence.quote, field_path: evidence.field }));
+      const evidenceRows = intelligence.evidence.map((evidence) => ({ document_id: input.documentId, page_number: 1, text_excerpt: evidence.quote, field_path: evidence.field }));
       const { error: evidenceError } = await input.db.from("evidence_references").insert(evidenceRows);
       if (evidenceError) throw evidenceError;
     }
     const invoiceRecord = await createInvoiceRecordFromExtraction({
       db: input.db,
       organizationId: input.organizationId,
-      documentId: document.id,
+      documentId: input.documentId,
       extractionVersionId: version.id,
       providedRelationshipId: input.organizationVendorId,
       sourceType: input.sourceType ?? (input.actorType === "service" ? "email_forwarding" : "manual_upload"),
       intelligence,
     });
     const finalStatus = intelligence.confidence < .75 || invoiceRecord?.reviewStatus === "needs_review" ? "needs_review" : "ready";
-    await input.db.from("documents").update({ page_count: extracted.pageCount, document_type: intelligence.classification, extraction_summary: intelligence.summary, status: finalStatus, updated_at: new Date().toISOString() }).eq("id", document.id);
-    await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: document.id });
-    return { duplicate: false as const, documentId: document.id as string, extractionVersionId: version.id as string, invoiceRecord, status: finalStatus, sha256 };
+    const { error: documentUpdateError } = await input.db.from("documents").update({ page_count: extracted.pageCount, document_type: intelligence.classification, extraction_summary: intelligence.summary, status: finalStatus, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
+    if (documentUpdateError) throw documentUpdateError;
+    const { error: auditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId });
+    if (auditError) throw auditError;
+    return { duplicate: false as const, documentId: input.documentId, extractionVersionId: version.id as string, invoiceRecord, status: finalStatus, sha256: input.sha256 };
   } catch (analysisError) {
-    await input.db.from("document_extraction_versions").insert({ document_id: document.id, extractor_version: "costivra-intake-v3", provider: "openrouter", schema_version: "cost-document-v2", status: "failed", error_message: analysisError instanceof Error ? analysisError.message.slice(0, 1000) : "Extraction failed" });
-    await input.db.from("documents").update({ status: "needs_review", updated_at: new Date().toISOString() }).eq("id", document.id);
-    await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: document.id });
-    return { duplicate: false as const, documentId: document.id as string, status: "needs_review" as const, warning: "Automatic extraction needs review.", sha256 };
+    await input.db.from("document_extraction_versions").insert({ document_id: input.documentId, extractor_version: "costivra-intake-v3", provider: "openrouter", schema_version: "cost-document-v2", status: "failed", error_message: analysisError instanceof Error ? analysisError.message.slice(0, 1000) : "Extraction failed" });
+    await input.db.from("documents").update({ status: "needs_review", extraction_summary: "Automatic extraction needs human review.", updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
+    await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId });
+    return { duplicate: false as const, documentId: input.documentId, status: "needs_review" as const, warning: "Automatic extraction needs review.", sha256: input.sha256 };
   }
 }

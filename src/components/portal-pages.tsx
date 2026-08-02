@@ -489,6 +489,7 @@ function Metric({
 
 function Expenses({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
   const [query, setQuery] = useState("");
+  const canWrite = data.currentUser.role !== "viewer";
   const filtered = data.expenses.filter((x) =>
     `${x.vendorName} ${x.category}`.toLowerCase().includes(query.toLowerCase()),
   );
@@ -497,11 +498,11 @@ function Expenses({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
       <PageHeader
         title="Expenses"
         description="Normalized recurring charges from your connected source records."
-        action={
+        action={canWrite ? (
           <button className="button button-primary" onClick={onAdd}>
             <Plus size={16} /> Add expense
           </button>
-        }
+        ) : null}
       />
       <Toolbar
         query={query}
@@ -664,6 +665,7 @@ function Opportunities({
 }
 function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
   const [query, setQuery] = useState("");
+  const canWrite = data.currentUser.role !== "viewer";
   const rows = data.contracts.filter((x) =>
     `${x.title} ${x.vendorName} ${x.category}`
       .toLowerCase()
@@ -674,11 +676,11 @@ function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
       <PageHeader
         title="Contracts"
         description="Renewal, notice, value, and ownership in one reliable record."
-        action={
+        action={canWrite ? (
           <button className="button button-primary" onClick={onAdd}>
             <Plus size={16} /> Add contract
           </button>
-        }
+        ) : null}
       />
       <Toolbar
         query={query}
@@ -745,6 +747,7 @@ function Documents({
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
+  const canWrite = data.currentUser.role !== "viewer";
   const rows = data.documents.filter((x) =>
     `${x.originalFilename} ${x.vendorName} ${x.summary ?? ""}`
       .toLowerCase()
@@ -760,16 +763,21 @@ function Documents({
         "Document deleted.",
       );
   };
+  const rescan = (id: string) =>
+    void run(
+      () => api(`/api/portal/documents/${id}`, { method: "PATCH" }),
+      "Security scan passed. Extraction has resumed.",
+    );
   return (
     <>
       <PageHeader
         title="Documents"
         description="Private source files with extraction status and traceable evidence."
-        action={
+        action={canWrite ? (
           <button className="button button-primary" onClick={onUpload}>
             <Upload size={16} /> Upload documents
           </button>
-        }
+        ) : null}
       />
       <Toolbar
         query={query}
@@ -808,20 +816,42 @@ function Documents({
                 </div>
                 <div className="document-actions">
                   <Status value={item.status} />
-                  <a
-                    className="icon-button"
-                    href={`/api/portal/documents/${item.id}/download`}
-                    aria-label={`Download ${item.originalFilename}`}
-                  >
-                    <Download size={17} />
-                  </a>
-                  <button
-                    className="icon-button danger"
-                    onClick={() => remove(item.id)}
-                    aria-label={`Delete ${item.originalFilename}`}
-                  >
-                    <Trash2 size={17} />
-                  </button>
+                  {canWrite && item.status === "quarantined" ? (
+                    <button
+                      className="icon-button"
+                      onClick={() => rescan(item.id)}
+                      aria-label={`Retry security scan for ${item.originalFilename}`}
+                      title="Retry security scan"
+                    >
+                      <RotateCcw size={17} />
+                    </button>
+                  ) : null}
+                  {["quarantined", "rejected", "pending_upload", "processing"].includes(item.status) ? (
+                    <span
+                      className="icon-button is-disabled"
+                      aria-label={`${item.originalFilename} is not available for download yet`}
+                      title="Available after security and processing checks"
+                    >
+                      <ShieldCheck size={17} />
+                    </span>
+                  ) : (
+                    <a
+                      className="icon-button"
+                      href={`/api/portal/documents/${item.id}/download`}
+                      aria-label={`Download ${item.originalFilename}`}
+                    >
+                      <Download size={17} />
+                    </a>
+                  )}
+                  {canWrite ? (
+                    <button
+                      className="icon-button danger"
+                      onClick={() => remove(item.id)}
+                      aria-label={`Delete ${item.originalFilename}`}
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                  ) : null}
                 </div>
               </article>
             ))}
@@ -1119,6 +1149,7 @@ export function VendorDetail({
         />
       </div>
     );
+  const canWrite = data.currentUser.role !== "viewer";
   const expenses = data.expenses
     .filter((item) => item.vendorId === vendorId)
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
@@ -1173,24 +1204,28 @@ export function VendorDetail({
               <Globe2 size={16} /> Visit website
             </a>
           )}
-          <button
-            className="button button-primary"
-            onClick={() => onAdd("expense", vendor.relationshipId)}
-          >
-            <Plus size={16} /> Add expense
-          </button>
-          <button
-            className="button button-quiet"
-            onClick={() => onAdd("contract", vendor.relationshipId)}
-          >
-            Add contract
-          </button>
-          <button
-            className="button button-quiet"
-            onClick={() => onAdd("upload", vendor.relationshipId)}
-          >
-            Upload document
-          </button>
+          {canWrite ? (
+            <>
+              <button
+                className="button button-primary"
+                onClick={() => onAdd("expense", vendor.relationshipId)}
+              >
+                <Plus size={16} /> Add expense
+              </button>
+              <button
+                className="button button-quiet"
+                onClick={() => onAdd("contract", vendor.relationshipId)}
+              >
+                Add contract
+              </button>
+              <button
+                className="button button-quiet"
+                onClick={() => onAdd("upload", vendor.relationshipId)}
+              >
+                Upload document
+              </button>
+            </>
+          ) : null}
         </div>
       </header>
       <section className="vendor-summary-band">
@@ -1228,12 +1263,12 @@ export function VendorDetail({
               <h2>Contract summary</h2>
               <p>Dates come from saved contract records.</p>
             </div>
-            <button
+            {canWrite ? <button
               className="text-button"
               onClick={() => onAdd("contract", vendor.relationshipId)}
             >
               Add contract
-            </button>
+            </button> : null}
           </div>
           {contract ? (
             <dl>
@@ -1324,12 +1359,12 @@ export function VendorDetail({
                 invented.
               </p>
             </div>
-            <button
+            {canWrite ? <button
               className="text-button"
               onClick={() => onAdd("expense", vendor.relationshipId)}
             >
               Add expense
-            </button>
+            </button> : null}
           </div>
           {expenses.length ? (
             <div className="table-wrap">
@@ -2775,13 +2810,13 @@ function CreateModals({
       <PortalModal
         open={kind === "upload"}
         title="Upload source document"
-        description="PDF, DOCX, or text up to 20 MB. Files stay in private storage."
+        description="PDF, DOCX, or text up to 20 MB. Every file passes a security scan before extraction."
         onClose={close}
       >
         <form
           onSubmit={submit(
             "/api/portal/documents",
-            "Document uploaded and queued for extraction.",
+            "Document received. Check its security and extraction status.",
             (form) => form,
           )}
         >
@@ -2807,7 +2842,7 @@ function CreateModals({
           <FormActions
             busy={busy}
             onCancel={close}
-            label="Upload and analyze"
+            label="Upload and security check"
           />
         </form>
       </PortalModal>

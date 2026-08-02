@@ -6,8 +6,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   try {
     const { db, organizationId } = await requirePortalContext();
     const id = cleanUuid((await params).id);
-    const { data: document } = await db.from("documents").select("storage_path").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+    const { data: document } = await db.from("documents").select("storage_path,status").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    if (["quarantined", "rejected", "pending_upload", "processing"].includes(document.status)) {
+      return NextResponse.json({ error: "This source file is not available until its security and processing checks finish." }, { status: 423 });
+    }
     const { data, error } = await db.storage.from("costivra-documents").createSignedUrl(document.storage_path, 60);
     if (error) throw error;
     return NextResponse.redirect(data.signedUrl);

@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createSessionSupabaseClient } from "@/lib/supabase/session";
 import { isInboundEmailPlatformReady } from "@/lib/email/resend";
+import { portalRoleCanWrite } from "@/lib/portal/access";
 import type { PortalData } from "@/lib/portal/types";
 
 type Row = Record<string, unknown>;
@@ -210,4 +211,10 @@ export async function requirePortalContext() {
   const { data: membership, error } = await db.from("organization_memberships").select("organization_id,role").eq("user_id", userId).limit(1).single();
   if (error || !membership) throw new Error("NO_ORGANIZATION_MEMBERSHIP");
   return { db, userId, organizationId: membership.organization_id as string, role: membership.role as string };
+}
+
+export async function requirePortalEditor() {
+  const context = await requirePortalContext();
+  if (!portalRoleCanWrite(context.role)) throw new Error("PORTAL_READ_ONLY");
+  return context;
 }

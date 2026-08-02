@@ -38,6 +38,11 @@ This is the short list of work that cannot be completed honestly with code alone
   now has a regression test proving a foreign document produces `404` without requesting a signed
   storage URL.
 - [ ] End-to-end tests cover upload, deduplication, malware outcomes, extraction versioning, correction, approval, opportunity creation, baseline acceptance, later-invoice comparison, and human verification. The reusable live Supabase suite now proves cross-tenant reads/writes, correction-ledger persistence, reconciliation, fail-closed approval, idempotent expense creation, reviewer attribution, and audit events. A rollback-only production SQL probe passed on August 2. Upload/scanner/versioning and the complete customer opportunity-to-savings browser sequence remain open.
+- [x] Manual portal uploads fail closed before AI extraction: clean files may process, infected files
+  are rejected, unavailable scans are privately quarantined, quarantined downloads are blocked,
+  and a digest-verified rescan can release the file. Policy, intake-boundary, authorization, and
+  download-route regressions are automated. A live clean/infected scanner exercise remains part of
+  the broader end-to-end gate above.
 - [x] A synthetic prompt-injection invoice proves hostile instructions remain inside the bounded
   source-text payload. The parser discards secret/action/approval fields and non-allowlisted
   evidence; extraction has no tools or mutation authority. Continue expanding this adversarial set

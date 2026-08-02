@@ -1,10 +1,25 @@
 import { NextResponse } from "next/server";
+import { rescanManualUpload } from "@/lib/documents/manual-upload";
 import { apiError, cleanUuid } from "@/lib/portal/http";
-import { requirePortalContext } from "@/lib/portal/repository";
+import { requirePortalEditor } from "@/lib/portal/repository";
+
+export async function PATCH(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { db, organizationId, userId } = await requirePortalEditor();
+    const id = cleanUuid((await params).id);
+    if (!id) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    const result = await rescanManualUpload({ db, organizationId, actorId: userId, documentId: id });
+    if (result.outcome === "not_found") return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    if (result.outcome === "not_quarantined") return NextResponse.json({ error: "Only quarantined uploads can be rescanned." }, { status: 409 });
+    if (result.outcome === "rejected") return NextResponse.json({ error: result.error }, { status: 422 });
+    if (result.outcome === "quarantined") return NextResponse.json({ ok: false, ...result }, { status: 503 });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) { return apiError(error); }
+}
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { db, organizationId, userId } = await requirePortalContext();
+    const { db, organizationId, userId } = await requirePortalEditor();
     const id = cleanUuid((await params).id);
     const { data: document } = await db.from("documents").select("id,storage_path").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });

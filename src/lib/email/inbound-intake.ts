@@ -278,6 +278,7 @@ export async function processInboundEmailJob(
       buffer,
       sourceType: "email_forwarding",
       auditAction: "document.received_by_email",
+      malwareScan: scan,
     });
     const { error } = await db
       .from("inbound_email_attachments")

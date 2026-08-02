@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { apiError, cleanText, cleanUuid } from "@/lib/portal/http";
-import { requirePortalContext } from "@/lib/portal/repository";
+import { requirePortalEditor } from "@/lib/portal/repository";
 
 export async function POST(request: Request) {
   try {
-    const { db, organizationId, userId } = await requirePortalContext();
+    const { db, organizationId, userId } = await requirePortalEditor();
     const body = await request.json() as Record<string, unknown>;
     const organizationVendorId = cleanUuid(body.organizationVendorId);
     const category = cleanText(body.category, 100);

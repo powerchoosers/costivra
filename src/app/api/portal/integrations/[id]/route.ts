@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { apiError, cleanText, cleanUuid } from "@/lib/portal/http";
-import { requirePortalContext } from "@/lib/portal/repository";
+import { requirePortalEditor } from "@/lib/portal/repository";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { db, organizationId, userId } = await requirePortalContext();
+    const { db, organizationId, userId } = await requirePortalEditor();
     const id = cleanUuid((await params).id);
     const body = await request.json() as Record<string, unknown>;
     const operation = cleanText(body.operation, 30);
