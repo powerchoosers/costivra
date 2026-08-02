@@ -54,3 +54,32 @@ test("mobile navigation opens without shifting or clipping the page", async ({ p
   expect(overflow).toBeLessThanOrEqual(1);
   expect(failures).toEqual([]);
 });
+
+test("status page renders sanitized live production state", async ({ page }) => {
+  const failures = failOnConsoleErrors(page);
+  await page.route("**/api/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        checkedAt: "2026-08-02T22:00:00.000Z",
+        overall: "limited",
+        headline: "Core systems are available with limited document processing.",
+        services: [
+          { id: "website", name: "Public website", state: "operational", message: "Website is responding." },
+          { id: "workspace", name: "Customer workspace", state: "operational", message: "Workspace is available." },
+          { id: "intake", name: "Document intake", state: "limited", message: "Files remain privately quarantined." },
+          { id: "extraction", name: "Document intelligence", state: "limited", message: "Processing awaits scanning." },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/status");
+  await expect(page.getByRole("heading", { level: 1, name: "System status." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Core systems are available with limited document processing." })).toBeVisible();
+  await expect(page.getByText("Document intake", { exact: true })).toBeVisible();
+  await expect(page.getByText("Files remain privately quarantined.")).toBeVisible();
+  await expect(page.getByText(/preview systems operational/i)).toHaveCount(0);
+  expect(failures).toEqual([]);
+});

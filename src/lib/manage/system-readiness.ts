@@ -235,12 +235,16 @@ function overallStatus(services: ReadinessService[]): ReadinessStatus {
       : "ready";
 }
 
-export async function checkSystemReadiness(db: SupabaseClient): Promise<SystemReadiness> {
+export async function checkSystemReadiness(
+  db: SupabaseClient,
+  options: { includeOptionalServices?: boolean } = {},
+): Promise<SystemReadiness> {
+  const includeOptionalServices = options.includeOptionalServices !== false;
   const [database, resend, openrouter, apollo] = await Promise.all([
     databaseReadiness(db),
     resendReadiness(),
     openRouterReadiness(),
-    apolloReadiness(),
+    includeOptionalServices ? apolloReadiness() : Promise.resolve(null),
   ]);
   const services = [
     database,
@@ -248,8 +252,8 @@ export async function checkSystemReadiness(db: SupabaseClient): Promise<SystemRe
     workerReadiness(),
     openrouter,
     malwareReadiness(),
-    apollo,
   ];
+  if (apollo) services.push(apollo);
   return {
     checkedAt: new Date().toISOString(),
     overall: overallStatus(services),

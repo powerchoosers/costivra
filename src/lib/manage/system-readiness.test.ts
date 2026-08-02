@@ -86,6 +86,15 @@ describe("owner system readiness", () => {
     expect(serialized).not.toContain("cron-secret-for-test");
     expect(serialized).not.toContain("openrouter-secret-for-test");
     expect(serialized).not.toContain("apollo-secret-for-test");
+
+    fetchMock.mockClear();
+    const customerFacing = await checkSystemReadiness(database() as never, {
+      includeOptionalServices: false,
+    });
+    expect(customerFacing.services.some((item) => item.id === "apollo")).toBe(false);
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(
+      "https://api.apollo.io/api/v1/auth/health",
+    );
   });
 
   it("fails closed when required configuration is missing", async () => {

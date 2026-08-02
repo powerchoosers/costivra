@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  CircleAlert,
   CircleDollarSign,
   FileCheck2,
   FileLock2,
@@ -23,9 +24,11 @@ import {
   MapPin,
   RadioTower,
   ReceiptText,
+  RefreshCw,
   ScanSearch,
   School,
   ShieldCheck,
+  ShieldAlert,
   Store,
   Upload,
   Users,
@@ -35,6 +38,7 @@ import {
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { CostivraMark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";
+import type { PublicSystemStatus } from "@/lib/status/public-status-types";
 
 type PageSpec = {
   title: string;
@@ -334,7 +338,96 @@ function CaseStudies() { return <PageFrame><header className="content-hero"><h1>
 
 function HelpPage() { const guides = [{ title: "Uploading bills and contracts", copy: "Use an authorized PDF, PNG, or JPG. Start with the current invoice and agreement when one exists; do not send sensitive files through ordinary email." }, { title: "Reviewing extracted fields", copy: "Open the source alongside the extracted record. Correct a field when it is wrong or incomplete—the correction should retain the reason and source reference." }, { title: "Understanding confidence", copy: "Confidence shows how certain the system is about a field, not whether a business decision is correct. Low-confidence records need review before they influence an action." }, { title: "Approving an action", copy: "Read the requested scope, the supporting evidence, and the external effect. Approve only the specific step you want taken; you can leave a case pending or decline it." }, { title: "Exporting an energy review", copy: "Use the package to inform the advisor you select. Referral sharing requires a separate disclosure and explicit consent; Costivra does not choose a supplier for you." }, { title: "Verifying savings", copy: "Potential value becomes verified only after an agreed baseline and later source evidence—such as a future bill or credit—support the result." }]; return <PageFrame><header className="content-hero"><h1>Help for the decision in front of you.</h1><p>Understand uploads, evidence, confidence, approvals, referrals, and savings verification without learning AI terminology first.</p></header><div className="content-grid">{guides.map(({ title, copy }, index) => <div className="content-block" key={title}><span className="step-number" style={{ position: "static" }}>{index + 1}</span><h2>{title}</h2><p>{copy}</p></div>)}</div><section className="spec-closure"><div><span className="eyebrow">Need a specific answer?</span><h2>Tell us which decision is blocked.</h2><p>Include the category, the document or account involved, and what you are trying to determine. We will point you to the right product path or explain the current limitation.</p></div><Link className="button button-primary" href="/contact">Contact support <ArrowRight aria-hidden="true" size={17} /></Link></section></PageFrame>; }
 
-function StatusPage() { return <PageFrame><header className="content-hero"><h1>System status.</h1><p>Current operational status for Costivra&apos;s public site and product-preview environment.</p></header><section className="panel"><div className="panel-header"><h2>All preview systems operational</h2><span className="status good"><CheckCircle2 aria-hidden="true" size={13} /> Operational</span></div>{["Marketing site", "Customer workspace preview", "Document upload demonstration", "Authentication demonstration"].map((item) => <div key={item} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--line)", padding: 18 }}><span>{item}</span><span style={{ color: "var(--mint-dark)" }}>Operational</span></div>)}<div className="panel-body muted" style={{ lineHeight: 1.6 }}>This page reflects the frontend preview only. Production provider status and incident history will be added when those services are connected.</div></section></PageFrame>; }
+function StatusPage() {
+  const [systemStatus, setSystemStatus] = useState<PublicSystemStatus | null>(null);
+  const [statusError, setStatusError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let current = true;
+    setRefreshing(true);
+    setStatusError("");
+    fetch("/api/status", { signal: controller.signal })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as PublicSystemStatus & { error?: string };
+        if (!response.ok) throw new Error(payload.error || "Live status could not be loaded.");
+        return payload;
+      })
+      .then((payload) => {
+        if (current) setSystemStatus(payload);
+      })
+      .catch((error: unknown) => {
+        if (current && !(error instanceof DOMException && error.name === "AbortError")) {
+          setStatusError(error instanceof Error ? error.message : "Live status could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (current) setRefreshing(false);
+      });
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [refreshToken]);
+
+  const overall = systemStatus?.overall ?? "limited";
+  const OverallIcon = overall === "operational" ? CheckCircle2 : overall === "limited" ? ShieldAlert : CircleAlert;
+  return (
+    <PageFrame>
+      <header className="content-hero public-status-hero">
+        <p className="eyebrow">Live production view</p>
+        <h1>System status.</h1>
+        <p>Current availability for the Costivra website, customer workspace, document intake, and document intelligence.</p>
+      </header>
+      <section className="public-status-shell" aria-labelledby="public-status-title" aria-busy={refreshing}>
+        <header className={`public-status-summary public-status-summary--${overall}`}>
+          <span className="public-status-summary-icon"><OverallIcon aria-hidden="true" size={22} /></span>
+          <div>
+            <span>Current status</span>
+            <h2 id="public-status-title">
+              {systemStatus?.headline || (statusError ? "Live status is temporarily unavailable." : "Checking production systems…")}
+            </h2>
+            <p>
+              {systemStatus
+                ? `Last checked ${new Date(systemStatus.checkedAt).toLocaleString()}`
+                : statusError || "This normally takes only a few seconds."}
+            </p>
+          </div>
+          <button type="button" className="button button-secondary public-status-refresh" disabled={refreshing} onClick={() => setRefreshToken((value) => value + 1)}>
+            <RefreshCw className={refreshing ? "is-spinning" : undefined} aria-hidden="true" size={15} />
+            {refreshing ? "Checking…" : "Refresh"}
+          </button>
+        </header>
+        <div className="public-status-services" aria-live="polite">
+          {systemStatus ? systemStatus.services.map((service) => {
+            const ServiceIcon = service.state === "operational" ? CheckCircle2 : service.state === "limited" ? ShieldAlert : CircleAlert;
+            return (
+              <article className={`public-status-service public-status-service--${service.state}`} key={service.id}>
+                <span className="public-status-service-icon"><ServiceIcon aria-hidden="true" size={17} /></span>
+                <div>
+                  <h3>{service.name}</h3>
+                  <p>{service.message}</p>
+                </div>
+                <strong>{service.state === "operational" ? "Operational" : service.state === "limited" ? "Limited" : "Unavailable"}</strong>
+              </article>
+            );
+          }) : ["Public website", "Customer workspace", "Document intake", "Document intelligence"].map((name) => (
+            <article className="public-status-service public-status-service--checking" key={name}>
+              <span className="public-status-service-icon"><RefreshCw aria-hidden="true" size={17} /></span>
+              <div><h3>{name}</h3><p>{statusError ? "Status unavailable." : "Checking…"}</p></div>
+              <strong>{statusError ? "Unknown" : "Checking"}</strong>
+            </article>
+          ))}
+        </div>
+        <footer className="public-status-footnote">
+          This page reports customer-facing availability without exposing customer data, internal queues, or provider credentials. For a suspected security issue, contact <a href="mailto:security@costivra.ai">security@costivra.ai</a>.
+        </footer>
+      </section>
+    </PageFrame>
+  );
+}
 
 function PrivacyPage() { return <LegalPage title="Privacy Policy" lede="How Costivra handles the business documents, account information, and choices you entrust to the service." meta="Effective July 30, 2026 · Product-launch draft" sections={privacySections} />; }
 function TermsPage() { return <LegalPage title="Terms of Service" lede="What Costivra provides, what customers remain responsible for, and how approvals and outcomes are handled." meta="Effective July 30, 2026 · Product-launch draft" sections={termsSections} />; }

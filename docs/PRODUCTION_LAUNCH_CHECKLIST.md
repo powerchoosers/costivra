@@ -16,6 +16,10 @@ This is the short list of work that cannot be completed honestly with code alone
 - [ ] Add the selected malware-scanner secret to local, Vercel Preview, and Vercel Production environments. Never use a `NEXT_PUBLIC_` name for it.
 - [ ] Confirm Vercel has server-only OpenRouter, Supabase secret, Resend API, and Resend webhook secrets plus browser-safe Supabase URL/publishable key in each intended environment.
 - [x] Owners have a manual production-readiness check in **Manage → Settings**. Run it after changing a key, domain, webhook, worker, or provider. It reports service state without returning secret values; it does not replace the live clean/infected scanner exercise or the golden invoice evaluation.
+- [x] `/status` now reports a sanitized live customer-facing state for the website, workspace,
+  intake, and extraction. It intentionally excludes secret values, internal queue details, tenant
+  data, and optional Apollo enrichment. This is an in-product signal, not a substitute for external
+  uptime and error monitoring.
 - [ ] Configure production SMTP/auth email branding, delivery monitoring, and redirect URLs for `https://costivra.ai`.
 - [ ] The built-in one-minute watchdog now alerts Costivra operators about dead-lettered, stuck,
   and aging-quarantine invoice emails without duplicate notification spam. Connect an external

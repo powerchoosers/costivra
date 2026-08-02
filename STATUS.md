@@ -1,5 +1,20 @@
 # Costivra Status
 
+## Live public system status — August 2, 2026
+
+- Replaced the old hard-coded preview status page with a live, customer-safe production view at
+  `/status` backed by `/api/status`. It checks the public site, customer workspace, document intake,
+  and document intelligence instead of claiming that disconnected preview systems are operational.
+- The public response is cached briefly for stability and deliberately omits provider names, secret
+  values, tenant data, queue counts, and internal error details. Owners retain the deeper diagnostic
+  view in **Manage → Settings**.
+- The public view reports document intake and intelligence as limited while malware scanning is not
+  configured. Optional Apollo enrichment does not affect customer-facing status and is not called
+  by this endpoint.
+- Validation passed: TypeScript, full lint, 148 unit tests with four intentional environment-gated
+  skips, integration tests, a fresh production build, and all eight applicable desktop/mobile
+  Playwright checks with two intentional device-target skips.
+
 ## Fail-closed manual uploads and viewer permissions — August 2, 2026
 
 - Manual portal uploads now pass through the same server-side malware boundary as emailed source
