@@ -22,8 +22,11 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 qa-server.*.log
+/\.playwright-cli/*.log
 /docs/qa/
 /artifacts/invoice-evaluation/
+/artifacts/status*.png
+/artifacts/ui-audit/
 /tests/golden-private/
 
 .vercel
