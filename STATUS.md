@@ -1,5 +1,15 @@
 # Costivra Status
 
+## Owner navigation hover rail — August 1, 2026
+
+- Reworked the owner navigation into a 72px rail on desktop and compact screens that expands after deliberate mouse hover or keyboard focus, plus the existing mobile drawer. The rail waits 240ms before opening and 460ms before closing to avoid accidental flicker; Escape closes it and the account menu.
+- Grouped the primary destinations into **Clients** and **Work**, moved Settings beside the profile area, removed the disconnected expand/collapse controls, kept active icons white, and changed the Mail counter to a blue badge with white text capped at `99+`.
+- Kept navigation icons on a stable horizontal anchor while labels, section headings, dividers, spacing, and rows animate during expansion and collapse. Motion is restrained, uses the CRM navigation as a reference, and is disabled when the user requests reduced motion.
+- The profile card remains the account-menu trigger, with a circular avatar, profile/photo settings, and sign out. The popup matches the trigger width and opens upward inside the sidebar.
+- Reorganized Mail to use the same connected header-tab pattern as Accounts: mailbox selection, Inbox, Starred, Sent, Drafts, Scheduled, Archive, and Trash now sit inside one fixed-height workspace card above the message list/reader. The inbound-mail status remains visible in the tab bar, tabs scroll horizontally on narrower screens, and the list, reader, and contact context own their internal scrolling.
+- Corrected the Accounts lifecycle-tab underline so it is sized from each active button’s actual label area rather than a fixed width/step. Longer labels such as Onboarding now receive a complete underline while retaining a short entrance animation.
+- Validation: `npm run typecheck`, `npm test` (58 tests), `npm run build`, and `git diff --check` passed. Browser QA at `/manage/mail` confirmed the connected card, fixed viewport layout, intact message workspace, no console warnings/errors, and successful Starred-tab navigation. Focused lint still reports the pre-existing `react-hooks/set-state-in-effect` issue in `src/components/manage-portal.tsx:1709` plus two existing unused-parameter warnings.
+
 ## Demo invoice import and extraction QA — August 1, 2026
 
 - Created two Supabase Auth demo workspaces with owner memberships so the end-to-end portal can be reviewed without touching a real customer tenant: Cloud Billing Demo and Telecom Software Demo.

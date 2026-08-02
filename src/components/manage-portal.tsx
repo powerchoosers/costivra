@@ -29,7 +29,6 @@ import {
   MailOpen,
   Menu,
   MessageSquareText,
-  MoreHorizontal,
   Paperclip,
   PenLine,
   PhoneCall,
@@ -43,8 +42,6 @@ import {
   Trash2,
   Users,
   X,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import type {
   ManageAccount,
@@ -66,16 +63,33 @@ import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 
-const nav = [
-  ["Overview", "/manage", LayoutDashboard],
-  ["Accounts", "/manage/accounts", Building2],
-  ["Contacts", "/manage/contacts", Users],
-  ["Outreach", "/manage/outreach", MessageSquareText],
-  ["Mail", "/manage/mail", Mail],
-  ["Invoice review", "/manage/invoice-review", FileCheck2],
-  ["Activity", "/manage/activity", Activity],
-  ["Settings", "/manage/settings", Settings],
+const navGroups = [
+  {
+    label: "Clients",
+    items: [
+      ["Overview", "/manage", LayoutDashboard],
+      ["Accounts", "/manage/accounts", Building2],
+      ["Contacts", "/manage/contacts", Users],
+    ],
+  },
+  {
+    label: "Work",
+    items: [
+      ["Outreach", "/manage/outreach", MessageSquareText],
+      ["Mail", "/manage/mail", Mail],
+      ["Invoice review", "/manage/invoice-review", FileCheck2],
+      ["Activity", "/manage/activity", Activity],
+    ],
+  },
 ] as const;
+
+const settingsNav = ["Settings", "/manage/settings", Settings] as const;
+
+type ManageSidebarViewport = "desktop" | "compact" | "mobile";
+
+function unreadBadge(count: number) {
+  return count > 99 ? "99+" : String(count);
+}
 
 const stages = [
   "lead",
@@ -410,14 +424,21 @@ export function ManagePortal({
   const router = useRouter();
   const toast = useToast();
   const [mobileNav, setMobileNav] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarViewport, setSidebarViewport] =
+    useState<ManageSidebarViewport>("desktop");
   const [search, setSearch] = useState(routeSearch);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchClosing, setSearchClosing] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarOpenTimerRef = useRef<number | null>(null);
+  const sidebarCloseTimerRef = useRef<number | null>(null);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [createMenuClosing, setCreateMenuClosing] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileMenuClosing, setProfileMenuClosing] = useState(false);
   const [dialog, setDialog] = useState<
     "account" | "contact" | "task" | "note" | "mailbox" | null
   >(null);
@@ -425,6 +446,31 @@ export function ManagePortal({
   const [contextAccount, setContextAccount] = useState<ManageAccount | null>(null);
   const [busy, setBusy] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+
+  useEffect(() => {
+    function updateSidebarViewport() {
+      const nextViewport: ManageSidebarViewport =
+        window.innerWidth <= 780
+          ? "mobile"
+          : window.innerWidth < 1200
+            ? "compact"
+            : "desktop";
+      setSidebarViewport(nextViewport);
+      if (nextViewport !== "mobile") setMobileNav(false);
+    }
+
+    const initializationFrame = window.requestAnimationFrame(() => {
+      updateSidebarViewport();
+    });
+    window.addEventListener("resize", updateSidebarViewport);
+    return () => {
+      window.cancelAnimationFrame(initializationFrame);
+      window.removeEventListener("resize", updateSidebarViewport);
+    };
+  }, []);
+
+  const sidebarUsesRail = sidebarViewport !== "mobile";
+  const sidebarIsCollapsed = sidebarUsesRail && !mobileNav;
 
   const closeSearch = useCallback(() => {
     if (!searchFocused || searchClosing) return;
@@ -444,14 +490,84 @@ export function ManagePortal({
     }, 150);
   }, [createMenuClosing, createMenuOpen]);
 
+  const closeProfileMenu = useCallback(() => {
+    if (!profileMenuOpen || profileMenuClosing) return;
+    setProfileMenuClosing(true);
+    window.setTimeout(() => {
+      setProfileMenuOpen(false);
+      setProfileMenuClosing(false);
+    }, 150);
+  }, [profileMenuClosing, profileMenuOpen]);
+
+  const clearSidebarIntent = useCallback(() => {
+    if (sidebarOpenTimerRef.current !== null) {
+      window.clearTimeout(sidebarOpenTimerRef.current);
+      sidebarOpenTimerRef.current = null;
+    }
+    if (sidebarCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarCloseTimerRef.current);
+      sidebarCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const openSidebarWithIntent = useCallback(() => {
+    if (sidebarViewport === "mobile") return;
+    if (sidebarCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarCloseTimerRef.current);
+      sidebarCloseTimerRef.current = null;
+    }
+    if (mobileNav || sidebarOpenTimerRef.current !== null) return;
+    sidebarOpenTimerRef.current = window.setTimeout(() => {
+      setMobileNav(true);
+      sidebarOpenTimerRef.current = null;
+    }, 240);
+  }, [mobileNav, sidebarViewport]);
+
+  const closeSidebarWithIntent = useCallback(() => {
+    if (sidebarViewport === "mobile") return;
+    if (sidebarOpenTimerRef.current !== null) {
+      window.clearTimeout(sidebarOpenTimerRef.current);
+      sidebarOpenTimerRef.current = null;
+    }
+    if (sidebarCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarCloseTimerRef.current);
+    }
+    sidebarCloseTimerRef.current = window.setTimeout(() => {
+      const focusedElement = document.activeElement;
+      if (
+        focusedElement instanceof HTMLElement &&
+        sidebarRef.current?.contains(focusedElement)
+      ) {
+        return;
+      }
+      setMobileNav(false);
+      setProfileMenuOpen(false);
+      setProfileMenuClosing(false);
+      sidebarCloseTimerRef.current = null;
+    }, 460);
+  }, [sidebarViewport]);
+
+  useEffect(() => () => clearSidebarIntent(), [clearSidebarIntent]);
+
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
       if (!searchContainerRef.current?.contains(event.target as Node)) closeSearch();
       if (!createMenuRef.current?.contains(event.target as Node)) closeCreateMenu();
+      if (!profileMenuRef.current?.contains(event.target as Node)) closeProfileMenu();
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeProfileMenu();
+        setMobileNav(false);
+      }
     }
     document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [closeCreateMenu, closeSearch]);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeCreateMenu, closeProfileMenu, closeSearch]);
 
   const results = useMemo(
     () => globalSearchResults(data, search),
@@ -506,31 +622,39 @@ export function ManagePortal({
     <div className={`manage-app${assistantOpen ? " is-assistant-open" : ""}`}>
       <ManageLiveNotifications />
       <aside
+        id="manage-owner-sidebar"
+        ref={sidebarRef}
         className={`manage-sidebar${mobileNav ? " is-open" : ""}${
-          sidebarCollapsed ? " is-collapsed" : ""
+          sidebarIsCollapsed ? " is-collapsed" : ""
         }`}
+        onPointerEnter={(event) => {
+          if (event.pointerType === "mouse") openSidebarWithIntent();
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === "mouse") closeSidebarWithIntent();
+        }}
+        onFocusCapture={() => {
+          if (sidebarViewport !== "mobile") {
+            clearSidebarIntent();
+            setMobileNav(true);
+          }
+        }}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            closeSidebarWithIntent();
+          }
+        }}
       >
         <div className="manage-brand">
           <Link href="/manage" title="Costivra Owner Operations">
             <span className="manage-brand-mark">
               <CostivraMark size={34} />
             </span>
-            <div className="manage-brand-copy" aria-hidden={sidebarCollapsed}>
+            <div className="manage-brand-copy" aria-hidden={sidebarIsCollapsed}>
               <strong>Costivra</strong>
               <small>OWNER OPERATIONS</small>
             </div>
           </Link>
-          {!sidebarCollapsed && (
-            <button
-              className="manage-sidebar-toggle"
-              type="button"
-              onClick={() => setSidebarCollapsed(true)}
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
-            >
-              <PanelLeftClose size={17} />
-            </button>
-          )}
           <button
             className="manage-mobile-close"
             onClick={() => setMobileNav(false)}
@@ -539,68 +663,117 @@ export function ManagePortal({
             <X size={18} />
           </button>
         </div>
-        <nav aria-label="Owner portal">
-          {nav.map(([label, href, Icon]) => {
-            const active =
-              href === "/manage"
-                ? pathname === href
-                : pathname.startsWith(href);
-            return (
-              <Link
-                className={active ? "active" : ""}
-                href={href}
-                key={href}
-                aria-label={label}
-                onClick={() => setMobileNav(false)}
-              >
-                <Icon size={18} />
-                <span className="manage-nav-label">{label}</span>
-                {label === "Mail" && data.mail.unreadCount > 0 && (
-                  <b>{data.mail.unreadCount}</b>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="manage-primary-nav" aria-label="Owner portal">
+          {navGroups.map((group) => (
+            <div className="manage-nav-group" key={group.label}>
+              <span className="manage-nav-group-label">{group.label}</span>
+              {group.items.map(([label, href, Icon]) => {
+                const active =
+                  href === "/manage"
+                    ? pathname === href
+                    : pathname.startsWith(href);
+                const unreadCount = label === "Mail" ? data.mail.unreadCount : 0;
+                return (
+                  <Link
+                    className={active ? "active" : ""}
+                    href={href}
+                    key={href}
+                    aria-label={
+                      unreadCount > 0
+                        ? `${label}, ${unreadCount} unread messages`
+                        : label
+                    }
+                    onClick={() => setMobileNav(false)}
+                  >
+                    <Icon size={18} />
+                    <span className="manage-nav-label">{label}</span>
+                    {unreadCount > 0 && (
+                      <b aria-hidden="true">{unreadBadge(unreadCount)}</b>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="manage-sidebar-foot">
-          <div className="manage-operator">
-            <OperatorAvatar operator={data.operator} />
-            <div>
-              <strong>{data.operator.fullName}</strong>
-              <small>{data.operator.role}</small>
-            </div>
-            <button aria-label="Account menu">
-              <MoreHorizontal size={17} />
+          <nav className="manage-sidebar-utility" aria-label="Workspace settings">
+            <Link
+              className={pathname.startsWith(settingsNav[1]) ? "active" : ""}
+              href={settingsNav[1]}
+              aria-label={settingsNav[0]}
+              onClick={() => setMobileNav(false)}
+            >
+              <Settings size={18} />
+              <span className="manage-nav-label">{settingsNav[0]}</span>
+            </Link>
+          </nav>
+          <div className="manage-profile-menu-wrap" ref={profileMenuRef}>
+            <button
+              className={`manage-operator${profileMenuOpen ? " is-open" : ""}`}
+              type="button"
+              aria-label={`${data.operator.fullName} account menu`}
+              aria-expanded={profileMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => {
+                if (sidebarIsCollapsed) {
+                  clearSidebarIntent();
+                  setMobileNav(true);
+                  window.setTimeout(() => setProfileMenuOpen(true), 240);
+                  return;
+                }
+                if (profileMenuOpen) closeProfileMenu();
+                else setProfileMenuOpen(true);
+              }}
+            >
+              <OperatorAvatar operator={data.operator} />
+              <span className="manage-operator-copy">
+                <strong>{data.operator.fullName}</strong>
+                <small>{data.operator.role}</small>
+              </span>
             </button>
+            {(profileMenuOpen || profileMenuClosing) && (
+              <div
+                className={`manage-profile-menu${profileMenuClosing ? " is-closing" : ""}`}
+                role="menu"
+                aria-label="Account options"
+              >
+                <div className="manage-profile-menu-heading">
+                  <OperatorAvatar operator={data.operator} />
+                  <span>
+                    <strong>{data.operator.fullName}</strong>
+                    <small>{data.operator.email}</small>
+                  </span>
+                </div>
+                <Link href="/manage/settings#profile-settings-title" role="menuitem" onClick={() => closeProfileMenu()}>
+                  <Settings size={15} aria-hidden="true" />
+                  Profile &amp; photo
+                </Link>
+                <button type="button" role="menuitem" className="is-danger" onClick={() => void signOut()}>
+                  <ArrowLeft size={15} aria-hidden="true" />
+                  Sign out
+                </button>
+              </div>
+            )}
           </div>
-          <button onClick={() => void signOut()}>Sign out</button>
         </div>
       </aside>
-      {mobileNav && (
+      {mobileNav && sidebarViewport === "mobile" && (
         <button
           className="manage-nav-scrim"
           aria-label="Close menu"
           onClick={() => setMobileNav(false)}
         />
       )}
-      <main className={`manage-main${sidebarCollapsed ? " is-collapsed" : ""}`}>
+      <main className={`manage-main${sidebarUsesRail ? " is-collapsed" : ""}`}>
         <header className="manage-topbar">
           <div className="manage-topbar-leading">
-            {sidebarCollapsed && (
-              <button
-                className="manage-topbar-expand-toggle"
-                type="button"
-                onClick={() => setSidebarCollapsed(false)}
-                aria-label="Expand sidebar"
-                title="Expand sidebar"
-              >
-                <PanelLeftOpen size={18} />
-              </button>
-            )}
             <button
               className="manage-menu"
               onClick={() => setMobileNav(true)}
               aria-label="Open menu"
+              aria-controls="manage-owner-sidebar"
+              aria-expanded={mobileNav}
             >
               <Menu size={20} />
             </button>
@@ -955,31 +1128,27 @@ function Overview({ data }: { data: ManageData }) {
   return (
     <>
       <section className="manage-intro">
-        <div>
-          <p>One place to manage customers, outreach, and email.</p>
+        <div className="manage-intro-copy">
           <h2>Every client relationship, in view.</h2>
+          <p>One place to manage customers, outreach, and email.</p>
         </div>
       </section>
       <section className="manage-summary" aria-label="CRM summary">
         <div>
           <small>ALL ACCOUNTS</small>
           <strong>{data.accounts.length}</strong>
-          <span>Supabase organizations</span>
         </div>
         <div>
           <small>ACTIVE</small>
           <strong>{active}</strong>
-          <span>Marked as active</span>
         </div>
         <div>
           <small>NEEDS FOLLOW-UP</small>
           <strong>{followUps}</strong>
-          <span>Open outreach tasks</span>
         </div>
         <div>
           <small>ONBOARDING</small>
           <strong>{onboarding}</strong>
-          <span>In setup</span>
         </div>
       </section>
       <div className="manage-overview-grid">
@@ -1458,18 +1627,18 @@ function AccountInspector({
           {contacts.length > 0 ? (
             <div className="manage-compact-list">
               {contacts.map((contact) => (
-                <article key={contact.id}>
+                <Link href={`/manage/contacts/${contact.id}`} className="manage-compact-record-row" key={contact.id}>
                   <span className="manage-person-avatar">
                     {initials(contact.fullName)}
                   </span>
                   <div>
-                    <Link href={`/manage/contacts/${contact.id}`} className="manage-compact-record-link"><strong>{contact.fullName}</strong></Link>
+                    <strong>{contact.fullName}</strong>
                     <p>{contact.title || contact.email}</p>
                   </div>
                   {contact.isPrimary && (
                     <span className="manage-source">Primary</span>
                   )}
-                </article>
+                </Link>
               ))}
             </div>
           ) : (
@@ -2544,8 +2713,22 @@ function MailPage({
     });
   };
   return (
-    <div className={`manage-mail-shell${current ? " has-thread" : ""}`}>
-      <aside className="manage-mail-folders">
+    <div className="manage-mail-page">
+      <div className="manage-mail-tabs">
+        <nav className="manage-mail-folder-tabs" aria-label="Mailbox folders">
+          {folders.map(([key, label]) => (
+            <Link
+              className={data.mail.folder === key ? "active" : ""}
+              href={`/manage/mail?folder=${key}${mailboxQuery}`}
+              key={key}
+            >
+              {label}
+              {key === "inbox" && data.mail.unreadCount > 0 && (
+                <b>{data.mail.unreadCount}</b>
+              )}
+            </Link>
+          ))}
+        </nav>
         <label className="manage-mailbox-switch">
           <span>Mailbox</span>
           <CostivraSelect
@@ -2567,23 +2750,8 @@ function MailPage({
             }
           />
         </label>
-        <nav>
-          {folders.map(([key, label, Icon]) => (
-            <Link
-              className={data.mail.folder === key ? "active" : ""}
-              href={`/manage/mail?folder=${key}${mailboxQuery}`}
-              key={key}
-            >
-              <Icon size={17} />
-              <span>{label}</span>
-              {key === "inbox" && data.mail.unreadCount > 0 && (
-                <b>{data.mail.unreadCount}</b>
-              )}
-            </Link>
-          ))}
-        </nav>
         <div
-          className={`manage-mail-setup${data.mail.inboundReady ? " ready" : ""}`}
+          className={`manage-mail-setup manage-mail-tabs-status${data.mail.inboundReady ? " ready" : ""}`}
         >
           <i />{" "}
           <div>
@@ -2595,7 +2763,8 @@ function MailPage({
             <span>{data.mail.inboxAddress}</span>
           </div>
         </div>
-      </aside>
+      </div>
+      <div className={`manage-mail-shell${current ? " has-thread" : ""}`}>
       <section className="manage-mail-list">
         <header>
           <div>
@@ -2811,6 +2980,7 @@ function MailPage({
           </p>
         )}
       </aside>
+      </div>
     </div>
   );
 }
