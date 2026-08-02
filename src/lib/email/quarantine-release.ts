@@ -1,6 +1,7 @@
 import "server-only";
 
 import { ingestDocumentBuffer } from "@/lib/documents/intake";
+import { summarizeInboundAttachmentStates } from "@/lib/email/quarantine-release-policy";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -104,20 +105,14 @@ export async function releaseQuarantinedInboundAttachments(input: {
       .select("processing_status")
       .eq("event_id", touchedEventId);
     if (statesError) throw statesError;
-    const remaining = (states ?? []).some((state) =>
-      state.processing_status === "quarantined" || state.processing_status === "pending",
+    const summary = summarizeInboundAttachmentStates(
+      (states ?? []).map((state) => state.processing_status),
     );
-    const failed = (states ?? []).some((state) =>
-      state.processing_status === "failed" || state.processing_status === "unsupported",
-    );
-    const processed = (states ?? []).filter((state) =>
-      state.processing_status === "processed" || state.processing_status === "duplicate",
-    ).length;
     const now = new Date().toISOString();
     const { error: eventError } = await db.from("inbound_email_events").update({
-      status: remaining ? "quarantined" : failed ? "needs_review" : "processed",
-      processed_attachment_count: processed,
-      processed_at: remaining ? null : now,
+      status: summary.status,
+      processed_attachment_count: summary.processedAttachmentCount,
+      processed_at: summary.complete ? now : null,
       updated_at: now,
     }).eq("id", touchedEventId).eq("organization_id", organizationId);
     if (eventError) throw eventError;
