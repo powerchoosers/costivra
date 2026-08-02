@@ -5,7 +5,7 @@ This is the short list of work that cannot be completed honestly with code alone
 ## Lewis must provide or decide
 
 - [ ] Choose and fund a malware scanner. The existing Cloudmersive adapter is the fastest path; a provider-neutral HTTP adapter is also supported. Until configured, inbound and uploaded source files remain safely quarantined and cannot be processed.
-- [ ] Supply a de-identified evaluation set: at least 20 software invoices, 20 telecom/internet invoices, and 10 scanned examples, including clean, incomplete, contradictory, and arithmetic-error cases. Do not send real customer files without permission and de-identification.
+- [ ] Supply a de-identified evaluation set: at least 20 software invoices, 20 telecom/internet invoices, and 10 scanned examples, including clean, incomplete, contradictory, and arithmetic-error cases. Do not send real customer files without permission and de-identification. The evaluator, private ignored directory, strict manifest parser, and operator instructions are ready in `docs/INVOICE_EXTRACTION_EVALUATION.md`.
 - [ ] Ask qualified counsel to approve the Privacy Policy, Terms, UCEP relationship disclosure, consent wording, retention/deletion policy, and performance-fee method before charging customers or sharing an energy case.
 - [ ] Upgrade Supabase if leaked-password protection is required for launch, then enable it in Authentication settings. The current plan does not expose that control.
 - [ ] Name an incident owner and a support channel for security, failed intake, incorrect extraction, and provider outages.
@@ -26,7 +26,7 @@ This is the short list of work that cannot be completed honestly with code alone
 
 ## Release evidence required
 
-- [ ] Golden-set extraction evaluation passes agreed precision/recall and evidence-citation thresholds for critical invoice fields.
+- [ ] Golden-set extraction evaluation passes agreed precision/recall and evidence-citation thresholds for critical invoice fields. `npm run eval:invoices` now runs the production parser/model path, verifies minimum segment/scan coverage, exact fields and line items, grounded evidence, reconciliation, review routing, and error budget, and exits non-zero on failure. CI replays a deterministic smoke prediction, but only Lewis's real de-identified set can satisfy this release gate.
 - [x] A real Resend production probe proves sending, receiving, signed webhook routing, tenant
   matching, durable queue claim, retry-worker execution, attachment retrieval, and fail-closed
   quarantine when malware scanning is unavailable.

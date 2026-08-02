@@ -4,6 +4,7 @@ import {
   type DocumentIntelligence,
 } from "@/lib/ai/document-intelligence";
 import {
+  normalizeDecimal,
   normalizeMoney,
   normalizeVendorName,
   reconcileInvoice,
@@ -302,10 +303,7 @@ function quoteMatchesSnippets(quote: string, snippets: string[] | undefined) {
   const normalizedQuote = normalizeText(quote);
   return snippets.some((snippet) => {
     const normalizedSnippet = normalizeText(snippet);
-    return (
-      normalizedQuote.includes(normalizedSnippet) ||
-      normalizedSnippet.includes(normalizedQuote)
-    );
+    return normalizedQuote.includes(normalizedSnippet);
   });
 }
 
@@ -652,7 +650,7 @@ function parseCoverageRequirements(
 
 function parseLineItem(value: unknown, location: string): GoldenLineItem {
   if (!isRecord(value)) throw new Error(`${location} must be an object.`);
-  return {
+  const lineItem = {
     description: requiredString(value, "description", location),
     quantity: nullableStringField(value, "quantity", location),
     unitPrice: nullableStringField(value, "unitPrice", location),
@@ -661,6 +659,22 @@ function parseLineItem(value: unknown, location: string): GoldenLineItem {
     servicePeriodStart: nullableStringField(value, "servicePeriodStart", location),
     servicePeriodEnd: nullableStringField(value, "servicePeriodEnd", location),
   };
+  if (normalizeMoney(lineItem.amount) !== lineItem.amount) {
+    throw new Error(`${location}.amount must be a canonical decimal money string.`);
+  }
+  if (
+    lineItem.unitPrice !== null &&
+    normalizeMoney(lineItem.unitPrice) !== lineItem.unitPrice
+  ) {
+    throw new Error(`${location}.unitPrice must be a canonical decimal money string or null.`);
+  }
+  if (
+    lineItem.quantity !== null &&
+    normalizeDecimal(lineItem.quantity) !== lineItem.quantity
+  ) {
+    throw new Error(`${location}.quantity must be a canonical decimal string or null.`);
+  }
+  return lineItem;
 }
 
 function parseInvoiceExpectation(
@@ -676,6 +690,25 @@ function parseInvoiceExpectation(
     ]),
   ) as Record<CriticalInvoiceField, string | null>;
   const lineItems = value.lineItems;
+  for (const field of moneyFields) {
+    const fieldValue = invoice[field];
+    if (fieldValue !== null && normalizeMoney(fieldValue) !== fieldValue) {
+      throw new Error(
+        `${location}.${field} must be a canonical decimal money string or null.`,
+      );
+    }
+  }
+  for (const field of [
+    "invoiceDate",
+    "dueDate",
+    "servicePeriodStart",
+    "servicePeriodEnd",
+  ] as const) {
+    const fieldValue = invoice[field];
+    if (fieldValue !== null && !/^\d{4}-\d{2}-\d{2}$/.test(fieldValue)) {
+      throw new Error(`${location}.${field} must use YYYY-MM-DD or null.`);
+    }
+  }
   return {
     ...invoice,
     ...(lineItems === undefined
@@ -777,9 +810,46 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
         : {}),
     },
   };
+  const invoiceClassification = ["invoice", "statement"].includes(
+    parsedCase.expected.classification,
+  );
+  if (invoiceClassification !== Boolean(parsedCase.expected.invoice)) {
+    throw new Error(
+      `${location}.expected.invoice must be an object for invoice/statement classifications and null otherwise.`,
+    );
+  }
+  if (
+    parsedCase.expected.currency !== null &&
+    !/^[A-Z]{3}$/.test(parsedCase.expected.currency)
+  ) {
+    throw new Error(`${location}.expected.currency must be an uppercase ISO code or null.`);
+  }
+  if (
+    invoiceClassification &&
+    (parsedCase.expected.reconciliationStatus === null ||
+      parsedCase.expected.needsReview === null)
+  ) {
+    throw new Error(
+      `${location} invoice cases require reconciliationStatus and needsReview truth.`,
+    );
+  }
   const required =
     parsedCase.expected.requiredEvidenceFields ??
     defaultRequiredEvidenceFields(parsedCase);
+  if (new Set(required).size !== required.length) {
+    throw new Error(`${location}.expected.requiredEvidenceFields contains duplicates.`);
+  }
+  for (const field of required) {
+    const hasExpectedValue =
+      field === "invoice.lineItems"
+        ? Boolean(parsedCase.expected.invoice?.lineItems?.length)
+        : expectedValue(parsedCase, field as ScoredFieldPath) !== null;
+    if (!hasExpectedValue) {
+      throw new Error(
+        `${location}.expected.requiredEvidenceFields includes ${field}, but that expected value is absent.`,
+      );
+    }
+  }
   if (
     scanned &&
     required.some(
@@ -833,6 +903,9 @@ export function parseGoldenPredictionSet(value: unknown): GoldenPredictionSet {
     if (item.result === undefined && error === undefined) {
       throw new Error(`Prediction cases[${index}] requires result or error.`);
     }
+    if (item.result !== undefined && error !== undefined) {
+      throw new Error(`Prediction cases[${index}] cannot contain both result and error.`);
+    }
     return {
       id,
       ...(item.result === undefined
@@ -841,6 +914,13 @@ export function parseGoldenPredictionSet(value: unknown): GoldenPredictionSet {
       ...(typeof error === "string" ? { error: error.trim() } : {}),
     };
   });
+  const ids = new Set<string>();
+  for (const prediction of cases) {
+    if (ids.has(prediction.id)) {
+      throw new Error(`Duplicate prediction id: ${prediction.id}.`);
+    }
+    ids.add(prediction.id);
+  }
   return {
     schemaVersion: GOLDEN_PREDICTION_SCHEMA_VERSION,
     generatedAt: requiredString(value, "generatedAt", "predictions"),

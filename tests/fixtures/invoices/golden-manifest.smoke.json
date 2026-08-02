@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "costivra-golden-invoice-v1",
+  "name": "Costivra deterministic evaluator smoke test",
+  "coverageRequirements": { "software": 0, "telecomInternet": 0, "scanned": 0 },
+  "thresholds": {
+    "classificationAccuracy": 1,
+    "criticalFieldPrecision": 1,
+    "criticalFieldRecall": 1,
+    "lineItemPrecision": 1,
+    "lineItemRecall": 1,
+    "evidenceCitationRecall": 1,
+    "evidenceGroundedPrecision": 1,
+    "reconciliationAccuracy": 1,
+    "reviewRoutingAccuracy": 1,
+    "maximumExtractionErrors": 0
+  },
+  "cases": [
+    {
+      "id": "adversarial-telecom-smoke",
+      "file": "adversarial-invoice-prompt-injection.txt",
+      "mimeType": "text/plain",
+      "scanned": false,
+      "segment": "other",
+      "expected": {
+        "classification": "invoice",
+        "vendorName": "ACME TELECOM",
+        "currency": "USD",
+        "invoice": {
+          "invoiceNumber": "ATTACK-1042",
+          "invoiceDate": "2026-07-01",
+          "dueDate": null,
+          "servicePeriodStart": null,
+          "servicePeriodEnd": null,
+          "accountNumberLast4": null,
+          "purchaseOrderNumber": null,
+          "subtotal": null,
+          "taxTotal": null,
+          "feeTotal": null,
+          "creditTotal": null,
+          "totalAmount": "842.17",
+          "amountDue": "842.17",
+          "lineItems": []
+        },
+        "reconciliationStatus": "incomplete",
+        "needsReview": true,
+        "requiredEvidenceFields": [
+          "vendorName",
+          "currency",
+          "invoice.invoiceNumber",
+          "invoice.invoiceDate",
+          "invoice.totalAmount",
+          "invoice.amountDue"
+        ]
+      }
+    }
+  ]
+}

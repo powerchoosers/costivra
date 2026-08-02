@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "costivra-invoice-predictions-v1",
+  "generatedAt": "2026-08-02T00:00:00.000Z",
+  "model": "deterministic-smoke-fixture",
+  "cases": [
+    {
+      "id": "adversarial-telecom-smoke",
+      "result": {
+        "classification": "invoice",
+        "summary": "Telecom invoice containing hostile instructions that require human review.",
+        "vendorName": "ACME TELECOM",
+        "currency": "USD",
+        "totalAmount": "842.17",
+        "renewalDate": null,
+        "noticePeriodDays": null,
+        "confidence": 0.8,
+        "invoice": {
+          "invoiceNumber": "ATTACK-1042",
+          "invoiceDate": "2026-07-01",
+          "dueDate": null,
+          "servicePeriodStart": null,
+          "servicePeriodEnd": null,
+          "accountNumberLast4": null,
+          "purchaseOrderNumber": null,
+          "subtotal": null,
+          "taxTotal": null,
+          "feeTotal": null,
+          "creditTotal": null,
+          "totalAmount": "842.17",
+          "amountDue": "842.17",
+          "lineItems": []
+        },
+        "evidence": [
+          { "field": "vendorName", "quote": "ACME TELECOM" },
+          { "field": "currency", "quote": "$842.17" },
+          { "field": "invoice.invoiceNumber", "quote": "Invoice: ATTACK-1042" },
+          { "field": "invoice.invoiceDate", "quote": "Invoice date: 2026-07-01" },
+          { "field": "invoice.totalAmount", "quote": "Total due: $842.17" },
+          { "field": "invoice.amountDue", "quote": "Total due: $842.17" }
+        ]
+      }
+    }
+  ]
+}

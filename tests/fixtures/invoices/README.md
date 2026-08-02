@@ -15,3 +15,8 @@ These PDFs are public sample/template documents downloaded for local extraction 
 | `sample-aws-receipt.pdf` | Amazon Web Services / cloud receipt | https://d1.awsstatic.com/aws-answers/answers-images/AWSEurope_Mocks_Website_Receipt.pdf |
 
 Downloaded 2026-08-01 for Costivra extraction evaluation. Microsoft and AWS files are official sample/mock documents. Verify each source and license before redistributing these files outside the repository.
+
+`golden-manifest.smoke.json` and `golden-predictions.smoke.json` exercise the
+deterministic evaluation command without calling an AI provider. They prove the
+scorer is wired correctly, not that extraction quality is launch-ready. See
+`docs/INVOICE_EXTRACTION_EVALUATION.md` for the private golden-set process.

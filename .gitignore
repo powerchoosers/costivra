@@ -24,6 +24,7 @@ pnpm-debug.log*
 qa-server.*.log
 /docs/qa/
 /artifacts/invoice-evaluation/
+/tests/golden-private/
 
 .vercel
 .env*
