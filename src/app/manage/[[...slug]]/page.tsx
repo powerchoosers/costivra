@@ -3,6 +3,7 @@ import { ManageAccessDenied } from "@/components/manage-access-denied";
 import { ManagePortal } from "@/components/manage-portal";
 import { getManageData } from "@/lib/manage/repository";
 import { getManageInvoiceReviewData } from "@/lib/manage/invoice-review";
+import { getManageIntakeOperationsData } from "@/lib/manage/intake-operations";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -50,10 +51,14 @@ export default async function Page({
   const invoiceReview = section === "invoice-review"
     ? await getManageInvoiceReviewData(slug[1] ?? null)
     : null;
+  const intakeOperations = section === "intake"
+    ? await getManageIntakeOperationsData(slug[1] ?? null)
+    : null;
   return <ManagePortal
     section={section}
     detailId={section === "accounts" || section === "contacts" ? slug[1] ?? null : null}
     data={result.data}
     invoiceReview={invoiceReview}
+    intakeOperations={intakeOperations}
   />;
 }

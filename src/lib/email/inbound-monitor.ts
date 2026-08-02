@@ -56,7 +56,7 @@ export async function monitorInboundEmailQueue(
       body: `${organizationName(record)} — ${incident.body}`,
       resource_type: "inbound_email_event",
       resource_id: record.id,
-      action_href: "/manage",
+      action_href: `/manage/intake/${record.id}`,
       provider_event_id: `intake:${record.id}:${incident.key}`,
     })),
   );

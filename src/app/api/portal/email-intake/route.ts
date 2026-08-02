@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { ingestDocumentBuffer } from "@/lib/documents/intake";
 import { getInboundEmailDomain, isInboundEmailPlatformReady } from "@/lib/email/resend";
+import { releaseQuarantinedInboundAttachments } from "@/lib/email/quarantine-release";
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
-import { isMalwareScannerConfigured, scanFileForMalware } from "@/lib/security/malware-scanner";
+import { isMalwareScannerConfigured } from "@/lib/security/malware-scanner";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -38,34 +38,7 @@ export async function PATCH(request: Request) {
       if (error) throw error;
     } else if (operation === "retry") {
       if (!isMalwareScannerConfigured()) return NextResponse.json({ error: "A malware scanner must be configured before quarantined files can be processed." }, { status: 503 });
-      const { data: attachments, error } = await db.from("inbound_email_attachments").select("id,event_id,filename,content_type,quarantine_storage_path").eq("organization_id", organizationId).eq("processing_status", "quarantined").limit(10);
-      if (error) throw error;
-      const touchedEvents = new Set<string>();
-      for (const attachment of attachments ?? []) {
-        if (!attachment.quarantine_storage_path) continue;
-        touchedEvents.add(attachment.event_id);
-        const stored = await db.storage.from("costivra-documents").download(attachment.quarantine_storage_path);
-        if (stored.error) {
-          await db.from("inbound_email_attachments").update({ scan_status: "failed", error_message: stored.error.message, updated_at: new Date().toISOString() }).eq("id", attachment.id);
-          continue;
-        }
-        const buffer = Buffer.from(await stored.data.arrayBuffer());
-        const scan = await scanFileForMalware({ buffer, filename: attachment.filename, mimeType: attachment.content_type });
-        if (scan.status !== "clean") {
-          await db.from("inbound_email_attachments").update({ scan_status: scan.status, error_message: scan.detail || "Attachment did not pass malware scanning.", updated_at: new Date().toISOString() }).eq("id", attachment.id);
-          continue;
-        }
-        const result = await ingestDocumentBuffer({ db, organizationId, actorType: "service", actorId: null, filename: attachment.filename, mimeType: attachment.content_type, buffer, auditAction: "document.email_quarantine_released" });
-        await db.from("inbound_email_attachments").update({ scan_status: "clean", processing_status: result.duplicate ? "duplicate" : "processed", document_id: result.documentId, quarantine_storage_path: null, error_message: null, updated_at: new Date().toISOString() }).eq("id", attachment.id);
-        await db.storage.from("costivra-documents").remove([attachment.quarantine_storage_path]);
-      }
-      for (const eventId of touchedEvents) {
-        const { data: states } = await db.from("inbound_email_attachments").select("processing_status").eq("event_id", eventId);
-        const remaining = (states ?? []).some((state) => state.processing_status === "quarantined" || state.processing_status === "pending");
-        const failed = (states ?? []).some((state) => state.processing_status === "failed" || state.processing_status === "unsupported");
-        const processed = (states ?? []).filter((state) => state.processing_status === "processed" || state.processing_status === "duplicate").length;
-        await db.from("inbound_email_events").update({ status: remaining ? "quarantined" : failed ? "needs_review" : "processed", processed_attachment_count: processed, processed_at: remaining ? null : new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", eventId).eq("organization_id", organizationId);
-      }
+      await releaseQuarantinedInboundAttachments({ db, organizationId, limit: 10 });
     } else if (operation === "retry_failed") {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventId)) return NextResponse.json({ error: "Choose a valid intake event to retry." }, { status: 400 });
       const now = new Date().toISOString();

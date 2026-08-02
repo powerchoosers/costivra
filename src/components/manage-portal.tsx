@@ -53,6 +53,7 @@ import {
   Search,
   Send,
   Settings,
+  ShieldAlert,
   Star,
   Strikethrough,
   Trash2,
@@ -77,9 +78,11 @@ import { ManageLiveNotifications } from "@/components/manage-live-notifications"
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { ManageInvoiceReview } from "@/components/manage-invoice-review";
+import { ManageIntakeOperations } from "@/components/manage-intake-operations";
 import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
+import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
 import {
   buildRecipientCandidates,
   isRecipientEmail,
@@ -103,6 +106,7 @@ const navGroups = [
     items: [
       ["Outreach", "/manage/outreach", MessageSquareText],
       ["Mail", "/manage/mail", Mail],
+      ["Intake", "/manage/intake", ShieldAlert],
       ["Invoice review", "/manage/invoice-review", FileCheck2],
       ["Activity", "/manage/activity", Activity],
     ],
@@ -492,11 +496,13 @@ export function ManagePortal({
   detailId,
   data,
   invoiceReview,
+  intakeOperations,
 }: {
   section: string;
   detailId?: string | null;
   data: ManageData;
   invoiceReview?: ManageInvoiceReviewData | null;
+  intakeOperations?: ManageIntakeOperationsData | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -711,7 +717,9 @@ export function ManagePortal({
 
   const pageTitle = section === "overview"
     ? "Client operations"
-    : section === "invoice-review" ? "Invoice review" : pretty(section);
+    : section === "invoice-review" ? "Invoice review"
+      : section === "intake" ? "Intake operations"
+        : pretty(section);
   return (
     <div className={`manage-app${assistantOpen ? " is-assistant-open" : ""}`}>
       <ManageLiveNotifications soundEnabled={data.operator.notificationSoundEnabled} />
@@ -965,7 +973,7 @@ export function ManagePortal({
               <button type="button" className="manage-topbar-icon" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><Bot size={18} strokeWidth={2} /></button>
               <button type="button" className="manage-topbar-icon" aria-label="Notifications" title="Notifications"><Bell size={18} /></button>
             </div>
-            {section === "mail" ? null : section === "settings" || section === "invoice-review" ? null : section === "activity" ? (
+            {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => setDialog("note")}
@@ -1052,6 +1060,9 @@ export function ManagePortal({
               currentOperatorId={data.operator.id}
               owner={data.operator.role === "owner"}
             />
+          )}
+          {section === "intake" && intakeOperations && (
+            <ManageIntakeOperations data={intakeOperations} />
           )}
           {section === "activity" && (
             <ActivityPage
