@@ -42,6 +42,7 @@ describe("GET /api/manage/system-readiness", () => {
     const response = await GET();
 
     expect(response.status).toBe(403);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
     await expect(response.json()).resolves.toEqual({ error: "Only a Costivra owner can run readiness checks." });
     expect(manageApiError).toHaveBeenCalledWith(error);
     expect(checkSystemReadiness).not.toHaveBeenCalled();
