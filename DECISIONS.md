@@ -395,3 +395,48 @@ outgrows this bounded worker.
 **Consequences:** Production must provide `CRON_SECRET` and a Vercel plan capable of a one-minute
 cron. The queue remains server-only, retries are visible to customers, and document ingestion
 continues to use the same malware, evidence, reconciliation, and human-review boundaries.
+
+## 2026-08-02 — Use one protected record workspace and internal-only Apollo enrichment
+
+### Context
+
+Customer vendor pages and internal account/contact pages had developed separate visual systems.
+Files were represented as short attachment lists, making it hard to find invoices, contracts,
+and evidence without changing the immutable storage record. Lewis also requested concise
+company context from Apollo, but Apollo's current API terms restrict exposing its data to
+non-Apollo users without an appropriate agreement.
+
+### Decision
+
+Use one reusable record-file workspace across customer and internal records. It provides
+metadata-only virtual collections (All files, Evidence, Invoices, Contracts, and Other files),
+search, list/grid views, source context, and a protected inspector. It never
+moves private objects or changes their SHA-256 provenance. Customer downloads remain
+tenant-scoped; internal downloads use a separate authenticated route and append-only internal
+audit event before creating a 60-second signed URL.
+
+Align the App rail with the Manage rail's compact-on-idle and expand-on-hover/focus behavior,
+while preserving the distinct navigation destinations. Make account and contact pages task-based
+workspaces with a shared identity header, highlights, compact tabs, details rail, and responsive
+one-column mobile layout.
+
+Keep Apollo server-only and internal to `/manage`. An operator must explicitly request an
+account-company refresh; the server derives only a public company domain from an
+operator-stored website. It stores an allowlisted provider snapshot separately from authoritative
+CRM fields, caches a fresh result for 30 days, uses a time-bounded atomic claim so two clicks
+cannot spend duplicate credits, and invalidates the snapshot when the lookup website changes.
+Provider links are normalized before storage and provider redirects are never followed. Individual
+contact enrichment is not enabled: sending a person’s work email to Apollo requires a separate,
+purpose-specific data-sharing consent and authorization feature. Apollo values never update
+customer facts automatically and do not enter the customer `/app` until the required Apollo
+data-sharing permission is in place.
+
+### Consequences
+
+Account, contact, vendor, and general record pages now share a legible evidence-first structure
+without weakening storage provenance, tenant isolation, or mailbox attachment permissions.
+The account Apollo table and its claim function are internal-only: RLS is enabled, browser roles
+are explicitly denied, and service-role routes audit every refresh outcome without recording raw
+responses, provider errors, credentials, or personal email. The reviewed migration must be
+applied before deploying the enrichment route; the Manage read model remains gracefully usable
+during that rollout gap.

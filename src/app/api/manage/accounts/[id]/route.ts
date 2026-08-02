@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { cleanText, cleanUuid } from "@/lib/portal/http";
+import { normalizeAccountWebsite } from "@/lib/integrations/apollo";
 
 const stages = new Set([
   "lead",
@@ -28,9 +29,16 @@ export async function PATCH(
         { status: 400 },
       );
     const nextFollowUpAt = cleanText(body.nextFollowUpAt, 40) || null;
+    const websiteInput = cleanText(body.website, 2_048);
+    const website = websiteInput ? normalizeAccountWebsite(websiteInput) : null;
     if (nextFollowUpAt && Number.isNaN(Date.parse(nextFollowUpAt)))
       return NextResponse.json(
         { error: "Choose a valid follow-up date." },
+        { status: 400 },
+      );
+    if ("website" in body && websiteInput && !website)
+      return NextResponse.json(
+        { error: "Enter a public http or https account website." },
         { status: 400 },
       );
     const record = {
@@ -39,6 +47,7 @@ export async function PATCH(
       ...("nextFollowUpAt" in body ? { next_follow_up_at: nextFollowUpAt } : {}),
       ...("nextStep" in body ? { next_step: cleanText(body.nextStep, 500) || null } : {}),
       ...("privateNotes" in body ? { private_notes: cleanText(body.privateNotes, 4_000) || null } : {}),
+      ...("website" in body ? { website } : {}),
       updated_at: new Date().toISOString(),
     };
     const { error } = await db
@@ -66,6 +75,7 @@ export async function PATCH(
         safe_metadata: {
           stage: "stage" in body ? stage || "onboarding" : null,
           follow_up_changed: "nextFollowUpAt" in body,
+          website_changed: "website" in body,
         },
       });
     return NextResponse.json({ ok: true });

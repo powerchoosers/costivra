@@ -101,4 +101,20 @@ describe("customer document download authorization", () => {
     expect(response.status).toBe(423);
     expect(database.createSignedUrl).not.toHaveBeenCalled();
   });
+
+  it("fails closed for an unexpected document status", async () => {
+    const database = databaseForDocument({
+      storage_path: `${organizationId}/documents/invoice.pdf`,
+      status: "provider_complete",
+    });
+    requirePortalContext.mockResolvedValue({ db: database.db, organizationId });
+
+    const response = await GET(
+      new Request(`https://costivra.ai/api/portal/documents/${documentId}/download`),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(423);
+    expect(database.createSignedUrl).not.toHaveBeenCalled();
+  });
 });

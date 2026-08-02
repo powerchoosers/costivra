@@ -22,6 +22,7 @@ export type ManageAccount = {
   name: string;
   legalName: string | null;
   industry: string | null;
+  website: string | null;
   stage: string | null;
   primaryContact: string | null;
   primaryEmail: string | null;
@@ -37,6 +38,21 @@ export type ManageAccount = {
   privateNotes: string | null;
   createdAt: string;
   logoUrl: string | null;
+  enrichment: ManageAccountEnrichment | null;
+};
+
+export type ManageAccountEnrichment = {
+  provider: "apollo";
+  shortDescription: string | null;
+  industry: string | null;
+  website: string | null;
+  linkedinUrl: string | null;
+  location: string | null;
+  employeeCount: number | null;
+  foundedYear: number | null;
+  status: string;
+  fetchedAt: string | null;
+  attemptedAt: string | null;
 };
 
 export type ManageContact = {
@@ -52,6 +68,22 @@ export type ManageContact = {
   source: "crm" | "workspace";
   marketingStatus: "opted_in" | "opted_out" | null;
   marketingConsentAt: string | null;
+};
+
+export type ManageDocument = {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+  status: string;
+  documentType: string | null;
+  summary: string | null;
+  confidence: number | null;
+  createdAt: string;
+  updatedAt: string;
+  pageCount: number | null;
 };
 
 export type ManageTask = {
@@ -148,6 +180,9 @@ export type ManageData = {
   staff: ManageStaffMember[];
   accounts: ManageAccount[];
   contacts: ManageContact[];
+  documents: ManageDocument[];
+  enrichmentAvailable: boolean;
+  enrichmentConfigured: boolean;
   tasks: ManageTask[];
   activities: ManageActivity[];
   mail: {

@@ -50,6 +50,7 @@ import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
+import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 
 type ApiOptions = {
   method?: string;
@@ -293,7 +294,7 @@ export function PortalPage({
 }) {
   const page = slug?.[0] ?? "home";
   const [modal, setModal] = useState<ModalState>(null);
-  const presetVendor: string | undefined = undefined;
+  const [presetVendor, setPresetVendor] = useState<string | undefined>();
   const [vendorPanelOpen, setVendorPanelOpen] = useState(false);
   const router = useRouter();
   const toast = useToast();
@@ -309,6 +310,17 @@ export function PortalPage({
     sessionStorage.removeItem("costivra.vendor-panel.open");
     sessionStorage.removeItem("costivra.vendor-panel.draft");
     setVendorPanelOpen(false);
+  };
+  const openModal = (kind: Exclude<ModalState, null>) => {
+    setPresetVendor(undefined);
+    setModal(kind);
+  };
+  const openVendorModal = (
+    kind: Exclude<ModalState, null>,
+    relationshipId: string,
+  ) => {
+    setPresetVendor(relationshipId);
+    setModal(kind);
   };
   const run = async (
     work: () => Promise<unknown>,
@@ -328,24 +340,24 @@ export function PortalPage({
   };
   const pages: Record<string, ReactNode> = {
     home: <CommandCenter data={data} />,
-    expenses: slug?.[1] ? <PortalRecordDetail data={data} kind="expense" id={slug[1]} /> : <Expenses data={data} onAdd={() => setModal("expense")} />,
+    expenses: slug?.[1] ? <PortalRecordDetail data={data} kind="expense" id={slug[1]} /> : <Expenses data={data} onAdd={() => openModal("expense")} />,
     opportunities: slug?.[1] ? <PortalRecordDetail data={data} kind="opportunity" id={slug[1]} /> : <Opportunities data={data} run={run} />,
-    contracts: slug?.[1] ? <PortalRecordDetail data={data} kind="contract" id={slug[1]} /> : <Contracts data={data} onAdd={() => setModal("contract")} />,
+    contracts: slug?.[1] ? <PortalRecordDetail data={data} kind="contract" id={slug[1]} /> : <Contracts data={data} onAdd={() => openModal("contract")} />,
     documents: (
-      slug?.[1] ? (data.invoices.some((item) => item.id === slug[1]) ? <PortalRecordDetail data={data} kind="invoice" id={slug[1]} /> : <PortalRecordDetail data={data} kind="document" id={slug[1]} />) : <Documents data={data} onUpload={() => setModal("upload")} run={run} />
+      slug?.[1] ? (data.invoices.some((item) => item.id === slug[1]) ? <PortalRecordDetail data={data} kind="invoice" id={slug[1]} /> : <PortalRecordDetail data={data} kind="document" id={slug[1]} />) : <Documents data={data} onUpload={() => openModal("upload")} run={run} />
     ),
     actions: slug?.[1] ? <PortalRecordDetail data={data} kind="action" id={slug[1]} /> : <Actions data={data} run={run} />,
     savings: slug?.[1] ? <PortalRecordDetail data={data} kind="savings" id={slug[1]} /> : <Savings data={data} run={run} />,
     vendors: slug?.[1] ? (
-      <PortalRecordDetail data={data} kind="vendor" id={slug[1]} />
+      <VendorDetail data={data} vendorId={slug[1]} onAdd={openVendorModal} />
     ) : (
       <Vendors data={data} onAdd={openVendorPanel} />
     ),
-    integrations: <Settings data={data} run={run} onInvite={() => setModal("invite")} initialTab="integrations" />,
+    integrations: <Settings data={data} run={run} onInvite={() => openModal("invite")} initialTab="integrations" />,
     reports: <Reports data={data} />,
-    team: <Settings data={data} run={run} onInvite={() => setModal("invite")} initialTab="team" />,
+    team: <Settings data={data} run={run} onInvite={() => openModal("invite")} initialTab="team" />,
     ask: <Ask data={data} />,
-    settings: <Settings data={data} run={run} onInvite={() => setModal("invite")} />,
+    settings: <Settings data={data} run={run} onInvite={() => openModal("invite")} />,
   };
   return (
     <>
@@ -1413,48 +1425,28 @@ export function VendorDetail({
             />
           )}
         </section>
-        <section className="portal-panel">
-          <div className="portal-panel-heading">
-            <div>
-              <h2>Recent documents</h2>
-              <p>Private source files linked to this vendor.</p>
-            </div>
-            <button
-              className="text-button"
-              onClick={() => onAdd("upload", vendor.relationshipId)}
-            >
-              Upload
-            </button>
-          </div>
-          {documents.length ? (
-            <div className="portal-list">
-              {documents.slice(0, 6).map((item) => (
-                <a
-                  className="portal-list-row"
-                  href={`/api/portal/documents/${item.id}/download`}
-                  key={item.id}
-                >
-                  <FileText size={17} />
-                  <div className="grow">
-                    <strong>{item.originalFilename}</strong>
-                    <span>
-                      {item.documentType ?? "Unclassified"} ·{" "}
-                      {date(item.createdAt)}
-                    </span>
-                  </div>
-                  <Status value={item.status} />
-                  <Download size={15} />
-                </a>
-              ))}
-            </div>
-          ) : (
-            <Empty
-              title="No source documents"
-              copy="Upload a bill or contract to preserve evidence for this relationship."
-            />
-          )}
-        </section>
       </div>
+      <RecordFilesWorkspace
+        title="Vendor files"
+        description="Original source files, invoices, contracts, and evidence collected for this vendor relationship."
+        emptyCopy="Upload a bill or contract to preserve the source evidence for this vendor relationship."
+        files={documents.map((item) => ({
+          id: item.id,
+          name: item.originalFilename,
+          documentType: item.documentType,
+          mimeType: item.mimeType,
+          status: item.status,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          byteSize: item.byteSize,
+          pageCount: item.pageCount,
+          summary: item.summary,
+          confidence: item.confidence,
+          evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length,
+          contextLabel: vendor.name,
+          href: `/api/portal/documents/${item.id}/download`,
+        }))}
+      />
     </div>
   );
 }

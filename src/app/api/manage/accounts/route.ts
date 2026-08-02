@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { cleanText } from "@/lib/portal/http";
+import { normalizeAccountWebsite } from "@/lib/integrations/apollo";
 
 const stages = new Set([
   "lead",
@@ -21,6 +22,8 @@ export async function POST(request: Request) {
     const stage = cleanText(body.stage, 30) || "lead";
     const contactName = cleanText(body.contactName, 160);
     const contactEmail = cleanText(body.contactEmail, 254).toLowerCase();
+    const websiteInput = cleanText(body.website, 2_048);
+    const website = websiteInput ? normalizeAccountWebsite(websiteInput) : null;
     if (!name || !stages.has(stage))
       return NextResponse.json(
         { error: "Enter an account name and valid stage." },
@@ -29,6 +32,11 @@ export async function POST(request: Request) {
     if (contactEmail && !/^\S+@\S+\.\S+$/.test(contactEmail))
       return NextResponse.json(
         { error: "Enter a valid contact email." },
+        { status: 400 },
+      );
+    if (websiteInput && !website)
+      return NextResponse.json(
+        { error: "Enter a public http or https account website." },
         { status: 400 },
       );
 
@@ -46,7 +54,7 @@ export async function POST(request: Request) {
     try {
       const { error: profileError } = await db
         .from("crm_account_profiles")
-        .insert({ organization_id: organization.id, lifecycle_stage: stage });
+        .insert({ organization_id: organization.id, lifecycle_stage: stage, website });
       if (profileError) throw profileError;
       if (contactName && contactEmail) {
         const { error: contactError } = await db

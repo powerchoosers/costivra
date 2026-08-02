@@ -19,6 +19,8 @@ const text = (value: unknown, fallback = "") =>
   typeof value === "string" ? value : fallback;
 const nullable = (value: unknown) =>
   typeof value === "string" && value ? value : null;
+const nullableNumber = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
 const countBy = (items: Row[], key: string) => {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -90,7 +92,10 @@ export async function getManageData(input?: {
       .select("*")
       .order("is_default", { ascending: false })
       .order("created_at", { ascending: true }),
-    db.from("documents").select("id,organization_id"),
+    db
+      .from("documents")
+      .select("id,organization_id,original_filename,mime_type,byte_size,status,document_type,extraction_summary,created_at,updated_at,page_count")
+      .order("created_at", { ascending: false }),
     db.from("opportunities").select("id,organization_id"),
     db
       .from("crm_email_threads")
@@ -122,6 +127,13 @@ export async function getManageData(input?: {
   const failed = results.find((result) => result.error);
   if (failed?.error) throw failed.error;
 
+  // Enrichment is intentionally optional during the rollout: the internal CRM
+  // remains usable until its reviewed migration has been applied.
+  const accountEnrichmentsResult = await db
+    .from("crm_account_enrichments")
+    .select("organization_id,provider,short_description,industry,website,linkedin_url,location,employee_count,founded_year,status,fetched_at,attempted_at");
+  const enrichmentAvailable = !accountEnrichmentsResult.error;
+
   const overlayRows = rows(overlaysResult.data);
   const hiddenOrganizations = hiddenOrganizationIds(overlayRows);
   const isVisibleOrganization = (organizationId: string) =>
@@ -137,6 +149,31 @@ export async function getManageData(input?: {
   const organizationsById = new Map(
     organizations.map((row) => [text(row.id), row]),
   );
+  const accountEnrichmentsByOrganization = new Map(
+    (enrichmentAvailable ? rows(accountEnrichmentsResult.data) : [])
+      .filter((row) => isVisibleOrganization(text(row.organization_id)))
+      .map((row) => [text(row.organization_id), row]),
+  );
+  const documents = rows(documentsResult.data)
+    .filter((document) => isVisibleOrganization(text(document.organization_id)))
+    .map((document) => ({
+      id: text(document.id),
+      organizationId: text(document.organization_id),
+      organizationName: text(
+        organizationsById.get(text(document.organization_id))?.name,
+        "Unknown account",
+      ),
+      originalFilename: text(document.original_filename, "Untitled source file"),
+      mimeType: text(document.mime_type, "application/octet-stream"),
+      byteSize: nullableNumber(document.byte_size) ?? 0,
+      status: text(document.status, "processing"),
+      documentType: nullable(document.document_type),
+      summary: nullable(document.extraction_summary),
+      confidence: null,
+      createdAt: text(document.created_at),
+      updatedAt: text(document.updated_at),
+      pageCount: nullableNumber(document.page_count),
+    }));
   const profilesById = new Map(
     rows(profilesResult.data).map((row) => [text(row.id), row]),
   );
@@ -300,11 +337,13 @@ export async function getManageData(input?: {
     const overlay = overlays.get(id);
     const primary = primaryContactByOrganization.get(id);
     const marketing = optedInByOrganization.get(id);
+    const enrichment = accountEnrichmentsByOrganization.get(id);
     return {
       id,
       name: text(organization.name),
       legalName: nullable(organization.legal_name),
       industry: nullable(organization.industry),
+      website: nullable(overlay?.website),
       stage: nullable(overlay?.lifecycle_stage),
       primaryContact:
         primary?.fullName ?? nullable(organization.primary_contact_name),
@@ -321,6 +360,21 @@ export async function getManageData(input?: {
       privateNotes: nullable(overlay?.private_notes),
       createdAt: text(organization.created_at),
       logoUrl: nullable(organization.logo_url),
+      enrichment: enrichment
+        ? {
+            provider: "apollo" as const,
+            shortDescription: nullable(enrichment.short_description),
+            industry: nullable(enrichment.industry),
+            website: nullable(enrichment.website),
+            linkedinUrl: nullable(enrichment.linkedin_url),
+            location: nullable(enrichment.location),
+            employeeCount: nullableNumber(enrichment.employee_count),
+            foundedYear: nullableNumber(enrichment.founded_year),
+            status: text(enrichment.status, "stale"),
+            fetchedAt: nullable(enrichment.fetched_at),
+            attemptedAt: nullable(enrichment.attempted_at),
+          }
+        : null,
     };
   });
 
@@ -474,6 +528,9 @@ export async function getManageData(input?: {
         a.organizationName.localeCompare(b.organizationName) ||
         a.fullName.localeCompare(b.fullName),
     ),
+    documents,
+    enrichmentAvailable,
+    enrichmentConfigured: Boolean(process.env.APOLLO_API_KEY?.trim()),
     tasks: visibleTasks.map((task) => ({
       id: text(task.id),
       organizationId: text(task.organization_id),

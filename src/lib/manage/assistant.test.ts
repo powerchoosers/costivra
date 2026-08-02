@@ -9,13 +9,18 @@ function fixture(): ManageData {
     accounts: [
       {
         id: "account-1", name: "Synthetic Account", legalName: null, industry: null, stage: null,
+        website: null,
         primaryContact: null, primaryEmail: null, memberCount: 1, documentCount: 0,
         opportunityCount: 0, openTaskCount: 1, marketingOptInCount: 0,
         latestMarketingConsentAt: null, lastContactedAt: null, nextFollowUpAt: null,
         nextStep: null, privateNotes: null, createdAt: "2026-01-01T00:00:00.000Z", logoUrl: null,
+        enrichment: null,
       },
     ],
     contacts: [],
+    documents: [],
+    enrichmentAvailable: false,
+    enrichmentConfigured: false,
     tasks: [
       {
         id: "task-1", organizationId: "account-1", organizationName: "Synthetic Account",

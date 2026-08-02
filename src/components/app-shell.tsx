@@ -55,12 +55,35 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
   const [commandLeaving, setCommandLeaving] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const commandDialogRef = useRef<HTMLDivElement>(null);
   const commandTriggerRef = useRef<HTMLButtonElement>(null);
   const commandCloseTimerRef = useRef<number | null>(null);
+  const sidebarTimerRef = useRef<number | null>(null);
+
+  const expandSidebar = (delay = 0) => {
+    if (window.innerWidth <= 980) return;
+    if (sidebarTimerRef.current) window.clearTimeout(sidebarTimerRef.current);
+    if (!delay) {
+      sidebarTimerRef.current = null;
+      setSidebarCollapsed(false);
+      return;
+    }
+    sidebarTimerRef.current = window.setTimeout(() => {
+      setSidebarCollapsed(false);
+      sidebarTimerRef.current = null;
+    }, delay);
+  };
+  const collapseSidebar = () => {
+    if (window.innerWidth <= 980) return;
+    if (sidebarTimerRef.current) window.clearTimeout(sidebarTimerRef.current);
+    sidebarTimerRef.current = window.setTimeout(() => {
+      setSidebarCollapsed(true);
+      sidebarTimerRef.current = null;
+    }, 420);
+  };
 
   const closeCommand = useCallback(() => {
     if (!commandOpen || commandLeaving) return;
@@ -105,6 +128,10 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
     };
   }, [commandOpen]);
 
+  useEffect(() => () => {
+    if (sidebarTimerRef.current) window.clearTimeout(sidebarTimerRef.current);
+  }, []);
+
   const filteredNav = navigation.filter(([label]) =>
     label.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -126,7 +153,19 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
   return (
     <div className="app-body">
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
-        <aside className="app-sidebar">
+        <aside
+          className="app-sidebar"
+          onPointerEnter={(event) => {
+            if (event.pointerType === "mouse") expandSidebar(180);
+          }}
+          onPointerLeave={(event) => {
+            if (event.pointerType === "mouse") collapseSidebar();
+          }}
+          onFocusCapture={() => expandSidebar()}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) collapseSidebar();
+          }}
+        >
           <div className="sidebar-brand-row">
             <Brand light compact={sidebarCollapsed} />
             {!sidebarCollapsed && (

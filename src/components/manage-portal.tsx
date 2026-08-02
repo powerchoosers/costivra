@@ -23,6 +23,7 @@ import {
   ChevronRight,
   CircleAlert,
   Clock3,
+  Copy,
   Download,
   FileText,
   FileCheck2,
@@ -43,6 +44,7 @@ import {
   Minimize2,
   Paperclip,
   Palette,
+  Pencil,
   Plus,
   RefreshCw,
   Reply,
@@ -79,6 +81,7 @@ import { ManageInvoiceReview } from "@/components/manage-invoice-review";
 import { ManageIntakeOperations } from "@/components/manage-intake-operations";
 import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
+import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
 import { formatManageDate } from "@/lib/manage/date-format";
@@ -995,8 +998,6 @@ export function ManagePortal({
             detailId ? <AccountDetailPage data={data} accountId={detailId} onCompose={(contact) => setCompose({ mode: "new", organizationId: contact.organizationId, to: contact.email })} /> : <Accounts
               data={data}
               query={search}
-              onAddTask={(account) => { setContextAccount(account); setDialog("task"); }}
-              onAddNote={(account) => { setContextAccount(account); setDialog("note"); }}
             />
           )}
           {section === "contacts" && (
@@ -1809,6 +1810,76 @@ function InlineAccountText({ account, field, value, display, placeholder, type =
   return multiline ? <textarea className="manage-inline-textarea" rows={3} {...shared} /> : <input className="manage-inline-input" type={type} {...shared} />;
 }
 
+function InlineAccountWebsite({ account }: { account: ManageAccount }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(account.website ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await api(`/api/manage/accounts/${account.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ website: draft }),
+      });
+      toast.success(draft.trim() ? "Account website updated." : "Account website removed.");
+      setEditing(false);
+      router.refresh();
+    } catch (error) {
+      toast.error("Couldn’t update the website", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyWebsite() {
+    if (!account.website) return;
+    try {
+      await navigator.clipboard.writeText(account.website);
+      toast.success("Website copied.");
+    } catch {
+      toast.error("Couldn’t copy the website", "Your browser blocked clipboard access.");
+    }
+  }
+
+  if (editing) {
+    return (
+      <form className="manage-record-inline-form" onSubmit={save}>
+        <input
+          aria-label="Account website"
+          autoFocus
+          disabled={busy}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="https://example.com"
+          type="url"
+          value={draft}
+        />
+        <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save"}</button>
+        <button type="button" disabled={busy} onClick={() => { setDraft(account.website ?? ""); setEditing(false); }}>Cancel</button>
+      </form>
+    );
+  }
+
+  return (
+    <span className="manage-record-inline-field">
+      {account.website ? (
+        <a href={account.website} target="_blank" rel="noreferrer">
+          {account.website.replace(/^https?:\/\//, "")}
+        </a>
+      ) : (
+        <span>Add before enrichment</span>
+      )}
+      <span className="manage-record-inline-actions">
+        <button type="button" onClick={() => { setDraft(account.website ?? ""); setEditing(true); }} aria-label="Edit account website" title="Edit website"><Pencil size={12} /></button>
+        {account.website && <button type="button" onClick={() => void copyWebsite()} aria-label="Copy account website" title="Copy website"><Copy size={12} /></button>}
+      </span>
+    </span>
+  );
+}
+
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return;
   const headers = Object.keys(rows[0]);
@@ -1837,13 +1908,9 @@ function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
 function Accounts({
   data,
   query,
-  onAddTask,
-  onAddNote,
 }: {
   data: ManageData;
   query: string;
-  onAddTask: (account: ManageAccount) => void;
-  onAddNote: (account: ManageAccount) => void;
 }) {
   const pageSize = 25;
   const [filter, setFilter] = useState("all");
@@ -2161,30 +2228,90 @@ function Contacts({
   );
 }
 
+function RecordTabs({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: Array<{ id: string; label: string; count?: number }>;
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return <nav className="manage-record-tabs" aria-label="Record sections">{tabs.map((tab) => <button type="button" key={tab.id} className={active === tab.id ? "is-active" : ""} aria-current={active === tab.id ? "page" : undefined} onClick={() => onChange(tab.id)}>{tab.label}{typeof tab.count === "number" && <span>{tab.count}</span>}</button>)}</nav>;
+}
+
+function EnrichmentRefreshButton({
+  id,
+  enabled,
+  available,
+  configured,
+}: {
+  id: string;
+  enabled: boolean;
+  available: boolean;
+  configured: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const toast = useToast();
+  const label = "Refresh company profile";
+  const unavailableCopy = "Add an account website before looking up a company profile.";
+  if (!available) return <span className="manage-record-source-note">Apollo enrichment is ready after the CRM migration is applied.</span>;
+  if (!configured) return <span className="manage-record-source-note">Add the server-side Apollo key before refreshing company profiles.</span>;
+  return <button className="manage-button manage-button--quiet manage-record-refresh" type="button" disabled={busy || !enabled} title={!enabled ? unavailableCopy : label} onClick={async () => {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/manage/accounts/${id}/enrichment`, { method: "POST" });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || "The profile could not be refreshed.");
+      toast.success(payload?.cached ? "Profile is already current" : "Profile refreshed");
+      router.refresh();
+    } catch (error) {
+      toast.error("Couldn’t refresh profile", error instanceof Error ? error.message : "Try again later.");
+    } finally {
+      setBusy(false);
+    }
+  }}><RefreshCw size={14} className={busy ? "spin" : undefined} /> {busy ? "Refreshing…" : label}</button>;
+}
+
 function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; accountId: string; onCompose: (contact: ManageContact) => void }) {
   const account = data.accounts.find((item) => item.id === accountId);
-  const router = useRouter();
+  const [active, setActive] = useState("overview");
   if (!account) return <Empty icon={Building2} title="Account not found" copy="This account may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/accounts"><ArrowLeft size={15} /> Back to accounts</Link>} />;
   const contacts = data.contacts.filter((item) => item.organizationId === account.id);
   const activities = data.activities.filter((item) => item.organizationId === account.id);
   const tasks = data.tasks.filter((item) => item.organizationId === account.id);
-  return <div className="manage-detail-page motion-page">
+  const documents = data.documents.filter((item) => item.organizationId === account.id);
+  const profile = account.enrichment;
+  const profileSummary = profile?.shortDescription || (account.industry ? `${account.name} is recorded in the ${account.industry} industry.` : "Add the account website or a short internal note to make this record easier to recognize at a glance.");
+  const accountTabs = [{ id: "overview", label: "Overview" }, { id: "people", label: "People", count: contacts.length }, { id: "files", label: "Files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Work", count: tasks.length }];
+  return <div className="manage-detail-page manage-record-page motion-page">
     <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
-    <header className="manage-detail-heading"><div><p>Client account</p><h2 className="manage-detail-account-title"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />{account.name}</h2><span>{account.industry || "Industry not set"}</span></div><div><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open in list</Link></div></header>
-    <section className="manage-detail-stats" aria-label="Account workspace summary"><div><span>Lifecycle</span><Status value={account.stage} /></div><div><span>Open tasks</span><strong>{account.openTaskCount}</strong></div><div><span>Documents</span><strong>{account.documentCount}</strong></div><div><span>Opportunities</span><strong>{account.opportunityCount}</strong></div></section>
-    <div className="manage-detail-grid">
-      <section className="manage-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>
-      <section className="manage-panel"><header><div><h3>Contacts</h3><p>People connected to this customer account.</p></div></header>{contacts.length ? <div className="manage-compact-list">{contacts.map((contact) => <article className="manage-compact-record-row" key={contact.id} role="link" tabIndex={0} onClick={() => router.push(`/manage/contacts/${contact.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); router.push(`/manage/contacts/${contact.id}`); } }}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><strong>{contact.fullName}</strong><p>{contact.title || contact.email}</p></div><button className="manage-icon-button" onClick={(event) => { event.stopPropagation(); onCompose(contact); }} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>
-      <section className="manage-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>
-    </div>
+    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><p>Client account</p><h2>{account.name}</h2><span>{account.legalName || account.industry || "Account profile"}</span></div></div><div className="manage-record-actions"><EnrichmentRefreshButton id={account.id} enabled={Boolean(account.website)} available={data.enrichmentAvailable} configured={data.enrichmentConfigured} /><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open list</Link></div></header>
+    <section className="manage-record-highlights" aria-label="Account highlights"><div><span>Lifecycle</span><Status value={account.stage || "unclassified"} /></div><div><span>Next step</span><strong>{account.nextStep || "Not set"}</strong></div><div><span>Follow-up</span><strong>{account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled"}</strong></div><div><span>Open work</span><strong>{account.openTaskCount}</strong></div><div><span>Evidence files</span><strong>{documents.length}</strong></div></section>
+    <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
+    {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Account details</span><dl><div><dt>Industry</dt><dd>{account.industry || "Not set"}</dd></div><div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div><div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div><div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div></dl></section><section><span>Internal CRM</span><p>{account.privateNotes || "No private account note yet."}</p></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Company profile</span><h3>{profile ? "Apollo enrichment · internal CRM context" : "Account context"}</h3><p>{profileSummary}</p></div>{profile && <dl><div><dt>Profile status</dt><dd>{pretty(profile.status)}</dd></div>{profile.location && <div><dt>Location</dt><dd>{profile.location}</dd></div>}{profile.employeeCount != null && <div><dt>Team size</dt><dd>{profile.employeeCount.toLocaleString()}</dd></div>}{profile.fetchedAt && <div><dt>Updated</dt><dd>{date(profile.fetchedAt)}</dd></div>}</dl>}</section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship snapshot</h3><p>Keep the next action, people, files, and activity close together.</p></div></header><div className="manage-record-snapshot"><button type="button" onClick={() => setActive("people")}><Users size={16} /><span><strong>{contacts.length}</strong> people</span><ChevronRight size={15} /></button><button type="button" onClick={() => setActive("files")}><FileText size={16} /><span><strong>{documents.length}</strong> source files</span><ChevronRight size={15} /></button><button type="button" onClick={() => setActive("activity")}><Activity size={16} /><span><strong>{activities.length}</strong> recent touches</span><ChevronRight size={15} /></button></div></section></main></div>}
+    {active === "people" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>People</h3><p>Contacts connected to this account. Compose and record actions stay explicit.</p></div></header>{contacts.length ? <div className="manage-record-person-list">{contacts.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><Link href={`/manage/contacts/${contact.id}`}><strong>{contact.fullName}</strong></Link><p>{contact.title || "Role not set"} · {contact.email}</p></div>{contact.isPrimary && <span className="manage-record-primary">Primary</span>}<button className="manage-icon-button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>}
+    {active === "files" && <RecordFilesWorkspace title="Account files" description="A clean, searchable view of this client’s private source documents. Collections never change the immutable storage record." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, contextLabel: account.name, href: `/api/manage/documents/${item.id}/download` }))} />}
+    {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
+    {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>}
   </div>;
 }
 
 function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; contactId: string; onCompose: (contact: ManageContact) => void }) {
   const contact = data.contacts.find((item) => item.id === contactId);
+  const [active, setActive] = useState("overview");
   if (!contact) return <Empty icon={Users} title="Contact not found" copy="This contact may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/contacts"><ArrowLeft size={15} /> Back to contacts</Link>} />;
   const activities = data.activities.filter((item) => item.organizationId === contact.organizationId);
-  return <div className="manage-detail-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-detail-heading"><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div><button className="manage-button manage-button--primary" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></header><div className="manage-detail-grid manage-contact-detail-grid"><section className="manage-panel"><header><div><h3>Contact details</h3><p>Relationship and consent context.</p></div></header><dl className="manage-detail-list"><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd>{contact.email}</dd></div><div><dt>Phone</dt><dd>{contact.phone || "Not recorded"}</dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div></dl></section><section className="manage-panel"><header><div><h3>Relationship overview</h3><p>Internal CRM context for this contact.</p></div></header><dl className="manage-detail-list"><div><dt>Record source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div><div><dt>Contact role</dt><dd>{contact.isPrimary ? "Primary contact" : "Client contact"}</dd></div><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Account</dt><dd>{contact.organizationName}</dd></div></dl></section><section className="manage-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section></div></div>;
+  const tasks = data.tasks.filter((item) => item.organizationId === contact.organizationId && item.contactId === contact.id);
+  const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
+  const tabs = [{ id: "overview", label: "Overview" }, { id: "files", label: "Shared files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Tasks", count: tasks.length }];
+  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-button manage-button--primary" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><span>Account</span><strong>{contact.organizationName}</strong></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
+    {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Contact details</span><dl><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd>{contact.email}</dd></div><div><dt>Phone</dt><dd>{contact.phone || "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main></div>}
+    {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download` }))} emptyCopy="No account source files are available to this internal record yet." />}
+    {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
+    {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Tasks for {contact.fullName}</h3><p>Only work explicitly linked to this CRM contact is shown.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No contact tasks" copy="Assign a task to this contact when there is a clear next step." />}</section>}
+  </div>;
 }
 
 function Outreach({
@@ -3408,6 +3535,10 @@ function AccountForm({
             <input name="industry" />
           </label>
           <label>
+            <span>Account website</span>
+            <input name="website" type="url" placeholder="https://example.com" />
+          </label>
+          <label>
             <span>Lifecycle stage</span>
             <CostivraSelect
               name="stage"
@@ -3715,6 +3846,11 @@ function EditAccount({
           <label className="wide">
             <span>Next step</span>
             <input name="nextStep" defaultValue={account.nextStep || ""} />
+          </label>
+          <label className="wide">
+            <span>Account website / lookup domain</span>
+            <input name="website" type="url" defaultValue={account.website || ""} placeholder="https://example.com" />
+            <small>Used only for a manual internal company-profile lookup. It is not proof of company ownership.</small>
           </label>
           <label className="wide">
             <span>Private notes</span>
@@ -4309,7 +4445,11 @@ function Compose({
               <div className="manage-compose-signature-brand"><CostivraMark size={42} /><strong>Costivra</strong></div>
               <div className="manage-compose-signature-person">
                 {data.operator.avatarUrl
-                  ? <img className="manage-person-avatar large manage-compose-signature-avatar" src={data.operator.avatarUrl} alt="" />
+                  ? <>
+                    {/* The source is a short-lived private Supabase Storage URL. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="manage-person-avatar large manage-compose-signature-avatar" src={data.operator.avatarUrl} alt="" />
+                  </>
                   : <span className="manage-person-avatar large manage-compose-signature-avatar">{initials(data.operator.fullName)}</span>}
                 <div className="manage-compose-signature-copy">
                   <strong>{data.operator.fullName}</strong>
