@@ -4,7 +4,7 @@ import type { ManageData } from "@/lib/manage/types";
 
 function fixture(): ManageData {
   return {
-    operator: { id: "staff-1", email: "owner@example.test", fullName: "Owner", role: "owner", avatarUrl: null },
+    operator: { id: "staff-1", email: "owner@example.test", fullName: "Owner", role: "owner", avatarUrl: null, jobTitle: null, phone: null, linkedinUrl: null },
     staff: [],
     accounts: [
       {
@@ -26,7 +26,7 @@ function fixture(): ManageData {
     ],
     activities: [],
     mail: {
-      folder: "inbox", threads: [], selectedThread: null, messages: [], unreadCount: 2,
+      folder: "inbox", threads: [], folderCounts: {}, selectedThread: null, messages: [], unreadCount: 2,
       mailboxes: [], selectedMailboxId: null, fromAddress: "", inboxAddress: "", inboundReady: true,
     },
   };

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   deliveryFailureLedgerUpdate,
+  emailHtmlToText,
   isValidEmail,
   mailRequestHash,
   normalizeEmailAddress,
   normalizeSubject,
   parseAddressList,
   safeSnippet,
+  sanitizeEmailHtml,
 } from "./mail";
 
 describe("owner CRM mail policy", () => {
@@ -51,6 +53,27 @@ describe("owner CRM mail policy", () => {
 
   it("builds a short plain-text preview", () => {
     expect(safeSnippet("  One\n\n two   three ", 11)).toBe("One two thr");
+  });
+
+  it("keeps useful email formatting while removing executable markup", () => {
+    const sanitized = sanitizeEmailHtml(
+      '<h2 onclick="steal()">Hello</h2><script>alert(1)</script><a href="javascript:bad()">bad</a><a href="https://costivra.ai" style="color:red">safe</a>',
+    );
+    expect(sanitized).toContain("<h2>Hello</h2>");
+    expect(sanitized).not.toContain("script");
+    expect(sanitized).not.toContain("onclick");
+    expect(sanitized).not.toContain("javascript:");
+    expect(sanitized).toContain('href="https://costivra.ai"');
+  });
+
+  it("preserves approved alignment while discarding unrelated styles", () => {
+    expect(sanitizeEmailHtml('<div style="text-align:center;position:fixed;color:red">Centered</div>'))
+      .toBe('<div style="text-align:center">Centered</div>');
+  });
+
+  it("creates a readable plain-text fallback from rich email HTML", () => {
+    expect(emailHtmlToText("<h2>Hello</h2><p>First<br>Second</p><ul><li>Item</li></ul>"))
+      .toBe("Hello\nFirst\nSecond\n• Item");
   });
 
   it("keeps an accepted provider send in sent state when local persistence fails", () => {

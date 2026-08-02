@@ -37,10 +37,12 @@ function getOpenRouterKey(): string {
 export async function generateJson({
   messages,
   maxTokens = 1_200,
+  temperature = 0,
   plugins,
 }: {
   messages: OpenRouterMessage[];
   maxTokens?: number;
+  temperature?: number;
   plugins?: Array<{ id: "file-parser"; pdf: { engine: "mistral-ocr" | "cloudflare-ai" | "native" } }>;
 }): Promise<unknown> {
   const response = await fetch(OPENROUTER_URL, {
@@ -54,7 +56,7 @@ export async function generateJson({
       messages,
       ...(plugins ? { plugins } : {}),
       response_format: { type: "json_object" },
-      temperature: 0,
+      temperature: Math.min(1, Math.max(0, temperature)),
       max_tokens: maxTokens,
     }),
   });

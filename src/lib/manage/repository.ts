@@ -66,7 +66,7 @@ export async function getManageData(input?: {
       .select("*")
       .order("updated_at", { ascending: false }),
     db.from("organization_memberships").select("organization_id,user_id,role"),
-    db.from("profiles").select("id,email,full_name,avatar_path"),
+    db.from("profiles").select("id,email,full_name,avatar_path,job_title,phone,linkedin_url"),
     db.from("internal_staff_users").select("user_id,role,status"),
     db
       .from("crm_contacts")
@@ -382,18 +382,24 @@ export async function getManageData(input?: {
       };
     });
   const folder = input?.folder ?? "inbox";
-  const threads = allThreads.filter((thread) => {
-    if (folder === "starred")
+  const belongsToFolder = (thread: ManageMailThread, targetFolder: string) => {
+    if (targetFolder === "starred")
       return thread.isStarred && thread.status !== "trashed";
-    if (folder === "archive") return thread.status === "archived";
-    if (folder === "trash") return thread.status === "trashed";
+    if (targetFolder === "archive") return thread.status === "archived";
+    if (targetFolder === "trash") return thread.status === "trashed";
     if (thread.status !== "open") return false;
-    if (folder === "sent")
+    if (targetFolder === "sent")
       return thread.folder === "sent" || thread.latestDirection === "outbound";
-    if (folder === "drafts") return thread.folder === "draft";
-    if (folder === "scheduled") return thread.folder === "scheduled";
+    if (targetFolder === "drafts") return thread.folder === "draft";
+    if (targetFolder === "scheduled") return thread.folder === "scheduled";
     return thread.folder === "inbox" || thread.latestDirection === "inbound";
-  });
+  };
+  const threads = allThreads.filter((thread) => belongsToFolder(thread, folder));
+  const folderCounts = Object.fromEntries(
+    ["inbox", "starred", "sent", "drafts", "scheduled", "archive", "trash"].map(
+      (targetFolder) => [targetFolder, allThreads.filter((thread) => belongsToFolder(thread, targetFolder)).length],
+    ),
+  );
   const selectedThread =
     (input?.threadId
       ? allThreads.find((thread) => thread.id === input.threadId)
@@ -414,6 +420,7 @@ export async function getManageData(input?: {
           ccAddresses: stringArray(message.cc_addresses),
           subject: text(message.subject),
           textBody: nullable(message.text_body),
+          htmlBody: nullable(message.html_body),
           providerStatus: text(message.provider_status),
           attachments: Array.isArray(message.attachments)
             ? message.attachments.filter(
@@ -452,6 +459,9 @@ export async function getManageData(input?: {
       fullName: operator.fullName,
       role: operator.role,
       avatarUrl,
+      jobTitle: nullable(operatorProfile?.job_title),
+      phone: nullable(operatorProfile?.phone),
+      linkedinUrl: nullable(operatorProfile?.linkedin_url),
     },
     staff,
     accounts,
@@ -496,6 +506,7 @@ export async function getManageData(input?: {
     mail: {
       folder,
       threads,
+      folderCounts,
       selectedThread,
       messages,
       unreadCount: allThreads.reduce(

@@ -2,13 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Archive,
   ArrowLeft,
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   AtSign,
   Bell,
+  Bold,
   Bot,
   Building2,
   Camera,
@@ -24,22 +28,36 @@ import {
   FileText,
   FileCheck2,
   Inbox,
+  ImagePlus,
+  IndentDecrease,
+  IndentIncrease,
+  Italic,
   LayoutDashboard,
+  Link2,
+  List,
+  ListOrdered,
   Mail,
   MailOpen,
+  Maximize2,
   Menu,
   MessageSquareText,
+  Minimize2,
   Paperclip,
-  PenLine,
+  Palette,
   PhoneCall,
   Plus,
   RefreshCw,
   Reply,
+  Redo2,
+  RemoveFormatting,
   Search,
   Send,
   Settings,
   Star,
+  Strikethrough,
   Trash2,
+  Underline,
+  Undo2,
   Users,
   X,
 } from "lucide-react";
@@ -249,6 +267,50 @@ type ComposeContext = {
   mailboxId?: string;
 };
 
+type ActiveComposer = { data: ManageData; context: ComposeContext };
+type ManageComposerController = {
+  openComposer: (data: ManageData, context: ComposeContext) => void;
+  closeComposer: () => void;
+};
+
+const ManageComposerContext = createContext<ManageComposerController | null>(null);
+
+export function ManageComposerProvider({ children }: { children: ReactNode }) {
+  const [activeComposer, setActiveComposer] = useState<ActiveComposer | null>(null);
+  const [composerClosing, setComposerClosing] = useState(false);
+  const closeTimer = useRef<number | null>(null);
+
+  const openComposer = useCallback((data: ManageData, context: ComposeContext) => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    setComposerClosing(false);
+    setActiveComposer({ data, context });
+  }, []);
+  const closeComposer = useCallback(() => {
+    if (!activeComposer || composerClosing) return;
+    setComposerClosing(true);
+    closeTimer.current = window.setTimeout(() => {
+      setActiveComposer(null);
+      setComposerClosing(false);
+      closeTimer.current = null;
+    }, 240);
+  }, [activeComposer, composerClosing]);
+  useEffect(() => () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+  }, []);
+
+  const controller = useMemo(() => ({ openComposer, closeComposer }), [openComposer, closeComposer]);
+  return <ManageComposerContext.Provider value={controller}>
+    {children}
+    {activeComposer && <Compose data={activeComposer.data} context={activeComposer.context} onClose={closeComposer} closing={composerClosing} />}
+  </ManageComposerContext.Provider>;
+}
+
+function useManageComposer() {
+  const controller = useContext(ManageComposerContext);
+  if (!controller) throw new Error("ManageComposerProvider is required.");
+  return controller;
+}
+
 async function api(url: string, init: RequestInit) {
   const response = await fetch(
     url,
@@ -423,6 +485,8 @@ export function ManagePortal({
   const routeSearch = searchParams.get("search") ?? "";
   const router = useRouter();
   const toast = useToast();
+  const { openComposer } = useManageComposer();
+  const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
   const [mobileNav, setMobileNav] = useState(false);
   const [sidebarViewport, setSidebarViewport] =
     useState<ManageSidebarViewport>("desktop");
@@ -442,7 +506,6 @@ export function ManagePortal({
   const [dialog, setDialog] = useState<
     "account" | "contact" | "task" | "note" | "mailbox" | null
   >(null);
-  const [compose, setCompose] = useState<ComposeContext | null>(null);
   const [contextAccount, setContextAccount] = useState<ManageAccount | null>(null);
   const [busy, setBusy] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -869,18 +932,7 @@ export function ManagePortal({
               <button type="button" className="manage-topbar-icon" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><Bot size={18} strokeWidth={2} /></button>
               <button type="button" className="manage-topbar-icon" aria-label="Notifications" title="Notifications"><Bell size={18} /></button>
             </div>
-            {section === "mail" ? (
-              <button
-                className="manage-button manage-button--primary"
-                onClick={() => setCompose({ mode: "new" })}
-                disabled={!data.mail.mailboxes.some(
-                  (mailbox) =>
-                    mailbox.status === "active" && mailbox.canSend,
-                )}
-              >
-                <PenLine size={16} /> Compose
-              </button>
-            ) : section === "settings" || section === "invoice-review" ? null : section === "activity" ? (
+            {section === "mail" ? null : section === "settings" || section === "invoice-review" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => setDialog("note")}
@@ -1068,13 +1120,6 @@ export function ManagePortal({
               "Mailbox seat created and ready to use.",
             )
           }
-        />
-      )}
-      {compose && (
-        <Compose
-          data={data}
-          context={compose}
-          onClose={() => setCompose(null)}
         />
       )}
     </div>
@@ -1702,7 +1747,10 @@ function InlineAccountText({ account, field, value, display, placeholder, type =
   const [draft, setDraft] = useState(value ?? "");
   const saving = useRef(false);
 
-  useEffect(() => { setDraft(value ?? ""); }, [value]);
+  function startEditing() {
+    setDraft(value ?? "");
+    setEditing(true);
+  }
   async function save() {
     if (saving.current) return;
     saving.current = true;
@@ -1716,7 +1764,7 @@ function InlineAccountText({ account, field, value, display, placeholder, type =
       saving.current = false;
     }
   }
-  if (!editing) return <button type="button" className="manage-inline-value" onClick={() => setEditing(true)} title={`Edit ${field === "nextStep" ? "next step" : field === "nextFollowUpAt" ? "follow-up" : "private notes"}`}>{display || placeholder}</button>;
+  if (!editing) return <button type="button" className="manage-inline-value" onClick={startEditing} title={`Edit ${field === "nextStep" ? "next step" : field === "nextFollowUpAt" ? "follow-up" : "private notes"}`}>{display || placeholder}</button>;
   const shared = { autoFocus: true, value: draft, onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft(event.target.value), onBlur: () => void save(), onKeyDown: (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => { if (event.key === "Escape") { setDraft(value ?? ""); setEditing(false); } if (event.key === "Enter" && (!multiline || event.metaKey || event.ctrlKey)) { event.preventDefault(); void save(); } } };
   return multiline ? <textarea className="manage-inline-textarea" rows={3} {...shared} /> : <input className="manage-inline-input" type={type} {...shared} />;
 }
@@ -2282,6 +2330,16 @@ function SettingsPage({
   const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [jobTitle, setJobTitle] = useState(data.operator.jobTitle || "");
+  const [phone, setPhone] = useState(data.operator.phone || "");
+  const [linkedinUrl, setLinkedinUrl] = useState(data.operator.linkedinUrl || "");
+
+  useEffect(() => {
+    setJobTitle(data.operator.jobTitle || "");
+    setPhone(data.operator.phone || "");
+    setLinkedinUrl(data.operator.linkedinUrl || "");
+  }, [data.operator.jobTitle, data.operator.phone, data.operator.linkedinUrl]);
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -2304,6 +2362,26 @@ function SettingsPage({
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function saveSignature(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingSignature(true);
+    try {
+      const response = await fetch("/api/manage/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobTitle, phone, linkedinUrl }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Signature details could not be saved.");
+      toast.success("Email signature details updated.");
+      onUpdated();
+    } catch (error) {
+      toast.error("Signature details were not saved", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setSavingSignature(false);
     }
   }
 
@@ -2343,6 +2421,29 @@ function SettingsPage({
         >
           <Camera size={15} /> {uploading ? "Uploading…" : data.operator.avatarUrl ? "Replace photo" : "Upload photo"}
         </button>
+      </section>
+      <section className="manage-panel manage-settings-signature" aria-labelledby="signature-settings-title">
+        <div>
+          <h3 id="signature-settings-title">Email signature</h3>
+          <p>These details are added to new messages. Leave any field blank to keep it out of your signature.</p>
+        </div>
+        <form className="manage-settings-signature-form" onSubmit={saveSignature}>
+          <label>
+            <span>Title</span>
+            <input value={jobTitle} maxLength={120} placeholder="e.g. Owner" onChange={(event) => setJobTitle(event.target.value)} />
+          </label>
+          <label>
+            <span>Phone number</span>
+            <input value={phone} maxLength={48} inputMode="tel" placeholder="e.g. 469-555-0123" onChange={(event) => setPhone(event.target.value)} />
+          </label>
+          <label className="wide">
+            <span>LinkedIn profile</span>
+            <input value={linkedinUrl} maxLength={320} type="url" placeholder="https://www.linkedin.com/in/your-name" onChange={(event) => setLinkedinUrl(event.target.value)} />
+          </label>
+          <button type="submit" className="manage-button manage-button--primary" disabled={savingSignature}>
+            {savingSignature ? "Saving…" : "Save signature"}
+          </button>
+        </form>
       </section>
       <section id="email-identities" className="manage-settings-section">
         <Mailboxes data={data} query={query} run={run} onAdd={onAdd} embedded />
@@ -2677,13 +2778,13 @@ function MailPage({
       .includes(query.toLowerCase()),
   );
   const folders = [
-    ["inbox", "Inbox", Inbox],
-    ["starred", "Starred", Star],
-    ["sent", "Sent", Send],
-    ["drafts", "Drafts", FileText],
-    ["scheduled", "Scheduled", Clock3],
-    ["archive", "Archive", Archive],
-    ["trash", "Trash", Trash2],
+    ["inbox", "Inbox"],
+    ["starred", "Starred"],
+    ["sent", "Sent"],
+    ["drafts", "Drafts"],
+    ["scheduled", "Scheduled"],
+    ["archive", "Archive"],
+    ["trash", "Trash"],
   ] as const;
   const act = (operation: string) =>
     current
@@ -2715,20 +2816,6 @@ function MailPage({
   return (
     <div className="manage-mail-page">
       <div className="manage-mail-tabs">
-        <nav className="manage-mail-folder-tabs" aria-label="Mailbox folders">
-          {folders.map(([key, label]) => (
-            <Link
-              className={data.mail.folder === key ? "active" : ""}
-              href={`/manage/mail?folder=${key}${mailboxQuery}`}
-              key={key}
-            >
-              {label}
-              {key === "inbox" && data.mail.unreadCount > 0 && (
-                <b>{data.mail.unreadCount}</b>
-              )}
-            </Link>
-          ))}
-        </nav>
         <label className="manage-mailbox-switch">
           <span>Mailbox</span>
           <CostivraSelect
@@ -2750,19 +2837,27 @@ function MailPage({
             }
           />
         </label>
-        <div
-          className={`manage-mail-setup manage-mail-tabs-status${data.mail.inboundReady ? " ready" : ""}`}
+        <nav className="manage-mail-folder-tabs" aria-label="Mailbox folders">
+          {folders.map(([key, label]) => (
+            <Link
+              className={data.mail.folder === key ? "active" : ""}
+              href={`/manage/mail?folder=${key}${mailboxQuery}`}
+              key={key}
+            >
+              {label}
+              {data.mail.folderCounts[key] > 0 && (
+                <span>{data.mail.folderCounts[key]}</span>
+              )}
+            </Link>
+          ))}
+        </nav>
+        <button
+          className="manage-button manage-button--primary manage-mail-compose-trigger"
+          onClick={() => onCompose({ mode: "new" })}
+          disabled={!activeMailboxes.some((mailbox) => mailbox.canSend)}
         >
-          <i />{" "}
-          <div>
-            <strong>
-              {data.mail.inboundReady
-                ? "Inbound configured"
-                : "Inbound needs setup"}
-            </strong>
-            <span>{data.mail.inboxAddress}</span>
-          </div>
-        </div>
+          Compose
+        </button>
       </div>
       <div className={`manage-mail-shell${current ? " has-thread" : ""}`}>
       <section className="manage-mail-list">
@@ -3626,22 +3721,45 @@ function MailboxForm({
   );
 }
 
+function plainTextToComposerHtml(value: string) {
+  if (!value) return "";
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+}
+
 function Compose({
   data,
   context,
   onClose,
+  closing = false,
 }: {
   data: ManageData;
   context: ComposeContext;
   onClose: () => void;
+  closing?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [showCc, setShowCc] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState(
-    context.organizationId || "",
-  );
+  const [minimized, setMinimized] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [draftPromptOpen, setDraftPromptOpen] = useState(false);
+  const [draftPromptClosing, setDraftPromptClosing] = useState(false);
+  const [draftInstruction, setDraftInstruction] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftReveal, setDraftReveal] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const draftPromptRef = useRef<HTMLTextAreaElement>(null);
+  const draftPromptTimerRef = useRef<number | null>(null);
+  const draftRevealTimerRef = useRef<number | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [attachmentNames, setAttachmentNames] = useState<string[]>([]);
+  const selectedAccount = context.organizationId || "";
   const availableMailboxes = data.mail.mailboxes.filter(
     (mailbox) => mailbox.status === "active" && mailbox.canSend,
   );
@@ -3649,16 +3767,31 @@ function Compose({
     context.mailboxId || data.mail.selectedMailboxId || "",
   );
   const accountContacts = useMemo(
-    () =>
-      data.contacts.filter(
-        (contact) => contact.organizationId === selectedAccount,
-      ),
+    () => selectedAccount
+      ? data.contacts.filter((contact) => contact.organizationId === selectedAccount)
+      : data.contacts,
     [data.contacts, selectedAccount],
   );
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || editor.dataset.initialized === "true") return;
+    editor.innerHTML = plainTextToComposerHtml(context.body || "");
+    editor.dataset.initialized = "true";
+  }, [context.body]);
+  useEffect(() => {
+    if (draftPromptOpen && !draftPromptClosing && !drafting) requestAnimationFrame(() => draftPromptRef.current?.focus());
+  }, [draftPromptOpen, draftPromptClosing, drafting]);
+  useEffect(() => () => {
+    if (draftPromptTimerRef.current) window.clearTimeout(draftPromptTimerRef.current);
+    if (draftRevealTimerRef.current) window.clearTimeout(draftRevealTimerRef.current);
+  }, []);
   async function submitForm(element: HTMLFormElement, mode: "draft" | "send") {
     const form = new FormData(element);
+    form.set("body", editorRef.current?.innerText ?? "");
+    form.set("htmlBody", editorRef.current?.innerHTML ?? "");
     form.set("mode", mode);
     form.set("idempotencyKey", crypto.randomUUID());
+    if (mode === "draft") form.delete("attachments");
     setBusy(true);
     try {
       const result = await api("/api/manage/mail/messages", {
@@ -3689,8 +3822,84 @@ function Compose({
       setBusy(false);
     }
   }
+  function runEditorCommand(command: string, value?: string) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    document.execCommand(command, false, value);
+  }
+  function openDraftPrompt() {
+    if (draftPromptTimerRef.current) window.clearTimeout(draftPromptTimerRef.current);
+    setDraftPromptClosing(false);
+    setDraftPromptOpen(true);
+  }
+  function closeDraftPrompt(afterGeneration = false) {
+    if (drafting && !afterGeneration) return;
+    if (draftPromptTimerRef.current) window.clearTimeout(draftPromptTimerRef.current);
+    setDraftPromptClosing(true);
+    draftPromptTimerRef.current = window.setTimeout(() => {
+      setDraftPromptOpen(false);
+      setDraftPromptClosing(false);
+      if (afterGeneration) setDrafting(false);
+    }, 220);
+  }
+  async function generateDraft(form: HTMLFormElement) {
+    const recipientEmail = String(new FormData(form).get("to") || "").trim();
+    const subjectInput = form.elements.namedItem("subject");
+    const currentSubject = subjectInput instanceof HTMLInputElement ? subjectInput.value : "";
+    setDrafting(true);
+    try {
+      const response = await fetch("/api/manage/mail/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction: draftInstruction, recipientEmail, subject: currentSubject }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { bodyHtml?: string; subject?: string; error?: string };
+      if (!response.ok || !payload.bodyHtml) throw new Error(payload.error || "Costivra could not create a draft.");
+      if (editorRef.current) {
+        editorRef.current.innerHTML = payload.bodyHtml;
+      }
+      if (subjectInput instanceof HTMLInputElement && !subjectInput.value.trim() && payload.subject) subjectInput.value = payload.subject;
+      setDraftInstruction("");
+      setDraftReveal(true);
+      closeDraftPrompt(true);
+      if (draftRevealTimerRef.current) window.clearTimeout(draftRevealTimerRef.current);
+      draftRevealTimerRef.current = window.setTimeout(() => {
+        setDraftReveal(false);
+        editorRef.current?.focus();
+      }, 680);
+      toast.success("Draft added. Review it before you send.");
+    } catch (error) {
+      setDrafting(false);
+      toast.error("Draft could not be created", error instanceof Error ? error.message : "Please try again.");
+    }
+  }
+  function addLink() {
+    const url = window.prompt("Paste the web address for this link");
+    if (!url) return;
+    const normalized = /^(https?:|mailto:)/i.test(url) ? url : `https://${url}`;
+    runEditorCommand("createLink", normalized);
+  }
+  function recordAttachments(input: HTMLInputElement) {
+    setAttachmentNames((current) => Array.from(new Set([
+      ...current,
+      ...Array.from(input.files ?? []).map((file) => file.name),
+    ])));
+  }
+  function saveOnClose(button: HTMLButtonElement) {
+    const form = button.form;
+    const formData = form ? new FormData(form) : null;
+    const hasDraftContent = Boolean(
+      form && (
+        ["to", "subject"].some((name) => String(formData?.get(name) || "").trim()) ||
+        editorRef.current?.innerText.trim()
+      ),
+    );
+    if (form && hasDraftContent && !busy && selectedMailbox) void submitForm(form, "draft");
+    else if (!busy) onClose();
+  }
   return (
-    <div className="manage-compose-window">
+    <div className={`manage-compose-window${minimized ? " is-minimized" : ""}${closing ? " is-closing" : ""}`}>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -3709,12 +3918,18 @@ function Compose({
                   ? "Forward message"
                   : "New message"}
             </strong>
-            <span>via Resend</span>
+            <span>{minimized ? "Draft" : ""}</span>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close composer">
-            <X size={17} />
-          </button>
+          <div className="manage-compose-window-actions">
+            <button type="button" onClick={() => setMinimized((value) => !value)} aria-label={minimized ? "Maximize composer" : "Minimize composer"}>
+              {minimized ? <Maximize2 size={15} /> : <Minimize2 size={15} />}
+            </button>
+            <button type="button" onClick={(event) => saveOnClose(event.currentTarget)} aria-label="Save draft and close composer">
+              <X size={17} />
+            </button>
+          </div>
         </header>
+        <div className="manage-compose-body" aria-hidden={minimized} inert={minimized}>
         <div className="manage-compose-account">
           <div className="manage-compose-routing">
             <label>
@@ -3735,28 +3950,10 @@ function Compose({
                 ]}
               />
             </label>
-            <label>
-              <span>Client account *</span>
-              <CostivraSelect
-                name="organizationId"
-                required
-                value={selectedAccount}
-                onChange={(val) => setSelectedAccount(val)}
-                placeholder="Link this email to an account"
-                size="sm"
-                options={[
-                  { value: "", label: "Link this email to an account" },
-                  ...data.accounts.map((account) => ({
-                    value: account.id,
-                    label: account.name,
-                  })),
-                ]}
-              />
-            </label>
+            {selectedAccount && <input type="hidden" name="organizationId" value={selectedAccount} />}
           </div>
-          <small>Required so the send is authorized and auditable.</small>
         </div>
-        <div className="manage-compose-line">
+        <div className={`manage-compose-line manage-compose-subject-row${drafting ? " is-generating" : ""}${draftReveal ? " is-draft-revealing" : ""}`}>
           <span>To</span>
           <input
             name="to"
@@ -3798,46 +3995,145 @@ function Compose({
             defaultValue={context.subject || ""}
           />
         </div>
-        <textarea
-          name="body"
-          aria-label="Message body"
-          placeholder="Write your message…"
-          required
-          defaultValue={context.body || ""}
-        />
-        <div className="manage-compose-schedule">
-          <label>
-            <Clock3 size={14} />
-            <span>Schedule (optional)</span>
-            <CostivraDateTimePicker name="scheduledAt" />
+        <div className="manage-compose-formatting" role="toolbar" aria-label="Message formatting">
+          <select aria-label="Text style" defaultValue="div" onChange={(event) => runEditorCommand("formatBlock", event.target.value)}>
+            <option value="div">Normal</option>
+            <option value="h2">Heading</option>
+            <option value="h3">Subheading</option>
+            <option value="blockquote">Quote</option>
+            <option value="pre">Code</option>
+          </select>
+          <span className="manage-compose-tool-divider" />
+          <button type="button" onClick={() => runEditorCommand("bold")} aria-label="Bold" title="Bold"><Bold size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("italic")} aria-label="Italic" title="Italic"><Italic size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("underline")} aria-label="Underline" title="Underline"><Underline size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("strikeThrough")} aria-label="Strikethrough" title="Strikethrough"><Strikethrough size={15} /></button>
+          <span className="manage-compose-tool-divider" />
+          <button type="button" onClick={() => runEditorCommand("insertUnorderedList")} aria-label="Bulleted list" title="Bulleted list"><List size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("insertOrderedList")} aria-label="Numbered list" title="Numbered list"><ListOrdered size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("outdent")} aria-label="Decrease indent" title="Decrease indent"><IndentDecrease size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("indent")} aria-label="Increase indent" title="Increase indent"><IndentIncrease size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("justifyLeft")} aria-label="Align left" title="Align left"><AlignLeft size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("justifyCenter")} aria-label="Align center" title="Align center"><AlignCenter size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("justifyRight")} aria-label="Align right" title="Align right"><AlignRight size={15} /></button>
+          <span className="manage-compose-tool-divider" />
+          <button type="button" onClick={addLink} aria-label="Add link" title="Add link"><Link2 size={15} /></button>
+          <label className="manage-compose-color" title="Text color"><Palette size={15} /><input type="color" aria-label="Text color" defaultValue="#273244" onChange={(event) => runEditorCommand("foreColor", event.currentTarget.value)} /></label>
+          <label className="manage-attach" title="Attach files">
+            <Paperclip size={15} />
+            <input name="attachments" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" multiple onChange={(event) => recordAttachments(event.currentTarget)} />
           </label>
+          <button type="button" onClick={() => imageInputRef.current?.click()} aria-label="Attach images" title="Attach images"><ImagePlus size={15} /></button>
+          <input ref={imageInputRef} className="manage-compose-hidden-file" name="attachments" type="file" accept="image/*" multiple onChange={(event) => recordAttachments(event.currentTarget)} />
+          <button type="button" onClick={() => runEditorCommand("removeFormat")} aria-label="Clear formatting" title="Clear formatting"><RemoveFormatting size={15} /></button>
+          <span className="manage-compose-toolbar-spacer" />
+          <button type="button" onClick={() => runEditorCommand("undo")} aria-label="Undo" title="Undo"><Undo2 size={15} /></button>
+          <button type="button" onClick={() => runEditorCommand("redo")} aria-label="Redo" title="Redo"><Redo2 size={15} /></button>
+        </div>
+        <div className={`manage-compose-message-scroll${drafting ? " is-generating" : ""}`}>
+          {draftPromptOpen && <div className={`manage-compose-draft-prompt${draftPromptClosing ? " is-closing" : ""}${drafting ? " is-generating" : ""}`} role="dialog" aria-label="Generate email draft" aria-busy={drafting}>
+            <div className="manage-compose-draft-prompt-form" aria-hidden={drafting}>
+              <label htmlFor="manage-compose-draft-instruction">Describe what you want to write</label>
+              <textarea
+                id="manage-compose-draft-instruction"
+                ref={draftPromptRef}
+                value={draftInstruction}
+                placeholder="For example: follow up on the renewal and ask for a 15-minute call next week."
+                onChange={(event) => setDraftInstruction(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") { closeDraftPrompt(); return; }
+                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                    event.preventDefault();
+                    const form = event.currentTarget.form;
+                    if (form && draftInstruction.trim()) void generateDraft(form);
+                  }
+                }}
+              />
+              <footer>
+                <small>Uses the matched contact, account, vendors, and recent CRM activity when available.</small>
+                <div className="manage-compose-draft-prompt-actions">
+                  <button type="button" className="manage-button manage-button--quiet" onClick={() => closeDraftPrompt()}>Cancel</button>
+                  <button type="button" className="manage-button manage-button--primary" disabled={draftInstruction.trim().length < 3} onClick={(event) => { const form = event.currentTarget.form; if (form) void generateDraft(form); }}>
+                    Generate draft
+                  </button>
+                </div>
+              </footer>
+            </div>
+            <div className="manage-compose-draft-loading" role="status" aria-live="polite">
+              <div className="manage-compose-draft-orbit" aria-hidden="true"><CostivraMark size={30} /><i /><i /><i /></div>
+              <div><strong>Building your draft</strong><span>Reading the relationship, recent messages, and next step.</span></div>
+              <div className="manage-compose-draft-progress" aria-hidden="true"><i /></div>
+            </div>
+          </div>}
+          <div
+            ref={editorRef}
+            className={`manage-compose-editor${drafting ? " is-generating" : ""}${draftReveal ? " is-draft-revealing" : ""}`}
+            contentEditable={!draftPromptOpen}
+            suppressContentEditableWarning
+            role="textbox"
+            aria-label="Message body"
+            aria-multiline="true"
+            aria-hidden={draftPromptOpen}
+            data-placeholder={draftPromptOpen ? "" : 'Write your message… Type "/" to draft with context'}
+            onInput={(event) => {
+              const editor = event.currentTarget;
+              if (editor.innerText.trim() === "/") {
+                editor.innerHTML = "";
+                openDraftPrompt();
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              document.execCommand(event.shiftKey ? "insertLineBreak" : "insertParagraph");
+            }}
+          />
+          <div className="manage-compose-signature-preview" aria-label="Email signature preview">
+          <div className="manage-compose-signature-main">
+            <span className="manage-compose-signature-rail" aria-hidden="true" />
+            <div className="manage-compose-signature-content">
+              <div className="manage-compose-signature-brand"><CostivraMark size={28} /><strong>Costivra</strong></div>
+              <div className="manage-compose-signature-person">
+                <span className="manage-compose-signature-avatar">
+                  {data.operator.avatarUrl ? <img src={data.operator.avatarUrl} alt="" /> : data.operator.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
+                </span>
+                <div className="manage-compose-signature-copy">
+                  <strong>{data.operator.fullName}</strong>
+                  {data.operator.jobTitle && <span className="manage-compose-signature-title">{data.operator.jobTitle}</span>}
+                </div>
+              </div>
+              <div className="manage-compose-signature-details">
+                {data.operator.phone && <><span>{data.operator.phone}</span><i aria-hidden="true">|</i></>}
+                <a href="https://costivra.ai" target="_blank" rel="noreferrer">costivra.ai</a>
+                {data.operator.linkedinUrl && <><i aria-hidden="true">|</i><a href={data.operator.linkedinUrl} target="_blank" rel="noreferrer">LinkedIn</a></>}
+              </div>
+              <p>Every recurring cost, under command.</p>
+            </div>
+          </div>
+          <p className="manage-compose-signature-notice"><strong>CONFIDENTIALITY DISCLAIMER:</strong> This email and any attachments may contain confidential information intended only for the named recipient. Please handle it in accordance with applicable privacy and electronic-communications laws, including the Electronic Communications Privacy Act (ECPA), 18 U.S.C. §§ 2510–2521. Unauthorized review, use, disclosure, or distribution is prohibited. If you received it in error, please notify the sender and delete all copies.</p>
+          </div>
+          {attachmentNames.length > 0 && <div className="manage-compose-attachment-list" aria-label="Selected attachments">
+            {attachmentNames.map((name) => <span key={name}><Paperclip size={12} />{name}</span>)}
+          </div>}
         </div>
         <footer>
-          <div>
-            <label className="manage-attach" title="Attach up to five files">
-              <Paperclip size={18} />
-              <input name="attachments" type="file" multiple />
-            </label>
+          <span className="manage-compose-save-state">Draft saves when you close</span>
+          <div className="manage-compose-send-actions">
+            <div className="manage-compose-schedule">
+              <input type="hidden" name="scheduledAt" value={scheduledAt} />
+              <button type="button" className={`manage-compose-schedule-trigger${scheduledAt ? " is-set" : ""}`} onClick={() => setScheduleOpen((value) => !value)} aria-label="Schedule email" aria-expanded={scheduleOpen}><Clock3 size={16} /></button>
+              {scheduleOpen && <div className="manage-compose-schedule-popover"><span>Schedule send</span><CostivraDateTimePicker value={scheduledAt} onChange={setScheduledAt} /></div>}
+            </div>
             <button
-              className="manage-button manage-button--quiet"
-              type="button"
-              disabled={busy || !selectedAccount || !selectedMailbox}
-              onClick={(event) => {
-                const form = event.currentTarget.form;
-                if (form) void submitForm(form, "draft");
-              }}
+              className="manage-button manage-button--primary"
+              disabled={busy || !selectedMailbox}
             >
-              Save draft
+              {busy ? "Sending…" : scheduledAt ? "Schedule" : "Send"}
+              <Send size={16} />
             </button>
           </div>
-          <button
-            className="manage-button manage-button--primary"
-            disabled={busy || !selectedAccount || !selectedMailbox}
-          >
-            {busy ? "Sending…" : "Send"}
-            <Send size={16} />
-          </button>
         </footer>
+        </div>
       </form>
     </div>
   );

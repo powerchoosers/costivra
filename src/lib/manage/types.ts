@@ -4,6 +4,9 @@ export type ManageOperator = {
   fullName: string;
   role: "owner" | "operator";
   avatarUrl: string | null;
+  jobTitle: string | null;
+  phone: string | null;
+  linkedinUrl: string | null;
 };
 
 export type ManageStaffMember = {
@@ -103,6 +106,7 @@ export type ManageMailMessage = {
   ccAddresses: string[];
   subject: string;
   textBody: string | null;
+  htmlBody: string | null;
   providerStatus: string;
   attachments: Array<{ filename: string; contentType?: string; size?: number }>;
   sentAt: string | null;
@@ -141,6 +145,7 @@ export type ManageData = {
   mail: {
     folder: string;
     threads: ManageMailThread[];
+    folderCounts: Record<string, number>;
     selectedThread: ManageMailThread | null;
     messages: ManageMailMessage[];
     unreadCount: number;

@@ -1,5 +1,21 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-02 — Generate CRM-grounded email drafts server-side and append canonical signatures at send time
+
+### Context
+
+The owner composer needs to help an operator draft a real client email from a compact `/` prompt. That draft can benefit from a matched recipient, account details, vendor relationships, recent activities, and email conversations, but this information must not be exposed through a browser-wide data query or treated as model instructions. Operators also need one consistent signature that uses their profile details and a private profile image when available.
+
+### Decision
+
+Use a dedicated, authenticated server route to resolve the typed recipient and retrieve only its linked contact/account context. It bounds the number and length of vendor, activity, and message excerpts before sending them to the configured server-only AI adapter. The model returns a draft only; it cannot send, alter CRM records, or take other actions. Prompt instructions require short, plain-language 5th–8th grade writing and prohibit unsupported claims.
+
+Store title, phone, and LinkedIn URL as optional fields on the existing profile record. The composer previews them locally, but the send route builds the canonical signature from the authenticated profile immediately before the operator clicks Send. A private avatar is attached to Resend as a CID image; the fallback is a circular initials glyph. Empty settings are omitted. The sent record includes the canonical signature, while the UI never receives a permanent public storage URL.
+
+### Consequences
+
+Draft quality improves when context exists without claiming information that is absent. The feature is tenant- and recipient-scoped, provides an audit event, and keeps the human Send action and side-effect ledger intact. It does add an AI-provider call for each requested draft; users must review every generated message before sending.
+
 ## 2026-08-01 — Load the PDF worker explicitly in server extraction
 
 ### Context

@@ -1,15 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getResendClient } from "@/lib/email/resend";
+import { appendEmailSignatureHtml } from "@/lib/manage/email-signature";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { requireMailbox } from "@/lib/manage/mailbox-access";
 import {
   deliveryFailureLedgerUpdate,
+  emailHtmlToText,
   isValidEmail,
   mailRequestHash,
   normalizeSubject,
   parseAddressList,
   safeSnippet,
+  sanitizeEmailHtml,
 } from "@/lib/manage/mail";
 import { cleanText, cleanUuid } from "@/lib/portal/http";
 
@@ -38,26 +41,43 @@ async function resolveContact(
   return data;
 }
 
+async function resolveOrganizationId(
+  db: Awaited<ReturnType<typeof requireInternalOperator>>["db"],
+  recipient: string,
+) {
+  const { data } = await db
+    .from("crm_contacts")
+    .select("organization_id")
+    .ilike("email", recipient)
+    .limit(1)
+    .maybeSingle();
+  return cleanUuid(data?.organization_id);
+}
+
 export async function POST(request: Request) {
   try {
     const operator = await requireInternalOperator();
     const { db, userId } = operator;
     const form = await request.formData();
     const mode = field(form, "mode", 20) || "send";
-    const organizationId = cleanUuid(form.get("organizationId"));
+    let organizationId = cleanUuid(form.get("organizationId"));
     const mailboxId = cleanUuid(form.get("mailboxId"));
     const threadId = cleanUuid(form.get("threadId")) || null;
     const subject = field(form, "subject", 500) || "(no subject)";
-    const body = field(form, "body", 100_000);
+    const htmlBody = sanitizeEmailHtml(field(form, "htmlBody", 200_000));
+    const body = field(form, "body", 100_000) || emailHtmlToText(htmlBody);
     const to = parseAddressList(field(form, "to", 2_000));
     const cc = parseAddressList(field(form, "cc", 2_000));
     const bcc = parseAddressList(field(form, "bcc", 2_000));
     const scheduledAtValue = field(form, "scheduledAt", 50) || null;
     const scheduledAt = scheduledAtValue ? new Date(scheduledAtValue) : null;
+    if (!organizationId && to[0]) {
+      organizationId = await resolveOrganizationId(db, to[0]);
+    }
     if (!organizationId)
       return NextResponse.json(
         {
-          error: "Link the email to a client account before saving or sending.",
+          error: "The recipient does not match a client contact yet. Add that email to the correct CRM account before saving or sending.",
         },
         { status: 400 },
       );
@@ -142,6 +162,44 @@ export async function POST(request: Request) {
     const contact = to[0]
       ? await resolveContact(db, organizationId, to[0])
       : null;
+    const { data: signatureProfile, error: signatureError } = await db
+      .from("profiles")
+      .select("full_name,job_title,phone,linkedin_url,avatar_path")
+      .eq("id", userId)
+      .maybeSingle();
+    if (signatureError) throw signatureError;
+    let signatureAttachment: {
+      filename: string;
+      content: Buffer;
+      contentType: string;
+      contentId: string;
+    } | null = null;
+    const avatarPath = typeof signatureProfile?.avatar_path === "string" ? signatureProfile.avatar_path : null;
+    if (mode !== "draft" && avatarPath) {
+      const { data: avatar, error: avatarError } = await db.storage
+        .from("costivra-avatars")
+        .download(avatarPath);
+      if (!avatarError && avatar) {
+        const extension = avatarPath.split(".").pop()?.toLowerCase();
+        const contentType = extension === "png" ? "image/png" : extension === "webp" ? "image/webp" : "image/jpeg";
+        signatureAttachment = {
+          filename: `costivra-profile.${extension === "png" || extension === "webp" ? extension : "jpg"}`,
+          content: Buffer.from(await avatar.arrayBuffer()),
+          contentType,
+          contentId: "costivra-profile-avatar",
+        };
+      }
+    }
+    const outboundHtml = mode === "draft"
+      ? htmlBody
+      : appendEmailSignatureHtml(htmlBody, {
+          fullName: typeof signatureProfile?.full_name === "string" ? signatureProfile.full_name : operator.userId,
+          jobTitle: typeof signatureProfile?.job_title === "string" ? signatureProfile.job_title : null,
+          phone: typeof signatureProfile?.phone === "string" ? signatureProfile.phone : null,
+          linkedinUrl: typeof signatureProfile?.linkedin_url === "string" ? signatureProfile.linkedin_url : null,
+          avatarCid: signatureAttachment?.contentId ?? null,
+        });
+    const outboundText = mode === "draft" ? body : emailHtmlToText(outboundHtml);
     const fromAddress = mailbox.sender;
     const attachmentData = await Promise.all(
       files.map(async (file) => {
@@ -197,6 +255,7 @@ export async function POST(request: Request) {
         bcc_addresses: bcc,
         subject,
         text_body: body || null,
+        html_body: htmlBody || null,
         provider_status: "draft",
         updated_at: new Date().toISOString(),
       };
@@ -237,7 +296,8 @@ export async function POST(request: Request) {
       cc,
       bcc,
       subject,
-      text: body,
+      text: outboundText,
+      html: outboundHtml,
       scheduledAt: scheduledAt?.toISOString(),
       attachmentDigests: attachmentData.map((item) => item.digest),
     });
@@ -285,7 +345,7 @@ export async function POST(request: Request) {
         trace_id: traceId,
         sanitized_request_metadata: {
           subject_length: subject.length,
-          body_length: body.length,
+          body_length: outboundText.length,
           recipient_count: to.length + cc.length + bcc.length,
           attachment_names: attachmentData.map((item) => item.filename),
           scheduled: Boolean(scheduledAt),
@@ -327,14 +387,16 @@ export async function POST(request: Request) {
             cc: cc.length ? cc : undefined,
             bcc: bcc.length ? bcc : undefined,
             subject,
-            text: body,
+            text: outboundText,
+            html: outboundHtml || undefined,
             replyTo: mailbox.address,
             scheduledAt: scheduledAt?.toISOString(),
             headers: Object.keys(headers).length ? headers : undefined,
-            attachments: attachmentData.map((item) => ({
+            attachments: [...attachmentData, ...(signatureAttachment ? [signatureAttachment] : [])].map((item) => ({
               filename: item.filename,
               content: item.content,
               contentType: item.contentType,
+              ...("contentId" in item ? { contentId: item.contentId } : {}),
             })),
           },
           { idempotencyKey },
@@ -391,7 +453,8 @@ export async function POST(request: Request) {
           cc_addresses: cc,
           bcc_addresses: bcc,
           subject,
-          text_body: body,
+          text_body: outboundText,
+          html_body: outboundHtml || null,
           provider_message_id: sent.id,
           provider_status: providerStatus,
           in_reply_to: inReplyTo,
