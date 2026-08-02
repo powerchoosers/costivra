@@ -83,6 +83,7 @@ import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
+import { formatManageDate } from "@/lib/manage/date-format";
 import {
   buildRecipientCandidates,
   isRecipientEmail,
@@ -133,20 +134,7 @@ const stageLabel = (stage: string | null) =>
   stage ? stage.replaceAll("_", " ") : "Unclassified";
 const pretty = (value: string) =>
   value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-const date = (value: string | null, withTime = false) =>
-  value
-    ? new Intl.DateTimeFormat(
-        "en-US",
-        withTime
-          ? {
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            }
-          : { month: "short", day: "numeric", year: "numeric" },
-      ).format(new Date(value))
-    : "—";
+const date = formatManageDate;
 const initials = (value: string) =>
   value
     .split(/\s+/)

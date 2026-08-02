@@ -24,12 +24,9 @@ import type {
   IntakeOperationEvent,
   ManageIntakeOperationsData,
 } from "@/lib/manage/intake-operations-types";
+import { formatManageDateTime } from "@/lib/manage/date-format";
 
-const dateTime = (value: string | null) => value
-  ? new Intl.DateTimeFormat("en-US", {
-      month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
-    }).format(new Date(value))
-  : "—";
+const dateTime = formatManageDateTime;
 const fileSize = (bytes: number) => bytes < 1024 * 1024
   ? `${Math.max(1, Math.round(bytes / 1024))} KB`
   : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
