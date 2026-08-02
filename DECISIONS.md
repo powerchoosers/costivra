@@ -305,3 +305,11 @@ The frontend cannot auto-route an energy case or present UCEP as the only option
 **Decision:** Detail pages use a server-owned allowlist for each resource and field. The API maps public field names to fixed database columns, validates values by field type, verifies membership and tenant ownership, limits mutation to owner/admin/member roles, checks `updated_at` when available, and records before/after hashes in the audit trail. Calculated opportunity value, source-document identity, reconciled invoice totals, workflow states, approvals, and verified savings remain read-only outside their dedicated workflows.
 
 **Consequences:** Common descriptive and operational corrections are quick and consistent, while material financial claims cannot be rewritten through a convenient UI shortcut. Adding another editable field requires an explicit code review rather than becoming editable automatically.
+
+## 2026-08-01 — Keep the owner assistant read-only and record-grounded
+
+**Context:** Internal operators need an Elena-style assistant that can summarize live CRM work without becoming an unrestricted cross-tenant agent or silently taking action.
+
+**Decision:** The Manage assistant uses one authenticated server route, a bounded record snapshot, allowlisted source links, and live suggestion counts derived from accounts, tasks, mail, and receiving webhook events. It may explain and prioritize existing records, but it cannot send email, invoke webhooks, alter records, approve work, or calculate authoritative savings. Questions remain session-local; safe request metadata is written to the internal audit ledger without storing raw prompts.
+
+**Consequences:** Operators get useful, source-linked answers while human workflows remain the only path to external or financial side effects. Persistent assistant history and approved action tools require separate schemas, authorization, and explicit review before they can be added.

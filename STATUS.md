@@ -275,3 +275,12 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Each fixture is documented with its source URL. These are templates/sample documents only, not customer records or production evidence.
 - Verified all four downloads begin with the PDF signature (`%PDF-`). Full extraction scoring remains a follow-up once the golden-data harness is connected.
 - Expanded the set with official Microsoft Azure MSDN/PAYG sample invoices and official AWS VAT invoice/receipt samples. The fixture directory now covers recognizable cloud, telecom, utility, and software billing layouts without importing private customer bills.
+
+## 2026-08-01 — Grounded owner assistant and overview table refinement
+
+- Added the push-layout Ask Costivra rail with live Supabase-derived suggestions, bounded server-side AI answers, allowlisted record citations, loading/error/empty states, and a responsive mobile overlay.
+- The assistant reads recent inbound-delivery webhook records for operational context but cannot fire webhooks, send messages, mutate CRM data, approve work, or calculate financial value.
+- Updated the owner overview account table to match the Accounts workspace with visible row numbers, aligned columns, an internal bottom scrollbar, and a paginated footer. Removed the redundant overview follow-up button.
+- Synchronized the assistant rail and workspace width/max-width transitions so opening and closing use the same 320ms motion curve without the initial hard reflow.
+- Validation passed: `npm run typecheck`, targeted ESLint, two assistant suggestion tests, desktop browser QA, 390×844 mobile QA, and a live account-grounded assistant response with three record citations.
+- `OPEN_ROUTER_API_KEY` is configured as a sensitive Vercel variable for Production and Preview and is available locally through the ignored development environment file. No code was deployed by this change.

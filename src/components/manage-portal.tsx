@@ -739,10 +739,7 @@ export function ManagePortal({
         </header>
         <div key={section} className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}>
           {section === "overview" && (
-            <Overview
-              data={data}
-              onTask={() => setDialog("task")}
-            />
+            <Overview data={data} />
           )}
           {section === "accounts" && (
             detailId ? <AccountDetailPage data={data} accountId={detailId} onCompose={(contact) => setCompose({ mode: "new", organizationId: contact.organizationId, to: contact.email })} /> : <Accounts
@@ -911,15 +908,17 @@ export function ManagePortal({
   );
 }
 
-function Overview({
-  data,
-  onTask,
-}: {
-  data: ManageData;
-  onTask: () => void;
-}) {
+function Overview({ data }: { data: ManageData }) {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     data.accounts[0]?.id ?? null,
+  );
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
+  const pageCount = Math.max(1, Math.ceil(data.accounts.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageAccounts = data.accounts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
 
   const active = data.accounts.filter(
@@ -960,14 +959,6 @@ function Overview({
           <p>One place to manage customers, outreach, and email.</p>
           <h2>Every client relationship, in view.</h2>
         </div>
-        <div>
-          <button
-            className="manage-button manage-button--quiet"
-            onClick={onTask}
-          >
-            <CalendarClock size={16} /> Add follow-up
-          </button>
-        </div>
       </section>
       <section className="manage-summary" aria-label="CRM summary">
         <div>
@@ -1001,9 +992,10 @@ function Overview({
             <Link href="/manage/accounts">View all</Link>
           </header>
           <AccountRows
-            accounts={data.accounts.slice(0, 8)}
+            accounts={pageAccounts}
             selectedId={selectedAccount?.id}
             onSelectAccount={(account) => setSelectedAccountId(account.id)}
+            showRowNumbers
           />
           {!data.accounts.length && (
             <Empty
@@ -1012,6 +1004,13 @@ function Overview({
               copy="Use the create button beside global search to add the first real account."
             />
           )}
+          <TableFooter
+            count={data.accounts.length}
+            noun="account"
+            page={currentPage}
+            pageCount={pageCount}
+            onPage={setPage}
+          />
         </section>
         <AccountInspector
           data={data}
@@ -1183,6 +1182,7 @@ function AccountRows({
   selectedIds,
   onToggle,
   onTogglePage,
+  showRowNumbers = false,
   empty,
 }: {
   accounts: ManageAccount[];
@@ -1191,6 +1191,7 @@ function AccountRows({
   selectedIds?: Set<string>;
   onToggle?: (id: string) => void;
   onTogglePage?: () => void;
+  showRowNumbers?: boolean;
   empty?: ReactNode;
 }) {
   const pageSelection = accounts.length > 0 && accounts.every((account) => selectedIds?.has(account.id));
@@ -1200,12 +1201,14 @@ function AccountRows({
       <table className="manage-data-table manage-account-data-table">
         <thead>
           <tr>
-            {onToggle && (
+            {(onToggle || showRowNumbers) && (
               <th className="manage-row-number-cell">
-                <BulkHeaderSelector
-                  state={pageSelection ? "all" : someSelected ? "some" : "none"}
-                  onChange={() => onTogglePage?.()}
-                />
+                {onToggle ? (
+                  <BulkHeaderSelector
+                    state={pageSelection ? "all" : someSelected ? "some" : "none"}
+                    onChange={() => onTogglePage?.()}
+                  />
+                ) : null}
               </th>
             )}
             <th className="manage-sticky-column">Account</th>
@@ -1227,14 +1230,18 @@ function AccountRows({
                 onClick={() => onSelectAccount?.(account)}
                 style={{ cursor: onSelectAccount ? "pointer" : "default" }}
               >
-                {onToggle && (
+                {(onToggle || showRowNumbers) && (
                   <td className="manage-row-number-cell">
-                    <BulkRowSelector
-                      checked={isBulkSelected}
-                      index={index + 1}
-                      label={account.name}
-                      onChange={() => onToggle(account.id)}
-                    />
+                    {onToggle ? (
+                      <BulkRowSelector
+                        checked={isBulkSelected}
+                        index={index + 1}
+                        label={account.name}
+                        onChange={() => onToggle(account.id)}
+                      />
+                    ) : (
+                      <span className="manage-row-number">{index + 1}</span>
+                    )}
                   </td>
                 )}
                 <td className="manage-sticky-column">
