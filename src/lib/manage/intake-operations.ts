@@ -19,21 +19,42 @@ export async function getManageIntakeOperationsData(
   eventId?: string | null,
 ): Promise<ManageIntakeOperationsData> {
   const { db } = await requireInternalOperator();
-  const [eventsResult, organizationsResult] = await Promise.all([
+  const [eventsResult, organizationsResult, failedExtractionsResult] = await Promise.all([
     db.from("inbound_email_events")
       .select("id,organization_id,sender_address,subject,body_preview,status,attachment_count,processed_attachment_count,attempt_count,max_attempts,next_attempt_at,last_attempt_at,error_message,received_at,updated_at,processed_at")
       .order("received_at", { ascending: false })
       .limit(500),
     db.from("organizations").select("id,name"),
+    db.from("document_extraction_versions")
+      .select("document_id,status,failure_code,input_mode,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500),
   ]);
   if (eventsResult.error) throw eventsResult.error;
   if (organizationsResult.error) throw organizationsResult.error;
+  if (failedExtractionsResult.error) throw failedExtractionsResult.error;
 
   const eventRows = rows(eventsResult.data);
   const eventIds = eventRows.map((row) => text(row.id)).filter(Boolean);
   const organizations = new Map(
     rows(organizationsResult.data).map((row) => [text(row.id), text(row.name, "Unknown client")]),
   );
+  const latestFailureByDocument = new Map<string, Row>();
+  for (const failure of rows(failedExtractionsResult.data)) {
+    const documentId = text(failure.document_id);
+    if (documentId && !latestFailureByDocument.has(documentId))
+      latestFailureByDocument.set(documentId, failure);
+  }
+  const failedDocumentIds = [...latestFailureByDocument.entries()]
+    .filter(([, extraction]) => text(extraction.status) === "failed")
+    .map(([documentId]) => documentId);
+  const recoveryDocumentsResult = failedDocumentIds.length
+    ? await db.from("documents")
+      .select("id,organization_id,original_filename,extraction_summary,status,source_purged_at,created_at")
+      .in("id", failedDocumentIds)
+      .eq("status", "needs_review")
+    : { data: [], error: null };
+  if (recoveryDocumentsResult.error) throw recoveryDocumentsResult.error;
   const attachmentsResult = eventIds.length
     ? await db.from("inbound_email_attachments")
       .select("id,event_id,filename,content_type,byte_size,scan_status,processing_status,error_message,document_id,created_at")
@@ -94,5 +115,20 @@ export async function getManageIntakeOperationsData(
     events,
     selectedEvent: eventId ? events.find((event) => event.id === eventId) ?? null : null,
     scannerConfigured: isMalwareScannerConfigured(),
+    recoveryDocuments: rows(recoveryDocumentsResult.data).map((document) => {
+      const failure = latestFailureByDocument.get(text(document.id));
+      const inputMode = nullable(failure?.input_mode);
+      return {
+        id: text(document.id),
+        organizationId: text(document.organization_id),
+        organizationName: organizations.get(text(document.organization_id)) ?? "Unknown client",
+        filename: text(document.original_filename, "Source document"),
+        summary: nullable(document.extraction_summary),
+        failureCode: text(failure?.failure_code, "extraction_failed"),
+        inputMode: inputMode === "native_text" || inputMode === "pdf_ocr" ? inputMode : null,
+        createdAt: text(document.created_at),
+        sourceAvailable: !document.source_purged_at,
+      };
+    }),
   };
 }

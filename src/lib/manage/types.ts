@@ -81,6 +81,9 @@ export type ManageDocument = {
   documentType: string | null;
   summary: string | null;
   confidence: number | null;
+  extractionStatus: string | null;
+  extractionInputMode: "native_text" | "pdf_ocr" | null;
+  extractionFailureCode: string | null;
   createdAt: string;
   updatedAt: string;
   pageCount: number | null;

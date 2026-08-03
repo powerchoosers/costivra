@@ -55,6 +55,7 @@ export async function getManageData(input?: {
     activitiesResult,
     mailboxesResult,
     documentsResult,
+    extractionVersionsResult,
     opportunitiesResult,
     threadsResult,
     messagesResult,
@@ -96,6 +97,10 @@ export async function getManageData(input?: {
       .from("documents")
       .select("id,organization_id,original_filename,mime_type,byte_size,status,document_type,extraction_summary,created_at,updated_at,page_count,source_purged_at")
       .order("created_at", { ascending: false }),
+    db.from("document_extraction_versions")
+      .select("document_id,confidence,status,input_mode,failure_code,created_at")
+      .order("created_at", { ascending: false })
+      .limit(2500),
     db.from("opportunities").select("id,organization_id"),
     db
       .from("crm_email_threads")
@@ -120,6 +125,7 @@ export async function getManageData(input?: {
     activitiesResult,
     mailboxesResult,
     documentsResult,
+    extractionVersionsResult,
     opportunitiesResult,
     threadsResult,
     messagesResult,
@@ -154,9 +160,18 @@ export async function getManageData(input?: {
       .filter((row) => isVisibleOrganization(text(row.organization_id)))
       .map((row) => [text(row.organization_id), row]),
   );
+  const latestExtractionByDocument = new Map<string, Row>();
+  for (const extraction of rows(extractionVersionsResult.data)) {
+    const documentId = text(extraction.document_id);
+    if (documentId && !latestExtractionByDocument.has(documentId))
+      latestExtractionByDocument.set(documentId, extraction);
+  }
   const documents = rows(documentsResult.data)
     .filter((document) => isVisibleOrganization(text(document.organization_id)))
-    .map((document) => ({
+    .map((document) => {
+      const extraction = latestExtractionByDocument.get(text(document.id));
+      const inputMode = nullable(extraction?.input_mode);
+      return ({
       id: text(document.id),
       organizationId: text(document.organization_id),
       organizationName: text(
@@ -169,12 +184,16 @@ export async function getManageData(input?: {
       status: text(document.status, "processing"),
       documentType: nullable(document.document_type),
       summary: nullable(document.extraction_summary),
-      confidence: null,
+      confidence: nullableNumber(extraction?.confidence),
+      extractionStatus: nullable(extraction?.status),
+      extractionInputMode: inputMode === "native_text" || inputMode === "pdf_ocr" ? (inputMode as "native_text" | "pdf_ocr") : null,
+      extractionFailureCode: nullable(extraction?.failure_code),
       createdAt: text(document.created_at),
       updatedAt: text(document.updated_at),
       pageCount: nullableNumber(document.page_count),
       sourcePurgedAt: nullable(document.source_purged_at),
-    }));
+      });
+    });
   const profilesById = new Map(
     rows(profilesResult.data).map((row) => [text(row.id), row]),
   );

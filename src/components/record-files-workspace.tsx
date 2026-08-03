@@ -13,11 +13,14 @@ import {
   Grid2X2,
   LayoutList,
   ReceiptText,
+  RefreshCw,
   Search,
   ShieldCheck,
 } from "lucide-react";
 import { useId, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { isDocumentDownloadableStatus } from "@/lib/documents/access";
+import { useToast } from "@/components/toast-provider";
 
 export type RecordFile = {
   id: string;
@@ -31,9 +34,13 @@ export type RecordFile = {
   pageCount?: number | null;
   summary?: string | null;
   confidence?: number | null;
+  extractionStatus?: string | null;
+  extractionInputMode?: "native_text" | "pdf_ocr" | null;
+  extractionFailureCode?: string | null;
   evidenceCount?: number;
   contextLabel?: string | null;
   href?: string | null;
+  retryHref?: string | null;
   sourceAvailable?: boolean;
 };
 
@@ -119,10 +126,30 @@ export function RecordFilesWorkspace({
   emptyCopy?: string;
 }) {
   const titleId = useId();
+  const router = useRouter();
+  const toast = useToast();
   const [collection, setCollection] = useState<Collection>("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>("list");
   const [selectedId, setSelectedId] = useState<string | null>(files[0]?.id ?? null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  async function retryExtraction(file: RecordFile) {
+    if (!file.retryHref || retryingId) return;
+    setRetryingId(file.id);
+    try {
+      const response = await fetch(file.retryHref, { method: "PATCH" });
+      const payload = await response.json().catch(() => ({})) as { error?: string; warning?: string | null };
+      if (!response.ok) throw new Error(payload.error || "Extraction could not be retried.");
+      if (payload.warning) toast.warning("Still needs review", payload.warning);
+      else toast.success("Extraction completed", "The source file has been processed again and its record is ready to review.");
+      router.refresh();
+    } catch (error) {
+      toast.error("Retry failed", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setRetryingId(null);
+    }
+  }
 
   const collectionCounts = useMemo(() => {
     const counts = new Map<Collection, number>([["all", files.length], ["evidence", 0], ["invoices", 0], ["contracts", 0], ["other", 0]]);
@@ -260,10 +287,13 @@ export function RecordFilesWorkspace({
                 <div><dt>Added</dt><dd>{formatDate(selectedFile.createdAt)}</dd></div>
                 {selectedFile.contextLabel && <div><dt>Linked to</dt><dd>{selectedFile.contextLabel}</dd></div>}
                 {selectedFile.pageCount && <div><dt>Pages</dt><dd>{selectedFile.pageCount}</dd></div>}
+                {selectedFile.extractionInputMode && <div><dt>Read with</dt><dd>{selectedFile.extractionInputMode === "pdf_ocr" ? "Image OCR" : "Embedded text"}</dd></div>}
+                {selectedFile.extractionFailureCode && <div><dt>Recovery reason</dt><dd>{formatStatus(selectedFile.extractionFailureCode)}</dd></div>}
                 {selectedFile.evidenceCount ? <div><dt>Evidence links</dt><dd>{selectedFile.evidenceCount}</dd></div> : null}
               </dl>
               <div className="record-files-workspace__trust-note"><ShieldCheck aria-hidden="true" /> <span>{selectedFile.sourceAvailable === false ? "The retained metadata, extraction, and provenance remain protected." : "Original file and provenance remain protected."}</span></div>
               {recordFileCanOpen(selectedFile) ? <a className="record-files-workspace__open" href={selectedFile.href!}>Open secure file <ChevronRight aria-hidden="true" /></a> : <span className="record-files-workspace__unavailable"><FileClock aria-hidden="true" /> {selectedFile.sourceAvailable === false ? "Original removed under the retention policy" : "Available after security and processing checks"}</span>}
+              {selectedFile.retryHref && <button className="record-files-workspace__open" type="button" disabled={retryingId !== null} onClick={() => void retryExtraction(selectedFile)}><RefreshCw aria-hidden="true" className={retryingId === selectedFile.id ? "is-spinning" : ""} />{retryingId === selectedFile.id ? "Retrying extraction…" : "Retry automatic extraction"}</button>}
             </>
           ) : (
             <div className="record-files-workspace__inspector-empty"><AlertCircle aria-hidden="true" /><strong>Choose a file</strong><p>Select a file to see its source context.</p></div>

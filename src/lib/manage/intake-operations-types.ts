@@ -49,4 +49,15 @@ export type ManageIntakeOperationsData = {
   events: IntakeOperationEvent[];
   selectedEvent: IntakeOperationEvent | null;
   scannerConfigured: boolean;
+  recoveryDocuments: Array<{
+    id: string;
+    organizationId: string;
+    organizationName: string;
+    filename: string;
+    summary: string | null;
+    failureCode: string;
+    inputMode: "native_text" | "pdf_ocr" | null;
+    createdAt: string;
+    sourceAvailable: boolean;
+  }>;
 };

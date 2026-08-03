@@ -42,6 +42,13 @@ async function runEventAction(id: string, action: "retry" | "rescan") {
   if (!response.ok) throw new Error(payload.error || "The intake event could not be updated.");
 }
 
+async function retryDocumentExtraction(id: string) {
+  const response = await fetch(`/api/manage/documents/${id}/retry-extraction`, { method: "PATCH" });
+  const payload = await response.json().catch(() => ({})) as { error?: string; warning?: string | null };
+  if (!response.ok) throw new Error(payload.error || "Extraction could not be retried.");
+  return payload.warning ?? null;
+}
+
 export function ManageIntakeOperations({ data }: { data: ManageIntakeOperationsData }) {
   if (data.selectedEvent) return <IntakeEventDetail event={data.selectedEvent} scannerConfigured={data.scannerConfigured} />;
   return <IntakeEventQueue data={data} />;
@@ -55,7 +62,7 @@ function IntakeEventQueue({ data }: { data: ManageIntakeOperationsData }) {
     const term = query.trim().toLowerCase();
     return !term || `${event.organizationName} ${event.senderAddress} ${event.subject} ${event.status}`.toLowerCase().includes(term);
   }), [data.events, query, view]);
-  const attention = data.events.filter((event) => intakeStatusGroup(event.status) === "attention").length;
+  const attention = data.events.filter((event) => intakeStatusGroup(event.status) === "attention").length + data.recoveryDocuments.length;
   const active = data.events.filter((event) => intakeStatusGroup(event.status) === "active").length;
   const quarantine = data.events.filter((event) => event.status === "quarantined").length;
   const completed = data.events.filter((event) => intakeStatusGroup(event.status) === "complete").length;
@@ -71,6 +78,7 @@ function IntakeEventQueue({ data }: { data: ManageIntakeOperationsData }) {
       <Summary label="Quarantined" value={quarantine} note="Awaiting clean scan" />
       <Summary label="Completed" value={completed} note="Finished intake" />
     </div>
+    {data.recoveryDocuments.length > 0 && <DocumentRecoveryQueue documents={data.recoveryDocuments} />}
     <div className="invoice-review-controls">
       <div className="invoice-review-tabs" role="tablist" aria-label="Intake event views">
         {([["attention", "Needs attention"], ["active", "In progress"], ["all", "All events"]] as const).map(([value, copy]) => <button key={value} type="button" role="tab" aria-selected={view === value} onClick={() => setView(value)}>{copy}</button>)}
@@ -92,6 +100,29 @@ function IntakeEventQueue({ data }: { data: ManageIntakeOperationsData }) {
       </table>
       {!filtered.length && <div className="invoice-review-empty"><CheckCircle2 size={24} /><strong>{data.events.length ? "Nothing matches this view" : "No forwarded emails yet"}</strong><p>{data.events.length ? "Choose another view or clear the search." : "The first message sent to a client intake address will appear here."}</p></div>}
     </div>
+  </section>;
+}
+
+function DocumentRecoveryQueue({ documents }: { documents: ManageIntakeOperationsData["recoveryDocuments"] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  async function retry(id: string) {
+    setBusyId(id);
+    try {
+      const warning = await retryDocumentExtraction(id);
+      if (warning) toast.warning("Still needs review", warning);
+      else toast.success("Extraction completed", "The document has returned to the normal review workflow.");
+      router.refresh();
+    } catch (error) {
+      toast.error("Retry failed", error instanceof Error ? error.message : "Please try again.");
+    } finally { setBusyId(null); }
+  }
+  return <section className="manage-panel intake-recovery-queue">
+    <header><div><span>EXTRACTION RECOVERY</span><h3>Documents automation could not finish</h3><p>These files never became invoice records. Retry provider failures here; use human review when the source itself is unclear.</p></div><strong>{documents.length}</strong></header>
+    <div className="invoice-review-table-wrap"><table className="invoice-review-table"><thead><tr><th>Client</th><th>Source file</th><th>Reading path</th><th>Reason</th><th>Received</th><th>Action</th></tr></thead><tbody>
+      {documents.map((document) => <tr key={document.id}><td><strong>{document.organizationName}</strong></td><td><strong>{document.filename}</strong><small>{document.summary}</small></td><td>{document.inputMode === "pdf_ocr" ? "Image OCR" : "Embedded text"}</td><td>{label(document.failureCode)}</td><td>{dateTime(document.createdAt)}</td><td><button className="manage-button" type="button" disabled={busyId !== null || !document.sourceAvailable} onClick={() => void retry(document.id)}><RefreshCw size={15} />{busyId === document.id ? "Retrying…" : document.sourceAvailable ? "Retry extraction" : "Source expired"}</button></td></tr>)}
+    </tbody></table></div>
   </section>;
 }
 

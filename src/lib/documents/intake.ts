@@ -2,6 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { analyzeDocument, analyzeScannedPdf } from "@/lib/ai/document-intelligence";
 import { createInvoiceRecordFromExtraction } from "@/lib/documents/invoice-record";
 import { extractDocumentText } from "@/lib/documents/text-extraction";
+import {
+  classifyDocumentExtractionFailure,
+  documentExtractionReviewSummary,
+  safeExtractionError,
+  type DocumentExtractionInputMode,
+} from "@/lib/documents/extraction-failure";
 import type { MalwareScanResult } from "@/lib/security/malware-scanner";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -96,20 +102,59 @@ export async function processDocumentBuffer(input: {
     .eq("organization_id", input.organizationId);
   if (processingError) throw processingError;
 
+  let extracted = { text: "", pageCount: null as number | null };
+  let inputMode: DocumentExtractionInputMode = "native_text";
+  let intelligence;
   try {
-    const extracted = await extractDocumentText(input.buffer, input.mimeType);
+    try {
+      extracted = await extractDocumentText(input.buffer, input.mimeType);
+    } catch (error) {
+      if (input.mimeType !== "application/pdf") throw error;
+      // A valid image-only PDF can fail native text parsing. The bounded OCR
+      // path is the recovery mechanism; its output is still schema-validated.
+      extracted = { text: "", pageCount: null };
+    }
     const usedPdfOcr = input.mimeType === "application/pdf" && !extracted.text.trim();
+    inputMode = usedPdfOcr ? "pdf_ocr" : "native_text";
     if (!extracted.text.trim() && !usedPdfOcr) throw new Error("No readable text was found in this document.");
-    const intelligence = usedPdfOcr
+    intelligence = usedPdfOcr
       ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer })
       : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text });
+  } catch (analysisError) {
+    const failureCode = classifyDocumentExtractionFailure(analysisError, inputMode);
+    const summary = documentExtractionReviewSummary(failureCode);
+    const { error: failureVersionError } = await input.db.from("document_extraction_versions").insert({
+      document_id: input.documentId,
+      extractor_version: "costivra-intake-v3",
+      provider: inputMode === "pdf_ocr" ? "openrouter-pdf-ocr" : "openrouter",
+      model_identifier: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
+      schema_version: "cost-document-v2",
+      status: "failed",
+      input_mode: inputMode,
+      failure_code: failureCode,
+      error_message: safeExtractionError(analysisError),
+      completed_at: new Date().toISOString(),
+    });
+    if (failureVersionError) throw failureVersionError;
+    const { error: failureUpdateError } = await input.db.from("documents").update({ status: "needs_review", extraction_summary: summary, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
+    if (failureUpdateError) throw failureUpdateError;
+    const { error: failureAuditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId });
+    if (failureAuditError) throw failureAuditError;
+    return { duplicate: false as const, documentId: input.documentId, status: "needs_review" as const, warning: summary, failureCode, sha256: input.sha256 };
+  }
+
+  // Persistence is deliberately outside the extraction catch. A database or
+  // audit failure must fail the request; it is not a document-quality issue.
+  {
     const { data: version, error: versionError } = await input.db.from("document_extraction_versions").insert({
       document_id: input.documentId,
       extractor_version: "costivra-intake-v3",
-      provider: usedPdfOcr ? "openrouter-pdf-ocr" : "openrouter",
+      provider: inputMode === "pdf_ocr" ? "openrouter-pdf-ocr" : "openrouter",
       model_identifier: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
       schema_version: "cost-document-v2",
       status: intelligence.confidence < .75 ? "needs_review" : "completed",
+      input_mode: inputMode,
+      failure_code: null,
       structured_output: intelligence,
       confidence: intelligence.confidence,
       completed_at: new Date().toISOString(),
@@ -135,10 +180,5 @@ export async function processDocumentBuffer(input: {
     const { error: auditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId });
     if (auditError) throw auditError;
     return { duplicate: false as const, documentId: input.documentId, extractionVersionId: version.id as string, invoiceRecord, status: finalStatus, sha256: input.sha256 };
-  } catch (analysisError) {
-    await input.db.from("document_extraction_versions").insert({ document_id: input.documentId, extractor_version: "costivra-intake-v3", provider: "openrouter", schema_version: "cost-document-v2", status: "failed", error_message: analysisError instanceof Error ? analysisError.message.slice(0, 1000) : "Extraction failed" });
-    await input.db.from("documents").update({ status: "needs_review", extraction_summary: "Automatic extraction needs human review.", updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
-    await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId });
-    return { duplicate: false as const, documentId: input.documentId, status: "needs_review" as const, warning: "Automatic extraction needs review.", sha256: input.sha256 };
   }
 }

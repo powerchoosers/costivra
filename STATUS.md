@@ -1,5 +1,23 @@
 # Costivra Status
 
+## Document extraction recovery — August 2, 2026
+
+- Separated document-reading failures from persistence failures. Image-only PDFs now use the
+  bounded OpenRouter OCR path even when native PDF text parsing fails, while database and audit
+  errors fail the request instead of being mislabeled as a customer document-quality problem.
+- Added durable, non-secret extraction failure categories and reading modes in Supabase. Existing
+  failed demo documents were backfilled so operators can distinguish unavailable automation,
+  invalid structured output, unreadable sources, and general extraction failures without exposing
+  provider diagnostics to customers.
+- Added an extraction-recovery queue under **Manage → Intake** and per-file recovery controls in
+  internal account workspaces. A retry is permitted only for the latest failed extraction when no
+  invoice exists; immutable storage content is SHA-256 verified first, concurrent retries are
+  claimed atomically, and successful low-confidence invoices continue through human review rather
+  than producing duplicate financial records.
+- Applied and verified the two recovery migrations directly through the connected Supabase project
+  because the repository's older local/remote CLI migration histories are incomplete. Supabase's
+  security advisor reports only the pre-existing leaked-password-protection warning.
+
 ## Savings attestation workspace — August 2, 2026
 
 - Removed one-click baseline acceptance and verification from compact savings rows. Owners and
