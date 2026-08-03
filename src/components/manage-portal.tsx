@@ -161,6 +161,18 @@ type GlobalSearchResult = {
   href: string;
 };
 
+type ApolloSettingsSummary = {
+  provider: "apollo";
+  configured: boolean;
+  connection: "connected" | "unconfigured" | "needs_access" | "unavailable";
+  checkedAt: string;
+  leadCredits: {
+    limit: number;
+    used: number;
+    remaining: number;
+  } | null;
+};
+
 const searchCategoryLabels: Record<GlobalSearchResult["category"], string> = {
   accounts: "Accounts",
   contacts: "Contacts",
@@ -2821,6 +2833,10 @@ function SettingsPage({
   const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
   const [runningRetentionReport, setRunningRetentionReport] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "enrichment">("general");
+  const [apolloSettings, setApolloSettings] = useState<ApolloSettingsSummary | null>(null);
+  const [loadingApolloSettings, setLoadingApolloSettings] = useState(false);
+  const [apolloSettingsError, setApolloSettingsError] = useState<string | null>(null);
   const [retentionReport, setRetentionReport] = useState<{
     id: string;
     candidates: {
@@ -2954,6 +2970,33 @@ function SettingsPage({
     }
   }
 
+  async function loadApolloSettings() {
+    setLoadingApolloSettings(true);
+    setApolloSettingsError(null);
+    try {
+      const response = await fetch("/api/manage/enrichment/apollo", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => ({}))) as ApolloSettingsSummary & {
+        error?: string;
+      };
+      if (!response.ok)
+        throw new Error(payload.error || "Apollo usage could not be loaded.");
+      setApolloSettings(payload);
+    } catch (error) {
+      setApolloSettingsError(
+        error instanceof Error ? error.message : "Apollo usage could not be loaded.",
+      );
+    } finally {
+      setLoadingApolloSettings(false);
+    }
+  }
+
+  const apolloUsagePercent = apolloSettings?.leadCredits?.limit
+    ? Math.min(100, Math.round((apolloSettings.leadCredits.used / apolloSettings.leadCredits.limit) * 100))
+    : 0;
+
   return (
     <div className="manage-settings-layout">
       <section className="manage-page-heading">
@@ -2962,6 +3005,42 @@ function SettingsPage({
           <h2>Settings</h2>
         </div>
       </section>
+      <div className="manage-panel manage-settings-tabs" role="tablist" aria-label="Settings sections">
+        <button
+          type="button"
+          role="tab"
+          id="manage-settings-general-tab"
+          aria-selected={activeSettingsTab === "general"}
+          aria-controls="manage-settings-general-panel"
+          className={activeSettingsTab === "general" ? "active" : undefined}
+          onClick={() => setActiveSettingsTab("general")}
+        >
+          General
+        </button>
+        {data.operator.role === "owner" && (
+          <button
+            type="button"
+            role="tab"
+            id="manage-settings-enrichment-tab"
+            aria-selected={activeSettingsTab === "enrichment"}
+            aria-controls="manage-settings-enrichment-panel"
+            className={activeSettingsTab === "enrichment" ? "active" : undefined}
+            onClick={() => {
+              setActiveSettingsTab("enrichment");
+              if (!apolloSettings && !loadingApolloSettings) void loadApolloSettings();
+            }}
+          >
+            Enrichment
+          </button>
+        )}
+      </div>
+      {activeSettingsTab === "general" ? (
+        <div
+          id="manage-settings-general-panel"
+          role="tabpanel"
+          aria-labelledby="manage-settings-general-tab"
+          className="manage-settings-tab-panel"
+        >
       <section className="manage-panel manage-settings-profile" aria-labelledby="profile-settings-title">
         <div className="manage-settings-profile-copy">
           <OperatorAvatar operator={data.operator} large />
@@ -3128,6 +3207,117 @@ function SettingsPage({
       <section id="email-identities" className="manage-settings-section">
         <Mailboxes data={data} query={query} run={run} onAdd={onAdd} embedded />
       </section>
+        </div>
+      ) : (
+        <section
+          id="manage-settings-enrichment-panel"
+          role="tabpanel"
+          aria-labelledby="manage-settings-enrichment-tab"
+          className="manage-panel manage-settings-enrichment"
+          aria-busy={loadingApolloSettings}
+        >
+          <header className="manage-settings-enrichment-heading">
+            <div>
+              <span className="manage-settings-kicker">Data providers</span>
+              <h3>Enrichment</h3>
+              <p>Control the services Costivra uses to fill in company information. Apollo is the first provider available here.</p>
+            </div>
+          </header>
+          <div className="manage-enrichment-provider">
+            <div className="manage-enrichment-provider-heading">
+              <div className="manage-enrichment-provider-identity">
+                <span aria-hidden="true"><BarChart3 size={18} /></span>
+                <div>
+                  <strong>Apollo</strong>
+                  <small>Company search and organization enrichment</small>
+                </div>
+              </div>
+              <div className="manage-enrichment-provider-actions">
+                {apolloSettings && (
+                  <span className={`manage-enrichment-status manage-enrichment-status--${apolloSettings.connection}`}>
+                    <i aria-hidden="true" />
+                    {apolloSettings.connection === "connected"
+                      ? "Connected"
+                      : apolloSettings.connection === "unconfigured"
+                        ? "Not configured"
+                        : apolloSettings.connection === "needs_access"
+                          ? "Access needed"
+                          : "Unavailable"}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="manage-button manage-button--quiet"
+                  disabled={loadingApolloSettings}
+                  onClick={() => void loadApolloSettings()}
+                >
+                  <RefreshCw className={loadingApolloSettings ? "is-spinning" : undefined} size={14} />
+                  {loadingApolloSettings ? "Refreshing…" : "Refresh usage"}
+                </button>
+              </div>
+            </div>
+
+            {loadingApolloSettings && !apolloSettings ? (
+              <div className="manage-enrichment-loading" aria-live="polite">
+                <span aria-hidden="true" />
+                <div><strong>Checking Apollo</strong><small>Loading the current credit balance.</small></div>
+              </div>
+            ) : apolloSettingsError ? (
+              <div className="manage-enrichment-message manage-enrichment-message--error" role="alert">
+                <CircleAlert size={17} aria-hidden="true" />
+                <div><strong>Usage is unavailable</strong><small>{apolloSettingsError}</small></div>
+              </div>
+            ) : apolloSettings?.connection === "connected" && apolloSettings.leadCredits ? (
+              <div className="manage-enrichment-usage" aria-live="polite">
+                <div className="manage-enrichment-credit-summary">
+                  <span>Lead credits remaining</span>
+                  <strong>{apolloSettings.leadCredits.remaining.toLocaleString()}</strong>
+                  <small>
+                    {apolloSettings.leadCredits.used.toLocaleString()} used of {apolloSettings.leadCredits.limit.toLocaleString()}
+                  </small>
+                  <div
+                    className="manage-enrichment-progress"
+                    role="progressbar"
+                    aria-label="Apollo lead credits used"
+                    aria-valuemin={0}
+                    aria-valuemax={apolloSettings.leadCredits.limit}
+                    aria-valuenow={apolloSettings.leadCredits.used}
+                  >
+                    <span style={{ width: `${apolloUsagePercent}%` }} />
+                  </div>
+                  <em>{apolloUsagePercent}% used · checked {new Date(apolloSettings.checkedAt).toLocaleString()}</em>
+                </div>
+                <div className="manage-enrichment-costs">
+                  <h4>What Costivra uses</h4>
+                  <dl>
+                    <div><dt>Company search</dt><dd>1 credit per results page</dd></div>
+                    <div><dt>Company enrichment</dt><dd>1 credit per company</dd></div>
+                  </dl>
+                  <p>An exact website lookup followed by saving the account normally uses 2 credits. A name search can use up to 3.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="manage-enrichment-message" aria-live="polite">
+                <ShieldAlert size={17} aria-hidden="true" />
+                <div>
+                  <strong>
+                    {apolloSettings?.connection === "unconfigured"
+                      ? "Apollo is not configured"
+                      : apolloSettings?.connection === "needs_access"
+                        ? "The API key needs profile access"
+                        : "Apollo usage could not be verified"}
+                  </strong>
+                  <small>
+                    {apolloSettings?.connection === "unconfigured"
+                      ? "Add a server-side APOLLO_API_KEY to enable company enrichment."
+                      : "The key remains server-only. Check its Apollo scopes, then refresh usage."}
+                  </small>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

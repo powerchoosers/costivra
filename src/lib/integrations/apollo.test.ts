@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 import {
   companyLookupFromWebsite,
   enrichApolloOrganization,
+  getApolloCreditUsage,
   isApolloConfigured,
   normalizeApolloSelection,
   searchApolloOrganizations,
@@ -67,6 +68,29 @@ describe("Apollo enrichment adapter", () => {
     expect(isApolloConfigured()).toBe(false);
     vi.stubEnv("APOLLO_API_KEY", "[redacted]");
     expect(isApolloConfigured()).toBe(false);
+  });
+
+  it("returns a bounded lead-credit summary without provider profile details", async () => {
+    vi.stubEnv("APOLLO_API_KEY", "test-key");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: "apollo-user-id",
+      email: "owner@example.test",
+      effective_num_lead_credits: 5_000,
+      num_lead_credits_used: 230,
+      num_credits_remaining: 3_346,
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const usage = await getApolloCreditUsage();
+
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.apollo.io/api/v1/users/api_profile?include_credit_usage=true");
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "GET", cache: "no-store", redirect: "error" });
+    expect(usage).toMatchObject({
+      status: "fresh",
+      leadCredits: { limit: 5_000, used: 1_654, remaining: 3_346 },
+    });
+    expect(usage).not.toHaveProperty("email");
+    expect(usage).not.toHaveProperty("id");
   });
 
   it("drops unsafe provider links before they can be stored or rendered", async () => {

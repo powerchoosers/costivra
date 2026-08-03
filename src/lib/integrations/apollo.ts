@@ -56,6 +56,16 @@ export type ApolloOrganizationSearchResult = {
   detailsLoaded: boolean;
 };
 
+export type ApolloCreditUsage = {
+  status: ApolloStatus;
+  checkedAt: string;
+  leadCredits: {
+    limit: number;
+    used: number;
+    remaining: number;
+  } | null;
+};
+
 const text = (value: unknown, limit = 1_600) =>
   typeof value === "string" && value.trim()
     ? value.trim().slice(0, limit)
@@ -295,6 +305,44 @@ async function apolloRequest(path: string, init: RequestInit): Promise<{
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Reads the authenticated Apollo user's lead-credit balance. Apollo documents
+ * this profile request as a zero-credit operation. Only normalized totals are
+ * returned so provider identity fields and the API key never reach the client.
+ */
+export async function getApolloCreditUsage(): Promise<ApolloCreditUsage> {
+  const response = await apolloRequest("/users/api_profile?include_credit_usage=true", {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+  const checkedAt = new Date().toISOString();
+  if (response.status !== "fresh" || !response.payload)
+    return { status: response.status, checkedAt, leadCredits: null };
+
+  const limit = integer(response.payload.effective_num_lead_credits);
+  const profileUsed = integer(response.payload.num_lead_credits_used);
+  const reportedRemaining = integer(response.payload.num_credits_remaining);
+  if (limit == null || (profileUsed == null && reportedRemaining == null))
+    return { status: "unavailable", checkedAt, leadCredits: null };
+
+  const remaining = Math.min(reportedRemaining ?? Math.max(0, limit - (profileUsed ?? 0)), limit);
+  // Apollo's profile payload can report usage for the key owner while the
+  // remaining balance is team-wide. Derive the displayed team usage from the
+  // internally consistent allowance and remaining balance when it is present.
+  const used = reportedRemaining == null
+    ? Math.min(profileUsed ?? 0, limit)
+    : Math.max(0, limit - remaining);
+  return {
+    status: "fresh",
+    checkedAt,
+    leadCredits: {
+      limit,
+      used,
+      remaining,
+    },
+  };
 }
 
 export async function enrichApolloOrganization(

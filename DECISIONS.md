@@ -508,7 +508,7 @@ incomplete or stale.
 
 ### Decision
 
-Add an internal-only, debounced company search by name or domain. Show candidates in a reviewable
+Add an internal-only, explicitly submitted company search by name or domain. Show candidates in a reviewable
 list and let the operator select one; never silently create an account or overwrite manually
 entered fields. Store the normalized selected snapshot in the restricted Apollo enrichment ledger,
 and use an Apollo logo only after it passes the existing public-HTTPS and host allowlists. Keep
@@ -536,6 +536,30 @@ Use a right-side drawer for account/contact creation so the operator retains con
 ### Consequences
 
 The account page remains glanceable while exposing the full set of fields this integration currently captures. Future Apollo fields can be added to the profile block without changing the header hierarchy. The test account `Apollo QA - HubSpot Profile` provides a real enriched fixture for visual QA without changing a customer record.
+
+## 2026-08-03 — Keep enrichment provider usage owner-only and server-derived
+
+### Context
+
+Costivra operators need to understand whether company enrichment is available and how many Apollo
+lead credits remain. Apollo credentials and quota details are operational controls, and the Settings
+surface should be able to add other enrichment providers later without mixing provider data into
+general profile settings.
+
+### Decision
+
+Add a dedicated Enrichment tab to Manage Settings and place Apollo inside a provider section. Read
+Apollo's current credit balance through the documented, zero-credit profile endpoint on the server,
+normalize only the lead-credit allowance used by Costivra's current company workflows, and return it
+through an owner-only, private/no-store route. Never return the API key or Apollo profile identity.
+Derive workspace usage from allowance minus remaining balance because Apollo can report an individual
+key owner's usage alongside the team's remaining credits.
+
+### Consequences
+
+Owners get a coherent live balance and transparent per-action credit costs without exposing secrets or
+cluttering the page with unrelated Apollo quotas. Additional providers can be added as sibling sections
+inside Enrichment later. Non-owner operators cannot read this billing-sensitive usage endpoint.
 
 ## 2026-08-03 — Treat server-side domain enrichment as the durable account snapshot
 
