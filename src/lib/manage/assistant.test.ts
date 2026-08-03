@@ -8,7 +8,7 @@ function fixture(): ManageData {
     staff: [],
     accounts: [
       {
-        id: "account-1", name: "Synthetic Account", legalName: null, industry: null, stage: null,
+        id: "account-1", name: "Synthetic Account", legalName: null, industry: null, stage: null, currency: "USD",
         website: null,
         primaryContact: null, primaryEmail: null, memberCount: 1, documentCount: 0,
         opportunityCount: 0, openTaskCount: 1, marketingOptInCount: 0,
@@ -19,6 +19,9 @@ function fixture(): ManageData {
     ],
     contacts: [],
     documents: [],
+    vendorRelationships: [],
+    expenses: [],
+    vendorContracts: [],
     enrichmentAvailable: false,
     enrichmentConfigured: false,
     tasks: [

@@ -17,6 +17,7 @@ async function loadManagePageData(input: {
   folder?: string;
   threadId?: string | null;
   mailboxId?: string | null;
+  accountId?: string | null;
 }) {
   try {
     return { authorized: true as const, data: await getManageData(input) };
@@ -46,6 +47,7 @@ export default async function Page({
     folder,
     mailboxId: mailbox,
     threadId: section === "mail" ? slug[1] : null,
+    accountId: section === "accounts" ? slug[1] ?? null : null,
   });
   if (!result.authorized) return <ManageAccessDenied />;
   const invoiceReview = section === "invoice-review"

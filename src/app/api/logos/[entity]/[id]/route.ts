@@ -11,6 +11,22 @@ type LogoRecord = {
   logo_url?: unknown;
 };
 
+function fallbackLogo(name: string) {
+  const candidate = name.trim().slice(0, 1).toUpperCase();
+  const initial = /^[A-Z0-9]$/.test(candidate) ? candidate : "?";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="${initial}"><rect width="64" height="64" rx="16" fill="#eef3f8"/><text x="32" y="39" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="#29415f">${initial}</text></svg>`;
+  return new NextResponse(svg, {
+    status: 200,
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "private, max-age=86400, stale-while-revalidate=604800",
+      "content-security-policy": "default-src 'none'; style-src 'none'; sandbox",
+      "x-content-type-options": "nosniff",
+      "x-logo-source": "fallback",
+    },
+  });
+}
+
 async function actorId() {
   const session = await createSessionSupabaseClient();
   const { data, error } = await session.auth.getClaims();
@@ -63,7 +79,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ entity: st
   if (typeof name !== "string" || !name.trim()) return new NextResponse(null, { status: 404 });
   const reference = existing ?? logoDevReference(name, website);
   const image = await fetchLogoDevImage(reference);
-  if (!image) return new NextResponse(null, { status: 404 });
+  if (!image) return fallbackLogo(name);
 
   if (!existing) {
     await db.from(table === "organization" ? "organizations" : "vendors").update({ logo_url: reference, logo_provider: "logo.dev", logo_resolved_at: new Date().toISOString() }).eq("id", id);

@@ -1,0 +1,311 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e3]:
+    - complementary [ref=f3e4]:
+      - link "Costivra Owner Operations" [ref=f3e6] [cursor=pointer]:
+        - /url: /manage
+      - navigation "Owner portal" [ref=f3e8]:
+        - generic [ref=f3e9]:
+          - generic: Clients
+          - link "Overview" [ref=f3e10] [cursor=pointer]:
+            - /url: /manage
+          - link "Accounts" [ref=f3e16] [cursor=pointer]:
+            - /url: /manage/accounts
+          - link "Contacts" [ref=f3e21] [cursor=pointer]:
+            - /url: /manage/contacts
+        - generic [ref=f3e27]:
+          - generic: Work
+          - link "Outreach" [ref=f3e28] [cursor=pointer]:
+            - /url: /manage/outreach
+          - link "Mail, 35 unread messages" [ref=f3e31] [cursor=pointer]:
+            - /url: /manage/mail
+            - generic: Mail
+            - generic [ref=f3e35]: "35"
+          - link "Intake" [ref=f3e36] [cursor=pointer]:
+            - /url: /manage/intake
+          - link "Invoice review" [ref=f3e39] [cursor=pointer]:
+            - /url: /manage/invoice-review
+          - link "Activity" [ref=f3e44] [cursor=pointer]:
+            - /url: /manage/activity
+      - generic [ref=f3e47]:
+        - navigation "Workspace settings" [ref=f3e48]:
+          - link "Settings" [ref=f3e49] [cursor=pointer]:
+            - /url: /manage/settings
+        - button "Costivra Manage QA account menu" [ref=f3e54] [cursor=pointer]:
+          - generic [ref=f3e55]: CM
+    - main [ref=f3e56]:
+      - generic [ref=f3e57]:
+        - generic [ref=f3e59]:
+          - generic [ref=f3e60]: COSTIVRA INTERNAL
+          - heading "Client operations" [level=1] [ref=f3e61]
+        - generic [ref=f3e62]:
+          - generic [ref=f3e64]:
+            - combobox "Search all Costivra records" [ref=f3e68]
+            - generic [ref=f3e69]: ⌘K
+          - button "Create a new record" [ref=f3e71] [cursor=pointer]
+        - generic "Workspace utilities" [ref=f3e74]:
+          - button "Ask Costivra" [ref=f3e75] [cursor=pointer]
+      - generic [ref=f3e79]:
+        - generic [ref=f3e81]:
+          - heading "Every client relationship, in view." [level=2] [ref=f3e82]
+          - paragraph [ref=f3e83]: One place to manage customers, outreach, and email.
+        - region "CRM summary" [ref=f3e84]:
+          - generic [ref=f3e85]:
+            - generic [ref=f3e86]: ALL ACCOUNTS
+            - strong [ref=f3e90]: "6"
+          - generic [ref=f3e91]:
+            - generic [ref=f3e92]: ACTIVE
+            - strong [ref=f3e96]: "1"
+          - generic [ref=f3e97]:
+            - generic [ref=f3e98]: NEEDS FOLLOW-UP
+            - strong [ref=f3e102]: "3"
+          - generic [ref=f3e103]:
+            - generic [ref=f3e104]: ONBOARDING
+            - strong [ref=f3e108]: "0"
+        - generic [ref=f3e109]:
+          - generic [ref=f3e110]:
+            - generic [ref=f3e111]:
+              - generic [ref=f3e112]:
+                - heading "Accounts" [level=3] [ref=f3e113]
+                - paragraph [ref=f3e114]: Live organizations and their next action. Select a row to inspect.
+              - link "View all" [ref=f3e115] [cursor=pointer]:
+                - /url: /manage/accounts
+            - table [ref=f3e117]:
+              - rowgroup [ref=f3e118]:
+                - row [ref=f3e119]:
+                  - columnheader [ref=f3e120]
+                  - columnheader "Account" [ref=f3e121]
+                  - columnheader "Primary contact" [ref=f3e122]
+                  - columnheader "Marketing" [ref=f3e123]
+                  - columnheader "Stage" [ref=f3e124]
+                  - columnheader "Last touch" [ref=f3e125]
+                  - columnheader "Next step" [ref=f3e126]
+              - rowgroup [ref=f3e127]:
+                - row [ref=f3e128] [cursor=pointer]:
+                  - cell "1" [ref=f3e129]
+                  - cell [ref=f3e131]:
+                    - link "Costivra QA logo Costivra QA Industry not set" [ref=f3e132]:
+                      - /url: /manage/accounts/6807ceb4-d64a-437a-bc05-063844f5870a
+                      - img "Costivra QA logo" [ref=f3e133]
+                      - generic [ref=f3e134]:
+                        - strong [ref=f3e135]: Costivra QA
+                        - generic [ref=f3e136]: Industry not set
+                  - cell "Costivra Manage QA costivra-manage-qa-e93cab233ba3497d8af833e7ac6c8394@example.invalid" [ref=f3e137]:
+                    - strong [ref=f3e138]: Costivra Manage QA
+                    - generic [ref=f3e139]: costivra-manage-qa-e93cab233ba3497d8af833e7ac6c8394@example.invalid
+                  - cell "No marketing opt-in" [ref=f3e140]
+                  - cell [ref=f3e142]
+                  - cell "—" [ref=f3e145]
+                  - cell "Not set —" [ref=f3e146]:
+                    - strong [ref=f3e147]: Not set
+                    - generic [ref=f3e148]: —
+                - row [ref=f3e149] [cursor=pointer]:
+                  - cell "2" [ref=f3e150]
+                  - cell [ref=f3e152]:
+                    - link "Costivra Production QA logo Costivra Production QA Industry not set" [ref=f3e153]:
+                      - /url: /manage/accounts/8abacbd3-0f17-428e-80ee-adbb9397a5e4
+                      - img "Costivra Production QA logo" [ref=f3e154]
+                      - generic [ref=f3e155]:
+                        - strong [ref=f3e156]: Costivra Production QA
+                        - generic [ref=f3e157]: Industry not set
+                  - cell "Costivra Automated QA delivered@resend.dev" [ref=f3e158]:
+                    - strong [ref=f3e159]: Costivra Automated QA
+                    - generic [ref=f3e160]: delivered@resend.dev
+                  - cell "No marketing opt-in" [ref=f3e161]
+                  - cell [ref=f3e163]
+                  - cell "—" [ref=f3e166]
+                  - cell "Review inquiry and respond Aug 2, 2026" [ref=f3e167]:
+                    - strong [ref=f3e168]: Review inquiry and respond
+                    - generic [ref=f3e169]: Aug 2, 2026
+                - row [ref=f3e170] [cursor=pointer]:
+                  - cell "3" [ref=f3e171]
+                  - cell [ref=f3e173]:
+                    - link "Costivra Telecom Software Demo logo Costivra Telecom Software Demo Industry not set" [ref=f3e174]:
+                      - /url: /manage/accounts/ce6f008b-c1d3-46a7-bfb1-57db29ee54fb
+                      - img "Costivra Telecom Software Demo logo" [ref=f3e175]
+                      - generic [ref=f3e176]:
+                        - strong [ref=f3e177]: Costivra Telecom Software Demo
+                        - generic [ref=f3e178]: Industry not set
+                  - cell "Telecom Software Demo demo-telecom@costivra.ai" [ref=f3e179]:
+                    - strong [ref=f3e180]: Telecom Software Demo
+                    - generic [ref=f3e181]: demo-telecom@costivra.ai
+                  - cell "No marketing opt-in" [ref=f3e182]
+                  - cell [ref=f3e184]
+                  - cell "—" [ref=f3e187]
+                  - cell "Not set —" [ref=f3e188]:
+                    - strong [ref=f3e189]: Not set
+                    - generic [ref=f3e190]: —
+                - row [ref=f3e191] [cursor=pointer]:
+                  - cell "4" [ref=f3e192]
+                  - cell [ref=f3e194]:
+                    - link "Costivra Cloud Billing Demo logo Costivra Cloud Billing Demo Industry not set" [ref=f3e195]:
+                      - /url: /manage/accounts/02c81876-5599-4de9-9391-b8e5b2fcc347
+                      - img "Costivra Cloud Billing Demo logo" [ref=f3e196]
+                      - generic [ref=f3e197]:
+                        - strong [ref=f3e198]: Costivra Cloud Billing Demo
+                        - generic [ref=f3e199]: Industry not set
+                  - cell "Cloud Billing Demo demo-cloud@costivra.ai" [ref=f3e200]:
+                    - strong [ref=f3e201]: Cloud Billing Demo
+                    - generic [ref=f3e202]: demo-cloud@costivra.ai
+                  - cell "No marketing opt-in" [ref=f3e203]
+                  - cell [ref=f3e205]
+                  - cell "—" [ref=f3e208]
+                  - cell "Not set —" [ref=f3e209]:
+                    - strong [ref=f3e210]: Not set
+                    - generic [ref=f3e211]: —
+                - row [ref=f3e212] [cursor=pointer]:
+                  - cell "5" [ref=f3e213]
+                  - cell [ref=f3e215]:
+                    - link "Gmail logo Gmail Industry not set" [ref=f3e216]:
+                      - /url: /manage/accounts/a578f512-3f80-4f6d-8419-1ca58611bbdf
+                      - img "Gmail logo" [ref=f3e217]
+                      - generic [ref=f3e218]:
+                        - strong [ref=f3e219]: Gmail
+                        - generic [ref=f3e220]: Industry not set
+                  - cell "Lewis A Patterson lap3productions@gmail.com" [ref=f3e221]:
+                    - strong [ref=f3e222]: Lewis A Patterson
+                    - generic [ref=f3e223]: lap3productions@gmail.com
+                  - cell "No marketing opt-in" [ref=f3e224]
+                  - cell [ref=f3e226]
+                  - cell "—" [ref=f3e229]
+                  - cell "Not set —" [ref=f3e230]:
+                    - strong [ref=f3e231]: Not set
+                    - generic [ref=f3e232]: —
+                - row [ref=f3e233] [cursor=pointer]:
+                  - cell "6" [ref=f3e234]
+                  - cell [ref=f3e236]:
+                    - link "Apex Logistics Group logo Apex Logistics Group Freight & Logistics" [ref=f3e237]:
+                      - /url: /manage/accounts/a1b2c3d4-e5f6-7890-abcd-1234567890ab
+                      - img "Apex Logistics Group logo" [ref=f3e238]
+                      - generic [ref=f3e239]:
+                        - strong [ref=f3e240]: Apex Logistics Group
+                        - generic [ref=f3e241]: Freight & Logistics
+                  - cell "Lewis Patterson lewis.patterson@apexlogistics.com" [ref=f3e242]:
+                    - strong [ref=f3e243]: Lewis Patterson
+                    - generic [ref=f3e244]: lewis.patterson@apexlogistics.com
+                  - cell [ref=f3e245]:
+                    - generic "1 contact opted in to email marketing" [ref=f3e246]: Marketing opt-in
+                  - cell [ref=f3e249]
+                  - cell "Jul 30, 2026" [ref=f3e252]
+                  - cell "Review TXU tariff audit proposal with CFO Aug 5, 2026" [ref=f3e253]:
+                    - strong [ref=f3e254]: Review TXU tariff audit proposal with CFO
+                    - generic [ref=f3e255]: Aug 5, 2026
+            - generic [ref=f3e256]:
+              - generic [ref=f3e257]: 6 accounts
+              - generic [ref=f3e259]:
+                - button "Previous page" [disabled] [ref=f3e260]
+                - generic [ref=f3e263]: 1 / 1
+                - button "Next page" [disabled] [ref=f3e264]
+          - complementary [ref=f3e267]:
+            - link [ref=f3e269] [cursor=pointer]:
+              - /url: /manage/accounts/6807ceb4-d64a-437a-bc05-063844f5870a
+              - img "Costivra QA logo" [ref=f3e270]
+              - generic [ref=f3e271]:
+                - heading "Costivra QA" [level=3] [ref=f3e272]
+                - paragraph [ref=f3e273]: Industry not set
+            - generic [ref=f3e274]:
+              - button "Overview" [ref=f3e275] [cursor=pointer]
+              - button "Timeline (0)" [ref=f3e276] [cursor=pointer]
+              - button "Contacts (1)" [ref=f3e277] [cursor=pointer]
+            - generic [ref=f3e278]:
+              - generic [ref=f3e279]:
+                - generic [ref=f3e280]:
+                  - term [ref=f3e281]: Lifecycle
+                  - definition [ref=f3e282]:
+                    - button [ref=f3e283] [cursor=pointer]
+                - generic [ref=f3e285]:
+                  - term [ref=f3e286]: Primary contact
+                  - definition [ref=f3e287]:
+                    - strong [ref=f3e288]: Costivra Manage QA
+                    - generic [ref=f3e289]: costivra-manage-qa-e93cab233ba3497d8af833e7ac6c8394@example.invalid
+                - generic [ref=f3e290]:
+                  - term [ref=f3e291]: Email marketing
+                  - definition [ref=f3e292]:
+                    - generic [ref=f3e293]: No marketing opt-in
+                    - generic [ref=f3e294]: Consent must be explicit before marketing email is sent
+                - generic [ref=f3e295]:
+                  - term [ref=f3e296]: Next follow-up
+                  - definition [ref=f3e297]:
+                    - button "—" [ref=f3e298] [cursor=pointer]
+                    - button "No next step recorded" [ref=f3e299] [cursor=pointer]
+                - generic [ref=f3e300]:
+                  - term [ref=f3e301]: Customer workspace
+                  - definition [ref=f3e302]:
+                    - strong [ref=f3e303]: 1 member
+                    - generic [ref=f3e304]: 0 documents · 0 opportunities
+              - generic [ref=f3e306]:
+                - button "Add task" [ref=f3e307] [cursor=pointer]
+                - button "Add note" [ref=f3e312] [cursor=pointer]
+            - paragraph [ref=f3e315]: Customer workspaces stay tenant-isolated. This portal shows operational context without impersonating a client.
+        - generic [ref=f3e316]:
+          - generic [ref=f3e317]:
+            - generic [ref=f3e318]:
+              - generic [ref=f3e319]:
+                - heading "Open follow-ups" [level=3] [ref=f3e320]
+                - paragraph [ref=f3e321]: Tasks that still need a person to act.
+              - link "Open outreach" [ref=f3e322] [cursor=pointer]:
+                - /url: /manage/outreach
+            - generic [ref=f3e323]:
+              - article [ref=f3e324]:
+                - generic [ref=f3e330]:
+                  - strong [ref=f3e331]: Respond to website inquiry
+                  - paragraph [ref=f3e332]: Costivra Production QA
+                - time [ref=f3e333]: Aug 2, 2026
+              - article [ref=f3e334]:
+                - generic [ref=f3e340]:
+                  - strong [ref=f3e341]: Check AT&T Fiber Contract Notice Window Clause
+                  - paragraph [ref=f3e342]: Apex Logistics Group
+                - time [ref=f3e343]: Aug 3, 2026
+              - article [ref=f3e344]:
+                - generic [ref=f3e350]:
+                  - strong [ref=f3e351]: Review TXU Tariff Claim with Lewis Patterson
+                  - paragraph [ref=f3e352]: Apex Logistics Group
+                - time [ref=f3e353]: Aug 5, 2026
+          - generic [ref=f3e354]:
+            - generic [ref=f3e355]:
+              - generic [ref=f3e356]:
+                - heading "Recent activity" [level=3] [ref=f3e357]
+                - paragraph [ref=f3e358]: Internal notes and client touches.
+              - link "Full history" [ref=f3e359] [cursor=pointer]:
+                - /url: /manage/activity
+            - generic [ref=f3e360]:
+              - article [ref=f3e361]:
+                - generic [ref=f3e365]:
+                  - strong [ref=f3e366]: Website inquiry received
+                  - paragraph [ref=f3e367]: A new public inquiry was captured and routed into the lead pipeline.
+                  - text: Costivra Production QA
+                - time [ref=f3e368]: Aug 2, 4:55 PM
+              - article [ref=f3e369]:
+                - generic [ref=f3e373]:
+                  - strong [ref=f3e374]: Dallas Distribution Hub Forensic Energy Audit Initiated
+                  - paragraph [ref=f3e375]: Analyzed 12 months of TXU billing data. Identified secondary voltage tariff misclassification.
+                  - text: Apex Logistics Group
+                - time [ref=f3e376]: Jul 30, 5:46 PM
+              - article [ref=f3e377]:
+                - generic [ref=f3e381]:
+                  - strong [ref=f3e382]: Discovery Call with CFO Lewis Patterson
+                  - paragraph [ref=f3e383]: Discussed ongoing cost leakage across energy, waste, and fiber internet accounts.
+                  - text: Apex Logistics Group
+                - time [ref=f3e384]: Jul 29, 5:46 PM
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - heading [level=2]: Ask Costivra
+            - paragraph: Grounded in live client operations
+          - button
+        - generic:
+          - generic: Client operations
+          - button
+        - generic:
+          - region:
+            - generic:
+              - heading [level=3]: What needs attention
+              - generic: Live data
+        - generic:
+          - generic:
+            - textbox:
+              - /placeholder: Ask about clients, mail, or follow-ups
+            - button [disabled]
+          - paragraph: Answers use live CRM records. Review before taking action.
+  - generic "Notifications"
+  - alert [ref=f3e385]

@@ -471,3 +471,28 @@ approvers than the current team visibly tell the customer to add administrators 
 blocked until they do. Approval history survives policy disablement. Bills and contracts can be
 organized by operating site without weakening tenant isolation or turning location cleanup into a
 destructive accounting operation.
+
+## 2026-08-02 — Scope internal vendor intelligence to its account record
+
+### Context
+
+Internal operators need to understand a client account's vendor relationships, recorded expenses,
+contracts, and linked evidence without exposing a cross-tenant vendor browser or duplicating the
+customer portal's membership-based vendor route. The existing database already models this through
+organization-scoped relationship, expense, contract, and document records.
+
+### Decision
+
+Load vendor data only when the Manage route is rendering a valid account ID, and filter the result
+to the internal operator's visible organizations before returning it to the client component. The
+account overview groups recorded expense rows by a user-selected weekly, monthly, or yearly period.
+It deliberately excludes a different currency rather than presenting a combined total. Vendor
+selection stays inside the account's Vendors tab, using the existing `CompanyLogo` vendor path and
+the relationship ID to show contracts and source-document counts.
+
+### Consequences
+
+The internal account view gains a fast, evidence-connected vendor drill-in without a new public
+route, schema change, or browser access to privileged vendor data. Chart values are recorded spend
+only; annualized relationship values remain separately labelled and no view presents an estimated
+or verified savings amount.

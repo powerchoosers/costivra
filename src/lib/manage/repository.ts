@@ -4,13 +4,17 @@ import { requireInternalOperator } from "@/lib/manage/auth";
 import type {
   ManageContact,
   ManageData,
+  ManageExpense,
   ManageMailbox,
   ManageMailMessage,
   ManageMailThread,
   ManageStaffMember,
+  ManageVendorContract,
+  ManageVendorRelationship,
 } from "@/lib/manage/types";
 import { canUseMailbox, formatMailboxSender } from "@/lib/manage/mailboxes";
 import { hiddenOrganizationIds } from "@/lib/manage/visibility";
+import { recordedSpendTotal } from "@/lib/manage/vendor-costs";
 
 type Row = Record<string, unknown>;
 const rows = (value: unknown): Row[] =>
@@ -21,6 +25,14 @@ const nullable = (value: unknown) =>
   typeof value === "string" && value ? value : null;
 const nullableNumber = (value: unknown) =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
+const numericValue = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value.trim())) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
 const countBy = (items: Row[], key: string) => {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -40,9 +52,15 @@ export async function getManageData(input?: {
   folder?: string;
   threadId?: string | null;
   mailboxId?: string | null;
+  accountId?: string | null;
 }): Promise<ManageData> {
   const operator = await requireInternalOperator();
   const { db } = operator;
+  const scopedAccountId =
+    typeof input?.accountId === "string" &&
+    /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(input.accountId)
+      ? input.accountId
+      : null;
   const [
     organizationsResult,
     overlaysResult,
@@ -57,12 +75,16 @@ export async function getManageData(input?: {
     documentsResult,
     extractionVersionsResult,
     opportunitiesResult,
+    vendorsResult,
+    vendorRelationshipsResult,
+    expensesResult,
+    contractsResult,
     threadsResult,
     messagesResult,
   ] = await Promise.all([
     db
       .from("organizations")
-      .select("id,name,legal_name,industry,primary_contact_name,created_at,logo_url")
+      .select("id,name,legal_name,industry,currency,primary_contact_name,created_at,logo_url")
       .order("created_at", { ascending: false }),
     db
       .from("crm_account_profiles")
@@ -95,13 +117,25 @@ export async function getManageData(input?: {
       .order("created_at", { ascending: true }),
     db
       .from("documents")
-      .select("id,organization_id,original_filename,mime_type,byte_size,status,document_type,extraction_summary,created_at,updated_at,page_count,source_purged_at")
+      .select("id,organization_id,organization_vendor_id,original_filename,mime_type,byte_size,status,document_type,extraction_summary,created_at,updated_at,page_count,source_purged_at")
       .order("created_at", { ascending: false }),
     db.from("document_extraction_versions")
       .select("document_id,confidence,status,input_mode,failure_code,created_at")
       .order("created_at", { ascending: false })
       .limit(2500),
     db.from("opportunities").select("id,organization_id"),
+    scopedAccountId
+      ? db.from("vendors").select("id,canonical_name,category,website,logo_url")
+      : Promise.resolve({ data: [], error: null }),
+    scopedAccountId
+      ? db.from("organization_vendors").select("id,organization_id,vendor_id,relationship_status,annualized_spend,spend_cadence,updated_at").eq("organization_id", scopedAccountId)
+      : Promise.resolve({ data: [], error: null }),
+    scopedAccountId
+      ? db.from("expenses").select("id,organization_id,organization_vendor_id,category,period_start,period_end,amount,currency,status").eq("organization_id", scopedAccountId).order("period_end", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    scopedAccountId
+      ? db.from("contracts").select("id,organization_id,organization_vendor_id,title,category,end_date,annual_value,currency,status,auto_renews").eq("organization_id", scopedAccountId).order("end_date", { ascending: true, nullsFirst: false })
+      : Promise.resolve({ data: [], error: null }),
     db
       .from("crm_email_threads")
       .select("*")
@@ -127,6 +161,10 @@ export async function getManageData(input?: {
     documentsResult,
     extractionVersionsResult,
     opportunitiesResult,
+    vendorsResult,
+    vendorRelationshipsResult,
+    expensesResult,
+    contractsResult,
     threadsResult,
     messagesResult,
   ];
@@ -174,6 +212,7 @@ export async function getManageData(input?: {
       return ({
       id: text(document.id),
       organizationId: text(document.organization_id),
+      vendorRelationshipId: nullable(document.organization_vendor_id),
       organizationName: text(
         organizationsById.get(text(document.organization_id))?.name,
         "Unknown account",
@@ -197,6 +236,84 @@ export async function getManageData(input?: {
   const profilesById = new Map(
     rows(profilesResult.data).map((row) => [text(row.id), row]),
   );
+  const vendorsById = new Map(
+    rows(vendorsResult.data).map((vendor) => [text(vendor.id), vendor]),
+  );
+  const expenses: ManageExpense[] = rows(expensesResult.data)
+    .filter((expense) => isVisibleOrganization(text(expense.organization_id)))
+    .map((expense) => ({
+      id: text(expense.id),
+      organizationId: text(expense.organization_id),
+      vendorRelationshipId: nullable(expense.organization_vendor_id),
+      category: text(expense.category, "Other"),
+      periodStart: text(expense.period_start),
+      periodEnd: text(expense.period_end),
+      amount: numericValue(expense.amount),
+      currency: text(expense.currency, "USD"),
+      status: text(expense.status, "recorded"),
+    }));
+  const vendorContracts: ManageVendorContract[] = rows(contractsResult.data)
+    .filter((contract) => isVisibleOrganization(text(contract.organization_id)))
+    .map((contract) => ({
+      id: text(contract.id),
+      organizationId: text(contract.organization_id),
+      vendorRelationshipId: nullable(contract.organization_vendor_id),
+      title: text(contract.title, "Untitled contract"),
+      category: text(contract.category, "Other"),
+      endDate: nullable(contract.end_date),
+      annualValue: contract.annual_value == null ? null : numericValue(contract.annual_value),
+      currency: text(contract.currency, "USD"),
+      status: text(contract.status, "unknown"),
+      autoRenews: Boolean(contract.auto_renews),
+    }));
+  const expensesByRelationship = new Map<string, ManageExpense[]>();
+  for (const expense of expenses) {
+    if (!expense.vendorRelationshipId) continue;
+    const matching = expensesByRelationship.get(expense.vendorRelationshipId) ?? [];
+    matching.push(expense);
+    expensesByRelationship.set(expense.vendorRelationshipId, matching);
+  }
+  const contractsByRelationship = new Map<string, ManageVendorContract[]>();
+  for (const contract of vendorContracts) {
+    if (!contract.vendorRelationshipId) continue;
+    const matching = contractsByRelationship.get(contract.vendorRelationshipId) ?? [];
+    matching.push(contract);
+    contractsByRelationship.set(contract.vendorRelationshipId, matching);
+  }
+  const vendorRelationships: ManageVendorRelationship[] = rows(vendorRelationshipsResult.data)
+    .filter((relationship) => isVisibleOrganization(text(relationship.organization_id)))
+    .map((relationship) => {
+      const id = text(relationship.id);
+      const vendor = vendorsById.get(text(relationship.vendor_id));
+      const relationshipExpenses = expensesByRelationship.get(id) ?? [];
+      const relationshipContracts = contractsByRelationship.get(id) ?? [];
+      const accountCurrency = text(
+        organizationsById.get(text(relationship.organization_id))?.currency,
+        "USD",
+      );
+      const nextContractEnd = relationshipContracts
+        .map((contract) => contract.endDate)
+        .filter((endDate): endDate is string => Boolean(endDate))
+        .sort()[0] ?? null;
+      return {
+        id,
+        organizationId: text(relationship.organization_id),
+        vendorId: text(relationship.vendor_id),
+        name: text(vendor?.canonical_name, "Unknown vendor"),
+        category: text(vendor?.category, "Other"),
+        website: nullable(vendor?.website),
+        logoUrl: nullable(vendor?.logo_url),
+        relationshipStatus: text(relationship.relationship_status, "unknown"),
+        spendCadence: text(relationship.spend_cadence, "not set"),
+        annualizedSpend: relationship.annualized_spend == null ? null : numericValue(relationship.annualized_spend),
+        recordedSpend: recordedSpendTotal(relationshipExpenses, accountCurrency),
+        expenseCount: relationshipExpenses.length,
+        contractCount: relationshipContracts.length,
+        nextContractEnd,
+        updatedAt: text(relationship.updated_at),
+      };
+    })
+    .sort((a, b) => b.recordedSpend - a.recordedSpend || a.name.localeCompare(b.name));
   const staff: ManageStaffMember[] = rows(staffResult.data)
     .filter((staffMember) => text(staffMember.status) === "active")
     .map((staffMember) => {
@@ -363,6 +480,7 @@ export async function getManageData(input?: {
       name: text(organization.name),
       legalName: nullable(organization.legal_name),
       industry: nullable(organization.industry),
+      currency: text(organization.currency, "USD"),
       website: nullable(overlay?.website),
       stage: nullable(overlay?.lifecycle_stage),
       primaryContact:
@@ -549,6 +667,9 @@ export async function getManageData(input?: {
         a.fullName.localeCompare(b.fullName),
     ),
     documents,
+    vendorRelationships,
+    expenses,
+    vendorContracts,
     enrichmentAvailable,
     enrichmentConfigured: Boolean(process.env.APOLLO_API_KEY?.trim()),
     tasks: visibleTasks.map((task) => ({

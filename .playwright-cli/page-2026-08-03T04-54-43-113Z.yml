@@ -1,0 +1,205 @@
+- generic [ref=f6e1]:
+  - generic [ref=f6e3]:
+    - complementary [ref=f6e4]:
+      - link "Costivra Owner Operations" [ref=f6e6] [cursor=pointer]:
+        - /url: /manage
+      - navigation "Owner portal" [ref=f6e8]:
+        - generic [ref=f6e9]:
+          - generic: Clients
+          - link "Overview" [ref=f6e10] [cursor=pointer]:
+            - /url: /manage
+          - link "Accounts" [ref=f6e16] [cursor=pointer]:
+            - /url: /manage/accounts
+          - link "Contacts" [ref=f6e21] [cursor=pointer]:
+            - /url: /manage/contacts
+        - generic [ref=f6e27]:
+          - generic: Work
+          - link "Outreach" [ref=f6e28] [cursor=pointer]:
+            - /url: /manage/outreach
+          - link "Mail, 35 unread messages" [ref=f6e31] [cursor=pointer]:
+            - /url: /manage/mail
+            - generic: Mail
+            - generic [ref=f6e35]: "35"
+          - link "Intake" [ref=f6e36] [cursor=pointer]:
+            - /url: /manage/intake
+          - link "Invoice review" [ref=f6e39] [cursor=pointer]:
+            - /url: /manage/invoice-review
+          - link "Activity" [ref=f6e44] [cursor=pointer]:
+            - /url: /manage/activity
+      - generic [ref=f6e47]:
+        - navigation "Workspace settings" [ref=f6e48]:
+          - link "Settings" [ref=f6e49] [cursor=pointer]:
+            - /url: /manage/settings
+        - button "Costivra Manage QA account menu" [ref=f6e54] [cursor=pointer]:
+          - generic [ref=f6e55]: CM
+    - main [ref=f6e56]:
+      - generic [ref=f6e57]:
+        - generic [ref=f6e59]:
+          - generic [ref=f6e60]: COSTIVRA INTERNAL
+          - heading "Accounts" [level=1] [ref=f6e61]
+        - generic [ref=f6e62]:
+          - generic [ref=f6e64]:
+            - combobox "Search all Costivra records" [ref=f6e68]
+            - generic [ref=f6e69]: ⌘K
+          - button "Create a new record" [ref=f6e71] [cursor=pointer]
+        - generic "Workspace utilities" [ref=f6e74]:
+          - button "Ask Costivra" [ref=f6e75] [cursor=pointer]
+      - generic [ref=f6e80]:
+        - link "Accounts" [ref=f6e81] [cursor=pointer]:
+          - /url: /manage/accounts
+        - generic [ref=f6e84]:
+          - generic [ref=f6e85]:
+            - img "Apex Logistics Group logo" [ref=f6e86]
+            - generic [ref=f6e87]:
+              - paragraph [ref=f6e88]: Client account
+              - heading "Apex Logistics Group" [level=2] [ref=f6e89]
+              - generic [ref=f6e90]: Apex Logistics Group LLC
+          - generic [ref=f6e91]:
+            - button "Refresh company profile" [disabled] [ref=f6e92]
+            - link "Open list" [ref=f6e98] [cursor=pointer]:
+              - /url: /manage/accounts?account=a1b2c3d4-e5f6-7890-abcd-1234567890ab
+        - region "Account highlights" [ref=f6e99]:
+          - generic [ref=f6e100]:
+            - generic [ref=f6e101]: Lifecycle
+            - generic [ref=f6e102]: active
+          - generic [ref=f6e104]:
+            - generic [ref=f6e105]: Next step
+            - strong [ref=f6e106]: Review TXU tariff audit proposal with CFO
+          - generic [ref=f6e107]:
+            - generic [ref=f6e108]: Follow-up
+            - strong [ref=f6e109]: Aug 5, 2026
+          - generic [ref=f6e110]:
+            - generic [ref=f6e111]: Vendors
+            - strong [ref=f6e112]: "4"
+          - generic [ref=f6e113]:
+            - generic [ref=f6e114]: Open work
+            - strong [ref=f6e115]: "2"
+          - generic [ref=f6e116]:
+            - generic [ref=f6e117]: Evidence files
+            - strong [ref=f6e118]: "2"
+        - navigation "Record sections" [ref=f6e119]:
+          - button "Overview" [ref=f6e120] [cursor=pointer]
+          - button "Vendors 4" [ref=f6e121] [cursor=pointer]:
+            - text: Vendors
+            - generic [ref=f6e122]: "4"
+          - button "People 3" [ref=f6e123] [cursor=pointer]:
+            - text: People
+            - generic [ref=f6e124]: "3"
+          - button "Files 2" [ref=f6e125] [cursor=pointer]:
+            - text: Files
+            - generic [ref=f6e126]: "2"
+          - button "Activity 2" [ref=f6e127] [cursor=pointer]:
+            - text: Activity
+            - generic [ref=f6e128]: "2"
+          - button "Work 2" [ref=f6e129] [cursor=pointer]:
+            - text: Work
+            - generic [ref=f6e130]: "2"
+        - generic [ref=f6e257]:
+          - generic [ref=f6e258]:
+            - generic [ref=f6e260]:
+              - generic [ref=f6e261]: Vendor directory
+              - heading "4 linked vendors" [level=3] [ref=f6e262]
+            - list "Account vendors" [ref=f6e263]:
+              - listitem [ref=f6e264] [cursor=pointer]:
+                - img "TXU Energy logo" [ref=f6e265]
+                - generic [ref=f6e266]:
+                  - strong [ref=f6e267]: TXU Energy
+                  - generic [ref=f6e268]: Commercial Energy · Active
+                - generic [ref=f6e269]:
+                  - generic [ref=f6e270]: Recorded
+                  - strong [ref=f6e271]: $31,231
+              - listitem [active] [ref=f6e274] [cursor=pointer]:
+                - img "Waste Management logo" [ref=f6e275]
+                - generic [ref=f6e276]:
+                  - strong [ref=f6e277]: Waste Management
+                  - generic [ref=f6e278]: waste_management · Active
+                - generic [ref=f6e279]:
+                  - generic [ref=f6e280]: Recorded
+                  - strong [ref=f6e281]: $3,450
+              - listitem [ref=f6e284] [cursor=pointer]:
+                - img "AT&T Business logo" [ref=f6e285]
+                - generic [ref=f6e286]:
+                  - strong [ref=f6e287]: AT&T Business
+                  - generic [ref=f6e288]: Telecom & Internet · Active
+                - generic [ref=f6e289]:
+                  - generic [ref=f6e290]: Recorded
+                  - strong [ref=f6e291]: $2,890
+              - listitem [ref=f6e294] [cursor=pointer]:
+                - img "Salesforce Inc. logo" [ref=f6e295]
+                - generic [ref=f6e296]:
+                  - strong [ref=f6e297]: Salesforce Inc.
+                  - generic [ref=f6e298]: software_subscription · Active
+                - generic [ref=f6e299]:
+                  - generic [ref=f6e300]: Recorded
+                  - strong [ref=f6e301]: $0
+          - article [ref=f6e304]:
+            - generic [ref=f6e305]:
+              - img "Waste Management logo" [ref=f6e385]
+              - generic [ref=f6e307]:
+                - generic [ref=f6e308]: Vendor detail
+                - heading "Waste Management" [level=3] [ref=f6e386]
+                - paragraph [ref=f6e310]: waste_management · Active
+            - generic [ref=f6e314]:
+              - generic [ref=f6e315]:
+                - generic [ref=f6e316]: Recorded spend
+                - strong [ref=f6e317]: $3,450
+              - generic [ref=f6e318]:
+                - generic [ref=f6e319]: Annualized spend
+                - strong [ref=f6e320]: $41,400
+              - generic [ref=f6e321]:
+                - generic [ref=f6e322]: Expense records
+                - strong [ref=f6e323]: "1"
+              - generic [ref=f6e324]:
+                - generic [ref=f6e325]: Contracts
+                - strong [ref=f6e326]: "0"
+            - region "Waste Management cost history" [ref=f6e387]:
+              - generic [ref=f6e328]:
+                - generic [ref=f6e329]:
+                  - generic [ref=f6e330]: Recorded expenses
+                  - heading "Waste Management cost history" [level=3] [ref=f6e388]
+                  - paragraph [ref=f6e332]: Actual expense records only. This does not estimate savings or future spend.
+                - generic "Cost interval" [ref=f6e333]:
+                  - button "weekly" [ref=f6e334] [cursor=pointer]
+                  - button "monthly" [ref=f6e335] [cursor=pointer]
+                  - button "yearly" [ref=f6e336] [cursor=pointer]
+              - img "Waste Management cost history shown by weekly" [ref=f6e389]:
+                - generic [ref=f6e380]:
+                  - generic [ref=f6e381]: $3,450
+                  - generic [ref=f6e384]: Jun 29
+            - generic [ref=f6e348]:
+              - generic [ref=f6e349]:
+                - heading "Associated details" [level=4] [ref=f6e350]
+                - paragraph [ref=f6e351]: Current records connected to this vendor relationship.
+              - generic [ref=f6e352]:
+                - generic [ref=f6e353]:
+                  - term [ref=f6e354]: Spend cadence
+                  - definition [ref=f6e355]: Annual
+                - generic [ref=f6e356]:
+                  - term [ref=f6e357]: Next contract end
+                  - definition [ref=f6e358]: Not recorded
+                - generic [ref=f6e359]:
+                  - term [ref=f6e360]: Source documents
+                  - definition [ref=f6e361]: "0"
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - heading [level=2]: Ask Costivra
+            - paragraph: Grounded in live client operations
+          - button
+        - generic:
+          - generic: Client operations
+          - button
+        - generic:
+          - region:
+            - generic:
+              - heading [level=3]: What needs attention
+              - generic: Live data
+        - generic:
+          - generic:
+            - textbox:
+              - /placeholder: Ask about clients, mail, or follow-ups
+            - button [disabled]
+          - paragraph: Answers use live CRM records. Review before taking action.
+  - generic "Notifications"
+  - alert [ref=f6e256]

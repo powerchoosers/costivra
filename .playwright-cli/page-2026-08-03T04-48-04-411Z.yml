@@ -1,0 +1,185 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e3]:
+    - complementary [ref=f5e4]:
+      - link "Costivra Owner Operations" [ref=f5e6] [cursor=pointer]:
+        - /url: /manage
+      - navigation "Owner portal" [ref=f5e8]:
+        - generic [ref=f5e9]:
+          - generic: Clients
+          - link "Overview" [ref=f5e10] [cursor=pointer]:
+            - /url: /manage
+          - link "Accounts" [ref=f5e16] [cursor=pointer]:
+            - /url: /manage/accounts
+          - link "Contacts" [ref=f5e21] [cursor=pointer]:
+            - /url: /manage/contacts
+        - generic [ref=f5e27]:
+          - generic: Work
+          - link "Outreach" [ref=f5e28] [cursor=pointer]:
+            - /url: /manage/outreach
+          - link "Mail, 35 unread messages" [ref=f5e31] [cursor=pointer]:
+            - /url: /manage/mail
+            - generic: Mail
+            - generic [ref=f5e35]: "35"
+          - link "Intake" [ref=f5e36] [cursor=pointer]:
+            - /url: /manage/intake
+          - link "Invoice review" [ref=f5e39] [cursor=pointer]:
+            - /url: /manage/invoice-review
+          - link "Activity" [ref=f5e44] [cursor=pointer]:
+            - /url: /manage/activity
+      - generic [ref=f5e47]:
+        - navigation "Workspace settings" [ref=f5e48]:
+          - link "Settings" [ref=f5e49] [cursor=pointer]:
+            - /url: /manage/settings
+        - button "Costivra Manage QA account menu" [ref=f5e54] [cursor=pointer]:
+          - generic [ref=f5e55]: CM
+    - main [ref=f5e56]:
+      - generic [ref=f5e57]:
+        - generic [ref=f5e59]:
+          - generic [ref=f5e60]: COSTIVRA INTERNAL
+          - heading "Accounts" [level=1] [ref=f5e61]
+        - generic [ref=f5e62]:
+          - generic [ref=f5e64]:
+            - combobox "Search all Costivra records" [ref=f5e68]
+            - generic [ref=f5e69]: ⌘K
+          - button "Create a new record" [ref=f5e71] [cursor=pointer]
+        - generic "Workspace utilities" [ref=f5e74]:
+          - button "Ask Costivra" [ref=f5e75] [cursor=pointer]
+      - generic [ref=f5e80]:
+        - link "Accounts" [ref=f5e81] [cursor=pointer]:
+          - /url: /manage/accounts
+        - generic [ref=f5e84]:
+          - generic [ref=f5e85]:
+            - generic "Apex Logistics Group logo unavailable" [ref=f5e86]: A
+            - generic [ref=f5e87]:
+              - paragraph [ref=f5e88]: Client account
+              - heading "Apex Logistics Group" [level=2] [ref=f5e89]
+              - generic [ref=f5e90]: Apex Logistics Group LLC
+          - generic [ref=f5e91]:
+            - button "Refresh company profile" [disabled] [ref=f5e92]
+            - link "Open list" [ref=f5e98] [cursor=pointer]:
+              - /url: /manage/accounts?account=a1b2c3d4-e5f6-7890-abcd-1234567890ab
+        - region "Account highlights" [ref=f5e99]:
+          - generic [ref=f5e100]:
+            - generic [ref=f5e101]: Lifecycle
+            - generic [ref=f5e102]: active
+          - generic [ref=f5e104]:
+            - generic [ref=f5e105]: Next step
+            - strong [ref=f5e106]: Review TXU tariff audit proposal with CFO
+          - generic [ref=f5e107]:
+            - generic [ref=f5e108]: Follow-up
+            - strong [ref=f5e109]: Aug 5, 2026
+          - generic [ref=f5e110]:
+            - generic [ref=f5e111]: Vendors
+            - strong [ref=f5e112]: "0"
+          - generic [ref=f5e113]:
+            - generic [ref=f5e114]: Open work
+            - strong [ref=f5e115]: "2"
+          - generic [ref=f5e116]:
+            - generic [ref=f5e117]: Evidence files
+            - strong [ref=f5e118]: "2"
+        - navigation "Record sections" [ref=f5e119]:
+          - button "Overview" [ref=f5e120] [cursor=pointer]
+          - button "Vendors 0" [ref=f5e121] [cursor=pointer]:
+            - text: Vendors
+            - generic [ref=f5e122]: "0"
+          - button "People 3" [ref=f5e123] [cursor=pointer]:
+            - text: People
+            - generic [ref=f5e124]: "3"
+          - button "Files 2" [ref=f5e125] [cursor=pointer]:
+            - text: Files
+            - generic [ref=f5e126]: "2"
+          - button "Activity 2" [ref=f5e127] [cursor=pointer]:
+            - text: Activity
+            - generic [ref=f5e128]: "2"
+          - button "Work 2" [ref=f5e129] [cursor=pointer]:
+            - text: Work
+            - generic [ref=f5e130]: "2"
+        - generic [ref=f5e131]:
+          - complementary [ref=f5e132]:
+            - generic [ref=f5e133]:
+              - generic [ref=f5e134]: Account details
+              - generic [ref=f5e135]:
+                - generic [ref=f5e136]:
+                  - term [ref=f5e137]: Industry
+                  - definition [ref=f5e138]: Freight & Logistics
+                - generic [ref=f5e139]:
+                  - term [ref=f5e140]: Website
+                  - definition [ref=f5e141]:
+                    - generic [ref=f5e142]:
+                      - generic [ref=f5e143]: Add before enrichment
+                      - button "Edit account website" [ref=f5e145] [cursor=pointer]
+                - generic [ref=f5e149]:
+                  - term [ref=f5e150]: Primary contact
+                  - definition [ref=f5e151]: Lewis Patterson
+                - generic [ref=f5e152]:
+                  - term [ref=f5e153]: Account since
+                  - definition [ref=f5e154]: Jul 17, 2026
+            - generic [ref=f5e155]:
+              - generic [ref=f5e156]: Internal CRM
+              - paragraph [ref=f5e157]: Lewis Patterson requested detailed breakdown of Dallas Distribution Hub meter tariff claim ($4,320/yr).
+          - main [ref=f5e158]:
+            - generic [ref=f5e160]:
+              - generic [ref=f5e161]: Company profile
+              - heading "Account context" [level=3] [ref=f5e162]
+              - paragraph [ref=f5e163]: Apex Logistics Group is recorded in the Freight & Logistics industry.
+            - generic [ref=f5e164]:
+              - region "Cost trend" [ref=f5e165]:
+                - generic [ref=f5e166]:
+                  - generic [ref=f5e167]:
+                    - generic [ref=f5e168]: Recorded expenses
+                    - heading "Cost trend" [level=3] [ref=f5e169]
+                    - paragraph [ref=f5e170]: Actual expense records only. This does not estimate savings or future spend.
+                  - generic "Cost interval" [ref=f5e171]:
+                    - button "weekly" [ref=f5e172] [cursor=pointer]
+                    - button "monthly" [ref=f5e173] [cursor=pointer]
+                    - button "yearly" [ref=f5e174] [cursor=pointer]
+                - generic [ref=f5e175]: No recorded USD expenses are available for this interval.
+              - generic [ref=f5e179]:
+                - generic [ref=f5e180]:
+                  - generic [ref=f5e181]:
+                    - heading "Linked vendors" [level=3] [ref=f5e182]
+                    - paragraph [ref=f5e183]: Spend, contracts, and source evidence by vendor.
+                  - button "View all" [ref=f5e184] [cursor=pointer]
+                - generic [ref=f5e185]:
+                  - heading "No vendor relationships" [level=3] [ref=f5e191]
+                  - paragraph [ref=f5e192]: Link a vendor to see its cost records here.
+            - generic [ref=f5e193]:
+              - generic [ref=f5e195]:
+                - heading "Relationship snapshot" [level=3] [ref=f5e196]
+                - paragraph [ref=f5e197]: Keep people, vendors, files, and activity close together.
+              - generic [ref=f5e198]:
+                - button [ref=f5e199] [cursor=pointer]:
+                  - generic [ref=f5e205]:
+                    - strong [ref=f5e206]: "3"
+                    - text: people
+                - button [ref=f5e209] [cursor=pointer]:
+                  - generic [ref=f5e214]:
+                    - strong [ref=f5e215]: "0"
+                    - text: vendors
+                - button [ref=f5e218] [cursor=pointer]:
+                  - generic [ref=f5e222]:
+                    - strong [ref=f5e223]: "2"
+                    - text: source files
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - heading [level=2]: Ask Costivra
+            - paragraph: Grounded in live client operations
+          - button
+        - generic:
+          - generic: Client operations
+          - button
+        - generic:
+          - region:
+            - generic:
+              - heading [level=3]: What needs attention
+              - generic: Live data
+        - generic:
+          - generic:
+            - textbox:
+              - /placeholder: Ask about clients, mail, or follow-ups
+            - button [disabled]
+          - paragraph: Answers use live CRM records. Review before taking action.
+  - generic "Notifications"
+  - alert [ref=f5e226]

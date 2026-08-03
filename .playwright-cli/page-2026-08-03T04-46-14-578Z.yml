@@ -1,0 +1,74 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e3]:
+    - complementary [ref=f4e4]:
+      - link "Costivra Owner Operations" [ref=f4e6] [cursor=pointer]:
+        - /url: /manage
+      - navigation "Owner portal" [ref=f4e8]:
+        - generic [ref=f4e9]:
+          - generic: Clients
+          - link "Overview" [ref=f4e10] [cursor=pointer]:
+            - /url: /manage
+          - link "Accounts" [ref=f4e16] [cursor=pointer]:
+            - /url: /manage/accounts
+          - link "Contacts" [ref=f4e21] [cursor=pointer]:
+            - /url: /manage/contacts
+        - generic [ref=f4e27]:
+          - generic: Work
+          - link "Outreach" [ref=f4e28] [cursor=pointer]:
+            - /url: /manage/outreach
+          - link "Mail, 35 unread messages" [ref=f4e31] [cursor=pointer]:
+            - /url: /manage/mail
+            - generic: Mail
+            - generic [ref=f4e35]: "35"
+          - link "Intake" [ref=f4e36] [cursor=pointer]:
+            - /url: /manage/intake
+          - link "Invoice review" [ref=f4e39] [cursor=pointer]:
+            - /url: /manage/invoice-review
+          - link "Activity" [ref=f4e44] [cursor=pointer]:
+            - /url: /manage/activity
+      - generic [ref=f4e47]:
+        - navigation "Workspace settings" [ref=f4e48]:
+          - link "Settings" [ref=f4e49] [cursor=pointer]:
+            - /url: /manage/settings
+        - button "Costivra Manage QA account menu" [ref=f4e54] [cursor=pointer]:
+          - generic [ref=f4e55]: CM
+    - main [ref=f4e56]:
+      - generic [ref=f4e57]:
+        - generic [ref=f4e59]:
+          - generic [ref=f4e60]: COSTIVRA INTERNAL
+          - heading "Accounts" [level=1] [ref=f4e61]
+        - generic [ref=f4e62]:
+          - generic [ref=f4e64]:
+            - combobox "Search all Costivra records" [ref=f4e68]
+            - generic [ref=f4e69]: ⌘K
+          - button "Create a new record" [ref=f4e71] [cursor=pointer]
+        - generic "Workspace utilities" [ref=f4e74]:
+          - button "Ask Costivra" [ref=f4e75] [cursor=pointer]
+      - generic [ref=f4e80]:
+        - heading "Account not found" [level=3] [ref=f4e86]
+        - paragraph [ref=f4e87]: This account may have been removed or is not visible to this internal operator.
+        - link "Back to accounts" [ref=f4e88] [cursor=pointer]:
+          - /url: /manage/accounts
+    - generic:
+      - complementary:
+        - generic:
+          - generic:
+            - heading [level=2]: Ask Costivra
+            - paragraph: Grounded in live client operations
+          - button
+        - generic:
+          - generic: Client operations
+          - button
+        - generic:
+          - region:
+            - generic:
+              - heading [level=3]: What needs attention
+              - generic: Live data
+        - generic:
+          - generic:
+            - textbox:
+              - /placeholder: Ask about clients, mail, or follow-ups
+            - button [disabled]
+          - paragraph: Answers use live CRM records. Review before taking action.
+  - generic "Notifications"
+  - alert [ref=f4e91]

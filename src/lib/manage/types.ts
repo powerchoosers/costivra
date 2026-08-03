@@ -22,6 +22,7 @@ export type ManageAccount = {
   name: string;
   legalName: string | null;
   industry: string | null;
+  currency: string;
   website: string | null;
   stage: string | null;
   primaryContact: string | null;
@@ -73,6 +74,7 @@ export type ManageContact = {
 export type ManageDocument = {
   id: string;
   organizationId: string;
+  vendorRelationshipId: string | null;
   organizationName: string;
   originalFilename: string;
   mimeType: string;
@@ -88,6 +90,49 @@ export type ManageDocument = {
   updatedAt: string;
   pageCount: number | null;
   sourcePurgedAt: string | null;
+};
+
+export type ManageVendorRelationship = {
+  id: string;
+  organizationId: string;
+  vendorId: string;
+  name: string;
+  category: string;
+  website: string | null;
+  logoUrl: string | null;
+  relationshipStatus: string;
+  spendCadence: string;
+  annualizedSpend: number | null;
+  recordedSpend: number;
+  expenseCount: number;
+  contractCount: number;
+  nextContractEnd: string | null;
+  updatedAt: string;
+};
+
+export type ManageExpense = {
+  id: string;
+  organizationId: string;
+  vendorRelationshipId: string | null;
+  category: string;
+  periodStart: string;
+  periodEnd: string;
+  amount: number;
+  currency: string;
+  status: string;
+};
+
+export type ManageVendorContract = {
+  id: string;
+  organizationId: string;
+  vendorRelationshipId: string | null;
+  title: string;
+  category: string;
+  endDate: string | null;
+  annualValue: number | null;
+  currency: string;
+  status: string;
+  autoRenews: boolean;
 };
 
 export type ManageTask = {
@@ -185,6 +230,9 @@ export type ManageData = {
   accounts: ManageAccount[];
   contacts: ManageContact[];
   documents: ManageDocument[];
+  vendorRelationships: ManageVendorRelationship[];
+  expenses: ManageExpense[];
+  vendorContracts: ManageVendorContract[];
   enrichmentAvailable: boolean;
   enrichmentConfigured: boolean;
   tasks: ManageTask[];
