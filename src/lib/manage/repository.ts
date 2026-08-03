@@ -176,7 +176,7 @@ export async function getManageData(input?: {
   // remains usable until its reviewed migration has been applied.
   const accountEnrichmentsResult = await db
     .from("crm_account_enrichments")
-    .select("organization_id,provider,short_description,industry,website,linkedin_url,location,employee_count,founded_year,status,fetched_at,attempted_at");
+    .select("organization_id,provider,name,short_description,industry,website,logo_url,linkedin_url,phone,location,employee_count,founded_year,technology_names,status,fetched_at,attempted_at");
   const enrichmentAvailable = !accountEnrichmentsResult.error;
 
   const overlayRows = rows(overlaysResult.data);
@@ -502,13 +502,19 @@ export async function getManageData(input?: {
       enrichment: enrichment
         ? {
             provider: "apollo" as const,
+            name: nullable(enrichment.name),
             shortDescription: nullable(enrichment.short_description),
             industry: nullable(enrichment.industry),
             website: nullable(enrichment.website),
+            logoUrl: nullable(enrichment.logo_url),
             linkedinUrl: nullable(enrichment.linkedin_url),
+            phone: nullable(enrichment.phone),
             location: nullable(enrichment.location),
             employeeCount: nullableNumber(enrichment.employee_count),
             foundedYear: nullableNumber(enrichment.founded_year),
+            technologies: Array.isArray(enrichment.technology_names)
+              ? enrichment.technology_names.filter((value): value is string => typeof value === "string")
+              : [],
             status: text(enrichment.status, "stale"),
             fetchedAt: nullable(enrichment.fetched_at),
             attemptedAt: nullable(enrichment.attempted_at),

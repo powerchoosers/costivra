@@ -28,6 +28,7 @@ import {
   Download,
   FileText,
   FileCheck2,
+  Globe2,
   Inbox,
   ImagePlus,
   IndentDecrease,
@@ -35,10 +36,12 @@ import {
   Italic,
   LayoutDashboard,
   Link2,
+  ExternalLink,
   List,
   ListOrdered,
   Mail,
   MailOpen,
+  MapPin,
   Maximize2,
   Menu,
   MessageSquareText,
@@ -46,6 +49,7 @@ import {
   Paperclip,
   Palette,
   Pencil,
+  Phone,
   Plus,
   RefreshCw,
   Reply,
@@ -65,6 +69,7 @@ import {
 } from "lucide-react";
 import type {
   ManageAccount,
+  ManageApolloSearchResult,
   ManageActivity,
   ManageContact,
   ManageData,
@@ -265,6 +270,7 @@ function globalSearchResults(data: ManageData, query: string) {
 type ComposeContext = {
   mode: "new" | "reply" | "forward";
   organizationId?: string;
+  contactId?: string;
   to?: string;
   subject?: string;
   body?: string;
@@ -344,6 +350,15 @@ function Status({ value }: { value: string | null }) {
       {stageLabel(value)}
     </span>
   );
+}
+
+function contactComposeContext(contact: ManageContact): ComposeContext {
+  return {
+    mode: "new",
+    organizationId: contact.organizationId,
+    contactId: contact.id,
+    to: contact.email,
+  };
 }
 
 function Sparkline({ path, stroke = "#2563eb" }: { path: string; stroke?: string }) {
@@ -511,6 +526,46 @@ function Modal({
       </section>
     </div>
   );
+}
+
+function SidePanel({
+  title,
+  copy,
+  children,
+  onClose,
+  isClosing,
+}: {
+  title: string;
+  copy?: string;
+  children: ReactNode;
+  onClose: () => void;
+  isClosing?: boolean;
+}) {
+  const panelRef = useRef<HTMLElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusables = (): HTMLElement[] => Array.from(panel.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")).filter((item) => !item.hasAttribute("disabled"));
+    (focusables()[0] || panel).focus();
+    return () => previousFocus.current?.focus?.({ preventScroll: true } as FocusOptions);
+  }, []);
+  return <div className={`manage-sidepanel-backdrop${isClosing ? " is-closing" : ""}`} role="presentation" onMouseDown={(event) => { if (!isClosing && event.currentTarget === event.target) onClose(); }}>
+    <section ref={panelRef} tabIndex={-1} className={`manage-sidepanel${isClosing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={title} onKeyDown={(event) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
+      if (event.key !== "Tab") return;
+      const focusables = Array.from(panelRef.current?.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])") ?? []).filter((item) => !item.hasAttribute("disabled"));
+      if (!focusables.length) return;
+      const first = focusables[0]; const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }}>
+      <header><div><p className="manage-sidepanel-eyebrow">Owner operations</p><h2>{title}</h2>{copy && <p>{copy}</p>}</div><button type="button" onClick={onClose} aria-label={`Close ${title}`}><X size={18} /></button></header>
+      <div className="manage-sidepanel-body">{children}</div>
+    </section>
+  </div>;
 }
 
 function FormActions({
@@ -1091,22 +1146,16 @@ export function ManagePortal({
             <Overview data={data} />
           )}
           {section === "accounts" && (
-            detailId ? <AccountDetailPage data={data} accountId={detailId} onCompose={(contact) => setCompose({ mode: "new", organizationId: contact.organizationId, to: contact.email })} /> : <Accounts
+            detailId ? <AccountDetailPage data={data} accountId={detailId} onCompose={(contact) => setCompose(contactComposeContext(contact))} /> : <Accounts
               data={data}
               query={search}
             />
           )}
           {section === "contacts" && (
-            detailId ? <ContactDetailPage data={data} contactId={detailId} onCompose={(contact) => setCompose({ mode: "new", organizationId: contact.organizationId, to: contact.email })} /> : <Contacts
+            detailId ? <ContactDetailPage data={data} contactId={detailId} onCompose={(contact) => setCompose(contactComposeContext(contact))} /> : <Contacts
               data={data}
               query={search}
-              onCompose={(contact) =>
-                setCompose({
-                  mode: "new",
-                  organizationId: contact.organizationId,
-                  to: contact.email,
-                })
-              }
+              onCompose={(contact) => setCompose(contactComposeContext(contact))}
             />
           )}
           {section === "outreach" && (
@@ -2159,10 +2208,25 @@ function ContactInspector({
   onCompose: (contact: ManageContact) => void;
 }) {
   const [composer, setComposer] = useState<"task" | "note" | null>(null);
+  const [composerClosing, setComposerClosing] = useState(false);
+  const composerCloseTimer = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const router = useRouter();
   const toast = useToast();
+  const closeInspectorComposer = useCallback(() => {
+    if (!composer || composerClosing) return;
+    setComposerClosing(true);
+    composerCloseTimer.current = window.setTimeout(() => {
+      setComposer(null);
+      setComposerClosing(false);
+      setMentionedUserIds([]);
+      composerCloseTimer.current = null;
+    }, 220);
+  }, [composer, composerClosing]);
+  useEffect(() => () => {
+    if (composerCloseTimer.current) window.clearTimeout(composerCloseTimer.current);
+  }, []);
   async function submitComposer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!contact || !composer) return;
@@ -2172,7 +2236,7 @@ function ContactInspector({
       form.set("organizationId", contact.organizationId);
       await api(composer === "task" ? "/api/manage/tasks" : "/api/manage/activities", { method: "POST", body: JSON.stringify(Object.fromEntries(form)) });
       toast.success(composer === "task" ? "Follow-up task created." : "Note added to the activity record.");
-      setComposer(null); setMentionedUserIds([]); router.refresh();
+      closeInspectorComposer(); router.refresh();
     } catch (error) { toast.error("That didn’t work", error instanceof Error ? error.message : "Please try again."); }
     finally { setBusy(false); }
   }
@@ -2180,7 +2244,7 @@ function ContactInspector({
     return <aside className="manage-panel manage-inspector"><Empty icon={Users} title="No contact selected" copy="Select a contact to see their account and communication details." /></aside>;
   }
   return (
-    <aside className="manage-panel manage-inspector manage-contact-inspector">
+    <aside className={`manage-panel manage-inspector manage-contact-inspector${composer ? " manage-inspector--composer-open" : ""}`}>
       <header className="manage-inspector-header">
         <Link href={`/manage/contacts/${contact.id}`} className="manage-inspector-account manage-inspector-record-card" title={`Open ${contact.fullName}`}>
           <span>{initials(contact.fullName)}</span>
@@ -2190,18 +2254,18 @@ function ContactInspector({
       </header>
       <div className="manage-inspector-tabs"><button className="active">Overview</button></div>
       <dl>
-        <div><dt>Account</dt><dd><strong>{contact.organizationName}</strong><span>{contact.isPrimary ? "Primary contact" : "Client contact"}</span></dd></div>
-        <div><dt>Email</dt><dd><strong>{contact.email}</strong></dd></div>
+        <div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-inspector-account-link" title={`Open ${contact.organizationName}`}><strong>{contact.organizationName}</strong><span>{contact.isPrimary ? "Primary contact" : "Client contact"}</span></Link></dd></div>
+        <div><dt>Email</dt><dd><button type="button" className="manage-contact-email" onClick={() => onCompose(contact)} title={`Compose an email to ${contact.fullName}`}><strong>{contact.email}</strong></button></dd></div>
         <div><dt>Phone</dt><dd><strong>{contact.phone || "Not recorded"}</strong></dd></div>
         <div><dt>Access</dt><dd><Status value={contact.status} /><span>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</span></dd></div>
         <div><dt>Email marketing</dt><dd><Status value={contact.marketingStatus || "not recorded"} /><span>{contact.marketingConsentAt ? `Recorded ${date(contact.marketingConsentAt, true)}` : "No explicit consent timestamp"}</span></dd></div>
       </dl>
       <div className="manage-inspector-actions">
-        {composer ? <form className="manage-inspector-composer" onSubmit={submitComposer}>
-          <header><strong>{composer === "task" ? "Add task" : "Add internal note"}</strong><button type="button" onClick={() => { setComposer(null); setMentionedUserIds([]); }} aria-label="Close composer"><X size={15} /></button></header>
+        <div className={`manage-inspector-composer-transition${composerClosing ? " is-closing" : ""}${composer ? " is-open" : ""}`}><div>{composer && <form className="manage-inspector-composer" onSubmit={submitComposer}>
+          <header><strong>{composer === "task" ? "Add task" : "Add internal note"}</strong><button type="button" onClick={closeInspectorComposer} aria-label="Close composer"><X size={15} /></button></header>
           {composer === "task" ? <><label><span>Task</span><input name="title" required autoFocus placeholder="What needs to happen?" /></label><div className="manage-inspector-composer-grid"><label><span>Type</span><CostivraSelect name="taskType" defaultValue="follow_up" options={[{ value: "follow_up", label: "Follow-up" }, { value: "email", label: "Email" }, { value: "call", label: "Call" }, { value: "meeting", label: "Meeting" }, { value: "review", label: "Review" }]} /></label><label><span>Priority</span><CostivraSelect name="priority" defaultValue="normal" options={[{ value: "low", label: "Low" }, { value: "normal", label: "Normal" }, { value: "high", label: "High" }]} /></label></div><label><span>Due</span><CostivraDateTimePicker name="dueAt" /></label><label><span>Notes</span><textarea name="notes" rows={3} placeholder="Optional context" /></label></> : <><input type="hidden" name="mentionedUserIds" value={JSON.stringify(mentionedUserIds)} /><label><span>Title</span><input name="subject" required autoFocus placeholder="What is this note about?" /></label><label><span>Note</span><textarea name="summary" rows={5} placeholder="Write the internal note." /></label><div className="manage-mention-picker"><span>Notify teammate</span>{data.staff.filter((member) => member.id !== data.operator.id).length ? <div>{data.staff.filter((member) => member.id !== data.operator.id).map((member) => { const selected = mentionedUserIds.includes(member.id); return <button type="button" className={selected ? "is-selected" : ""} key={member.id} onClick={() => setMentionedUserIds((current) => selected ? current.filter((id) => id !== member.id) : [...current, member.id])}><AtSign size={13} /> {member.fullName}</button>; })}</div> : <small>No other active internal teammates are available to mention.</small>}</div></>}
-          <footer><button type="button" className="manage-button manage-button--quiet" onClick={() => setComposer(null)}>Cancel</button><button className="manage-button manage-button--primary" disabled={busy}>{busy ? "Saving…" : composer === "task" ? "Create task" : "Save note"}</button></footer>
-        </form> : <div className="manage-inspector-actions--split"><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("task")}><CalendarClock size={15} /> Add task</button><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("note")}><MessageSquareText size={15} /> Add note</button></div>}
+          <footer><button type="button" className="manage-button manage-button--quiet" onClick={closeInspectorComposer}>Cancel</button><button className="manage-button manage-button--primary" disabled={busy || composerClosing}>{busy ? "Saving…" : composer === "task" ? "Create task" : "Save note"}</button></footer>
+        </form>}</div></div>{!composer && <div className="manage-inspector-actions--split"><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("task")}><CalendarClock size={15} /> Add task</button><button className="manage-button manage-button--quiet manage-full" onClick={() => setComposer("note")}><FileText size={15} /> Add note</button></div>}
       </div>
       <p className="manage-inspector-note">Marketing consent is shown separately from workspace access. Costivra will not treat account membership as email consent.</p>
     </aside>
@@ -2300,7 +2364,7 @@ function Contacts({
               const bulkSelected = selectedIds.has(contact.id);
               return <tr key={contact.id} className={`${selectedContact?.id === contact.id ? "is-selected" : ""}${bulkSelected ? " is-bulk-selected" : ""}`} onClick={() => setSelectedContactId(contact.id)}>
                 <td className="manage-row-number-cell"><BulkRowSelector checked={bulkSelected} index={(currentPage - 1) * pageSize + index + 1} label={contact.fullName} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
-                <td className="manage-sticky-column"><Link href={`/manage/contacts/${contact.id}`} className="manage-table-record-card" onClick={(event) => event.stopPropagation()}><span className="manage-person-avatar">{initials(contact.fullName)}</span><span className="manage-table-record-meta"><strong>{contact.fullName}</strong><small>{contact.email}</small></span></Link></td>
+                <td className="manage-sticky-column"><div className="manage-table-record-card"><span className="manage-person-avatar">{initials(contact.fullName)}</span><span className="manage-table-record-meta"><Link href={`/manage/contacts/${contact.id}`} onClick={(event) => event.stopPropagation()}><strong>{contact.fullName}</strong></Link><button type="button" className="manage-contact-email" onClick={(event) => { event.stopPropagation(); onCompose(contact); }} title={`Compose an email to ${contact.fullName}`}>{contact.email}</button></span></div></td>
                 <td><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-table-record-card" onClick={(event) => event.stopPropagation()}><span className="manage-table-record-meta"><strong>{contact.organizationName}</strong><small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small></span></Link></td>
                 <td>{contact.title || "Not set"}</td>
                 <td><Status value={contact.marketingStatus || "not recorded"} /></td>
@@ -2411,6 +2475,113 @@ function VendorWorkspace({ vendors, expenses, contracts, documents, currency, se
   return <section className="manage-vendor-workspace"><div className="manage-vendor-workspace__collection"><header><div><span>Vendor directory</span><h3>{vendors.length} linked vendor{vendors.length === 1 ? "" : "s"}</h3></div></header><VendorList vendors={vendors} selectedId={selected.id} onSelect={onSelect} currency={currency} /></div><article className="manage-vendor-detail"><header className="manage-vendor-detail__heading"><CompanyLogo entity="vendor" id={selected.vendorId} name={selected.name} className="manage-vendor-detail__logo" /><div><span>Vendor detail</span><h3>{selected.name}</h3><p>{selected.category ? pretty(selected.category) : "Uncategorized"} · {pretty(selected.relationshipStatus)}</p></div>{selected.website && <a href={selected.website.startsWith("http") ? selected.website : `https://${selected.website}`} target="_blank" rel="noreferrer">Website <ChevronRight size={14} /></a>}</header><div className="manage-vendor-detail__metrics"><div><span>Recorded spend</span><strong>{money(selected.recordedSpend, currency)}</strong></div><div><span>Annualized spend</span><strong>{money(selected.annualizedSpend, currency)}</strong></div><div><span>Expense records</span><strong>{selected.expenseCount}</strong></div><div><span>Contracts</span><strong>{selected.contractCount}</strong></div></div><CostTrend title={`${selected.name} cost history`} expenses={vendorExpenses} currency={currency} /><section className="manage-vendor-detail__section"><header><h4>Associated details</h4><p>Current records connected to this vendor relationship.</p></header><dl><div><dt>Spend cadence</dt><dd>{pretty(selected.spendCadence)}</dd></div><div><dt>Next contract end</dt><dd>{selected.nextContractEnd ? date(selected.nextContractEnd) : "Not recorded"}</dd></div><div><dt>Source documents</dt><dd>{vendorDocuments.length}</dd></div></dl></section>{vendorContracts.length > 0 && <section className="manage-vendor-detail__section"><header><h4>Contracts</h4><p>Contract dates and values are shown as recorded.</p></header><div className="manage-vendor-contracts">{vendorContracts.map((contract) => <div key={contract.id}><span><strong>{contract.title}</strong><small>{contract.category ? pretty(contract.category) : "Uncategorized"} · {pretty(contract.status)}</small></span><span><strong>{money(contract.annualValue, contract.currency || currency)}</strong><small>{contract.endDate ? `Ends ${date(contract.endDate)}` : "End date not recorded"}{contract.autoRenews ? " · Auto-renews" : ""}</small></span></div>)}</div></section>}</article></section>;
 }
 
+function compactUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return value.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  }
+}
+
+function AccountHeaderMeta({ account, profile }: { account: ManageAccount; profile: ManageAccount["enrichment"] }) {
+  const website = profile?.website || account.website;
+  const phone = profile?.phone;
+  const phoneHref = phone?.replace(/[^+\d]/g, "");
+  return <div className="manage-record-identity-meta" aria-label="Company contact details">
+    {profile?.location && <span title="Headquarters location"><MapPin size={13} />{profile.location}</span>}
+    {website && <a href={website} target="_blank" rel="noreferrer" title="Company website"><Globe2 size={13} />{compactUrl(website)}</a>}
+    {phone && phoneHref && <a href={`tel:${phoneHref}`} title={`Call ${phone}`}><Phone size={13} />{phone}</a>}
+    {profile?.linkedinUrl && <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" title="LinkedIn company profile"><ExternalLink size={13} />LinkedIn</a>}
+  </div>;
+}
+
+function TechnologyList({ technologies }: { technologies: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? technologies : technologies.slice(0, 8);
+  if (!technologies.length) return null;
+  return <div className="manage-record-technologies">
+    <div className="manage-record-technology-list" aria-label="Technologies used">
+      {visible.map((technology) => <span key={technology}>{technology}</span>)}
+    </div>
+    {technologies.length > 8 && <button type="button" className="manage-record-technology-toggle" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>{expanded ? "Show fewer" : `Show all ${technologies.length}`}</button>}
+  </div>;
+}
+
+function AccountOverview({
+  account,
+  profile,
+  profileSummary,
+  vendors,
+  expenses,
+  documents,
+  contacts,
+  setSelectedVendorId,
+  setActive,
+}: {
+  account: ManageAccount;
+  profile: ManageAccount["enrichment"];
+  profileSummary: string;
+  vendors: ManageData["vendorRelationships"];
+  expenses: ManageData["expenses"];
+  documents: ManageData["documents"];
+  contacts: ManageContact[];
+  setSelectedVendorId: (id: string) => void;
+  setActive: (active: string) => void;
+}) {
+  const companyPhone = profile?.phone;
+  const phoneHref = companyPhone?.replace(/[^+\d]/g, "");
+  return <div className="manage-record-layout">
+    <aside className="manage-record-rail">
+      <section>
+        <span>Account details</span>
+        <dl>
+          <div><dt>Industry</dt><dd>{account.industry || profile?.industry || "Not set"}</dd></div>
+          <div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div>
+          <div><dt>Phone</dt><dd>{companyPhone && phoneHref ? <a href={`tel:${phoneHref}`} className="manage-record-company-phone">{companyPhone}</a> : "Not recorded"}</dd></div>
+          <div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div>
+          <div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div>
+        </dl>
+      </section>
+      <section><span>Internal CRM</span><p>{account.privateNotes || "No private account note yet."}</p></section>
+    </aside>
+    <main className="manage-record-main">
+      <section className="manage-record-profile">
+        <div>
+          <span>Company profile</span>
+          <h3>{profile ? "Apollo enrichment · internal CRM context" : "Account context"}</h3>
+          <p>{profileSummary}</p>
+        </div>
+        {profile && <div className="manage-record-profile-data">
+          <dl>
+            {profile.name && profile.name.toLowerCase() !== account.name.toLowerCase() && <div><dt>Apollo name</dt><dd>{profile.name}</dd></div>}
+            <div><dt>Profile status</dt><dd>{pretty(profile.status)}</dd></div>
+            {profile.foundedYear != null && <div><dt>Founded</dt><dd>{profile.foundedYear}</dd></div>}
+            {profile.employeeCount != null && <div><dt>Team size</dt><dd>{profile.employeeCount.toLocaleString()}</dd></div>}
+            {profile.fetchedAt && <div><dt>Updated</dt><dd>{date(profile.fetchedAt)}</dd></div>}
+          </dl>
+          {profile.technologies.length > 0 && <div className="manage-record-profile-field"><span>Technologies</span><TechnologyList technologies={profile.technologies} /></div>}
+        </div>}
+      </section>
+      <div className="manage-vendor-overview">
+        <CostTrend expenses={expenses} currency={account.currency} />
+        <section className="manage-panel manage-vendor-preview">
+          <header><div><h3>Linked vendors</h3><p>Spend, contracts, and source evidence by vendor.</p></div><button type="button" className="manage-button manage-button--quiet" onClick={() => setActive("vendors")}>View all</button></header>
+          {vendors.length ? <VendorList vendors={vendors.slice(0, 3)} selectedId={null} onSelect={(id) => { setSelectedVendorId(id); setActive("vendors"); }} currency={account.currency} /> : <Empty icon={Building2} title="No vendor relationships" copy="Link a vendor to see its cost records here." />}
+        </section>
+      </div>
+      <section className="manage-panel manage-record-overview-panel">
+        <header><div><h3>Relationship snapshot</h3><p>Keep people, vendors, files, and activity close together.</p></div></header>
+        <div className="manage-record-snapshot">
+          <button type="button" onClick={() => setActive("people")}><Users size={16} /><span><strong>{contacts.length}</strong> people</span><ChevronRight size={15} /></button>
+          <button type="button" onClick={() => setActive("vendors")}><Building2 size={16} /><span><strong>{vendors.length}</strong> vendors</span><ChevronRight size={15} /></button>
+          <button type="button" onClick={() => setActive("files")}><FileText size={16} /><span><strong>{documents.length}</strong> source files</span><ChevronRight size={15} /></button>
+        </div>
+      </section>
+    </main>
+  </div>;
+}
+
 function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; accountId: string; onCompose: (contact: ManageContact) => void }) {
   const account = data.accounts.find((item) => item.id === accountId);
   const [active, setActive] = useState("overview");
@@ -2428,12 +2599,12 @@ function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; a
   const accountTabs = [{ id: "overview", label: "Overview" }, { id: "vendors", label: "Vendors", count: vendors.length }, { id: "people", label: "People", count: contacts.length }, { id: "files", label: "Files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Work", count: tasks.length }];
   return <div className="manage-detail-page manage-record-page motion-page">
     <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
-    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><p>Client account</p><h2>{account.name}</h2><span>{account.legalName || account.industry || "Account profile"}</span></div></div><div className="manage-record-actions"><EnrichmentRefreshButton id={account.id} enabled={Boolean(account.website)} available={data.enrichmentAvailable} configured={data.enrichmentConfigured} /><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open list</Link></div></header>
+    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><p>Client account</p><h2>{account.name}</h2><span>{account.legalName || account.industry || "Account profile"}</span><AccountHeaderMeta account={account} profile={profile} /></div></div><div className="manage-record-actions"><EnrichmentRefreshButton id={account.id} enabled={Boolean(account.website)} available={data.enrichmentAvailable} configured={data.enrichmentConfigured} /><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open list</Link></div></header>
     <section className="manage-record-highlights" aria-label="Account highlights"><div><span>Lifecycle</span><Status value={account.stage || "unclassified"} /></div><div><span>Next step</span><strong>{account.nextStep || "Not set"}</strong></div><div><span>Follow-up</span><strong>{account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled"}</strong></div><div><span>Vendors</span><strong>{vendors.length}</strong></div><div><span>Open work</span><strong>{account.openTaskCount}</strong></div><div><span>Evidence files</span><strong>{documents.length}</strong></div></section>
     <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
-    {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Account details</span><dl><div><dt>Industry</dt><dd>{account.industry || "Not set"}</dd></div><div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div><div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div><div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div></dl></section><section><span>Internal CRM</span><p>{account.privateNotes || "No private account note yet."}</p></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Company profile</span><h3>{profile ? "Apollo enrichment · internal CRM context" : "Account context"}</h3><p>{profileSummary}</p></div>{profile && <dl><div><dt>Profile status</dt><dd>{pretty(profile.status)}</dd></div>{profile.location && <div><dt>Location</dt><dd>{profile.location}</dd></div>}{profile.employeeCount != null && <div><dt>Team size</dt><dd>{profile.employeeCount.toLocaleString()}</dd></div>}{profile.fetchedAt && <div><dt>Updated</dt><dd>{date(profile.fetchedAt)}</dd></div>}</dl>}</section><div className="manage-vendor-overview"><CostTrend expenses={expenses} currency={account.currency} /><section className="manage-panel manage-vendor-preview"><header><div><h3>Linked vendors</h3><p>Spend, contracts, and source evidence by vendor.</p></div><button type="button" className="manage-button manage-button--quiet" onClick={() => setActive("vendors")}>View all</button></header>{vendors.length ? <VendorList vendors={vendors.slice(0, 3)} selectedId={null} onSelect={(id) => { setSelectedVendorId(id); setActive("vendors"); }} currency={account.currency} /> : <Empty icon={Building2} title="No vendor relationships" copy="Link a vendor to see its cost records here." />}</section></div><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship snapshot</h3><p>Keep people, vendors, files, and activity close together.</p></div></header><div className="manage-record-snapshot"><button type="button" onClick={() => setActive("people")}><Users size={16} /><span><strong>{contacts.length}</strong> people</span><ChevronRight size={15} /></button><button type="button" onClick={() => setActive("vendors")}><Building2 size={16} /><span><strong>{vendors.length}</strong> vendors</span><ChevronRight size={15} /></button><button type="button" onClick={() => setActive("files")}><FileText size={16} /><span><strong>{documents.length}</strong> source files</span><ChevronRight size={15} /></button></div></section></main></div>}
+    {active === "overview" && <AccountOverview account={account} profile={profile} profileSummary={profileSummary} vendors={vendors} expenses={expenses} documents={documents} contacts={contacts} setSelectedVendorId={setSelectedVendorId} setActive={setActive} />}
     {active === "vendors" && <VendorWorkspace vendors={vendors} expenses={expenses} contracts={vendorContracts} documents={documents} currency={account.currency} selectedId={selectedVendorId} onSelect={setSelectedVendorId} />}
-    {active === "people" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>People</h3><p>Contacts connected to this account. Compose and record actions stay explicit.</p></div></header>{contacts.length ? <div className="manage-record-person-list">{contacts.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><Link href={`/manage/contacts/${contact.id}`}><strong>{contact.fullName}</strong></Link><p>{contact.title || "Role not set"} · {contact.email}</p></div>{contact.isPrimary && <span className="manage-record-primary">Primary</span>}<button className="manage-icon-button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>}
+    {active === "people" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>People</h3><p>Contacts connected to this account. Compose and record actions stay explicit.</p></div></header>{contacts.length ? <div className="manage-record-person-list">{contacts.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><Link href={`/manage/contacts/${contact.id}`}><strong>{contact.fullName}</strong></Link><p>{contact.title || "Role not set"} · <button type="button" className="manage-contact-email" onClick={() => onCompose(contact)} title={`Compose an email to ${contact.fullName}`}>{contact.email}</button></p></div>{contact.isPrimary && <span className="manage-record-primary">Primary</span>}<button className="manage-icon-button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>}
     {active === "files" && <RecordFilesWorkspace title="Account files" description="A clean, searchable view of this client’s private source documents. Collections never change the immutable storage record." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: account.name, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
     {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>}
@@ -2448,8 +2619,8 @@ function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; c
   const tasks = data.tasks.filter((item) => item.organizationId === contact.organizationId && item.contactId === contact.id);
   const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
   const tabs = [{ id: "overview", label: "Overview" }, { id: "files", label: "Shared files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Tasks", count: tasks.length }];
-  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-button manage-button--primary" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><span>Account</span><strong>{contact.organizationName}</strong></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
-    {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Contact details</span><dl><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd>{contact.email}</dd></div><div><dt>Phone</dt><dd>{contact.phone || "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main></div>}
+  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-record-action-icon manage-record-action-icon--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={17} /></button>{contact.phone && <a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={17} /></a>}</div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-record-account-link" title={`Open ${contact.organizationName}`}><CompanyLogo entity="organization" id={contact.organizationId} name={contact.organizationName} className="manage-record-account-logo" /><span><small>Account</small><strong>{contact.organizationName}</strong></span></Link></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
+    {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Contact details</span><dl><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd><button type="button" className="manage-contact-email" onClick={() => onCompose(contact)} title={`Compose an email to ${contact.fullName}`}>{contact.email}</button></dd></div><div><dt>Phone</dt><dd>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="manage-contact-phone" title={`Call ${contact.phone}`}>{contact.phone}</a> : "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main></div>}
     {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} emptyCopy="No account source files are available to this internal record yet." />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
     {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Tasks for {contact.fullName}</h3><p>Only work explicitly linked to this CRM contact is shown.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No contact tasks" copy="Assign a task to this contact when there is a clear next step." />}</section>}
@@ -3815,8 +3986,91 @@ function AccountForm({
   isClosing?: boolean;
   onSubmit: (form: FormData) => void;
 }) {
+  const [lookup, setLookup] = useState("");
+  const [name, setName] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [website, setWebsite] = useState("");
+  const [results, setResults] = useState<ManageApolloSearchResult[]>([]);
+  const [selected, setSelected] = useState<ManageApolloSearchResult | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+
+  useEffect(() => {
+    const query = lookup.trim();
+    if (selected || query.length < 3) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      setSearchError("");
+      try {
+        const response = await fetch(`/api/manage/accounts/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          results?: ManageApolloSearchResult[];
+          error?: string;
+        };
+        if (!response.ok) throw new Error(payload.error || "Company search is unavailable.");
+        const nextResults = payload.results ?? [];
+        setResults(nextResults);
+        const exactWebsiteMatch = nextResults.find((result) => result.exact) ?? null;
+        if (exactWebsiteMatch && looksLikeCompanyWebsite(query)) {
+          chooseCompany(exactWebsiteMatch);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setResults([]);
+          setSearchError(error instanceof Error ? error.message : "Company search is unavailable.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [lookup, selected]);
+
+  function applyCompany(result: ManageApolloSearchResult) {
+    setSelected(result);
+    setLookup(result.name);
+    setName(result.name);
+    setWebsite(result.website ?? "");
+    setIndustry(result.industry ?? "");
+    setResults([]);
+  }
+
+  async function chooseCompany(result: ManageApolloSearchResult) {
+    if (!result.detailsLoaded && result.website) {
+      setSearching(true);
+      setSearchError("");
+      try {
+        const response = await fetch(`/api/manage/accounts/search?q=${encodeURIComponent(result.website)}`, {
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          results?: ManageApolloSearchResult[];
+          error?: string;
+        };
+        if (!response.ok) throw new Error(payload.error || "Company details are unavailable.");
+        const detailed = payload.results?.find((candidate) => candidate.exact) ?? payload.results?.[0];
+        if (detailed) {
+          applyCompany(detailed);
+          return;
+        }
+      } catch (error) {
+        setSearchError(error instanceof Error ? error.message : "Company details are unavailable.");
+      } finally {
+        setSearching(false);
+      }
+    }
+    applyCompany(result);
+  }
+
   return (
-    <Modal
+    <SidePanel
       title="Add a real account"
       copy="This creates a live Supabase organization. It does not create a customer login or send an invitation."
       onClose={onClose}
@@ -3829,9 +4083,72 @@ function AccountForm({
         }}
       >
         <div className="manage-form-grid">
+          <label className="wide manage-account-company-lookup">
+            <span>Find company by name or website</span>
+            <div className="manage-account-company-lookup__input">
+              <Search size={16} aria-hidden="true" />
+              <input
+                value={lookup}
+                onChange={(event) => {
+                  setLookup(event.target.value);
+                  setSelected(null);
+                  setResults([]);
+                  setSearchError("");
+                }}
+                placeholder="Start typing a company name or https://company.com"
+                aria-label="Find company by name or website"
+                autoFocus
+              />
+              {searching && <RefreshCw size={14} className="spin" aria-label="Searching" />}
+            </div>
+            {selected ? (
+              <span className="manage-account-company-lookup__selected">
+                <CheckCircle2 size={14} /> Company details loaded. They will be verified again when you save.
+              </span>
+            ) : searching ? (
+              <span className="manage-account-company-lookup__hint"><RefreshCw size={13} className="spin" /> Looking up company details…</span>
+            ) : results.length ? (
+              <div className="manage-account-company-results" role="listbox" aria-label="Company search results">
+                {results.map((result) => (
+                  <button type="button" role="option" aria-selected="false" key={result.providerOrganizationId} onClick={() => chooseCompany(result)}>
+                    <span className="manage-account-company-results__identity">
+                      {result.logoUrl ? <img src={result.logoUrl} alt="" /> : <Building2 size={16} />}
+                      <span><strong>{result.name}</strong><small>{result.website?.replace(/^https?:\/\//, "") || result.location || "Company profile"}</small></span>
+                    </span>
+                    {result.exact && <em>Exact match</em>}
+                  </button>
+                ))}
+              </div>
+            ) : searchError ? (
+              <span className="manage-account-company-lookup__error"><CircleAlert size={14} /> {searchError}</span>
+            ) : queryReady(lookup) ? (
+              <span className="manage-account-company-lookup__hint">No company matches yet. You can still add the account manually.</span>
+            ) : (
+              <span className="manage-account-company-lookup__hint">Apollo searches only after you enter three characters.</span>
+            )}
+          </label>
+          {selected && (
+            <div className="wide manage-account-company-preview" aria-label="Company details ready to add">
+              <div className="manage-account-company-preview__identity">
+                {selected.logoUrl ? <img src={selected.logoUrl} alt="" /> : <Building2 size={20} />}
+                <span>
+                  <strong>{selected.name}</strong>
+                  <small>{selected.shortDescription || selected.industry || "Apollo company profile"}</small>
+                </span>
+              </div>
+              <dl>
+                {selected.location && <div><dt><MapPin size={13} /> Location</dt><dd>{selected.location}</dd></div>}
+                {selected.phone && <div><dt><Phone size={13} /> Phone</dt><dd>{selected.phone}</dd></div>}
+                {selected.employeeCount != null && <div><dt><Users size={13} /> Employees</dt><dd>{selected.employeeCount.toLocaleString()}</dd></div>}
+                {selected.foundedYear != null && <div><dt><CalendarClock size={13} /> Founded</dt><dd>{selected.foundedYear}</dd></div>}
+                {selected.linkedinUrl && <div><dt><Link2 size={13} /> LinkedIn</dt><dd>Available</dd></div>}
+                {selected.technologies.length > 0 && <div><dt><Activity size={13} /> Technologies</dt><dd>{selected.technologies.length} found</dd></div>}
+              </dl>
+            </div>
+          )}
           <label>
             <span>Account name *</span>
-            <input name="name" required autoFocus />
+            <input name="name" required value={name} onChange={(event) => setName(event.target.value)} />
           </label>
           <label>
             <span>Legal name</span>
@@ -3839,11 +4156,15 @@ function AccountForm({
           </label>
           <label>
             <span>Industry</span>
-            <input name="industry" />
+            <input name="industry" value={industry} onChange={(event) => setIndustry(event.target.value)} />
           </label>
           <label>
             <span>Account website</span>
-            <input name="website" type="url" placeholder="https://example.com" />
+            <input name="website" type="url" value={website} onChange={(event) => {
+              const nextWebsite = event.target.value;
+              setWebsite(nextWebsite);
+              if (selected && companyWebsiteDomain(nextWebsite) !== companyWebsiteDomain(selected.website ?? "")) setSelected(null);
+            }} placeholder="https://example.com" />
           </label>
           <label>
             <span>Lifecycle stage</span>
@@ -3865,14 +4186,33 @@ function AccountForm({
             <input name="contactEmail" type="email" />
           </label>
         </div>
+        <input type="hidden" name="apolloSelection" value={selected ? JSON.stringify(selected) : ""} />
         <p className="manage-form-note">
           <CircleAlert size={15} /> Adding an account stores a real CRM record.
           Customer access is invited separately.
         </p>
         <FormActions busy={busy} submit="Add account" onClose={onClose} />
       </form>
-    </Modal>
+    </SidePanel>
   );
+}
+
+function queryReady(value: string) {
+  return value.trim().length >= 3;
+}
+
+function looksLikeCompanyWebsite(value: string) {
+  const query = value.trim();
+  return /^(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/|$)/i.test(query);
+}
+
+function companyWebsiteDomain(value: string) {
+  try {
+    const candidate = value.includes("://") ? value : `https://${value}`;
+    return new URL(candidate).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }
 function ContactForm({
   data,
@@ -3888,7 +4228,7 @@ function ContactForm({
   onSubmit: (form: FormData) => void;
 }) {
   return (
-    <Modal
+    <SidePanel
       title="Add client contact"
       copy="Use a real business contact. No invitation or email is sent."
       onClose={onClose}
@@ -3940,7 +4280,7 @@ function ContactForm({
         </div>
         <FormActions busy={busy} submit="Add contact" onClose={onClose} />
       </form>
-    </Modal>
+    </SidePanel>
   );
 }
 function TaskForm({
@@ -4538,7 +4878,7 @@ function Compose({
       const response = await fetch("/api/manage/mail/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruction: draftInstruction, recipientEmail, subject: currentSubject }),
+        body: JSON.stringify({ instruction: draftInstruction, recipientEmail, subject: currentSubject, organizationId: context.organizationId, contactId: context.contactId }),
       });
       const payload = (await response.json().catch(() => ({}))) as { bodyHtml?: string; subject?: string; error?: string };
       if (!response.ok || !payload.bodyHtml) throw new Error(payload.error || "Costivra could not create a draft.");

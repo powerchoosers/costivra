@@ -496,3 +496,43 @@ The internal account view gains a fast, evidence-connected vendor drill-in witho
 route, schema change, or browser access to privileged vendor data. Chart values are recorded spend
 only; annualized relationship values remain separately labelled and no view presents an estimated
 or verified savings amount.
+
+## 2026-08-03 — Use Apollo as an operator-selected account discovery source
+
+### Context
+
+Operators need a faster, less error-prone way to add a company than manually copying a name and
+website. Apollo can return a candidate organization, logo, industry, location, employee count,
+founded year, LinkedIn URL, and technology signals. Provider data is still untrusted and may be
+incomplete or stale.
+
+### Decision
+
+Add an internal-only, debounced company search by name or domain. Show candidates in a reviewable
+list and let the operator select one; never silently create an account or overwrite manually
+entered fields. Store the normalized selected snapshot in the restricted Apollo enrichment ledger,
+and use an Apollo logo only after it passes the existing public-HTTPS and host allowlists. Keep
+the canonical account name, industry, and website operator-controlled.
+
+### Consequences
+
+Account creation is faster while preserving a human confirmation step and tenant boundaries.
+Technology signals remain internal context rather than authoritative facts. Apollo search requires
+an API key with the provider's organization-search scope; if that scope is missing, manual entry
+continues to work and the UI reports that search is unavailable.
+
+## 2026-08-03 — Keep Apollo detail useful without a data dump
+
+### Context
+
+Apollo can return many company signals, but account operators need identity and contact paths first. Showing every provider field at equal visual weight would make the record harder to scan and make missing values look like broken UI.
+
+### Decision
+
+Use a two-level presentation: location, website, phone, and LinkedIn are conditional quick-access metadata in the account header; the rail repeats the website and phone; remaining captured Apollo fields live in a labelled internal profile block. Technologies are collapsed after the first eight and can be expanded on demand. Keep the provider snapshot separate from operator-maintained account fields, including the company phone.
+
+Use a right-side drawer for account/contact creation so the operator retains context while entering data. Preserve focus management, keyboard dismissal, backdrop dismissal, and reduced-motion behavior.
+
+### Consequences
+
+The account page remains glanceable while exposing the full set of fields this integration currently captures. Future Apollo fields can be added to the profile block without changing the header hierarchy. The test account `Apollo QA - HubSpot Profile` provides a real enriched fixture for visual QA without changing a customer record.

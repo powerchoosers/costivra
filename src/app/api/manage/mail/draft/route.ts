@@ -17,20 +17,24 @@ export async function POST(request: Request) {
     const instruction = cleanText(requestBody?.instruction, 1_500);
     const recipientEmail = parseAddressList(cleanText(requestBody?.recipientEmail, 1_000))[0] ?? "";
     const currentSubject = cleanText(requestBody?.subject, 500);
+    const requestedContactId = cleanText(requestBody?.contactId, 128);
+    const requestedOrganizationId = cleanText(requestBody?.organizationId, 128);
     if (instruction.length < 3)
       return NextResponse.json({ error: "Describe the email you want to write." }, { status: 400 });
 
     const { db, userId } = operator;
+    const contactQuery = db
+      .from("crm_contacts")
+      .select("id,organization_id,full_name,email,title");
     const { data: contact, error: contactError } = recipientEmail
-      ? await db
-          .from("crm_contacts")
-          .select("id,organization_id,full_name,email,title")
-          .ilike("email", recipientEmail)
-          .limit(1)
-          .maybeSingle()
+      ? requestedContactId
+        ? await contactQuery.eq("id", requestedContactId).ilike("email", recipientEmail).maybeSingle()
+        : await contactQuery.ilike("email", recipientEmail).limit(1).maybeSingle()
       : { data: null, error: null };
     if (contactError) throw contactError;
     const organizationId = nullable(contact?.organization_id);
+    if (requestedOrganizationId && organizationId && requestedOrganizationId !== organizationId)
+      return NextResponse.json({ error: "The selected contact does not belong to this account." }, { status: 400 });
     const [organizationResult, profileResult, vendorsResult, activitiesResult, messagesResult] = organizationId
       ? await Promise.all([
           db.from("organizations").select("name,industry").eq("id", organizationId).maybeSingle(),

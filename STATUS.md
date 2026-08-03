@@ -756,3 +756,52 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Targeted Resend/intake tests passed (10 tests), cron authorization/readiness tests passed (25 tests), and the complete automated suite passed (246 tests passed; 3 intentionally skipped). TypeScript and the optimized production build both passed.
 - Live Vercel runtime logs for deployment `dpl_9xxUEtrMzZfUXxZWEJwkBkdZFb6t` confirm `/api/cron/inbound-email` is receiving successful `200` scheduled invocations every minute. This is the authoritative production-worker proof.
 - The prior `ops:smoke` warning was a false operational signal: it sent the local development `CRON_SECRET` to production, where the deployed Vercel secret is intentionally independent. The smoke script now verifies unauthenticated rejection by default and only performs a protected manual invocation when `COSTIVRA_VERIFY_CRON_TOKEN` is explicitly supplied. The launch checklist explains the distinction.
+
+## 2026-08-03 — Apollo account discovery and company profile fields
+
+- Added a server-only Apollo company search route for internal operators. It accepts a company name
+  or public domain, waits until three characters are entered, returns bounded candidates, and marks
+  exact domain/name matches without automatically creating a record.
+- Account creation can now select a candidate and review its name, industry, and website before
+  saving. The restricted Apollo snapshot stores the provider ID, logo, LinkedIn URL, location,
+  employee count, founded year, and technology names. Apollo logos use an allowlisted provider
+  host with Logo.dev fallback; operator-entered account data remains canonical.
+- Applied migration `20260803173631_add_apollo_account_fields` to the Costivra Supabase project.
+  Live verification confirms `name`, `logo_url`, and `technology_names` exist on the restricted
+  enrichment table. Security and performance advisors show no new finding from this migration;
+  the existing Auth leaked-password-protection warning remains.
+- Validation passed: focused Apollo and account-search tests (11 passed), TypeScript, ESLint, and
+  `git diff --check`. After the server restart, a live probe using the configured server-side key
+  returned HTTP 200 from `mixed_companies/search` with one company result; the key itself was never
+  exposed or logged. The `crm-platform/network` reference directory is not present in this
+  repository, so implementation follows the current Costivra Apollo adapter and the official
+  Apollo endpoint contract.
+- The lookup now auto-selects a high-confidence exact website match, keeps exact name matches
+  operator-selectable to avoid same-name collisions, and accepts Apollo's `primary_domain` response
+  field when a full website URL is absent.
+
+## 2026-08-03 — Contact workspace interaction refinement
+
+- Fixed the Manage contact inspector status-pill layout so its small status dot remains a dot instead
+  of inheriting the inspector's generic block treatment. Account names now open their account record
+  from the contact inspector and the contact-detail highlight, where the approved company logo is
+  displayed alongside the account name.
+- Contact email addresses now open the existing contextual composer from the contacts table,
+  inspector, contact detail, and account people view. The composer request carries the selected
+  contact and account identifiers, so draft context resolves the intended CRM relationship rather
+  than relying only on the recipient address.
+- Replaced the full-text contact-page compose action with a labeled icon control and added a
+  phone icon/link only when a phone number is recorded. Inspector task/note forms now expand and
+  collapse with a bounded transition; the note action uses the document icon.
+- Validation: ESLint, `git diff --check`, and live browser verification of the contacts page,
+  contextual email composer, account link, status pills, and task expansion passed. TypeScript is
+  currently blocked by pre-existing Apollo nullability errors in `src/lib/integrations/apollo.ts`
+  (lines 390 and 393), outside this contact-workspace change.
+
+## 2026-08-03 — Apollo company profile presentation
+
+- Added Apollo corporate phone capture to the restricted `crm_account_enrichments` snapshot and applied migration `20260803183758_add_apollo_company_phone` to the linked Supabase project.
+- Account detail headers now show only existing location, website, phone, and LinkedIn values. The overview rail repeats the website and places the company phone directly beneath it; Apollo context shows status, founded year, team size, update time, and a collapsed technology list with an explicit “Show all” control.
+- Add-account and add-contact flows now use right-side drawers with focus handling, backdrop dismissal, Escape support, and enter/exit animations.
+- Created `Apollo QA - HubSpot Profile`, enriched it through the normal refresh flow, and verified the live page with Apollo location, website, phone, LinkedIn, founded year, team size, description, and technology data.
+- Validation passed: focused Apollo/enrichment tests (14 passed), `npm run typecheck`, `npm run lint` (0 errors; two existing warnings remain), and `git diff --check`.

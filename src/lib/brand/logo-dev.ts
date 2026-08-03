@@ -1,6 +1,10 @@
 import "server-only";
 
 const LOGO_DEV_IMAGE_HOST = "img.logo.dev";
+const APOLLO_IMAGE_HOSTS = new Set([
+  "zenprospect-production.s3.amazonaws.com",
+  "apolloio-prod.s3.amazonaws.com",
+]);
 
 function domainFromWebsite(website: string | null): string | null {
   if (!website) return null;
@@ -33,4 +37,17 @@ export async function fetchLogoDevImage(reference: string) {
   const contentType = response.headers.get("content-type") ?? "";
   if (!response.ok || !contentType.startsWith("image/")) return null;
   return { body: await response.arrayBuffer(), contentType };
+}
+
+export async function fetchApolloImage(reference: string) {
+  try {
+    const url = new URL(reference);
+    if (url.protocol !== "https:" || !APOLLO_IMAGE_HOSTS.has(url.hostname.toLowerCase())) return null;
+    const response = await fetch(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(8_000) });
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!response.ok || !contentType.startsWith("image/")) return null;
+    return { body: await response.arrayBuffer(), contentType };
+  } catch {
+    return null;
+  }
 }

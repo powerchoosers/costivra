@@ -25,14 +25,35 @@ export type ApolloCompanyLookup = {
 export type ApolloOrganizationSnapshot = {
   status: ApolloStatus;
   providerOrganizationId: string | null;
+  name: string | null;
   shortDescription: string | null;
   industry: string | null;
   website: string | null;
+  logoUrl: string | null;
   linkedinUrl: string | null;
+  phone: string | null;
   location: string | null;
   employeeCount: number | null;
   foundedYear: number | null;
+  technologies: string[];
   responseHash: string | null;
+};
+
+export type ApolloOrganizationSearchResult = {
+  providerOrganizationId: string;
+  name: string;
+  shortDescription: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  linkedinUrl: string | null;
+  phone: string | null;
+  industry: string | null;
+  location: string | null;
+  employeeCount: number | null;
+  foundedYear: number | null;
+  technologies: string[];
+  exact: boolean;
+  detailsLoaded: boolean;
 };
 
 const text = (value: unknown, limit = 1_600) =>
@@ -146,6 +167,96 @@ function locationFrom(source: JsonRecord) {
   return values.length ? values.join(", ") : null;
 }
 
+function technologiesFrom(source: JsonRecord) {
+  const values = [source.current_technologies, source.technologies, source.technology_names]
+    .find((value) => Array.isArray(value)) as unknown[] | undefined;
+  if (!values) return [];
+  return Array.from(
+    new Set(
+      values
+        .map((value) => {
+          if (typeof value === "string") return value;
+          const item = record(value);
+          return text(item?.name ?? item?.technology_name ?? item?.technologyName, 120);
+        })
+        .filter((value): value is string => Boolean(value))
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ).slice(0, 40);
+}
+
+function phoneFrom(source: JsonRecord) {
+  const direct = [
+    source.phone,
+    source.phone_number,
+    source.corporate_phone,
+    source.primary_phone,
+    source.organization_phone,
+  ];
+  const nested = [source.phone_numbers, source.phoneNumbers]
+    .filter(Array.isArray)
+    .flatMap((value) => value as unknown[])
+    .map((value) => {
+      const item = record(value);
+      return item?.sanitized_number ?? item?.raw_number ?? item?.phone_number ?? item?.number;
+    });
+  const value = [...direct, ...nested]
+    .map((item) => text(item, 80))
+    .find((item) => item && /\d/.test(item));
+  return value ?? null;
+}
+
+function hostnameFrom(value: string | null) {
+  if (!value) return null;
+  try {
+    return validPublicHostname(new URL(value).hostname);
+  } catch {
+    return null;
+  }
+}
+
+function websiteFrom(source: JsonRecord) {
+  const candidate = text(source.website_url ?? source.website, 2_048);
+  if (candidate) {
+    const normalized = publicProfileUrl(candidate);
+    if (normalized) return normalized;
+    const hostname = validPublicHostname(candidate.replace(/^https?:\/\//i, "").split("/")[0] ?? "");
+    if (hostname) return `https://${hostname}/`;
+  }
+  const primaryDomain = text(source.primary_domain ?? source.domain, 253);
+  const hostname = primaryDomain ? validPublicHostname(primaryDomain) : null;
+  return hostname ? `https://${hostname}/` : null;
+}
+
+function normalizedCompanyName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
+}
+
+function organizationFrom(value: unknown) {
+  const source = record(value);
+  if (!source) return null;
+  const name = text(source.name ?? source.organization_name, 240);
+  const website = websiteFrom(source);
+  const id = text(source.organization_id ?? source.id, 200);
+  if (!id) return null;
+  return {
+    source,
+    id,
+    name,
+    shortDescription: text(source.short_description),
+    website,
+    logoUrl: publicProfileUrl(source.logo_url ?? source.logo),
+    linkedinUrl: publicProfileUrl(source.linkedin_url, "linkedin.com"),
+    phone: phoneFrom(source),
+    industry: text(source.industry, 240),
+    location: locationFrom(source),
+    employeeCount: integer(source.estimated_num_employees ?? source.employee_count),
+    foundedYear: integer(source.founded_year),
+    technologies: technologiesFrom(source),
+  };
+}
+
 function statusFor(response: Response): ApolloStatus {
   if (response.status === 401 || response.status === 403) return "forbidden";
   if (response.status === 429) return "rate_limited";
@@ -198,25 +309,51 @@ export async function enrichApolloOrganization(
     return {
       status: response.status === "fresh" ? "no_match" : response.status,
       providerOrganizationId: null,
+      name: null,
       shortDescription: null,
       industry: null,
       website: null,
+      logoUrl: null,
       linkedinUrl: null,
+      phone: null,
       location: null,
       employeeCount: null,
       foundedYear: null,
+      technologies: [],
       responseHash: response.payload ? hashed(response.payload) : null,
+    };
+  const normalized = organizationFrom(organization);
+  if (!normalized)
+    return {
+      status: "no_match" as const,
+      providerOrganizationId: null,
+      name: null,
+      shortDescription: null,
+      industry: null,
+      website: null,
+      logoUrl: null,
+      linkedinUrl: null,
+      phone: null,
+      location: null,
+      employeeCount: null,
+      foundedYear: null,
+      technologies: [],
+      responseHash: hashed(response.payload),
     };
   const snapshot: ApolloOrganizationSnapshot = {
     status: "fresh",
-    providerOrganizationId: text(organization.id, 200),
-    shortDescription: text(organization.short_description),
-    industry: text(organization.industry, 240),
-    website: publicProfileUrl(organization.website_url),
-    linkedinUrl: publicProfileUrl(organization.linkedin_url, "linkedin.com"),
-    location: locationFrom(organization),
-    employeeCount: integer(organization.estimated_num_employees),
-    foundedYear: integer(organization.founded_year),
+    providerOrganizationId: normalized.id,
+    name: normalized.name,
+    shortDescription: normalized.shortDescription,
+    industry: normalized.industry,
+    website: normalized.website,
+    logoUrl: normalized.logoUrl,
+    linkedinUrl: normalized.linkedinUrl,
+    phone: normalized.phone,
+    location: normalized.location,
+    employeeCount: normalized.employeeCount,
+    foundedYear: normalized.foundedYear,
+    technologies: normalized.technologies,
     responseHash: hashed(response.payload),
   };
   const hasUsableCompanyData = Boolean(
@@ -225,6 +362,7 @@ export async function enrichApolloOrganization(
     snapshot.industry ||
     snapshot.website ||
     snapshot.linkedinUrl ||
+    snapshot.phone ||
     snapshot.location ||
     snapshot.employeeCount != null ||
     snapshot.foundedYear != null
@@ -232,4 +370,123 @@ export async function enrichApolloOrganization(
   return hasUsableCompanyData
     ? snapshot
     : { ...snapshot, status: "no_match" as const };
+}
+
+export async function searchApolloOrganizations(query: string): Promise<{
+  status: ApolloStatus;
+  results: ApolloOrganizationSearchResult[];
+}> {
+  const value = query.trim().slice(0, 240);
+  if (value.length < 3) return { status: "invalid", results: [] };
+  const normalizedQueryName = normalizedCompanyName(value);
+  let domain: string | null = null;
+  try {
+    const candidate = value.includes("://") ? value : `https://${value}`;
+    const url = new URL(candidate);
+    if (!url.pathname || url.pathname === "/") domain = validPublicHostname(url.hostname);
+  } catch {
+    domain = null;
+  }
+  if (domain) {
+    const enriched = await enrichApolloOrganization({ domain, matchMethod: "domain" });
+    if (enriched.status === "fresh" && enriched.providerOrganizationId && enriched.name) {
+      return {
+        status: "fresh",
+        results: [{
+          providerOrganizationId: enriched.providerOrganizationId,
+          name: enriched.name,
+          shortDescription: enriched.shortDescription,
+          website: enriched.website,
+          logoUrl: enriched.logoUrl,
+          linkedinUrl: enriched.linkedinUrl,
+          phone: enriched.phone,
+          industry: enriched.industry,
+          location: enriched.location,
+          employeeCount: enriched.employeeCount,
+          foundedYear: enriched.foundedYear,
+          technologies: enriched.technologies,
+          exact: true,
+          detailsLoaded: true,
+        }],
+      };
+    }
+    if (enriched.status !== "no_match")
+      return { status: enriched.status, results: [] };
+  }
+  const body: JsonRecord = {
+    page: 1,
+    per_page: 8,
+    ...(domain
+      ? { q_organization_domains_list: [domain] }
+      : { q_organization_name: value }),
+  };
+  const response = await apolloRequest("/mixed_companies/search", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (response.status !== "fresh" || !response.payload)
+    return { status: response.status, results: [] };
+  const raw = [response.payload.organizations, response.payload.companies, response.payload.accounts]
+    .flatMap((value) => Array.isArray(value) ? value : []);
+  const seen = new Set<string>();
+  const results = raw
+    .map(organizationFrom)
+    .filter((value): value is NonNullable<ReturnType<typeof organizationFrom>> => Boolean(value?.name))
+    .filter((value) => {
+      if (seen.has(value.id)) return false;
+      seen.add(value.id);
+      return true;
+    })
+    .map((value) => ({
+      providerOrganizationId: value.id,
+      name: value.name!,
+      shortDescription: value.shortDescription,
+      website: value.website,
+      logoUrl: value.logoUrl,
+      linkedinUrl: value.linkedinUrl,
+      phone: value.phone,
+      industry: value.industry,
+      location: value.location,
+      employeeCount: value.employeeCount,
+      foundedYear: value.foundedYear,
+      technologies: value.technologies,
+      exact: domain
+        ? hostnameFrom(value.website) === domain
+        : normalizedCompanyName(value.name!) === normalizedQueryName,
+      detailsLoaded: false,
+    }))
+    .slice(0, 8);
+  return { status: "fresh", results };
+}
+
+export function normalizeApolloSelection(value: unknown) {
+  const source = record(value);
+  if (!source) return null;
+  const name = text(source.name, 240);
+  const shortDescription = text(source.shortDescription, 1_600);
+  const providerOrganizationId = text(source.providerOrganizationId, 200);
+  const website = publicProfileUrl(source.website);
+  const logoUrl = publicProfileUrl(source.logoUrl);
+  const linkedinUrl = publicProfileUrl(source.linkedinUrl, "linkedin.com");
+  const phone = phoneFrom(source);
+  const industry = text(source.industry, 240);
+  const location = text(source.location, 400);
+  const technologies = Array.isArray(source.technologies)
+    ? Array.from(new Set(source.technologies.map((item) => text(item, 120)).filter((item): item is string => Boolean(item)))).slice(0, 40)
+    : [];
+  if (!name || !providerOrganizationId) return null;
+  return {
+    providerOrganizationId,
+    name,
+    shortDescription,
+    website,
+    logoUrl,
+    linkedinUrl,
+    phone,
+    industry,
+    location,
+    employeeCount: integer(source.employeeCount),
+    foundedYear: integer(source.foundedYear),
+    technologies,
+  };
 }

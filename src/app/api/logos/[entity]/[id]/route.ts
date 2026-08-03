@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchLogoDevImage, logoDevReference } from "@/lib/brand/logo-dev";
+import { fetchApolloImage, fetchLogoDevImage, logoDevReference } from "@/lib/brand/logo-dev";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createSessionSupabaseClient } from "@/lib/supabase/session";
 
@@ -9,6 +9,7 @@ type LogoRecord = {
   canonical_name?: unknown;
   website?: unknown;
   logo_url?: unknown;
+  logo_provider?: unknown;
 };
 
 function fallbackLogo(name: string) {
@@ -64,21 +65,26 @@ export async function GET(_: Request, { params }: { params: Promise<{ entity: st
   let name: string | null = null;
   let website: string | null = null;
   let existing: string | null = null;
+  let provider: string | null = null;
   if (table === "organization") {
-    const { data } = await db.from("organizations").select("id,name,logo_url").eq("id", id).maybeSingle();
+    const { data } = await db.from("organizations").select("id,name,logo_url,logo_provider").eq("id", id).maybeSingle();
     const record = data as LogoRecord | null;
     name = typeof record?.name === "string" ? record.name : null;
     existing = typeof record?.logo_url === "string" ? record.logo_url : null;
+    provider = typeof record?.logo_provider === "string" ? record.logo_provider : null;
   } else {
-    const { data } = await db.from("vendors").select("id,canonical_name,website,logo_url").eq("id", id).maybeSingle();
+    const { data } = await db.from("vendors").select("id,canonical_name,website,logo_url,logo_provider").eq("id", id).maybeSingle();
     const record = data as LogoRecord | null;
     name = typeof record?.canonical_name === "string" ? record.canonical_name : null;
     website = typeof record?.website === "string" ? record.website : null;
     existing = typeof record?.logo_url === "string" ? record.logo_url : null;
+    provider = typeof record?.logo_provider === "string" ? record.logo_provider : null;
   }
   if (typeof name !== "string" || !name.trim()) return new NextResponse(null, { status: 404 });
   const reference = existing ?? logoDevReference(name, website);
-  const image = await fetchLogoDevImage(reference);
+  const image = provider === "apollo" && existing
+    ? await fetchApolloImage(existing) ?? await fetchLogoDevImage(logoDevReference(name, website))
+    : await fetchLogoDevImage(reference);
   if (!image) return fallbackLogo(name);
 
   if (!existing) {

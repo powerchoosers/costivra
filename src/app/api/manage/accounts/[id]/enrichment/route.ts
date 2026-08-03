@@ -96,13 +96,17 @@ export async function POST(
         provider_organization_id: result.providerOrganizationId,
         match_method: lookup.matchMethod,
         lookup_domain: lookup.domain,
+        name: result.name,
         short_description: result.shortDescription,
         industry: result.industry,
         website: result.website,
+        logo_url: result.logoUrl,
         linkedin_url: result.linkedinUrl,
+        phone: result.phone,
         location: result.location,
         employee_count: result.employeeCount,
         founded_year: result.foundedYear,
+        technology_names: result.technologies,
         status: "fresh",
         response_hash: result.responseHash,
         last_error_code: null,
@@ -111,6 +115,17 @@ export async function POST(
         updated_at: now,
       }, { onConflict: "organization_id" });
       if (error) throw error;
+      if (result.logoUrl) {
+        const { error: logoError } = await operator.db
+          .from("organizations")
+          .update({
+            logo_url: result.logoUrl,
+            logo_provider: "apollo",
+            logo_resolved_at: now,
+          })
+          .eq("id", organizationId);
+        if (logoError) throw logoError;
+      }
     } else {
       const { error } = await operator.db.from("crm_account_enrichments").update({
         status: result.status,

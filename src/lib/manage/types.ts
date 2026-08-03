@@ -44,16 +44,37 @@ export type ManageAccount = {
 
 export type ManageAccountEnrichment = {
   provider: "apollo";
+  name: string | null;
   shortDescription: string | null;
   industry: string | null;
   website: string | null;
+  logoUrl: string | null;
   linkedinUrl: string | null;
+  phone: string | null;
   location: string | null;
   employeeCount: number | null;
   foundedYear: number | null;
+  technologies: string[];
   status: string;
   fetchedAt: string | null;
   attemptedAt: string | null;
+};
+
+export type ManageApolloSearchResult = {
+  providerOrganizationId: string;
+  name: string;
+  shortDescription: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  linkedinUrl: string | null;
+  phone: string | null;
+  industry: string | null;
+  location: string | null;
+  employeeCount: number | null;
+  foundedYear: number | null;
+  technologies: string[];
+  exact: boolean;
+  detailsLoaded: boolean;
 };
 
 export type ManageContact = {
