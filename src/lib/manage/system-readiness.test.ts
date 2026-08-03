@@ -18,7 +18,12 @@ function response(payload: unknown, status = 200) {
   });
 }
 
-function database(options: { deadLetters?: number; failTable?: string; retentionRun?: Record<string, unknown> | null } = {}) {
+function database(options: {
+  deadLetters?: number;
+  failTable?: string;
+  retentionRun?: Record<string, unknown> | null;
+  workerRun?: Record<string, unknown> | null;
+} = {}) {
   const result = (table: string) => ({
     data: null,
     count: table === "inbound_email_events" ? options.deadLetters ?? 0 : 1,
@@ -35,6 +40,24 @@ function database(options: { deadLetters?: number; failTable?: string; retention
               limit: vi.fn(() => ({
                 maybeSingle: vi.fn().mockResolvedValue({
                   data: options.retentionRun ?? null,
+                  error: options.failTable === table ? { message: "table unavailable" } : null,
+                }),
+              })),
+            })),
+          };
+        if (table === "inbound_worker_runs")
+          return {
+            order: vi.fn(() => ({
+              limit: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: options.workerRun === undefined
+                    ? {
+                        status: "completed",
+                        started_at: new Date().toISOString(),
+                        completed_at: new Date().toISOString(),
+                        error_code: null,
+                      }
+                    : options.workerRun,
                   error: options.failTable === table ? { message: "table unavailable" } : null,
                 }),
               })),
@@ -220,6 +243,44 @@ describe("owner system readiness", () => {
       id: "database",
       status: "blocked",
       message: expect.stringMatching(/could not be reached/i),
+    }));
+  });
+
+  it("proves the scheduled worker from its server-only run ledger", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("resend.com/domains")) return response({ data: [{ name: "costivra.ai", status: "verified" }] });
+      if (url.includes("resend.com/webhooks")) return response({ data: [{ endpoint: "https://costivra.ai/api/webhooks/resend", status: "enabled" }] });
+      if (url.includes("openrouter.ai")) return response({ data: { label: "Costivra" } });
+      return response({ healthy: true, is_logged_in: true });
+    }));
+
+    const stale = await checkSystemReadiness(database({
+      workerRun: {
+        status: "completed",
+        started_at: "2026-01-01T00:00:00.000Z",
+        completed_at: "2026-01-01T00:00:01.000Z",
+        error_code: null,
+      },
+    }) as never);
+    expect(stale.services).toContainEqual(expect.objectContaining({
+      id: "worker",
+      status: "blocked",
+      message: expect.stringMatching(/last five minutes/i),
+    }));
+
+    const degraded = await checkSystemReadiness(database({
+      workerRun: {
+        status: "completed_with_warnings",
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        error_code: null,
+      },
+    }) as never);
+    expect(degraded.services).toContainEqual(expect.objectContaining({
+      id: "worker",
+      status: "warning",
+      message: expect.stringMatching(/alert monitoring/i),
     }));
   });
 });

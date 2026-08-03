@@ -13,17 +13,62 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
+type WorkerRunStatus = "completed" | "completed_with_warnings" | "failed";
+
+async function startWorkerRun(db: ReturnType<typeof createServerSupabaseClient>) {
+  const { data, error } = await db
+    .from("inbound_worker_runs")
+    .insert({ status: "running" })
+    .select("id")
+    .maybeSingle();
+  if (error) console.error("Inbound worker run ledger could not be started.");
+  return typeof data?.id === "string" ? data.id : null;
+}
+
+async function finishWorkerRun(
+  db: ReturnType<typeof createServerSupabaseClient>,
+  runId: string | null,
+  input: {
+    status: WorkerRunStatus;
+    claimed: number;
+    results: Array<{ id: string; status: string }>;
+    monitoring?: Record<string, unknown>;
+    errorCode?: string;
+  },
+) {
+  if (!runId) return;
+  const { error } = await db
+    .from("inbound_worker_runs")
+    .update({
+      status: input.status,
+      claimed_count: input.claimed,
+      results: input.results,
+      monitoring: input.monitoring ?? {},
+      error_code: input.errorCode ?? null,
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", runId);
+  if (error) console.error("Inbound worker run ledger could not be finalized.");
+}
+
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
   const db = createServerSupabaseClient();
+  const runId = await startWorkerRun(db);
   const { data, error } = await db.rpc("claim_inbound_email_events", {
     p_limit: 2,
     p_stale_after_seconds: 600,
   });
   if (error) {
+    await finishWorkerRun(db, runId, {
+      status: "failed",
+      claimed: 0,
+      results: [],
+      errorCode: "queue_claim_failed",
+    });
     return NextResponse.json({ error: "The intake queue could not be claimed." }, { status: 500 });
   }
   const jobs = (Array.isArray(data) ? data : []) as InboundEmailJob[];
@@ -40,6 +85,23 @@ export async function GET(request: Request) {
       results.push({ id: job.id, status: decision.status });
     }
   }
-  const monitoring = await monitorInboundEmailQueue(db);
+  let monitoring: Record<string, unknown>;
+  let status: WorkerRunStatus = "completed";
+  try {
+    monitoring = await monitorInboundEmailQueue(db);
+  } catch {
+    // Invoice work has already completed. Preserve the successful outcome and
+    // surface degraded alerting in the run ledger instead of asking Vercel to
+    // retry the entire invocation.
+    console.error("Inbound queue monitoring could not be completed.");
+    monitoring = { status: "degraded", error: "notification_monitor_failed" };
+    status = "completed_with_warnings";
+  }
+  await finishWorkerRun(db, runId, {
+    status,
+    claimed: jobs.length,
+    results,
+    monitoring,
+  });
   return NextResponse.json({ claimed: jobs.length, results, monitoring });
 }

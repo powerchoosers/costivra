@@ -137,20 +137,79 @@ async function resendReadiness(): Promise<ReadinessService> {
   };
 }
 
-function workerReadiness(): ReadinessService {
-  return process.env.CRON_SECRET?.trim()
-    ? {
-        id: "worker",
-        name: "Intake worker",
-        status: "ready",
-        message: "The protected one-minute queue worker is configured.",
-      }
-    : {
+async function workerReadiness(db: SupabaseClient): Promise<ReadinessService> {
+  if (!process.env.CRON_SECRET?.trim())
+    return {
+      id: "worker",
+      name: "Intake worker",
+      status: "blocked",
+      message: "CRON_SECRET is missing, so queued email attachments cannot run safely.",
+    };
+  try {
+    const latest = await db
+      .from("inbound_worker_runs")
+      .select("status,started_at,completed_at,error_code")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest.error)
+      return {
         id: "worker",
         name: "Intake worker",
         status: "blocked",
-        message: "CRON_SECRET is missing, so queued email attachments cannot run safely.",
+        message: "The worker health ledger is unavailable.",
       };
+    if (!latest.data)
+      return {
+        id: "worker",
+        name: "Intake worker",
+        status: "warning",
+        message: "The worker is configured, but no completed production run has been recorded yet.",
+      };
+    const startedAt = Date.parse(String(latest.data.started_at));
+    const recent = Number.isFinite(startedAt) && Date.now() - startedAt < 5 * 60 * 1_000;
+    if (!recent)
+      return {
+        id: "worker",
+        name: "Intake worker",
+        status: "blocked",
+        message: "The one-minute intake worker has not checked in during the last five minutes.",
+      };
+    if (latest.data.status === "failed")
+      return {
+        id: "worker",
+        name: "Intake worker",
+        status: "blocked",
+        message: "The latest intake worker run failed before it could safely claim queued work.",
+      };
+    if (latest.data.status === "running")
+      return {
+        id: "worker",
+        name: "Intake worker",
+        status: "warning",
+        message: "The latest intake worker run is still in progress.",
+      };
+    if (latest.data.status === "completed_with_warnings")
+      return {
+        id: "worker",
+        name: "Intake worker",
+        status: "warning",
+        message: "The worker completed, but its operator-alert monitoring needs attention.",
+      };
+    return {
+      id: "worker",
+      name: "Intake worker",
+      status: "ready",
+      message: "The protected one-minute intake worker completed a recent production run.",
+    };
+  } catch {
+    return {
+      id: "worker",
+      name: "Intake worker",
+      status: "blocked",
+      message: "The worker health ledger could not be reached.",
+    };
+  }
 }
 
 async function openRouterReadiness(): Promise<ReadinessService> {
@@ -331,9 +390,10 @@ export async function checkSystemReadiness(
 ): Promise<SystemReadiness> {
   const includeOptionalServices = options.includeOptionalServices !== false;
   const includeOperatorServices = options.includeOperatorServices !== false;
-  const [database, resend, openrouter, malware, retention, apollo] = await Promise.all([
+  const [database, resend, worker, openrouter, malware, retention, apollo] = await Promise.all([
     databaseReadiness(db),
     resendReadiness(),
+    workerReadiness(db),
     openRouterReadiness(),
     malwareReadiness(includeOperatorServices),
     includeOperatorServices ? retentionReadiness(db) : Promise.resolve(null),
@@ -342,7 +402,7 @@ export async function checkSystemReadiness(
   const services = [
     database,
     resend,
-    workerReadiness(),
+    worker,
     openrouter,
     malware,
   ];

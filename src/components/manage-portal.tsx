@@ -1593,10 +1593,10 @@ function AccountInspector({
   return (
     <aside className="manage-panel manage-inspector">
       <header className="manage-inspector-header">
-        <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-account manage-inspector-record-link" title={`Open ${account.name}`}>
+        <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-account manage-inspector-record-card" title={`Open ${account.name}`}>
           <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />
           <div>
-              <h3>{account.name}</h3>
+            <h3>{account.name}</h3>
             <p>{account.industry || "Industry not set"}</p>
           </div>
         </Link>
@@ -2081,11 +2081,11 @@ function ContactInspector({
   }
   return (
     <aside className="manage-panel manage-inspector manage-contact-inspector">
-      <header>
-        <div className="manage-inspector-account">
+      <header className="manage-inspector-header">
+        <Link href={`/manage/contacts/${contact.id}`} className="manage-inspector-account manage-inspector-record-card" title={`Open ${contact.fullName}`}>
           <span>{initials(contact.fullName)}</span>
           <div><h3>{contact.fullName}</h3><p>{contact.title || "Role not set"}</p></div>
-        </div>
+        </Link>
         <button onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={16} /></button>
       </header>
       <div className="manage-inspector-tabs"><button className="active">Overview</button></div>
@@ -2164,33 +2164,30 @@ function Contacts({
     <>
       <div className="manage-overview-grid manage-record-workspace">
       <section className="manage-panel manage-account-table manage-contact-table">
-        <div className="manage-tabs manage-record-tabs">
+        <div className="manage-tabs">
           <button
             className={filter === "all" ? "active" : ""}
             onClick={() => { setFilter("all"); setPage(1); setSelectedIds(new Set()); }}
           >
-            All Contacts <span>{data.contacts.length}</span>
+            All <span>{data.contacts.length}</span>
           </button>
           <button
             className={filter === "primary" ? "active" : ""}
             onClick={() => { setFilter("primary"); setPage(1); setSelectedIds(new Set()); }}
           >
-            Primary Contacts{" "}
-            <span>{data.contacts.filter((c) => c.isPrimary).length}</span>
+            Primary <span>{data.contacts.filter((c) => c.isPrimary).length}</span>
           </button>
           <button
             className={filter === "workspace" ? "active" : ""}
             onClick={() => { setFilter("workspace"); setPage(1); setSelectedIds(new Set()); }}
           >
-            Workspace Members{" "}
-            <span>{data.contacts.filter((c) => c.source === "workspace").length}</span>
+            Workspace <span>{data.contacts.filter((c) => c.source === "workspace").length}</span>
           </button>
           <button
             className={filter === "crm" ? "active" : ""}
             onClick={() => { setFilter("crm"); setPage(1); setSelectedIds(new Set()); }}
           >
-            CRM Contacts{" "}
-            <span>{data.contacts.filter((c) => c.source === "crm").length}</span>
+            CRM <span>{data.contacts.filter((c) => c.source === "crm").length}</span>
           </button>
         </div>
         <div className="manage-table-wrap">
