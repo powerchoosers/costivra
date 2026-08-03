@@ -17,6 +17,11 @@
 - Applied and verified the two recovery migrations directly through the connected Supabase project
   because the repository's older local/remote CLI migration histories are incomplete. Supabase's
   security advisor reports only the pre-existing leaked-password-protection warning.
+- Production proof passed against `costivra.ai`: a temporary internal operator opened the rendered
+  recovery queue and retried the public AWS receipt in the Cloud Billing demo account. Vercel's
+  configured document intelligence created a normalized $44 invoice, reconciled the arithmetic,
+  and correctly kept it in human review because the vendor relationship was unmatched. The
+  temporary operator was deleted after the probe; the demo invoice remains as visible test data.
 
 ## Savings attestation workspace — August 2, 2026
 
