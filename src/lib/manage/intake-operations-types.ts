@@ -59,5 +59,6 @@ export type ManageIntakeOperationsData = {
     inputMode: "native_text" | "pdf_ocr" | null;
     createdAt: string;
     sourceAvailable: boolean;
+    recoveryState: "failed" | "stalled";
   }>;
 };

@@ -26,6 +26,10 @@
   invoice records ($2,810.81 and $0.00). The AWS VAT sample still failed strict output validation
   and correctly remained in extraction recovery without an invoice. This proved that batch recovery
   advances valid records, preserves uncertain files for operators, and does not create duplicates.
+- Interrupted extraction jobs now become recoverable after a ten-minute lease window instead of
+  remaining in `processing` forever. Active jobs are not disturbed. If the invoice was already
+  committed before an interruption, recovery repairs the document state from that invoice rather
+  than calling AI again or creating a duplicate; otherwise the immutable source is reprocessed.
 
 ## Savings attestation workspace — August 2, 2026
 

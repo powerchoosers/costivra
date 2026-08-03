@@ -37,4 +37,11 @@ describe("manage extraction retry route", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ ok: true, status: "needs_review", warning: "Operator review is required." });
   });
+
+  it("reports a repaired interrupted job without rerunning extraction", async () => {
+    retryFailedDocumentExtraction.mockResolvedValue({ outcome: "reconciled", status: "needs_review", invoiceId: "invoice-1" });
+    const response = await PATCH(new Request("https://costivra.ai"), { params: Promise.resolve({ id: documentId }) });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ ok: true, status: "needs_review", repaired: true, warning: null });
+  });
 });

@@ -8,6 +8,7 @@ import type {
   IntakeOperationStatus,
   ManageIntakeOperationsData,
 } from "@/lib/manage/intake-operations-types";
+import { STALE_EXTRACTION_AFTER_MS } from "@/lib/documents/retry-extraction";
 
 type Row = Record<string, unknown>;
 const rows = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : [];
@@ -55,6 +56,19 @@ export async function getManageIntakeOperationsData(
       .eq("status", "needs_review")
     : { data: [], error: null };
   if (recoveryDocumentsResult.error) throw recoveryDocumentsResult.error;
+  const staleBefore = new Date(Date.now() - STALE_EXTRACTION_AFTER_MS).toISOString();
+  const stalledDocumentsResult = await db.from("documents")
+    .select("id,organization_id,original_filename,extraction_summary,status,source_purged_at,created_at,updated_at")
+    .eq("status", "processing")
+    .lt("updated_at", staleBefore)
+    .order("updated_at", { ascending: true })
+    .limit(250);
+  if (stalledDocumentsResult.error) throw stalledDocumentsResult.error;
+  const recoveryDocumentRows = new Map<string, { row: Row; recoveryState: "failed" | "stalled" }>();
+  for (const document of rows(recoveryDocumentsResult.data))
+    recoveryDocumentRows.set(text(document.id), { row: document, recoveryState: "failed" });
+  for (const document of rows(stalledDocumentsResult.data))
+    recoveryDocumentRows.set(text(document.id), { row: document, recoveryState: "stalled" });
   const attachmentsResult = eventIds.length
     ? await db.from("inbound_email_attachments")
       .select("id,event_id,filename,content_type,byte_size,scan_status,processing_status,error_message,document_id,created_at")
@@ -115,7 +129,7 @@ export async function getManageIntakeOperationsData(
     events,
     selectedEvent: eventId ? events.find((event) => event.id === eventId) ?? null : null,
     scannerConfigured: isMalwareScannerConfigured(),
-    recoveryDocuments: rows(recoveryDocumentsResult.data).map((document) => {
+    recoveryDocuments: [...recoveryDocumentRows.values()].map(({ row: document, recoveryState }) => {
       const failure = latestFailureByDocument.get(text(document.id));
       const inputMode = nullable(failure?.input_mode);
       return {
@@ -128,6 +142,7 @@ export async function getManageIntakeOperationsData(
         inputMode: inputMode === "native_text" || inputMode === "pdf_ocr" ? inputMode : null,
         createdAt: text(document.created_at),
         sourceAvailable: !document.source_purged_at,
+        recoveryState,
       };
     }),
   };

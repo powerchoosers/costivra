@@ -22,7 +22,7 @@ export async function PATCH(
       return NextResponse.json({ error: "This document belongs in human review or has already been processed." }, { status: 409 });
     if (result.outcome === "changed")
       return NextResponse.json({ error: "Another operator already started this retry." }, { status: 409 });
-    return NextResponse.json({ ok: true, status: result.status, warning: "warning" in result ? result.warning : null });
+    return NextResponse.json({ ok: true, status: result.status, repaired: result.outcome === "reconciled", warning: "warning" in result ? result.warning : null });
   } catch (error) {
     const result = manageApiError(error);
     return NextResponse.json({ error: result.error }, { status: result.status });
