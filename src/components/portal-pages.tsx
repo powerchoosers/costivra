@@ -1518,15 +1518,6 @@ function Integrations({
   const providerIntegrations = data.integrations.filter(
     (item) => item.provider !== "resend_inbound",
   );
-  const update = (id: string, operation: string) =>
-    run(
-      () =>
-        api(`/api/portal/integrations/${id}`, {
-          method: "PATCH",
-          body: { operation },
-        }),
-      "Integration status updated.",
-    );
   const intakeOperation = (operation: string, email?: string, eventId?: string) =>
     run(
       () =>
@@ -1830,8 +1821,9 @@ function Integrations({
           <div className="portal-section-heading">
             <h2>Other connections</h2>
             <p>
-              Authorization is completed in each provider&apos;s secure sign-in
-              flow.
+              Planned provider adapters are shown for roadmap clarity. They do
+              not claim to be connected until authorization and verified sync
+              are implemented.
             </p>
           </div>
           <div className="portal-card-grid">
@@ -1848,31 +1840,14 @@ function Integrations({
                 <small>
                   {item.lastSyncedAt
                     ? `Last synchronized ${date(item.lastSyncedAt)}`
-                    : "No successful synchronization yet"}
+                    : "No live synchronization is configured"}
                 </small>
                 <footer>
-                  {item.status === "connected" ? (
-                    <button
-                      className="button button-quiet"
-                      onClick={() => void update(item.id, "pause")}
-                    >
-                      Pause
-                    </button>
-                  ) : item.status === "paused" ? (
-                    <button
-                      className="button button-primary"
-                      onClick={() => void update(item.id, "resume")}
-                    >
-                      Resume
-                    </button>
-                  ) : (
-                    <button
-                      className="button button-primary"
-                      onClick={() => void update(item.id, "connect")}
-                    >
-                      Enable workspace connection
-                    </button>
-                  )}
+                  <span className="integration-availability">
+                    {item.status === "restricted"
+                      ? "Requires a reviewed consent workflow"
+                      : "Planned · not connected"}
+                  </span>
                 </footer>
               </article>
             ))}
