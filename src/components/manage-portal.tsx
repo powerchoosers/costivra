@@ -2293,7 +2293,7 @@ function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; a
     <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
     {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Account details</span><dl><div><dt>Industry</dt><dd>{account.industry || "Not set"}</dd></div><div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div><div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div><div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div></dl></section><section><span>Internal CRM</span><p>{account.privateNotes || "No private account note yet."}</p></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Company profile</span><h3>{profile ? "Apollo enrichment · internal CRM context" : "Account context"}</h3><p>{profileSummary}</p></div>{profile && <dl><div><dt>Profile status</dt><dd>{pretty(profile.status)}</dd></div>{profile.location && <div><dt>Location</dt><dd>{profile.location}</dd></div>}{profile.employeeCount != null && <div><dt>Team size</dt><dd>{profile.employeeCount.toLocaleString()}</dd></div>}{profile.fetchedAt && <div><dt>Updated</dt><dd>{date(profile.fetchedAt)}</dd></div>}</dl>}</section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship snapshot</h3><p>Keep the next action, people, files, and activity close together.</p></div></header><div className="manage-record-snapshot"><button type="button" onClick={() => setActive("people")}><Users size={16} /><span><strong>{contacts.length}</strong> people</span><ChevronRight size={15} /></button><button type="button" onClick={() => setActive("files")}><FileText size={16} /><span><strong>{documents.length}</strong> source files</span><ChevronRight size={15} /></button><button type="button" onClick={() => setActive("activity")}><Activity size={16} /><span><strong>{activities.length}</strong> recent touches</span><ChevronRight size={15} /></button></div></section></main></div>}
     {active === "people" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>People</h3><p>Contacts connected to this account. Compose and record actions stay explicit.</p></div></header>{contacts.length ? <div className="manage-record-person-list">{contacts.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><Link href={`/manage/contacts/${contact.id}`}><strong>{contact.fullName}</strong></Link><p>{contact.title || "Role not set"} · {contact.email}</p></div>{contact.isPrimary && <span className="manage-record-primary">Primary</span>}<button className="manage-icon-button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>}
-    {active === "files" && <RecordFilesWorkspace title="Account files" description="A clean, searchable view of this client’s private source documents. Collections never change the immutable storage record." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, contextLabel: account.name, href: `/api/manage/documents/${item.id}/download` }))} />}
+    {active === "files" && <RecordFilesWorkspace title="Account files" description="A clean, searchable view of this client’s private source documents. Collections never change the immutable storage record." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, contextLabel: account.name, href: `/api/manage/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
     {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>}
   </div>;
@@ -2309,7 +2309,7 @@ function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; c
   const tabs = [{ id: "overview", label: "Overview" }, { id: "files", label: "Shared files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Tasks", count: tasks.length }];
   return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-button manage-button--primary" onClick={() => onCompose(contact)}><Mail size={15} /> Compose email</button></div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><span>Account</span><strong>{contact.organizationName}</strong></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
     {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Contact details</span><dl><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd>{contact.email}</dd></div><div><dt>Phone</dt><dd>{contact.phone || "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main></div>}
-    {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download` }))} emptyCopy="No account source files are available to this internal record yet." />}
+    {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} emptyCopy="No account source files are available to this internal record yet." />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
     {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Tasks for {contact.fullName}</h3><p>Only work explicitly linked to this CRM contact is shown.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No contact tasks" copy="Assign a task to this contact when there is a clear next step." />}</section>}
   </div>;
@@ -2508,6 +2508,15 @@ function SettingsPage({
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
+  const [runningRetentionReport, setRunningRetentionReport] = useState(false);
+  const [retentionReport, setRetentionReport] = useState<{
+    id: string;
+    candidates: {
+      quarantinedDocuments: number;
+      quarantinedAttachments: number;
+      originalDocuments: number;
+    };
+  } | null>(null);
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -2602,6 +2611,37 @@ function SettingsPage({
     }
   }
 
+  async function runRetentionReport() {
+    setRunningRetentionReport(true);
+    try {
+      const response = await fetch("/api/manage/retention/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        id?: string;
+        candidates?: {
+          quarantinedDocuments: number;
+          quarantinedAttachments: number;
+          originalDocuments: number;
+        };
+        error?: string;
+      };
+      if (!response.ok || !payload.id || !payload.candidates)
+        throw new Error(payload.error || "The retention report could not be completed.");
+      setRetentionReport({ id: payload.id, candidates: payload.candidates });
+      toast.success("Retention report completed. No files were deleted.");
+      await runReadinessCheck();
+    } catch (error) {
+      toast.error(
+        "Retention report failed",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setRunningRetentionReport(false);
+    }
+  }
+
   return (
     <div className="manage-settings-layout">
       <section className="manage-page-heading">
@@ -2689,15 +2729,26 @@ function SettingsPage({
               <h3 id="system-readiness-title">Production readiness</h3>
               <p>Check the live services behind intake, extraction, enrichment, and email. Secret values never leave the server.</p>
             </div>
-            <button
-              type="button"
-              className="manage-button manage-button--quiet"
-              disabled={checkingReadiness}
-              onClick={() => void runReadinessCheck()}
-            >
-              <RefreshCw className={checkingReadiness ? "is-spinning" : undefined} size={15} />
-              {checkingReadiness ? "Checking…" : readiness ? "Run again" : "Run readiness check"}
-            </button>
+            <div className="manage-readiness-actions">
+              <button
+                type="button"
+                className="manage-button manage-button--quiet"
+                disabled={runningRetentionReport}
+                onClick={() => void runRetentionReport()}
+              >
+                <Clock3 className={runningRetentionReport ? "is-spinning" : undefined} size={15} />
+                {runningRetentionReport ? "Reporting…" : "Run retention report"}
+              </button>
+              <button
+                type="button"
+                className="manage-button manage-button--quiet"
+                disabled={checkingReadiness}
+                onClick={() => void runReadinessCheck()}
+              >
+                <RefreshCw className={checkingReadiness ? "is-spinning" : undefined} size={15} />
+                {checkingReadiness ? "Checking…" : readiness ? "Run again" : "Run readiness check"}
+              </button>
+            </div>
           </header>
           {readiness ? (
             <div className="manage-readiness-results" aria-live="polite">
@@ -2745,6 +2796,19 @@ function SettingsPage({
             <div className="manage-readiness-empty">
               <ShieldAlert size={18} aria-hidden="true" />
               <p>Run this check after changing a production key, domain, webhook, worker, or provider.</p>
+            </div>
+          )}
+          {retentionReport && (
+            <div className="manage-retention-report" aria-live="polite">
+              <ShieldAlert size={17} aria-hidden="true" />
+              <div>
+                <strong>Report only · nothing deleted</strong>
+                <small>
+                  {retentionReport.candidates.quarantinedDocuments} quarantined uploads · {" "}
+                  {retentionReport.candidates.quarantinedAttachments} quarantined email attachments · {" "}
+                  {retentionReport.candidates.originalDocuments} originals
+                </small>
+              </div>
             </div>
           )}
         </section>

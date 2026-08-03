@@ -205,6 +205,12 @@ export async function rescanManualUpload(input: {
       .from("costivra-documents")
       .remove([document.storage_path]);
     if (removed.error) throw removed.error;
+    const { error: purgeMarkError } = await input.db
+      .from("documents")
+      .update({ source_purged_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", document.id)
+      .eq("organization_id", input.organizationId);
+    if (purgeMarkError) throw purgeMarkError;
     return { outcome: "rejected" as const, error: decision.message };
   }
   if (decision.action === "quarantine") {

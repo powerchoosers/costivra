@@ -26,12 +26,17 @@ export async function GET(
       return NextResponse.json({ error: "Choose a valid document." }, { status: 400 });
     const { data: document, error: documentError } = await operator.db
       .from("documents")
-      .select("id,organization_id,storage_path,original_filename,status,mime_type,byte_size,document_type")
+      .select("id,organization_id,storage_path,original_filename,status,mime_type,byte_size,document_type,source_purged_at")
       .eq("id", id)
       .maybeSingle();
     if (documentError) throw documentError;
     if (!document?.storage_path)
       return NextResponse.json({ error: "That document is not available." }, { status: 404 });
+    if (document.source_purged_at)
+      return NextResponse.json(
+        { error: "The original file reached its retention limit. Extracted records and evidence remain available." },
+        { status: 410 },
+      );
     if (!isDocumentDownloadableStatus(document.status)) {
       return NextResponse.json(
         { error: "This source file is not available until its security and processing checks finish." },

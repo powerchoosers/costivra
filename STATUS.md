@@ -507,6 +507,14 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Replaced bootstrap-era ownership-style table grants with explicit browser privileges. `anon` receives no public-table access. `authenticated` receives only tenant-policy-protected reads, the recipient-scoped internal notification read needed by Realtime, and updates to five non-authoritative self-profile columns. All customer business mutations continue through the Costivra server APIs; `service_role` is unchanged.
 - Added a repeatable SQL assertion for anonymous grants, authenticated writes, required reads, profile column boundaries, and retained server access. The migration passed a transaction-scoped production dry run, was applied as Supabase migration `20260802234849`, and passed the same assertion against the live schema.
 
+## 2026-08-02 — Fail-safe retention operations
+
+- Added a protected daily retention worker with a server-only run ledger, bounded policies, batch limits, retention holds, sanitized failure codes, and a report-only default. No original source file is eligible until an explicit approved window exists, and no file is deleted unless the production enforcement switch is deliberately enabled. The live schema migration is `20260803001903`.
+- Enforcement removes private files through the Supabase Storage API before marking database metadata. Extracted records and provenance remain, and both customer and internal file workspaces clearly show when an original reached its retention limit instead of presenting a broken download.
+- Hardened inbound quarantine cleanup so a failed Storage deletion keeps its recoverable private path. The attachment is marked rejected or processed first, the path is cleared only after Storage confirms deletion, and regression tests cover both success and failure ordering.
+- Added operator readiness reporting, public-route rejection coverage, policy/runner regressions, and an activation runbook that calls out the separate off-platform Storage backup required by Supabase.
+- Added explicit deny-all browser policies for the server-only retention and enrichment ledgers as migration `20260803002048`. Supabase's security advisor now reports no table/RLS findings; leaked-password protection is the only remaining dashboard warning.
+
 ## Record workspace and internal CRM polish — August 2, 2026
 
 - Rebuilt internal account and contact record pages into one shared, task-oriented workspace: identity and highlights first, then Overview, People/Shared files, Activity, and Work tabs. The account and contact views now make the next action, relationship details, internal context, and evidence easier to scan without turning the page into a form.

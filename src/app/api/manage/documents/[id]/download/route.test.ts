@@ -94,6 +94,30 @@ describe("internal CRM document download", () => {
     expect(database.insert).not.toHaveBeenCalled();
   });
 
+  it("does not sign or audit an original removed by retention", async () => {
+    const database = databaseForDocument({
+      id: documentId,
+      organization_id: organizationId,
+      storage_path: `${organizationId}/documents/source.pdf`,
+      original_filename: "Source.pdf",
+      status: "ready",
+      source_purged_at: "2026-08-03T00:00:00.000Z",
+      mime_type: "application/pdf",
+      byte_size: 1234,
+      document_type: "invoice",
+    });
+    requireInternalOperator.mockResolvedValue({ db: database.db, userId: "staff-1" });
+
+    const response = await GET(
+      new Request(`https://costivra.ai/api/manage/documents/${documentId}/download`),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(410);
+    expect(database.createSignedUrl).not.toHaveBeenCalled();
+    expect(database.insert).not.toHaveBeenCalled();
+  });
+
   it("fails closed for an unexpected document status", async () => {
     const database = databaseForDocument({
       id: documentId,

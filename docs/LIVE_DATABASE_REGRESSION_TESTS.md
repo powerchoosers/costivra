@@ -80,3 +80,7 @@ customer-facing SQL client.
 `anon` has no public-table grants, `authenticated` has tenant-scoped read access plus only the
 allowlisted self-profile columns for updates, internal realtime notifications remain readable under
 their recipient policy, and `service_role` retains the server operations used by Costivra APIs.
+
+The retention migration adds only server-operated lifecycle fields and a server-only run ledger.
+Run the worker in report mode first and follow `docs/DATA_RETENTION_OPERATIONS.md`; database
+backups do not restore Storage objects removed by an enforcement pass.

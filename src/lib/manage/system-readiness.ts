@@ -2,11 +2,12 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMalwareScannerConfigured } from "@/lib/security/malware-scanner";
+import { retentionPolicyFromEnvironment } from "@/lib/retention/policy";
 
 export type ReadinessStatus = "ready" | "warning" | "blocked";
 
 export type ReadinessService = {
-  id: "database" | "resend" | "worker" | "openrouter" | "malware" | "apollo";
+  id: "database" | "resend" | "worker" | "openrouter" | "malware" | "retention" | "apollo";
   name: string;
   status: ReadinessStatus;
   message: string;
@@ -193,6 +194,65 @@ function malwareReadiness(): ReadinessService {
       };
 }
 
+async function retentionReadiness(db: SupabaseClient): Promise<ReadinessService> {
+  const policy = retentionPolicyFromEnvironment();
+  let latest;
+  try {
+    latest = await db
+      .from("retention_runs")
+      .select("status,mode,started_at")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+  } catch {
+    return {
+      id: "retention",
+      name: "Data retention",
+      status: "blocked",
+      message: "The server-only retention ledger is unavailable.",
+    };
+  }
+  if (latest.error)
+    return {
+      id: "retention",
+      name: "Data retention",
+      status: "blocked",
+      message: "The server-only retention ledger is unavailable.",
+    };
+  if (!policy.enforce)
+    return {
+      id: "retention",
+      name: "Data retention",
+      status: "warning",
+      message: "Daily retention reporting is configured; file deletion remains disabled until the policy is approved.",
+    };
+  if (!policy.originalDays)
+    return {
+      id: "retention",
+      name: "Data retention",
+      status: "warning",
+      message: `Quarantine cleanup is enforced after ${policy.quarantineDays} days; original-source retention still needs an approved window.`,
+    };
+  const lastStartedAt = latest.data?.started_at
+    ? new Date(String(latest.data.started_at)).getTime()
+    : 0;
+  const recent = Number.isFinite(lastStartedAt) && Date.now() - lastStartedAt < 48 * 60 * 60 * 1000;
+  const healthy = latest.data?.status === "completed" && recent;
+  return healthy
+    ? {
+        id: "retention",
+        name: "Data retention",
+        status: "ready",
+        message: `Daily enforcement is healthy: quarantine ${policy.quarantineDays} days, originals ${policy.originalDays} days.`,
+      }
+    : {
+        id: "retention",
+        name: "Data retention",
+        status: "warning",
+        message: "Retention enforcement is configured, but a recent clean run has not been recorded.",
+      };
+}
+
 async function apolloReadiness(): Promise<ReadinessService> {
   const key = process.env.APOLLO_API_KEY?.trim();
   if (!key)
@@ -237,13 +297,15 @@ function overallStatus(services: ReadinessService[]): ReadinessStatus {
 
 export async function checkSystemReadiness(
   db: SupabaseClient,
-  options: { includeOptionalServices?: boolean } = {},
+  options: { includeOptionalServices?: boolean; includeOperatorServices?: boolean } = {},
 ): Promise<SystemReadiness> {
   const includeOptionalServices = options.includeOptionalServices !== false;
-  const [database, resend, openrouter, apollo] = await Promise.all([
+  const includeOperatorServices = options.includeOperatorServices !== false;
+  const [database, resend, openrouter, retention, apollo] = await Promise.all([
     databaseReadiness(db),
     resendReadiness(),
     openRouterReadiness(),
+    includeOperatorServices ? retentionReadiness(db) : Promise.resolve(null),
     includeOptionalServices ? apolloReadiness() : Promise.resolve(null),
   ]);
   const services = [
@@ -253,6 +315,7 @@ export async function checkSystemReadiness(
     openrouter,
     malwareReadiness(),
   ];
+  if (retention) services.push(retention);
   if (apollo) services.push(apollo);
   return {
     checkedAt: new Date().toISOString(),

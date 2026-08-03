@@ -32,7 +32,10 @@ describe("sanitized public system status", () => {
 
     const result = await getPublicSystemStatus({} as never);
 
-    expect(checkSystemReadiness).toHaveBeenCalledWith({}, { includeOptionalServices: false });
+    expect(checkSystemReadiness).toHaveBeenCalledWith({}, {
+      includeOptionalServices: false,
+      includeOperatorServices: false,
+    });
     expect(result.overall).toBe("limited");
     expect(result.services).toContainEqual(expect.objectContaining({ id: "website", state: "operational" }));
     expect(result.services).toContainEqual(expect.objectContaining({

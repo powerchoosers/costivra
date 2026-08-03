@@ -94,7 +94,7 @@ export async function getManageData(input?: {
       .order("created_at", { ascending: true }),
     db
       .from("documents")
-      .select("id,organization_id,original_filename,mime_type,byte_size,status,document_type,extraction_summary,created_at,updated_at,page_count")
+      .select("id,organization_id,original_filename,mime_type,byte_size,status,document_type,extraction_summary,created_at,updated_at,page_count,source_purged_at")
       .order("created_at", { ascending: false }),
     db.from("opportunities").select("id,organization_id"),
     db
@@ -173,6 +173,7 @@ export async function getManageData(input?: {
       createdAt: text(document.created_at),
       updatedAt: text(document.updated_at),
       pageCount: nullableNumber(document.page_count),
+      sourcePurgedAt: nullable(document.source_purged_at),
     }));
   const profilesById = new Map(
     rows(profilesResult.data).map((row) => [text(row.id), row]),

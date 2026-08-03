@@ -19,5 +19,6 @@ describe("record file availability", () => {
   it("requires both a safe status and a server route", () => {
     expect(recordFileCanOpen(file("ready"))).toBe(true);
     expect(recordFileCanOpen(file("ready", null))).toBe(false);
+    expect(recordFileCanOpen({ ...file("ready"), sourceAvailable: false })).toBe(false);
   });
 });

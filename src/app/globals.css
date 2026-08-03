@@ -2213,6 +2213,7 @@ html { scroll-padding-top: 92px; }
 .manage-settings-readiness header p { max-width:620px; margin:5px 0 0; color:#7a8493; font-size:.67rem; line-height:1.5; }
 .manage-settings-kicker { color:#667085; font-size:.57rem; font-weight:760; letter-spacing:.12em; text-transform:uppercase; }
 .manage-settings-readiness .manage-button { flex:0 0 auto; }
+.manage-readiness-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
 .manage-settings-readiness .is-spinning { animation:manage-readiness-spin .8s linear infinite; }
 .manage-readiness-results { border-top:1px solid #e9edf2; }
 .manage-readiness-summary { display:flex; align-items:center; gap:11px; margin:18px 22px 0; padding:13px 14px; border:1px solid #dfe5eb; border-radius:13px; background:#f8fafb; color:#536174; }
@@ -2238,6 +2239,10 @@ html { scroll-padding-top: 92px; }
 .manage-readiness-service--blocked em { background:#fbefee; color:#b42318; }
 .manage-readiness-empty { display:flex; align-items:center; gap:10px; margin:0 22px 22px; padding:13px 14px; border:1px dashed #d8dee6; border-radius:13px; background:#fafbfc; color:#7a8493; }
 .manage-readiness-empty p { margin:0; font-size:.65rem; line-height:1.5; }
+.manage-retention-report { display:flex; align-items:center; gap:10px; margin:0 22px 20px; padding:13px 14px; border:1px solid #dce4ef; border-radius:13px; background:#f7f9fc; color:#536174; }
+.manage-retention-report>div { display:grid; gap:3px; }
+.manage-retention-report strong { color:#344054; font-size:.68rem; }
+.manage-retention-report small { color:#7f8998; font-size:.61rem; line-height:1.45; }
 @keyframes manage-readiness-spin { to { transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce) { .manage-settings-readiness .is-spinning { animation:none; } }
 .manage-settings-section { margin-top:28px; scroll-margin-top:96px; }
@@ -2795,6 +2800,7 @@ html { scroll-padding-top: 92px; }
   .manage-settings-notifications { align-items:stretch; flex-direction:column; }
   .manage-settings-readiness>header { align-items:stretch; flex-direction:column; }
   .manage-settings-readiness .manage-button { width:100%; }
+  .manage-readiness-actions { width:100%; }
   .manage-readiness-grid { grid-template-columns:1fr; }
   .manage-readiness-service:nth-last-child(2) { border-bottom:1px solid #edf0f3; }
   .manage-preference-toggle { min-width:0; }

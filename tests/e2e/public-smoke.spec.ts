@@ -41,6 +41,11 @@ test("inbound email worker rejects public requests", async ({ request }) => {
   expect(response.status()).toBe(401);
 });
 
+test("retention worker rejects public requests", async ({ request }) => {
+  const response = await request.get("/api/cron/retention");
+  expect(response.status()).toBe(401);
+});
+
 test("mobile navigation opens without shifting or clipping the page", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile-only interaction");
   const failures = failOnConsoleErrors(page);

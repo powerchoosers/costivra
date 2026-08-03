@@ -14,7 +14,7 @@ function response(payload: unknown, status = 200) {
   });
 }
 
-function database(options: { deadLetters?: number; failTable?: string } = {}) {
+function database(options: { deadLetters?: number; failTable?: string; retentionRun?: Record<string, unknown> | null } = {}) {
   const result = (table: string) => ({
     data: null,
     count: table === "inbound_email_events" ? options.deadLetters ?? 0 : 1,
@@ -22,11 +22,22 @@ function database(options: { deadLetters?: number; failTable?: string } = {}) {
   });
   return {
     from: vi.fn((table: string) => ({
-      select: vi.fn(() =>
-        table === "inbound_email_events"
-          ? { eq: vi.fn().mockResolvedValue(result(table)) }
-          : Promise.resolve(result(table)),
-      ),
+      select: vi.fn(() => {
+        if (table === "inbound_email_events")
+          return { eq: vi.fn().mockResolvedValue(result(table)) };
+        if (table === "retention_runs")
+          return {
+            order: vi.fn(() => ({
+              limit: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: options.retentionRun ?? null,
+                  error: options.failTable === table ? { message: "table unavailable" } : null,
+                }),
+              })),
+            })),
+          };
+        return Promise.resolve(result(table));
+      }),
     })),
   };
 }
@@ -39,6 +50,7 @@ describe("owner system readiness", () => {
     vi.stubEnv("CRON_SECRET", "cron-secret-for-test");
     vi.stubEnv("OPEN_ROUTER_API_KEY", "openrouter-secret-for-test");
     vi.stubEnv("APOLLO_API_KEY", "apollo-secret-for-test");
+    vi.stubEnv("RETENTION_ENFORCEMENT_ENABLED", "0");
     isMalwareScannerConfigured.mockReset();
     isMalwareScannerConfigured.mockReturnValue(true);
   });
@@ -71,6 +83,7 @@ describe("owner system readiness", () => {
       { id: "worker", status: "ready" },
       { id: "openrouter", status: "ready" },
       { id: "malware", status: "warning" },
+      { id: "retention", status: "warning" },
       { id: "apollo", status: "ready" },
     ]);
     expect(result.overall).toBe("warning");

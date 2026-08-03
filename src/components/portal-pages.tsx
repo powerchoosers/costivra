@@ -1446,6 +1446,7 @@ export function VendorDetail({
           evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length,
           contextLabel: vendor.name,
           href: `/api/portal/documents/${item.id}/download`,
+          sourceAvailable: !item.sourcePurgedAt,
         }))}
       />
     </div>

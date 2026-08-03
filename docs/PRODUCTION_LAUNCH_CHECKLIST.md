@@ -30,7 +30,12 @@ This is the short list of work that cannot be completed honestly with code alone
   signature failures, value-engine failures, and ambiguous external effects. Internal alerts now
   open the event-specific `/manage/intake/[id]` recovery view, where operators can inspect file
   states, retry terminal queue failures, and rescan quarantine only after the scanner is configured.
-- [ ] Set retention windows for originals, quarantined files, extracted data, audit events, and deleted organizations.
+- [ ] Approve the retention windows, off-platform Storage backup, and legal-hold procedure. The
+  protected daily worker, report-only default, bounded configuration, retention holds, Storage-first
+  deletion, server-only ledger, expired-original UI, and operator readiness signal are implemented.
+  Quarantine defaults to a 30-day report window; originals remain indefinitely until Lewis sets an
+  approved window and explicitly enables enforcement. Extracted, audit, and deleted-organization
+  windows remain counsel/operations decisions.
 
 ## Release evidence required
 

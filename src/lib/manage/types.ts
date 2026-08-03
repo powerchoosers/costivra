@@ -84,6 +84,7 @@ export type ManageDocument = {
   createdAt: string;
   updatedAt: string;
   pageCount: number | null;
+  sourcePurgedAt: string | null;
 };
 
 export type ManageTask = {

@@ -10,9 +10,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     if (invoiceError) throw invoiceError;
     if (!invoice) return NextResponse.json({ error: "Invoice not found." }, { status: 404 });
     const { data: document, error: documentError } = await operator.db.from("documents")
-      .select("storage_path,original_filename,mime_type").eq("id", invoice.document_id).maybeSingle();
+      .select("storage_path,original_filename,mime_type,source_purged_at").eq("id", invoice.document_id).maybeSingle();
     if (documentError) throw documentError;
     if (!document) return NextResponse.json({ error: "Source document not found." }, { status: 404 });
+    if (document.source_purged_at)
+      return NextResponse.json(
+        { error: "The original file reached its retention limit. The extracted invoice record remains available." },
+        { status: 410 },
+      );
     const { data: file, error: downloadError } = await operator.db.storage.from("costivra-documents").download(document.storage_path);
     if (downloadError) throw downloadError;
     return new NextResponse(file, {

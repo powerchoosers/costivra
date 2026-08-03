@@ -87,6 +87,7 @@ export type PortalDocument = {
   pageCount: number | null;
   sha256: string;
   updatedAt: string;
+  sourcePurgedAt: string | null;
 };
 
 export type PortalInvoice = {

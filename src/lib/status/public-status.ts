@@ -19,7 +19,10 @@ function overallState(services: PublicServiceStatus[]): PublicServiceState {
 }
 
 export async function getPublicSystemStatus(db: SupabaseClient): Promise<PublicSystemStatus> {
-  const readiness = await checkSystemReadiness(db, { includeOptionalServices: false });
+  const readiness = await checkSystemReadiness(db, {
+    includeOptionalServices: false,
+    includeOperatorServices: false,
+  });
   const database = byId(readiness.services, "database");
   const resend = byId(readiness.services, "resend");
   const worker = byId(readiness.services, "worker");

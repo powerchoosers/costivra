@@ -34,6 +34,7 @@ export type RecordFile = {
   evidenceCount?: number;
   contextLabel?: string | null;
   href?: string | null;
+  sourceAvailable?: boolean;
 };
 
 type Collection = "all" | "evidence" | "invoices" | "contracts" | "other";
@@ -62,7 +63,7 @@ function fileCategory(file: RecordFile): Exclude<Collection, "all" | "evidence">
 }
 
 export function recordFileCanOpen(file: RecordFile) {
-  return Boolean(file.href) && isDocumentDownloadableStatus(file.status);
+  return file.sourceAvailable !== false && Boolean(file.href) && isDocumentDownloadableStatus(file.status);
 }
 
 function matchesCollection(file: RecordFile, collection: Collection) {
@@ -216,7 +217,7 @@ export function RecordFilesWorkspace({
                     <span role="cell" className="record-files-workspace__date">{formatDate(file.createdAt)}</span>
                     <span role="cell"><span className={`record-files-workspace__status status-${file.status}`}>{formatStatus(file.status)}</span></span>
                     <span role="cell" className="record-files-workspace__actions">
-                      {recordFileCanOpen(file) ? <a href={file.href!} aria-label={`Open ${file.name}`} title="Open secure file"><Download aria-hidden="true" /></a> : <span aria-label={`${file.name} is not available to open yet`} title="Available after security and processing checks"><FileClock aria-hidden="true" /></span>}
+                      {recordFileCanOpen(file) ? <a href={file.href!} aria-label={`Open ${file.name}`} title="Open secure file"><Download aria-hidden="true" /></a> : <span aria-label={`${file.name} is not available to open`} title={file.sourceAvailable === false ? "The original file reached its retention limit; extracted records remain available." : "Available after security and processing checks"}><FileClock aria-hidden="true" /></span>}
                     </span>
                   </div>
                 ))}
@@ -260,8 +261,8 @@ export function RecordFilesWorkspace({
                 {selectedFile.pageCount && <div><dt>Pages</dt><dd>{selectedFile.pageCount}</dd></div>}
                 {selectedFile.evidenceCount ? <div><dt>Evidence links</dt><dd>{selectedFile.evidenceCount}</dd></div> : null}
               </dl>
-              <div className="record-files-workspace__trust-note"><ShieldCheck aria-hidden="true" /> <span>Original file and provenance remain protected.</span></div>
-              {recordFileCanOpen(selectedFile) ? <a className="record-files-workspace__open" href={selectedFile.href!}>Open secure file <ChevronRight aria-hidden="true" /></a> : <span className="record-files-workspace__unavailable"><FileClock aria-hidden="true" /> Available after security and processing checks</span>}
+              <div className="record-files-workspace__trust-note"><ShieldCheck aria-hidden="true" /> <span>{selectedFile.sourceAvailable === false ? "The retained metadata, extraction, and provenance remain protected." : "Original file and provenance remain protected."}</span></div>
+              {recordFileCanOpen(selectedFile) ? <a className="record-files-workspace__open" href={selectedFile.href!}>Open secure file <ChevronRight aria-hidden="true" /></a> : <span className="record-files-workspace__unavailable"><FileClock aria-hidden="true" /> {selectedFile.sourceAvailable === false ? "Original removed under the retention policy" : "Available after security and processing checks"}</span>}
             </>
           ) : (
             <div className="record-files-workspace__inspector-empty"><AlertCircle aria-hidden="true" /><strong>Choose a file</strong><p>Select a file to see its source context.</p></div>
