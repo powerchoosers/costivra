@@ -35,6 +35,10 @@
   attempt, then resumes from already persisted attachment state on the next run. OpenRouter calls
   have a 45-second ceiling, and manual quarantine release batches are bounded by route duration so
   multi-file emails cannot silently die at the platform timeout.
+- The first scheduled Vercel cron invocation on the exact production deployment returned HTTP 200,
+  and the following runtime audit found no warning, error, or fatal event. A manual call using the
+  local `CRON_SECRET` returned 401, confirming that `.env.local` is stale relative to Vercel; this
+  does not affect the scheduled production job but blocks local manual triggering until resynced.
 
 ## Savings attestation workspace — August 2, 2026
 
