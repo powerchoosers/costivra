@@ -97,4 +97,45 @@ describe("create account route", () => {
       technology_names: ["Google Workspace", "WordPress"],
     });
   });
+
+  it("creates the manual account without trusting browser provider data when Apollo cannot verify it", async () => {
+    enrichApolloOrganization.mockResolvedValue({
+      status: "unavailable",
+      providerOrganizationId: null,
+      name: null,
+      shortDescription: null,
+      industry: null,
+      website: null,
+      logoUrl: null,
+      linkedinUrl: null,
+      phone: null,
+      location: null,
+      employeeCount: null,
+      foundedYear: null,
+      technologies: [],
+      responseHash: null,
+    });
+
+    const response = await POST(new Request("https://costivra.ai/api/manage/accounts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Manual account",
+        website: "https://example.com",
+        stage: "lead",
+        apolloSelection: {
+          providerOrganizationId: "browser-supplied-id",
+          name: "Tampered browser value",
+          phone: "+1 555-555-5555",
+        },
+      }),
+    }));
+
+    expect(response.status).toBe(201);
+    expect(inserts.some((item) => item.table === "crm_account_enrichments")).toBe(false);
+    expect(inserts.find((item) => item.table === "organizations")?.value).toMatchObject({
+      name: "Manual account",
+      industry: null,
+    });
+  });
 });

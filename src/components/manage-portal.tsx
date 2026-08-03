@@ -3975,6 +3975,15 @@ function ActivityList({
   );
 }
 
+function ApolloCompanyLogo({ src, iconSize }: { src: string | null; iconSize: number }) {
+  if (!src) return <Building2 size={iconSize} aria-hidden="true" />;
+  // Search candidates can use several provider CDN hosts. The adapter has
+  // already restricted this to a public http(s) URL, so a direct preview is
+  // intentional instead of expanding Next Image's permanent host allowlist.
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" />;
+}
+
 function AccountForm({
   busy,
   onClose,
@@ -3994,12 +4003,13 @@ function AccountForm({
   const [selected, setSelected] = useState<ManageApolloSearchResult | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [searchRequest, setSearchRequest] = useState<{ query: string; id: number } | null>(null);
 
   useEffect(() => {
-    const query = lookup.trim();
+    const query = searchRequest?.query ?? "";
     if (selected || query.length < 3) return;
     const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
+    void (async () => {
       setSearching(true);
       setSearchError("");
       try {
@@ -4016,7 +4026,13 @@ function AccountForm({
         setResults(nextResults);
         const exactWebsiteMatch = nextResults.find((result) => result.exact) ?? null;
         if (exactWebsiteMatch && looksLikeCompanyWebsite(query)) {
-          chooseCompany(exactWebsiteMatch);
+          setSelected(exactWebsiteMatch);
+          setLookup(exactWebsiteMatch.name);
+          setName(exactWebsiteMatch.name);
+          setWebsite(exactWebsiteMatch.website ?? "");
+          setIndustry(exactWebsiteMatch.industry ?? "");
+          setResults([]);
+          setSearchRequest(null);
         }
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -4026,12 +4042,20 @@ function AccountForm({
       } finally {
         if (!controller.signal.aborted) setSearching(false);
       }
-    }, 450);
+    })();
     return () => {
-      window.clearTimeout(timer);
       controller.abort();
     };
-  }, [lookup, selected]);
+  }, [searchRequest, selected]);
+
+  function submitCompanyLookup() {
+    const query = lookup.trim();
+    if (query.length < 3 || searching) return;
+    setSelected(null);
+    setResults([]);
+    setSearchError("");
+    setSearchRequest((current) => ({ query, id: (current?.id ?? 0) + 1 }));
+  }
 
   function applyCompany(result: ManageApolloSearchResult) {
     setSelected(result);
@@ -4040,6 +4064,7 @@ function AccountForm({
     setWebsite(result.website ?? "");
     setIndustry(result.industry ?? "");
     setResults([]);
+    setSearchRequest(null);
   }
 
   async function chooseCompany(result: ManageApolloSearchResult) {
@@ -4094,12 +4119,22 @@ function AccountForm({
                   setSelected(null);
                   setResults([]);
                   setSearchError("");
+                  setSearchRequest(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  submitCompanyLookup();
                 }}
                 placeholder="Start typing a company name or https://company.com"
                 aria-label="Find company by name or website"
                 autoFocus
               />
-              {searching && <RefreshCw size={14} className="spin" aria-label="Searching" />}
+              {searching ? (
+                <RefreshCw size={14} className="spin" aria-label="Searching" />
+              ) : (
+                <kbd aria-hidden="true">Enter</kbd>
+              )}
             </div>
             {selected ? (
               <span className="manage-account-company-lookup__selected">
@@ -4112,7 +4147,7 @@ function AccountForm({
                 {results.map((result) => (
                   <button type="button" role="option" aria-selected="false" key={result.providerOrganizationId} onClick={() => chooseCompany(result)}>
                     <span className="manage-account-company-results__identity">
-                      {result.logoUrl ? <img src={result.logoUrl} alt="" /> : <Building2 size={16} />}
+                      <ApolloCompanyLogo src={result.logoUrl} iconSize={16} />
                       <span><strong>{result.name}</strong><small>{result.website?.replace(/^https?:\/\//, "") || result.location || "Company profile"}</small></span>
                     </span>
                     {result.exact && <em>Exact match</em>}
@@ -4121,16 +4156,18 @@ function AccountForm({
               </div>
             ) : searchError ? (
               <span className="manage-account-company-lookup__error"><CircleAlert size={14} /> {searchError}</span>
-            ) : queryReady(lookup) ? (
+            ) : searchRequest?.query === lookup.trim() ? (
               <span className="manage-account-company-lookup__hint">No company matches yet. You can still add the account manually.</span>
+            ) : queryReady(lookup) ? (
+              <span className="manage-account-company-lookup__hint">Press Enter to search Apollo. Typing alone does not use credits.</span>
             ) : (
-              <span className="manage-account-company-lookup__hint">Apollo searches only after you enter three characters.</span>
+              <span className="manage-account-company-lookup__hint">Enter at least three characters, then press Enter to search Apollo.</span>
             )}
           </label>
           {selected && (
             <div className="wide manage-account-company-preview" aria-label="Company details ready to add">
               <div className="manage-account-company-preview__identity">
-                {selected.logoUrl ? <img src={selected.logoUrl} alt="" /> : <Building2 size={20} />}
+                <ApolloCompanyLogo src={selected.logoUrl} iconSize={20} />
                 <span>
                   <strong>{selected.name}</strong>
                   <small>{selected.shortDescription || selected.industry || "Apollo company profile"}</small>
@@ -4186,7 +4223,6 @@ function AccountForm({
             <input name="contactEmail" type="email" />
           </label>
         </div>
-        <input type="hidden" name="apolloSelection" value={selected ? JSON.stringify(selected) : ""} />
         <p className="manage-form-note">
           <CircleAlert size={15} /> Adding an account stores a real CRM record.
           Customer access is invited separately.

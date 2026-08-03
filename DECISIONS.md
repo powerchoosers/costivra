@@ -536,3 +536,17 @@ Use a right-side drawer for account/contact creation so the operator retains con
 ### Consequences
 
 The account page remains glanceable while exposing the full set of fields this integration currently captures. Future Apollo fields can be added to the profile block without changing the header hierarchy. The test account `Apollo QA - HubSpot Profile` provides a real enriched fixture for visual QA without changing a customer record.
+
+## 2026-08-03 — Treat server-side domain enrichment as the durable account snapshot
+
+### Context
+
+Apollo's mixed-company search can return the same response in several arrays and its account candidates are intentionally partial. Relying on the browser-selected JSON allowed a partial search result to become a permanently partial CRM enrichment record. It also made provider data supplied by the browser more authoritative than it should be.
+
+### Decision
+
+Use direct organization enrichment for an exact public domain and hydrate name-search candidates through their normalized website before showing them as ready. At account creation, resolve that public website again on the server and persist the server-normalized snapshot. Keep manual account fields canonical, keep manual creation available when Apollo is unavailable, and retain the existing restricted internal enrichment table and audit boundary.
+
+### Consequences
+
+Adding a known company costs one additional bounded provider read at save time, but incomplete candidate records and browser-tampered provider details no longer determine the durable snapshot. Search remains operator-reviewed, exact websites produce complete previews, and provider failure does not block a legitimate manual CRM account.

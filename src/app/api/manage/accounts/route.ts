@@ -6,7 +6,6 @@ import {
   enrichApolloOrganization,
   isApolloConfigured,
   normalizeAccountWebsite,
-  normalizeApolloSelection,
 } from "@/lib/integrations/apollo";
 
 const stages = new Set([
@@ -30,7 +29,6 @@ export async function POST(request: Request) {
     const contactEmail = cleanText(body.contactEmail, 254).toLowerCase();
     const websiteInput = cleanText(body.website, 2_048);
     const website = websiteInput ? normalizeAccountWebsite(websiteInput) : null;
-    const apolloSelection = normalizeApolloSelection(body.apolloSelection);
     if (!name || !stages.has(stage))
       return NextResponse.json(
         { error: "Enter an account name and valid stage." },
@@ -50,25 +48,12 @@ export async function POST(request: Request) {
     // Browser search results are only a convenience preview. Re-resolve the
     // public website on the server so the durable CRM record receives Apollo's
     // complete, current snapshot even when search returned a partial account.
-    let enrichment = apolloSelection;
+    let enrichment: Awaited<ReturnType<typeof enrichApolloOrganization>> | null = null;
     const lookup = companyLookupFromWebsite(website);
     if (lookup && isApolloConfigured()) {
       const fresh = await enrichApolloOrganization(lookup);
       if (fresh.status === "fresh" && fresh.providerOrganizationId && fresh.name) {
-        enrichment = {
-          providerOrganizationId: fresh.providerOrganizationId,
-          name: fresh.name,
-          shortDescription: fresh.shortDescription,
-          website: fresh.website,
-          logoUrl: fresh.logoUrl,
-          linkedinUrl: fresh.linkedinUrl,
-          phone: fresh.phone,
-          industry: fresh.industry,
-          location: fresh.location,
-          employeeCount: fresh.employeeCount,
-          foundedYear: fresh.foundedYear,
-          technologies: fresh.technologies,
-        };
+        enrichment = fresh;
       }
     }
 
