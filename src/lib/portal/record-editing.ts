@@ -1,3 +1,5 @@
+import { PortalInputError } from "@/lib/portal/http";
+
 export const editableResources = {
   vendor: {
     table: "organization_vendors",
@@ -83,31 +85,31 @@ type FieldRule = { readonly column: string; readonly kind: string; readonly valu
 
 export function normalizeRecordField(resource: string, field: string, value: unknown) {
   const config = editableResources[resource as EditableResource];
-  if (!config) throw new Error("Unsupported record type.");
+  if (!config) throw new PortalInputError("Unsupported record type.");
   const rule = (config.fields as Record<string, FieldRule>)[field];
-  if (!rule) throw new Error("That field is protected or cannot be edited here.");
+  if (!rule) throw new PortalInputError("That field is protected or cannot be edited here.");
   if (rule.kind === "boolean") {
-    if (typeof value !== "boolean") throw new Error("Enter a valid yes or no value.");
+    if (typeof value !== "boolean") throw new PortalInputError("Enter a valid yes or no value.");
     return { column: rule.column, value };
   }
   if (["money", "nullable_money", "nullable_integer"].includes(rule.kind)) {
     if ((value === "" || value == null) && rule.kind.startsWith("nullable")) return { column: rule.column, value: null };
     const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed < (rule.min ?? 0) || parsed > (rule.max ?? Number.MAX_SAFE_INTEGER)) throw new Error("Enter a valid non-negative number.");
+    if (!Number.isFinite(parsed) || parsed < (rule.min ?? 0) || parsed > (rule.max ?? Number.MAX_SAFE_INTEGER)) throw new PortalInputError("Enter a valid non-negative number.");
     return { column: rule.column, value: rule.kind === "nullable_integer" ? Math.round(parsed) : parsed };
   }
   const text = typeof value === "string" ? value.trim() : "";
   if (rule.kind === "enum") {
-    if (!rule.values?.includes(text)) throw new Error("Choose a valid option.");
+    if (!rule.values?.includes(text)) throw new PortalInputError("Choose a valid option.");
     return { column: rule.column, value: text };
   }
   if (["date", "nullable_date", "nullable_datetime"].includes(rule.kind)) {
     if (!text && rule.kind.startsWith("nullable")) return { column: rule.column, value: null };
     const valid = rule.kind === "nullable_datetime" ? !Number.isNaN(Date.parse(text)) : /^\d{4}-\d{2}-\d{2}$/.test(text);
-    if (!valid) throw new Error("Enter a valid date.");
+    if (!valid) throw new PortalInputError("Enter a valid date.");
     return { column: rule.column, value: text };
   }
-  if (!text && rule.kind === "text") throw new Error("This field cannot be blank.");
-  if (text.length > (rule.max ?? 500)) throw new Error(`Keep this field under ${rule.max ?? 500} characters.`);
+  if (!text && rule.kind === "text") throw new PortalInputError("This field cannot be blank.");
+  if (text.length > (rule.max ?? 500)) throw new PortalInputError(`Keep this field under ${rule.max ?? 500} characters.`);
   return { column: rule.column, value: text || null };
 }

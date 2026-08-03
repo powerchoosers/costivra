@@ -515,6 +515,14 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added operator readiness reporting, public-route rejection coverage, policy/runner regressions, and an activation runbook that calls out the separate off-platform Storage backup required by Supabase.
 - Added explicit deny-all browser policies for the server-only retention and enrichment ledgers as migration `20260803002048`. Supabase's security advisor now reports no table/RLS findings; leaked-password protection is the only remaining dashboard warning.
 
+## 2026-08-02 — Workspace administration and safe failure handling
+
+- Added real organization-location management under customer Settings. Owners and administrators can create, edit, archive, and restore locations; all mutations are tenant-scoped and audited, while archival preserves historical bill and contract context.
+- Completed the invited-member lifecycle. Owners and administrators can change non-owner roles and remove workspace membership without deleting the person's profile or audit history. Self-removal and owner removal are blocked, and invitations now create an audit event.
+- Added an owner/admin structured workspace export with private no-store headers. It includes the customer-visible organization records, evidence references, decisions, and audit history without exposing private Storage paths or bundling source-file bytes.
+- Replaced raw shared portal API failures with safe customer messages. Intentional field-validation errors remain specific, while unexpected database and provider details are logged server-side and never returned to the browser.
+- Added branded application, root, and not-found recovery screens with clear retry and navigation choices. The full local gate passed with 180 unit tests, integration tests, lint, TypeScript, the 34-page production build, and public desktop/mobile browser coverage.
+
 ## Record workspace and internal CRM polish — August 2, 2026
 
 - Rebuilt internal account and contact record pages into one shared, task-oriented workspace: identity and highlights first, then Overview, People/Shared files, Activity, and Work tabs. The account and contact views now make the next action, relationship details, internal context, and evidence easier to scan without turning the page into a form.

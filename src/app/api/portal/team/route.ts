@@ -4,7 +4,7 @@ import { requirePortalContext } from "@/lib/portal/repository";
 
 export async function POST(request: Request) {
   try {
-    const { db, organizationId, role } = await requirePortalContext();
+    const { db, organizationId, role, userId } = await requirePortalContext();
     if (!['owner','admin'].includes(role)) return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     const body = await request.json() as Record<string, unknown>;
     const email = cleanText(body.email, 254).toLowerCase();
@@ -25,6 +25,16 @@ export async function POST(request: Request) {
     if (profileError) throw profileError;
     const { error: membershipError } = await db.from("organization_memberships").insert({ organization_id: organizationId, user_id: user.id, role: memberRole, permissions: [] });
     if (membershipError) throw membershipError;
+    const { error: auditError } = await db.from("audit_events").insert({
+      organization_id: organizationId,
+      actor_type: "user",
+      actor_id: userId,
+      action: "team_member.invited",
+      resource_type: "profile",
+      resource_id: user.id,
+      metadata: { role: memberRole },
+    });
+    if (auditError) throw auditError;
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) { return apiError(error); }
 }

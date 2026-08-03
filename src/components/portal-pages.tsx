@@ -30,8 +30,10 @@ import {
   Info,
   LoaderCircle,
   Mail,
+  MapPin,
   MessageSquareText,
   Pause,
+  Pencil,
   Plus,
   ReceiptText,
   RotateCcw,
@@ -43,7 +45,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import type { PortalData } from "@/lib/portal/types";
+import type { PortalData, PortalLocation, PortalTeamMember } from "@/lib/portal/types";
 import { useToast } from "@/components/toast-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
@@ -1918,7 +1920,46 @@ function Reports({ data }: { data: PortalData }) {
   );
 }
 
-function Team({ data, onInvite, embedded = false }: { data: PortalData; onInvite: () => void; embedded?: boolean }) {
+function Team({ data, onInvite, run, embedded = false }: {
+  data: PortalData;
+  onInvite: () => void;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  embedded?: boolean;
+}) {
+  const [selected, setSelected] = useState<PortalTeamMember | null>(null);
+  const [role, setRole] = useState("member");
+  const [busy, setBusy] = useState(false);
+  const canManage = ["owner", "admin"].includes(data.currentUser.role);
+  const openMember = (member: PortalTeamMember) => {
+    setRole(member.role);
+    setSelected(member);
+  };
+  const save = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await run(
+        () => api(`/api/portal/team/${selected.id}`, { method: "PATCH", body: { role } }),
+        `${selected.fullName}'s role was updated.`,
+      );
+      setSelected(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await run(
+        () => api(`/api/portal/team/${selected.id}`, { method: "DELETE" }),
+        `${selected.fullName}'s workspace access was removed.`,
+      );
+      setSelected(null);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <>
       {!embedded && <PageHeader
@@ -1932,6 +1973,20 @@ function Team({ data, onInvite, embedded = false }: { data: PortalData; onInvite
           ) : undefined
         }
       />}
+      {embedded && (
+        <header className="settings-section-header settings-team-header">
+          <div>
+            <span>People and authority</span>
+            <h2>Team members</h2>
+            <p>Invite colleagues, keep roles current, and remove access when responsibilities change.</p>
+          </div>
+          {canManage && (
+            <button className="button button-primary" type="button" onClick={onInvite}>
+              <Plus size={16} /> Invite member
+            </button>
+          )}
+        </header>
+      )}
       <section className="portal-panel">
         {data.team.length ? (
           <div className="portal-list">
@@ -1950,6 +2005,11 @@ function Team({ data, onInvite, embedded = false }: { data: PortalData; onInvite
                   <span>{item.email}</span>
                 </div>
                 <Status value={item.role} />
+                {canManage && item.role !== "owner" && (
+                  <button className="icon-button" type="button" onClick={() => openMember(item)} aria-label={`Manage ${item.fullName}`}>
+                    <Pencil size={15} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1960,6 +2020,44 @@ function Team({ data, onInvite, embedded = false }: { data: PortalData; onInvite
           />
         )}
       </section>
+      <PortalModal
+        open={selected !== null}
+        title="Manage team member"
+        description="Role changes apply immediately. Removing access does not delete the person's profile or audit history."
+        onClose={() => !busy && setSelected(null)}
+      >
+        {selected && (
+          <div className="team-member-editor">
+            <div className="team-member-editor__identity">
+              <span className="member-avatar">{selected.fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span>
+              <div><strong>{selected.fullName}</strong><small>{selected.email}</small></div>
+            </div>
+            <label className="portal-field">
+              <span>Workspace role</span>
+              <CostivraSelect
+                value={role}
+                onChange={setRole}
+                options={[
+                  { value: "viewer", label: "Viewer · read only" },
+                  { value: "member", label: "Member · standard work" },
+                  { value: "admin", label: "Administrator · settings and team" },
+                ]}
+              />
+            </label>
+            <div className="team-member-editor__actions">
+              <button className="settings-location-archive" type="button" disabled={busy || selected.id === data.currentUser.id} onClick={remove}>
+                <Trash2 size={15} /> Remove workspace access
+              </button>
+              <div className="portal-form-actions">
+                <button className="button button-quiet" type="button" disabled={busy} onClick={() => setSelected(null)}>Cancel</button>
+                <button className="button button-primary" type="button" disabled={busy || role === selected.role} onClick={save}>
+                  {busy && <LoaderCircle className="spin" size={16} />} {busy ? "Working…" : "Save role"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </PortalModal>
     </>
   );
 }
@@ -2244,10 +2342,145 @@ function Settings({
           </button>
         </div>
       </form>
+      <LocationManager data={data} run={run} />
+      {["owner", "admin"].includes(data.currentUser.role) && (
+        <section className="portal-panel settings-data-export">
+          <div>
+            <span>Data portability</span>
+            <h2>Workspace export</h2>
+            <p>Download the structured records, evidence references, decisions, and audit history available to your organization. Private source-file bytes are not bundled into this export.</p>
+          </div>
+          <a className="button button-secondary" href="/api/portal/export" download>
+            <Download size={16} /> Download JSON
+          </a>
+        </section>
+      )}
       </>}
       {tab === "integrations" && <div className="settings-tab-panel"><Integrations data={data} run={run} embedded /></div>}
-      {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} embedded /></div>}
+      {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} run={run} embedded /></div>}
     </>
+  );
+}
+
+function LocationManager({
+  data,
+  run,
+}: {
+  data: PortalData;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+}) {
+  const canManage = ["owner", "admin"].includes(data.currentUser.role);
+  const [selected, setSelected] = useState<PortalLocation | "new" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const location = selected === "new" ? null : selected;
+  const address = location?.address ?? {};
+  const addressLine = (item: PortalLocation) => {
+    const parts = [
+      item.address?.line1,
+      item.address?.city,
+      item.address?.state,
+      item.address?.postal_code,
+    ].filter(Boolean);
+    return parts.length ? parts.join(", ") : "Address not added";
+  };
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    const form = new FormData(event.currentTarget);
+    const body = Object.fromEntries(form);
+    try {
+      await run(
+        () => api(
+          location ? `/api/portal/locations/${location.id}` : "/api/portal/locations",
+          { method: location ? "PATCH" : "POST", body },
+        ),
+        location ? "Location updated." : "Location added.",
+      );
+      setSelected(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const archive = async () => {
+    if (!location) return;
+    setBusy(true);
+    try {
+      await run(
+        () => api(`/api/portal/locations/${location.id}`, { method: "DELETE" }),
+        "Location archived. Historical records remain connected.",
+      );
+      setSelected(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="portal-panel settings-locations">
+      <header className="settings-section-header">
+        <div>
+          <span>Operating footprint</span>
+          <h2>Locations</h2>
+          <p>Keep bills, contracts, and future comparisons tied to the site they serve.</p>
+        </div>
+        {canManage && (
+          <button className="button button-secondary" type="button" onClick={() => setSelected("new")}>
+            <Plus size={16} /> Add location
+          </button>
+        )}
+      </header>
+      {data.locations.length ? (
+        <div className="settings-location-grid">
+          {data.locations.map((item) => (
+            <article className={`settings-location-card${item.status === "inactive" ? " is-inactive" : ""}`} key={item.id}>
+              <span className="settings-location-icon"><MapPin size={17} /></span>
+              <div>
+                <strong>{item.name}</strong>
+                <small>{addressLine(item)}</small>
+              </div>
+              <Status value={item.status} />
+              {canManage && (
+                <button className="icon-button" type="button" onClick={() => setSelected(item)} aria-label={`Edit ${item.name}`}>
+                  <Pencil size={15} />
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <Empty title="No locations yet" copy="Add the first office, property, or service location to organize recurring costs." />
+      )}
+      <PortalModal
+        open={selected !== null}
+        title={location ? "Edit location" : "Add location"}
+        description="Use a recognizable operating name. Archiving preserves historical records."
+        onClose={() => !busy && setSelected(null)}
+      >
+        <form onSubmit={submit}>
+          <div className="form-grid">
+            <Field label="Location name" name="name" defaultValue={location?.name ?? ""} />
+            <SelectField
+              label="Status"
+              name="status"
+              defaultValue={location?.status ?? "active"}
+              options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]}
+            />
+            <Field label="Address line 1" name="line1" defaultValue={address.line1 ?? ""} required={false} />
+            <Field label="Address line 2" name="line2" defaultValue={address.line2 ?? ""} required={false} />
+            <Field label="City" name="city" defaultValue={address.city ?? ""} required={false} />
+            <Field label="State / region" name="state" defaultValue={address.state ?? ""} required={false} />
+            <Field label="Postal code" name="postalCode" defaultValue={address.postal_code ?? ""} required={false} />
+            <Field label="Country code" name="country" defaultValue={address.country ?? "US"} required={false} />
+          </div>
+          {location && location.status !== "inactive" && (
+            <button className="settings-location-archive" type="button" disabled={busy} onClick={archive}>
+              <Trash2 size={15} /> Archive location
+            </button>
+          )}
+          <FormActions busy={busy} onCancel={() => setSelected(null)} label={location ? "Save location" : "Add location"} />
+        </form>
+      </PortalModal>
+    </section>
   );
 }
 
