@@ -1,5 +1,26 @@
 # Costivra Status
 
+## Operational truth and worker health — August 2, 2026
+
+- Added a server-only ledger for every one-minute inbound worker invocation. The owner readiness
+  screen now verifies a recent completed production run instead of treating the presence of
+  `CRON_SECRET` as proof that automation is alive. Stale, failed, still-running, and
+  completed-with-alerting-warning states are reported separately.
+- Queue alerting can no longer turn already completed invoice work into a 500 retry. If operator
+  notification monitoring is unavailable, the run completes with a warning, stores a safe failure
+  category, and leaves the successfully processed document untouched.
+- Production proof passed on deployment `a8fc630`: Vercel's scheduled worker wrote a completed run
+  to Costivra Supabase with zero claimed jobs, four queue records inspected, zero incidents, and
+  zero notification failures. The worker ledger denies both anonymous and signed-in browser roles.
+- Removed a misleading integration behavior that could label QuickBooks, Gmail, Microsoft 365, or
+  Stripe as connected without OAuth or a data sync. The customer portal now identifies these as
+  planned adapters. Approved email forwarding through the private workspace address remains the
+  live automated document-intake route.
+- Current Supabase security advice also includes warnings on legacy Luxor/Nodal-style tables that
+  coexist in the same database project. Costivra-owned operational tables are explicitly protected,
+  but the shared legacy schema must be isolated or remediated before treating this database as a
+  clean production security boundary. Leaked-password protection is also still disabled.
+
 ## Document extraction recovery — August 2, 2026
 
 - Separated document-reading failures from persistence failures. Image-only PDFs now use the
