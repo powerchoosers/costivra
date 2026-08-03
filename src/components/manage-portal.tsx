@@ -1377,17 +1377,22 @@ function TableFooter({
   page,
   pageCount,
   onPage,
+  children,
 }: {
   count: number;
   noun: string;
   page: number;
   pageCount: number;
   onPage: (page: number) => void;
+  children?: ReactNode;
 }) {
   return (
     <footer className="manage-table-footer">
-      <span>{count} {count === 1 ? noun : `${noun}s`}</span>
-      <div>
+      <div className="manage-table-footer-count">
+        <span>{count} {count === 1 ? noun : `${noun}s`}</span>
+      </div>
+      {children && <div className="manage-table-footer-center">{children}</div>}
+      <div className="manage-table-footer-pagination">
         <button disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
           <ChevronLeft size={15} />
         </button>
@@ -1501,15 +1506,13 @@ function AccountRows({
                   </td>
                 )}
                 <td className="manage-sticky-column">
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Link href={`/manage/accounts/${account.id}`} className="manage-table-record-card" onClick={(event) => event.stopPropagation()}>
                     <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />
-                    <span>
-                      <Link href={`/manage/accounts/${account.id}`} className="manage-table-record-link" onClick={(event) => event.stopPropagation()}>
-                        <strong>{account.name}</strong>
-                      </Link>
+                    <span className="manage-table-record-meta">
+                      <strong>{account.name}</strong>
                       <small>{account.industry || "Industry not set"}</small>
                     </span>
-                  </div>
+                  </Link>
                 </td>
                 <td>
                   <strong>{account.primaryContact || "No contact"}</strong>
@@ -2021,7 +2024,16 @@ function Accounts({
             })}
             empty={<Empty icon={Building2} title="No matching accounts" copy={data.accounts.length ? "Clear the search or choose another lifecycle stage." : "No real organizations are available yet."} />}
           />
-          <TableFooter count={filtered.length} noun="account" page={currentPage} pageCount={pageCount} onPage={setPage} />
+          <TableFooter count={filtered.length} noun="account" page={currentPage} pageCount={pageCount} onPage={setPage}>
+            <BulkActionBar
+              count={selectedAccounts.length}
+              noun="account"
+              primaryLabel="Edit follow-up"
+              onPrimary={() => selectedAccounts[0] && setEditing(selectedAccounts[0])}
+              onExport={() => exportAccountsCsv(selectedAccounts)}
+              onClear={() => setSelectedIds(new Set())}
+            />
+          </TableFooter>
         </section>
         <AccountInspector
           data={data}
@@ -2030,14 +2042,6 @@ function Accounts({
           contacts={accountContacts}
         />
       </div>
-      <BulkActionBar
-        count={selectedAccounts.length}
-        noun="account"
-        primaryLabel="Edit follow-up"
-        onPrimary={() => selectedAccounts[0] && setEditing(selectedAccounts[0])}
-        onExport={() => exportAccountsCsv(selectedAccounts)}
-        onClear={() => setSelectedIds(new Set())}
-      />
       {editing && (
         <EditAccount account={editing} onClose={() => setEditing(null)} />
       )}
@@ -2199,8 +2203,8 @@ function Contacts({
               const bulkSelected = selectedIds.has(contact.id);
               return <tr key={contact.id} className={`${selectedContact?.id === contact.id ? "is-selected" : ""}${bulkSelected ? " is-bulk-selected" : ""}`} onClick={() => setSelectedContactId(contact.id)}>
                 <td className="manage-row-number-cell"><BulkRowSelector checked={bulkSelected} index={(currentPage - 1) * pageSize + index + 1} label={contact.fullName} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
-                <td className="manage-sticky-column"><div className="manage-table-person"><span className="manage-person-avatar">{initials(contact.fullName)}</span><span><Link href={`/manage/contacts/${contact.id}`} className="manage-table-record-link" onClick={(event) => event.stopPropagation()}><strong>{contact.fullName}</strong></Link><small>{contact.email}</small></span></div></td>
-                <td><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-table-record-link" onClick={(event) => event.stopPropagation()}><strong>{contact.organizationName}</strong></Link><small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small></td>
+                <td className="manage-sticky-column"><Link href={`/manage/contacts/${contact.id}`} className="manage-table-record-card" onClick={(event) => event.stopPropagation()}><span className="manage-person-avatar">{initials(contact.fullName)}</span><span className="manage-table-record-meta"><strong>{contact.fullName}</strong><small>{contact.email}</small></span></Link></td>
+                <td><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-table-record-card" onClick={(event) => event.stopPropagation()}><span className="manage-table-record-meta"><strong>{contact.organizationName}</strong><small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small></span></Link></td>
                 <td>{contact.title || "Not set"}</td>
                 <td><Status value={contact.marketingStatus || "not recorded"} /></td>
                 <td><span className="manage-source">{contact.source === "workspace" ? "Workspace" : "CRM"}</span></td>
@@ -2220,11 +2224,12 @@ function Contacts({
             }
           />
         )}
-        <TableFooter count={rows.length} noun="contact" page={currentPage} pageCount={pageCount} onPage={setPage} />
+        <TableFooter count={rows.length} noun="contact" page={currentPage} pageCount={pageCount} onPage={setPage}>
+          <BulkActionBar count={selectedContacts.length} noun="contact" primaryLabel="Compose email" onPrimary={() => selectedContacts[0] && onCompose(selectedContacts[0])} onExport={() => exportContactsCsv(selectedContacts)} onClear={() => setSelectedIds(new Set())} />
+        </TableFooter>
       </section>
       <ContactInspector data={data} contact={selectedContact} onCompose={onCompose} />
       </div>
-      <BulkActionBar count={selectedContacts.length} noun="contact" primaryLabel="Compose email" onPrimary={() => selectedContacts[0] && onCompose(selectedContacts[0])} onExport={() => exportContactsCsv(selectedContacts)} onClear={() => setSelectedIds(new Set())} />
     </>
   );
 }
