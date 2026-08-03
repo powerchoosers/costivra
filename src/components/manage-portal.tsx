@@ -35,7 +35,6 @@ import {
   IndentIncrease,
   Italic,
   LayoutDashboard,
-  Linkedin,
   Link2,
   List,
   ListOrdered,
@@ -2469,7 +2468,7 @@ function RecordHeaderLinks({ website, linkedinUrl, entityName }: { website: stri
   if (!websiteHref && !linkedinHref) return null;
   return <span className="manage-record-title-links" aria-label={`${entityName} links`}>
     {websiteHref && <a href={websiteHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} website`} title="Website"><Globe2 size={16} /></a>}
-    {linkedinHref && <a href={linkedinHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} LinkedIn profile`} title="LinkedIn"><Linkedin size={16} /></a>}
+    {linkedinHref && <a href={linkedinHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} LinkedIn profile`} title="LinkedIn"><Link2 size={16} /></a>}
   </span>;
 }
 
