@@ -25,6 +25,9 @@ export function classifyDocumentExtractionFailure(
   ) return "invalid_ai_output";
   if (
     message.includes("not configured") ||
+    message.includes("authentication") ||
+    message.includes("unauthorized") ||
+    message.includes("invalid api key") ||
     message.includes("request failed") ||
     message.includes("no usable response") ||
     message.includes("fetch failed") ||

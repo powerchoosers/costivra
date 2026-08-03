@@ -16,6 +16,10 @@ describe("document extraction failure classification", () => {
     expect(classifyDocumentExtractionFailure(new Error("The AI service returned malformed structured data."), "native_text")).toBe("invalid_ai_output");
   });
 
+  it("treats provider authentication problems as service availability failures", () => {
+    expect(classifyDocumentExtractionFailure(new Error("Missing Authentication header"), "native_text")).toBe("ai_unavailable");
+  });
+
   it("provides customer-safe recovery copy", () => {
     expect(documentExtractionReviewSummary("ocr_unavailable")).toContain("OCR retry");
     expect(documentExtractionReviewSummary("invalid_ai_output")).not.toContain("OpenRouter");
