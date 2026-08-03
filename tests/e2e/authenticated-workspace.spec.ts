@@ -264,6 +264,21 @@ test.describe("authenticated customer workspace", () => {
 
       await expect(page).toHaveURL(/\/app\/opportunities$/, { timeout: 30_000 });
       await expect(page.getByText(fixture.organizationName, { exact: true })).toBeVisible();
+
+      await page.goto("/app/settings");
+      await page.getByRole("tab", { name: "Team & approvals" }).click();
+      await expect(page.getByRole("heading", { name: "Approval policies" })).toBeVisible();
+      await page.getByRole("button", { name: "Add policy" }).click();
+      const policyDialog = page.getByRole("dialog", { name: "Add approval policy" });
+      await expect(policyDialog).toBeVisible();
+      await expect(policyDialog).toBeInViewport();
+      await policyDialog.getByLabel("Policy name").fill("E2E consequential work approval");
+      await policyDialog.getByLabel("Explicit consent").check();
+      await policyDialog.getByRole("button", { name: "Add policy", exact: true }).click();
+      await expect(page.getByText("Approval policy added.", { exact: true })).toBeVisible();
+      await expect(page.getByText("E2E consequential work approval", { exact: true })).toBeVisible();
+
+      await page.goto("/app/opportunities");
       const opportunityCard = page.locator("article.portal-card", {
         hasText: fixture.opportunityTitle,
       });
@@ -298,7 +313,7 @@ test.describe("authenticated customer workspace", () => {
       await actionCard.getByRole("button", { name: "Mark complete" }).click();
       await expect(page.getByText("Action completed.", { exact: true })).toBeVisible();
 
-      const [opportunity, action, savings, audit] = await Promise.all([
+      const [opportunity, action, policy, savings, audit] = await Promise.all([
         fixture.admin
           .from("opportunities")
           .select("status")
@@ -306,8 +321,14 @@ test.describe("authenticated customer workspace", () => {
           .single(),
         fixture.admin
           .from("action_plans")
-          .select("status")
+          .select("status,required_approval_policy_id")
           .eq("opportunity_id", fixture.opportunityId)
+          .single(),
+        fixture.admin
+          .from("approval_policies")
+          .select("id,rule")
+          .eq("organization_id", fixture.organizationId)
+          .eq("name", "E2E consequential work approval")
           .single(),
         fixture.admin
           .from("savings_outcomes")
@@ -323,6 +344,12 @@ test.describe("authenticated customer workspace", () => {
       expect(opportunity.data?.status).toBe("in_progress");
       expect(action.error).toBeNull();
       expect(action.data?.status).toBe("complete");
+      expect(policy.error).toBeNull();
+      expect(policy.data?.rule).toMatchObject({
+        minimum_approvers: 1,
+        explicit_consent: true,
+      });
+      expect(action.data?.required_approval_policy_id).toBe(policy.data?.id);
       expect(savings.error).toBeNull();
       expect(savings.data).toMatchObject({
         status: "evidence_pending",

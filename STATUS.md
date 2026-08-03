@@ -18,6 +18,10 @@
 - The live Costivra migration `20260803012622` is applied and recorded. Supabase advisors report
   only the existing leaked-password-protection warning; no new database security or performance
   finding was introduced.
+- The authenticated production browser gate now creates a policy through the rendered modal,
+  confirms that it governs the generated action, completes the opportunity-to-savings workflow,
+  checks the audit trail and browser/runtime failures, and removes its disposable organization and
+  user. The expanded gate passed against `costivra.ai` after deployment.
 
 ## Atomic customer financial workflow — August 2, 2026
 
