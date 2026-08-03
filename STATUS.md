@@ -1,5 +1,24 @@
 # Costivra Status
 
+## Customer approval policies and location-linked records — August 2, 2026
+
+- Added a real customer Approval Center under **Settings → Team & approvals**. Owners and
+  administrators can create, edit, disable, and restore plain-language rules by action type,
+  annual-value threshold, category, explicit-consent requirement, and one-to-five distinct
+  approvers. Disabled policies remain available for historical decisions.
+- Upgraded the service-role workflow transaction so the strictest matching active tenant policy
+  is attached when an action is created. Approval rows are assigned to distinct owners or
+  administrators, the first decision remains pending when more people are required, and only the
+  configured distinct-approval count advances the action. A rollback-only production probe proved
+  both policy selection and the two-person gate without leaving fixture data.
+- Added optional tenant-scoped location links to expenses and contracts. Customers can assign an
+  active location during creation and change or clear it inline on the detail page. API routes
+  reject cross-tenant or invalid location identifiers; archiving a location preserves existing
+  financial and contract history through a nullable foreign key.
+- The live Costivra migration `20260803012622` is applied and recorded. Supabase advisors report
+  only the existing leaked-password-protection warning; no new database security or performance
+  finding was introduced.
+
 ## Atomic customer financial workflow — August 2, 2026
 
 - Moved opportunity approval, action authorization/start/completion, savings-baseline acceptance,

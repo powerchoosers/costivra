@@ -45,7 +45,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import type { PortalData, PortalLocation, PortalTeamMember } from "@/lib/portal/types";
+import type { PortalApprovalPolicy, PortalData, PortalLocation, PortalTeamMember } from "@/lib/portal/types";
 import { useToast } from "@/components/toast-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
@@ -54,6 +54,7 @@ import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
+import { approvalActionLabel } from "@/lib/portal/approval-policies";
 
 type ApiOptions = {
   method?: string;
@@ -922,10 +923,15 @@ function Actions({
                 <dt>Due</dt>
                 <dd>{date(item.dueAt)}</dd>
               </div>
+              <div>
+                <dt>Approval</dt>
+                <dd>{item.approvedCount} of {item.requiredApprovals} recorded</dd>
+              </div>
             </dl>
+            {item.approvalPolicyName && <p className="action-policy-note"><ShieldCheck size={15} /> {item.approvalPolicyName}</p>}
             <footer className="action-buttons">
               {item.status === "pending_approval" && (
-                <>
+                item.currentUserDecision === "pending" ? <>
                   <button
                     className="button button-quiet"
                     onClick={() => void execute(item.id, "decline")}
@@ -938,7 +944,7 @@ function Actions({
                   >
                     <Check size={16} /> Approve
                   </button>
-                </>
+                </> : <span className="action-approval-waiting">{item.currentUserDecision === "approved" ? "Your approval is recorded. Waiting for the remaining approver." : "This decision is assigned to another administrator."}</span>
               )}
               {item.status === "approved" && (
                 <button
@@ -2357,9 +2363,124 @@ function Settings({
       )}
       </>}
       {tab === "integrations" && <div className="settings-tab-panel"><Integrations data={data} run={run} embedded /></div>}
-      {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} run={run} embedded /></div>}
+      {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} run={run} embedded /><ApprovalPolicyManager data={data} run={run} /></div>}
     </>
   );
+}
+
+function ApprovalPolicyManager({
+  data,
+  run,
+}: {
+  data: PortalData;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+}) {
+  const canManage = ["owner", "admin"].includes(data.currentUser.role);
+  const availableApprovers = data.team.filter((member) =>
+    ["owner", "admin"].includes(member.role),
+  ).length;
+  const [selected, setSelected] = useState<PortalApprovalPolicy | "new" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const policy = selected && selected !== "new" ? selected : null;
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      await run(
+        () => api(
+          policy ? `/api/portal/approval-policies/${policy.id}` : "/api/portal/approval-policies",
+          {
+            method: policy ? "PATCH" : "POST",
+            body: {
+              name: form.get("name"),
+              actionType: form.get("actionType"),
+              minimumApprovers: form.get("minimumApprovers"),
+              annualValueThreshold: form.get("annualValueThreshold"),
+              category: form.get("category"),
+              explicitConsent: form.get("explicitConsent") === "on",
+              isActive: form.get("isActive") === "on",
+            },
+          },
+        ),
+        policy ? "Approval policy updated." : "Approval policy added.",
+      );
+      setSelected(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const disable = async () => {
+    if (!policy) return;
+    setBusy(true);
+    try {
+      await run(
+        () => api(`/api/portal/approval-policies/${policy.id}`, { method: "DELETE" }),
+        "Approval policy disabled. Existing decisions keep their history.",
+      );
+      setSelected(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <>
+    <section className="portal-panel approval-policy-panel">
+      <header className="settings-section-header">
+        <div>
+          <span>Decision authority</span>
+          <h2>Approval policies</h2>
+          <p>Choose which consequential actions need one or more people before work can begin.</p>
+        </div>
+        {canManage && <button className="button button-secondary" type="button" onClick={() => setSelected("new")}><Plus size={16} /> Add policy</button>}
+      </header>
+      <div className="approval-policy-safety">
+        <ShieldCheck size={17} />
+        <div><strong>Costivra never changes bank or payment details.</strong><span>External communication and account changes remain approval-gated and attributable.</span></div>
+      </div>
+      {data.approvalPolicies.length ? <div className="approval-policy-list">
+        {data.approvalPolicies.map((item) => <article key={item.id} className={!item.isActive ? "is-inactive" : ""}>
+          <div className="approval-policy-identity">
+            <span className="approval-policy-icon"><ShieldCheck size={17} /></span>
+            <div><strong>{item.name}</strong><small>{approvalActionLabel(item.actionType as Parameters<typeof approvalActionLabel>[0])}</small></div>
+          </div>
+          <div className="approval-policy-facts">
+            <span>{item.minimumApprovers} approver{item.minimumApprovers === 1 ? "" : "s"}</span>
+            {item.annualValueThreshold !== null && <span>{money(item.annualValueThreshold)} or more</span>}
+            {item.category && <span>{item.category}</span>}
+            {item.explicitConsent && <span>Explicit consent</span>}
+          </div>
+          {item.isActive && item.minimumApprovers > availableApprovers && <span className="approval-policy-gap">Add {item.minimumApprovers - availableApprovers} administrator{item.minimumApprovers - availableApprovers === 1 ? "" : "s"}</span>}
+          <Status value={item.isActive ? "active" : "inactive"} />
+          {canManage && <button className="icon-button" type="button" aria-label={`Edit ${item.name}`} onClick={() => setSelected(item)}><Pencil size={15} /></button>}
+        </article>)}
+      </div> : <Empty title="No approval policies" copy="Add a policy before Costivra prepares consequential work." />}
+    </section>
+    <PortalModal open={selected !== null} title={policy ? "Edit approval policy" : "Add approval policy"} description="The strictest matching active policy controls each new action." onClose={() => !busy && setSelected(null)}>
+      {selected && <form key={policy?.id ?? "new"} onSubmit={submit}>
+        <div className="form-grid">
+          <Field label="Policy name" name="name" defaultValue={policy?.name ?? ""} />
+          <SelectField label="Action type" name="actionType" defaultValue={policy?.actionType ?? "all"} options={[
+            { value: "all", label: "All consequential actions" },
+            { value: "review_vendor_cost", label: "Vendor cost review" },
+            { value: "external_email", label: "External email" },
+            { value: "account_change", label: "Vendor account change" },
+            { value: "contract_cancellation", label: "Contract cancellation" },
+            { value: "prepare_energy_review", label: "Energy review preparation" },
+            { value: "expert_handoff", label: "Expert handoff" },
+          ]} />
+          <SelectField label="Required approvers" name="minimumApprovers" defaultValue={String(policy?.minimumApprovers ?? 1)} options={[1,2,3,4,5].map((value) => ({ value: String(value), label: `${value} person${value === 1 ? "" : "s"}` }))} />
+          <Field label="Annual value threshold" name="annualValueThreshold" type="number" required={false} defaultValue={policy?.annualValueThreshold == null ? "" : String(policy.annualValueThreshold)} />
+          <Field label="Category" name="category" required={false} defaultValue={policy?.category ?? ""} />
+        </div>
+        <div className="preference-list approval-policy-toggles">
+          <label><span><strong>Explicit consent</strong><small>Require a deliberate recorded decision for this action.</small></span><input type="checkbox" name="explicitConsent" defaultChecked={policy?.explicitConsent ?? false} /></label>
+          <label><span><strong>Policy active</strong><small>Inactive policies remain visible for historical decisions but do not govern new actions.</small></span><input type="checkbox" name="isActive" defaultChecked={policy?.isActive ?? true} /></label>
+        </div>
+        {policy?.isActive && <button className="settings-location-archive" type="button" disabled={busy} onClick={() => void disable()}><Pause size={15} /> Disable policy</button>}
+        <FormActions busy={busy} onCancel={() => setSelected(null)} label={policy ? "Save policy" : "Add policy"} />
+      </form>}
+    </PortalModal>
+  </>;
 }
 
 function LocationManager({
@@ -2983,6 +3104,15 @@ function CreateModals({
               defaultValue={presetVendor}
             />
             <Field label="Contract title" name="title" />
+            <SelectField
+              label="Location"
+              name="locationId"
+              required={false}
+              options={[
+                { value: "", label: "All locations / not assigned" },
+                ...data.locations.filter((location) => location.status === "active").map((location) => ({ value: location.id, label: location.name })),
+              ]}
+            />
             <Field
               label="Category"
               name="category"
@@ -3094,6 +3224,15 @@ function CreateModals({
               label="Category"
               name="category"
               defaultValue={selectedVendor?.category}
+            />
+            <SelectField
+              label="Location"
+              name="locationId"
+              required={false}
+              options={[
+                { value: "", label: "All locations / not assigned" },
+                ...data.locations.filter((location) => location.status === "active").map((location) => ({ value: location.id, label: location.name })),
+              ]}
             />
             <DateField
               label="Period start"

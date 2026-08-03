@@ -52,6 +52,8 @@ export type PortalExpense = {
   status: string;
   documentId: string | null;
   invoiceId: string | null;
+  locationId: string | null;
+  locationName: string | null;
   updatedAt: string;
 };
 
@@ -69,6 +71,8 @@ export type PortalContract = {
   autoRenews: boolean;
   ownerName: string | null;
   documentId: string | null;
+  locationId: string | null;
+  locationName: string | null;
   updatedAt: string;
 };
 
@@ -155,6 +159,23 @@ export type PortalAction = {
   vendorId: string | null;
   approvalId: string | null;
   approvalDecision: string | null;
+  approvalPolicyId: string | null;
+  approvalPolicyName: string | null;
+  requiredApprovals: number;
+  approvedCount: number;
+  currentUserDecision: string | null;
+  updatedAt: string;
+};
+
+export type PortalApprovalPolicy = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  actionType: string;
+  minimumApprovers: number;
+  annualValueThreshold: number | null;
+  category: string | null;
+  explicitConsent: boolean;
   updatedAt: string;
 };
 
@@ -269,6 +290,7 @@ export type PortalData = {
   invoices: PortalInvoice[];
   opportunities: PortalOpportunity[];
   actions: PortalAction[];
+  approvalPolicies: PortalApprovalPolicy[];
   savings: PortalSavingsOutcome[];
   integrations: PortalIntegration[];
   emailIntake: PortalEmailIntake | null;

@@ -440,3 +440,34 @@ are explicitly denied, and service-role routes audit every refresh outcome witho
 responses, provider errors, credentials, or personal email. The reviewed migration must be
 applied before deploying the enrichment route; the Manage read model remains gracefully usable
 during that rollout gap.
+
+## 2026-08-02 — Enforce customer approval counts in the database
+
+### Context
+
+Costivra stored approval policies and showed action decisions, but the policy rows were not yet
+used by the action-creation transaction. A two-person rule therefore could not prove that two
+different authorized people had decided, and customers could not manage the rule in the portal.
+Expenses and contracts also lacked a first-class location link even though multi-location cost
+tracking is part of the product promise.
+
+### Decision
+
+Treat approval policy configuration as a tenant-owned, audited control and action advancement as
+a database invariant. When an opportunity becomes an action, select the strictest matching active
+policy by action type, category, annual-value threshold, and minimum approver count. Assign pending
+decisions to distinct owners or administrators. Record each decision independently and leave the
+action pending until the required number of distinct approvals exists. Any assigned decline still
+cancels the action. Bank and payment-detail changes remain outside the executable action set.
+
+Link expenses and contracts to optional tenant locations with foreign keys and server-side
+organization checks. Location removal is archival, and the nullable link uses `on delete set null`
+as defense in depth so historical financial records are not cascaded away.
+
+### Consequences
+
+The portal settings now describe what the database will actually enforce. Rules that require more
+approvers than the current team visibly tell the customer to add administrators and remain safely
+blocked until they do. Approval history survives policy disablement. Bills and contracts can be
+organized by operating site without weakening tenant isolation or turning location cleanup into a
+destructive accounting operation.

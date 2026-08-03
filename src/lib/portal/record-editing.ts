@@ -16,6 +16,7 @@ export const editableResources = {
       periodStart: { column: "period_start", kind: "date" },
       periodEnd: { column: "period_end", kind: "date" },
       status: { column: "status", kind: "enum", values: ["processing", "needs_review", "reviewed", "archived"] },
+      locationId: { column: "location_id", kind: "nullable_uuid" },
     },
   },
   contract: {
@@ -30,6 +31,7 @@ export const editableResources = {
       status: { column: "status", kind: "enum", values: ["draft", "active", "expired", "terminated"] },
       autoRenews: { column: "auto_renews", kind: "boolean" },
       ownerName: { column: "owner_name", kind: "nullable_text", max: 120 },
+      locationId: { column: "location_id", kind: "nullable_uuid" },
     },
   },
   document: {
@@ -91,6 +93,13 @@ export function normalizeRecordField(resource: string, field: string, value: unk
   if (rule.kind === "boolean") {
     if (typeof value !== "boolean") throw new PortalInputError("Enter a valid yes or no value.");
     return { column: rule.column, value };
+  }
+  if (rule.kind === "nullable_uuid") {
+    if (value === "" || value == null) return { column: rule.column, value: null };
+    const uuid = typeof value === "string" ? value.trim() : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid))
+      throw new PortalInputError("Choose a valid location.");
+    return { column: rule.column, value: uuid };
   }
   if (["money", "nullable_money", "nullable_integer"].includes(rule.kind)) {
     if ((value === "" || value == null) && rule.kind.startsWith("nullable")) return { column: rule.column, value: null };

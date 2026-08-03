@@ -50,7 +50,7 @@ export async function getPortalData(): Promise<PortalData> {
     organizationResult, profileResult, locationsResult, vendorsResult,
     relationshipsResult, accountsResult, expensesResult, contractsResult,
     documentsResult, extractionsResult, opportunitiesResult, opportunityEvidenceResult,
-    actionsResult, approvalsResult, savingsResult, integrationsResult,
+    actionsResult, approvalsResult, approvalPoliciesResult, savingsResult, integrationsResult,
     reportsResult, membershipsResult, profilesResult, notificationsResult,
     emailIntakeResult, inboundEmailEventsResult, invoicesResult, invoiceLineItemsResult,
     auditEventsResult,
@@ -69,6 +69,7 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("opportunity_evidence").select("opportunity_id,evidence_reference_id"),
     db.from("action_plans").select("*").order("due_at"),
     db.from("approvals").select("*").eq("organization_id", organizationId),
+    db.from("approval_policies").select("*").eq("organization_id", organizationId).order("created_at"),
     db.from("savings_outcomes").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
     db.from("integrations").select("*").eq("organization_id", organizationId).order("display_name"),
     db.from("report_definitions").select("*").eq("organization_id", organizationId).order("name"),
@@ -85,7 +86,7 @@ export async function getPortalData(): Promise<PortalData> {
   const results = [organizationResult, profileResult, locationsResult, vendorsResult,
     relationshipsResult, accountsResult, expensesResult, contractsResult, documentsResult,
     extractionsResult, opportunitiesResult, opportunityEvidenceResult, actionsResult,
-    approvalsResult, savingsResult, integrationsResult, reportsResult, membershipsResult,
+    approvalsResult, approvalPoliciesResult, savingsResult, integrationsResult, reportsResult, membershipsResult,
     profilesResult, notificationsResult, emailIntakeResult, inboundEmailEventsResult,
     invoicesResult, invoiceLineItemsResult, auditEventsResult];
   const failed = results.find((result) => result.error);
@@ -120,7 +121,13 @@ export async function getPortalData(): Promise<PortalData> {
     invoiceLineItemCount.set(invoiceId, (invoiceLineItemCount.get(invoiceId) ?? 0) + 1);
   }
   const opportunityById = new Map(rows(opportunitiesResult.data).map((opportunity) => [stringValue(opportunity.id), opportunity]));
-  const approvalByResource = new Map(rows(approvalsResult.data).map((approval) => [stringValue(approval.resource_id), approval]));
+  const approvalsByResource = new Map<string, Row[]>();
+  for (const approval of rows(approvalsResult.data)) {
+    const resourceId = stringValue(approval.resource_id);
+    approvalsByResource.set(resourceId, [...(approvalsByResource.get(resourceId) ?? []), approval]);
+  }
+  const policyById = new Map(rows(approvalPoliciesResult.data).map((policy) => [stringValue(policy.id), policy]));
+  const locationById = new Map(rows(locationsResult.data).map((location) => [stringValue(location.id), location]));
   const profileById = new Map(rows(profilesResult.data).map((entry) => [stringValue(entry.id), entry]));
 
   const resolveVendor = (organizationVendorId: string | null) => {
@@ -160,11 +167,13 @@ export async function getPortalData(): Promise<PortalData> {
     })),
     expenses: rows(expensesResult.data).map((expense) => {
       const { vendor } = resolveVendor(stringValue(expense.organization_vendor_id));
-      return { id: stringValue(expense.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), category: stringValue(expense.category), periodStart: stringValue(expense.period_start), periodEnd: stringValue(expense.period_end), amount: numberValue(expense.amount), priorPeriodAmount: expense.prior_period_amount == null ? null : numberValue(expense.prior_period_amount), status: stringValue(expense.status), documentId: nullableString(expense.document_id), invoiceId: nullableString(expense.invoice_id), updatedAt: stringValue(expense.updated_at) };
+      const location = locationById.get(stringValue(expense.location_id));
+      return { id: stringValue(expense.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), category: stringValue(expense.category), periodStart: stringValue(expense.period_start), periodEnd: stringValue(expense.period_end), amount: numberValue(expense.amount), priorPeriodAmount: expense.prior_period_amount == null ? null : numberValue(expense.prior_period_amount), status: stringValue(expense.status), documentId: nullableString(expense.document_id), invoiceId: nullableString(expense.invoice_id), locationId: nullableString(expense.location_id), locationName: location ? stringValue(location.name) : null, updatedAt: stringValue(expense.updated_at) };
     }),
     contracts: rows(contractsResult.data).map((contract) => {
       const { vendor } = resolveVendor(stringValue(contract.organization_vendor_id));
-      return { id: stringValue(contract.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), title: stringValue(contract.title), category: stringValue(contract.category), startDate: nullableString(contract.start_date), endDate: nullableString(contract.end_date), noticePeriodDays: contract.notice_period_days == null ? null : numberValue(contract.notice_period_days), annualValue: contract.annual_value == null ? null : numberValue(contract.annual_value), status: stringValue(contract.status), autoRenews: Boolean(contract.auto_renews), ownerName: nullableString(contract.owner_name), documentId: nullableString(contract.document_id), updatedAt: stringValue(contract.updated_at) };
+      const location = locationById.get(stringValue(contract.location_id));
+      return { id: stringValue(contract.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), title: stringValue(contract.title), category: stringValue(contract.category), startDate: nullableString(contract.start_date), endDate: nullableString(contract.end_date), noticePeriodDays: contract.notice_period_days == null ? null : numberValue(contract.notice_period_days), annualValue: contract.annual_value == null ? null : numberValue(contract.annual_value), status: stringValue(contract.status), autoRenews: Boolean(contract.auto_renews), ownerName: nullableString(contract.owner_name), documentId: nullableString(contract.document_id), locationId: nullableString(contract.location_id), locationName: location ? stringValue(location.name) : null, updatedAt: stringValue(contract.updated_at) };
     }),
     documents: rows(documentsResult.data).map((document) => {
       const { vendor } = resolveVendor(nullableString(document.organization_vendor_id));
@@ -184,8 +193,16 @@ export async function getPortalData(): Promise<PortalData> {
       const opportunity = opportunityById.get(stringValue(action.opportunity_id));
       if (!opportunity || stringValue(opportunity.organization_id) !== organizationId) return [];
       const vendor = vendorForAccount(opportunity.expense_account_id);
-      const approval = approvalByResource.get(stringValue(action.id));
-      return [{ id: stringValue(action.id), opportunityId: stringValue(action.opportunity_id), title: stringValue(action.title), description: stringValue(action.description), actionType: stringValue(action.action_type), priority: stringValue(action.priority), status: stringValue(action.status), dueAt: nullableString(action.due_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), vendorId: vendor ? stringValue(vendor.id) : null, approvalId: approval ? stringValue(approval.id) : null, approvalDecision: approval ? stringValue(approval.decision) : null, updatedAt: stringValue(action.updated_at) }];
+      const actionApprovals = approvalsByResource.get(stringValue(action.id)) ?? [];
+      const currentApproval = actionApprovals.find((approval) => stringValue(approval.requested_from) === userId);
+      const policy = policyById.get(stringValue(action.required_approval_policy_id));
+      const rule = (policy?.rule as Record<string, unknown>) ?? {};
+      const requiredApprovals = Math.max(1, Math.min(5, numberValue(rule.minimum_approvers) || 1));
+      return [{ id: stringValue(action.id), opportunityId: stringValue(action.opportunity_id), title: stringValue(action.title), description: stringValue(action.description), actionType: stringValue(action.action_type), priority: stringValue(action.priority), status: stringValue(action.status), dueAt: nullableString(action.due_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), vendorId: vendor ? stringValue(vendor.id) : null, approvalId: currentApproval ? stringValue(currentApproval.id) : null, approvalDecision: currentApproval ? stringValue(currentApproval.decision) : null, approvalPolicyId: policy ? stringValue(policy.id) : null, approvalPolicyName: policy ? stringValue(policy.name) : null, requiredApprovals, approvedCount: actionApprovals.filter((approval) => stringValue(approval.decision) === "approved").length, currentUserDecision: currentApproval ? stringValue(currentApproval.decision) : null, updatedAt: stringValue(action.updated_at) }];
+    }),
+    approvalPolicies: rows(approvalPoliciesResult.data).map((policy) => {
+      const rule = (policy.rule as Record<string, unknown>) ?? {};
+      return { id: stringValue(policy.id), name: stringValue(policy.name), isActive: Boolean(policy.is_active), actionType: stringValue(rule.action_type, "all"), minimumApprovers: Math.max(1, Math.min(5, numberValue(rule.minimum_approvers) || 1)), annualValueThreshold: rule.annual_value_gte == null ? null : numberValue(rule.annual_value_gte), category: nullableString(rule.category), explicitConsent: Boolean(rule.explicit_consent), updatedAt: stringValue(policy.updated_at) };
     }),
     savings: rows(savingsResult.data).map((outcome) => ({ id: stringValue(outcome.id), title: stringValue(outcome.title), valueType: stringValue(outcome.value_type), amount: numberValue(outcome.amount), method: stringValue(outcome.method), status: stringValue(outcome.status), verifiedAt: nullableString(outcome.verified_at), baselineAmount: outcome.baseline_amount == null ? null : numberValue(outcome.baseline_amount), comparisonAmount: outcome.comparison_amount == null ? null : numberValue(outcome.comparison_amount), baselineAcceptedAt: nullableString(outcome.baseline_accepted_at), methodVersion: nullableString(outcome.method_version), calculationResult: (outcome.calculation_result as Record<string, string>) ?? {}, opportunityId: nullableString(outcome.opportunity_id), assumptions: Array.isArray(outcome.assumptions) ? outcome.assumptions.filter((item): item is string => typeof item === "string") : [], exclusions: Array.isArray(outcome.exclusions) ? outcome.exclusions.filter((item): item is string => typeof item === "string") : [] })),
     integrations: rows(integrationsResult.data).map((integration) => ({ id: stringValue(integration.id), provider: stringValue(integration.provider), displayName: stringValue(integration.display_name), description: stringValue(integration.description), status: stringValue(integration.status), lastSyncedAt: nullableString(integration.last_synced_at) })),

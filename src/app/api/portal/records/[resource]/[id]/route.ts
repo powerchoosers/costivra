@@ -18,6 +18,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ resou
     const field = cleanText(body.field, 80);
     const normalized = normalizeRecordField(resource, field, body.value);
 
+    if (field === "locationId" && normalized.value) {
+      const { data: location, error: locationError } = await db
+        .from("locations")
+        .select("id")
+        .eq("id", normalized.value)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+      if (locationError) throw locationError;
+      if (!location)
+        return NextResponse.json(
+          { error: "That location is not part of this workspace." },
+          { status: 404 },
+        );
+    }
+
     let query = db.from(config.table).select("*").eq("id", id);
     if (resource !== "action") query = query.eq("organization_id", organizationId);
     const { data: before, error: readError } = await query.maybeSingle();
