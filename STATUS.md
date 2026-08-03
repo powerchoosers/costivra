@@ -1,5 +1,18 @@
 # Costivra Status
 
+## Savings attestation workspace — August 2, 2026
+
+- Removed one-click baseline acceptance and verification from compact savings rows. Owners and
+  administrators now enter a dedicated review workspace showing the accepted baseline, later
+  comparison, deterministic method/version, calculated result, assumptions, exclusions, exact
+  expense links, and source documents before making a financial attestation.
+- Baseline acceptance and result verification require an explicit review confirmation. The existing
+  atomic Supabase workflow remains the authoritative enforcement boundary; stale or incomplete
+  decisions still fail server-side. Customers can now reject a baseline or result with a required,
+  audited reason instead of relying on the previously API-only rejection operation.
+- Added responsive presentation for the review surface and expanded the disposable authenticated
+  browser regression to exercise the deliberate baseline-review flow.
+
 ## Live scanner verification and workspace OAuth foundation — August 2, 2026
 
 - The owner-only production-readiness check now sends a harmless text probe through the configured

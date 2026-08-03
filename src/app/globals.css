@@ -3464,12 +3464,44 @@ html { scroll-padding-top: 92px; }
 .record-evidence-list blockquote { margin: 11px 0; color: #334155; font-size: .86rem; line-height: 1.55; }
 .record-evidence-list a { display: inline-flex; align-items: center; gap: 6px; color: #1d4ed8; font-size: .76rem; font-weight: 650; text-decoration: none; }
 .record-evidence-list svg { width: 13px; }
+.savings-review-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-top: 1px solid #e8edf3; border-bottom: 1px solid #e8edf3; }
+.savings-review-grid > div { display: grid; align-content: start; gap: 6px; min-height: 105px; padding: 18px 20px; border-right: 1px solid #e8edf3; }
+.savings-review-grid > div:last-child { border-right: 0; }
+.savings-review-grid span,.savings-review-calculation > span,.savings-review-notes > div > span { color: #8490a1; font-size: .62rem; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; }
+.savings-review-grid strong { color: #26364d; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.savings-review-grid small { color: #8a95a5; font-size: .64rem; line-height: 1.4; }
+.savings-review-calculation { padding: 19px 22px; border-bottom: 1px solid #e8edf3; background: #fafbfd; }
+.savings-review-calculation dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 24px; margin: 10px 0 0; }
+.savings-review-calculation dl div { display: flex; justify-content: space-between; gap: 18px; padding: 8px 0; border-bottom: 1px solid #e8edf3; }
+.savings-review-calculation dt { color: #738095; font-size: .7rem; text-transform: capitalize; }
+.savings-review-calculation dd { margin: 0; color: #34455d; font-size: .72rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.savings-review-notes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; border-bottom: 1px solid #e8edf3; }
+.savings-review-notes > div { padding: 20px 22px; }
+.savings-review-notes > div:first-child { border-right: 1px solid #e8edf3; }
+.savings-review-notes ul { display: grid; gap: 7px; margin: 11px 0 0; padding-left: 17px; color: #56657a; font-size: .72rem; line-height: 1.5; }
+.savings-review-notes p { margin: 11px 0 0; color: #69778b; font-size: .72rem; line-height: 1.55; }
+.savings-review-decision { display: grid; gap: 15px; padding: 20px 22px 22px; background: #f8fafc; }
+.savings-review-decision > label { display: flex; align-items: flex-start; gap: 10px; color: #44546b; cursor: pointer; }
+.savings-review-decision > label input { width: 16px; height: 16px; margin-top: 2px; accent-color: #1f57ad; }
+.savings-review-decision > label span { display: grid; gap: 3px; }
+.savings-review-decision > label strong { font-size: .76rem; }
+.savings-review-decision > label small { color: #748197; font-size: .67rem; line-height: 1.5; }
+.savings-review-decision > div:not(.savings-review-reject) { display: flex; justify-content: flex-end; gap: 8px; }
+.savings-review-reject { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid #dde5ee; }
+.savings-review-reject label { color: #5b687a; font-size: .68rem; font-weight: 700; }
+.savings-review-reject textarea { width: 100%; resize: vertical; padding: 11px 12px; border: 1px solid #d5dee9; border-radius: 11px; outline: 0; color: #344054; background: #fff; font: inherit; font-size: .74rem; line-height: 1.45; }
+.savings-review-reject textarea:focus { border-color: #8aa8da; box-shadow: 0 0 0 3px rgba(34,84,166,.08); }
+.savings-review-reject .button { justify-self: end; }
+.savings-review-readonly { margin: 0; padding: 18px 22px; border-top: 1px solid #e8edf3; color: #65748a; background: #f8fafc; font-size: .72rem; line-height: 1.55; }
 .record-empty { padding: 60px; text-align: center; }
 .record-empty p { color: #64748b; }
 @media (max-width: 920px) {
   .record-detail-layout { grid-template-columns: 1fr; }
   .record-detail-layout > aside { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .record-tabs { top: 66px; }
+  .savings-review-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .savings-review-grid > div:nth-child(2) { border-right: 0; }
+  .savings-review-grid > div:nth-child(-n+2) { border-bottom: 1px solid #e8edf3; }
 }
 @media (max-width: 640px) {
   .record-detail { padding-bottom: 36px; }
@@ -3483,6 +3515,12 @@ html { scroll-padding-top: 92px; }
   .record-field-value { justify-content: flex-start; text-align: left; }
   .record-field:not(:hover):not(.is-editing) .record-icon-button { opacity: .72; }
   .record-field input:not([type="checkbox"]), .record-field textarea, .record-field select { width: 100%; }
+  .savings-review-grid,.savings-review-notes,.savings-review-calculation dl { grid-template-columns: 1fr; }
+  .savings-review-grid > div { min-height: 0; border-right: 0; border-bottom: 1px solid #e8edf3; }
+  .savings-review-grid > div:last-child { border-bottom: 0; }
+  .savings-review-notes > div:first-child { border-right: 0; border-bottom: 1px solid #e8edf3; }
+  .savings-review-decision > div:not(.savings-review-reject) { align-items: stretch; flex-direction: column-reverse; }
+  .savings-review-decision .button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .record-field, .record-icon-button { transition: none; }

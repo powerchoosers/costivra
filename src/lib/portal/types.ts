@@ -203,6 +203,8 @@ export type PortalSavingsOutcome = {
   baselineAmount: number | null;
   comparisonAmount: number | null;
   baselineAcceptedAt: string | null;
+  baselineExpenseId: string | null;
+  comparisonExpenseId: string | null;
   methodVersion: string | null;
   calculationResult: Record<string, string>;
   opportunityId: string | null;

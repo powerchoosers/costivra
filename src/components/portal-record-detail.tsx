@@ -112,6 +112,69 @@ function FieldRow({ kind, updateId, expectedUpdatedAt, field, canEdit }: { kind:
   </div>;
 }
 
+function SavingsReviewPanel({ outcome, canDecide }: { outcome: PortalData["savings"][number]; canDecide: boolean }) {
+  const [confirmed, setConfirmed] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const router = useRouter();
+  const operation = outcome.status === "baseline_review" ? "accept_baseline" : outcome.status === "ready_for_review" ? "verify" : null;
+  const decisionLabel = operation === "accept_baseline" ? "Accept reviewed baseline" : "Verify reviewed outcome";
+  const reviewCopy = operation === "accept_baseline"
+    ? "Confirm that the baseline source, period, amount, method, and stated assumptions are appropriate before work begins."
+    : "Confirm that the later source, comparison method, calculation, assumptions, and known exclusions support the recorded result.";
+
+  const submit = async (nextOperation: "accept_baseline" | "verify" | "reject") => {
+    if (nextOperation !== "reject" && !confirmed) return;
+    if (nextOperation === "reject" && reason.trim().length < 3) {
+      toast.error("Add a rejection reason", "Explain what is wrong or what evidence is missing.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/portal/savings/${outcome.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ operation: nextOperation, reason: nextOperation === "reject" ? reason.trim() : undefined }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "The savings decision could not be saved.");
+      toast.success(nextOperation === "accept_baseline" ? "Baseline accepted." : nextOperation === "verify" ? "Savings verified." : "Savings record rejected.");
+      setConfirmed(false);
+      setRejecting(false);
+      setReason("");
+      router.refresh();
+    } catch (error) {
+      toast.error("Couldn’t save this decision", error instanceof Error ? error.message : "Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <section className="record-section savings-review" id="verification">
+    <div className="record-section-heading"><div><h2>Verification review</h2><p>Potential value becomes verified only after a human reviews the evidence and deterministic method.</p></div><span className="record-section-count">{text(outcome.status)}</span></div>
+    <div className="savings-review-grid">
+      <div><span>Method</span><strong>{outcome.method}</strong><small>{outcome.methodVersion ?? "Method version not recorded"}</small></div>
+      <div><span>Baseline</span><strong>{money(outcome.baselineAmount)}</strong><small>{outcome.baselineAcceptedAt ? `Accepted ${date(outcome.baselineAcceptedAt)}` : "Awaiting acceptance"}</small></div>
+      <div><span>Later comparison</span><strong>{money(outcome.comparisonAmount)}</strong><small>{outcome.comparisonAmount == null ? "A later approved invoice is required" : "Recorded from the later approved expense"}</small></div>
+      <div><span>Calculated annual value</span><strong>{money(outcome.amount)}</strong><small>{outcome.status === "verified" ? `Verified ${date(outcome.verifiedAt)}` : "Not yet verified"}</small></div>
+    </div>
+    {Object.keys(outcome.calculationResult).length > 0 && <div className="savings-review-calculation"><span>Deterministic calculation</span><dl>{Object.entries(outcome.calculationResult).map(([key, value]) => <div key={key}><dt>{text(key)}</dt><dd>{text(value)}</dd></div>)}</dl></div>}
+    <div className="savings-review-notes">
+      <div><span>Assumptions to review</span>{outcome.assumptions.length ? <ul>{outcome.assumptions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>No assumptions were recorded.</p>}</div>
+      <div><span>Known exclusions or confounding factors</span>{outcome.exclusions.length ? <ul>{outcome.exclusions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>No exclusions are recorded. Confirm that service scope, usage, credits, taxes, and timing do not explain the change.</p>}</div>
+    </div>
+    {operation && canDecide && <div className="savings-review-decision">
+      <label><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /> <span><strong>I reviewed the supporting records and method.</strong><small>{reviewCopy}</small></span></label>
+      <div><button className="button button-secondary" type="button" disabled={busy} onClick={() => setRejecting((current) => !current)}>{rejecting ? "Cancel rejection" : "Reject"}</button><button className="button button-primary" type="button" disabled={busy || !confirmed} onClick={() => void submit(operation)}><Check /> {decisionLabel}</button></div>
+      {rejecting && <div className="savings-review-reject"><label htmlFor="savings-rejection-reason">Reason for rejection</label><textarea id="savings-rejection-reason" value={reason} maxLength={1000} rows={3} autoFocus placeholder="Explain the incorrect baseline, missing evidence, or confounding factor." onChange={(event) => setReason(event.target.value)} /><button className="button button-secondary" type="button" disabled={busy || reason.trim().length < 3} onClick={() => void submit("reject")}><X /> Record rejection</button></div>}
+    </div>}
+    {operation && !canDecide && <p className="savings-review-readonly">An owner or administrator must make this financial decision.</p>}
+    {outcome.status === "evidence_pending" && <p className="savings-review-readonly">The baseline is accepted. This record will return for review after a later approved invoice and completed action produce a valid comparison.</p>}
+  </section>;
+}
+
 export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind: Kind; id: string }) {
   const detail = build(data, kind, id); const meta = labels[kind];
   if (!detail) return <div className="record-detail"><Link className="record-back" href={`/app/${meta.plural}`}>← Back to {meta.plural}</Link><section className="record-empty"><h1>{meta.noun} not found</h1><p>This record is not part of your workspace, or it no longer exists.</p></section></div>;
@@ -126,11 +189,13 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
   const recordFiles = data.documents.filter((item) =>
     relatedDocumentIds.has(item.id) || (vendorId ? item.vendorId === vendorId : false),
   );
+  const savingsOutcome = kind === "savings" ? data.savings.find((item) => item.id === id) ?? null : null;
   return <div className="record-detail">
     <Link className="record-back" href={`/app/${meta.plural}`}>← Back to {meta.plural}</Link>
     <header className="record-detail-header"><div><span className="record-eyebrow">{meta.noun} record</span><h1>{detail.title}</h1><p>{detail.subtitle}</p></div><span className="record-status"><i />{text(detail.status)}</span></header>
-    <nav className="record-tabs" aria-label={`${meta.noun} detail sections`}><a href="#overview">Overview</a>{lineItems.length > 0 && <a href="#line-items">Line items</a>}<a href="#files">Files</a><a href="#quality">Data quality</a><a href="#related">Related records</a>{evidence.length > 0 && <a href="#evidence">Evidence</a>}<a href="#history">History</a></nav>
+    <nav className="record-tabs" aria-label={`${meta.noun} detail sections`}>{savingsOutcome && <a href="#verification">Verification</a>}<a href="#overview">Overview</a>{lineItems.length > 0 && <a href="#line-items">Line items</a>}<a href="#files">Files</a><a href="#quality">Data quality</a><a href="#related">Related records</a>{evidence.length > 0 && <a href="#evidence">Evidence</a>}<a href="#history">History</a></nav>
     <div className="record-detail-layout"><main>
+      {savingsOutcome && <SavingsReviewPanel outcome={savingsOutcome} canDecide={["owner", "admin"].includes(data.currentUser.role)} />}
       <section className="record-section" id="overview"><div className="record-section-heading"><div><h2>Record details</h2><p>Edit one field at a time. Every saved change is attributed and audited.</p></div></div><div className="record-fields">{detail.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}</div></section>
       {lineItems.length > 0 && <section className="record-section" id="line-items"><div className="record-section-heading"><div><h2>Invoice line items</h2><p>Normalized charges and credits retained from the reviewed invoice.</p></div><span className="record-section-count">{lineItems.length}</span></div><div className="record-line-items"><div className="record-line-item record-line-item--heading"><span>Line</span><span>Description</span><span>Quantity</span><span>Unit price</span><span>Amount</span></div>{lineItems.map((item) => <div className="record-line-item" key={item.id}><span>{item.lineNumber}</span><span><strong>{item.description}</strong><small>{[item.category, item.servicePeriodStart && item.servicePeriodEnd ? `${date(item.servicePeriodStart)} – ${date(item.servicePeriodEnd)}` : null].filter(Boolean).join(" · ") || "No additional classification"}</small></span><span>{item.quantity ?? "—"}</span><span>{item.unitPrice == null ? "—" : money(item.unitPrice)}</span><span>{money(item.amount)}</span></div>)}</div></section>}
       <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={`${meta.noun} files`} description="A protected workspace for original source files and evidence connected to this record." /></div>

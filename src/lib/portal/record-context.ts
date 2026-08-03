@@ -71,6 +71,21 @@ export function portalRecordContext(
       });
     }
   };
+  const addExpense = (expenseId: string | null | undefined, type: string) => {
+    if (!expenseId) return;
+    const expense = data.expenses.find((item) => item.id === expenseId);
+    if (!expense) return;
+    vendorId ??= expense.vendorId;
+    add({
+      type,
+      title: `${expense.vendorName} · ${expense.periodStart} to ${expense.periodEnd}`,
+      href: `/app/expenses/${expense.id}`,
+      detail: expense.status,
+    });
+    addDocument(expense.documentId);
+    const invoice = data.invoices.find((item) => item.id === expense.invoiceId);
+    if (invoice) addDocument(invoice.documentId);
+  };
 
   if (kind === "vendor") {
     vendorId = id;
@@ -144,6 +159,8 @@ export function portalRecordContext(
   } else {
     const savings = data.savings.find((item) => item.id === id);
     addOpportunity(savings?.opportunityId);
+    addExpense(savings?.baselineExpenseId, "Accepted baseline");
+    addExpense(savings?.comparisonExpenseId, "Later comparison");
     quality.push(
       { label: "Baseline", value: savings?.baselineAcceptedAt ? "Accepted" : "Awaiting acceptance", status: savings?.baselineAcceptedAt ? "ready" : "review" },
       { label: "Comparison", value: savings?.comparisonAmount == null ? "Not recorded" : "Recorded", status: savings?.comparisonAmount == null ? "review" : "ready" },

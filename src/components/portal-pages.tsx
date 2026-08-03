@@ -976,15 +976,11 @@ function Actions({
   );
 }
 
-function Savings({ data, run }: { data: PortalData; run: (work: () => Promise<unknown>, success: string) => Promise<void> }) {
+function Savings({ data }: { data: PortalData; run: (work: () => Promise<unknown>, success: string) => Promise<void> }) {
   const total = data.savings.reduce((s, x) => s + x.amount, 0);
   const verified = data.savings
     .filter((x) => x.status === "verified")
     .reduce((s, x) => s + x.amount, 0);
-  const operate = (id: string, operation: "accept_baseline" | "verify") => run(
-    () => api(`/api/portal/savings/${id}`, { method: "PATCH", body: { operation } }),
-    operation === "accept_baseline" ? "Baseline accepted." : "Savings verified.",
-  );
   return (
     <>
       <PageHeader
@@ -1018,8 +1014,8 @@ function Savings({ data, run }: { data: PortalData; run: (work: () => Promise<un
                 </div>
                 <strong className="money-value">{money(item.amount)}</strong>
                 <Status value={item.status} />
-                {item.status === "baseline_review" ? <button className="button button-primary button-compact" onClick={() => void operate(item.id, "accept_baseline")}>Accept baseline</button> : null}
-                {item.status === "ready_for_review" ? <button className="button button-primary button-compact" onClick={() => void operate(item.id, "verify")}><ShieldCheck size={15} /> Verify</button> : null}
+                {item.status === "baseline_review" ? <Link className="button button-secondary button-compact" href={`/app/savings/${item.id}`}>Review baseline</Link> : null}
+                {item.status === "ready_for_review" ? <Link className="button button-primary button-compact" href={`/app/savings/${item.id}`}><ShieldCheck size={15} /> Review evidence</Link> : null}
               </div>
             ))}
           </div>

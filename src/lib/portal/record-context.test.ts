@@ -58,7 +58,7 @@ describe("portal record context", () => {
       documents: [{ id: "doc-1", vendorId: "vendor-1", originalFilename: "bill.pdf", status: "ready" } as PortalData["documents"][number]],
       opportunities: [{ id: "opportunity-1", vendorId: "vendor-1", title: "Review increase", status: "approved" } as PortalData["opportunities"][number]],
       actions: [{ id: "action-1", opportunityId: "opportunity-1", vendorId: "vendor-1", title: "Prepare review", status: "pending_approval", approvedCount: 1, requiredApprovals: 2, approvalPolicyId: "policy-1", approvalPolicyName: "Two-person review", dueAt: null } as PortalData["actions"][number]],
-      savings: [{ id: "savings-1", opportunityId: "opportunity-1", title: "Verify savings", status: "baseline_review" } as PortalData["savings"][number]],
+      savings: [{ id: "savings-1", opportunityId: "opportunity-1", title: "Verify savings", status: "baseline_review", baselineExpenseId: null, comparisonExpenseId: null } as PortalData["savings"][number]],
       evidenceReferences: [{ id: "evidence-1", documentId: "doc-1", opportunityId: "opportunity-1", pageNumber: 1, fieldPath: "amount", textExcerpt: "$125" }],
     }), "action", "action-1");
 

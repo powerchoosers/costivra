@@ -361,7 +361,10 @@ test.describe("authenticated customer workspace", () => {
         hasText: `Verify outcome: ${fixture.opportunityTitle}`,
       });
       await expect(savingsRow).toBeVisible();
-      await savingsRow.getByRole("button", { name: "Accept baseline" }).click();
+      await savingsRow.getByRole("link", { name: "Review baseline" }).click();
+      await expect(page.getByRole("heading", { name: "Verification review" })).toBeVisible();
+      await page.getByRole("checkbox", { name: /reviewed the supporting records and method/i }).check();
+      await page.getByRole("button", { name: "Accept reviewed baseline" }).click();
       await expect(page.getByText("Baseline accepted.", { exact: true })).toBeVisible();
 
       await page.goto("/app/actions");
