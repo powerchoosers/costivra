@@ -1,5 +1,19 @@
 # Costivra Status
 
+## Live scanner verification and workspace OAuth foundation — August 2, 2026
+
+- The owner-only production-readiness check now sends a harmless text probe through the configured
+  malware provider instead of treating the presence of an environment variable as proof. Missing,
+  unreachable, rejected, failed, and false-positive scanner results remain launch-blocking; the
+  public status route does not run a billable upload probe.
+- Google and Microsoft workspace authentication now have a real Supabase PKCE callback, safe
+  `/app` and `/manage` return-path handling, generic provider-error recovery, authentic provider
+  marks, and configuration-gated login controls. Email/password access remains available while the
+  external provider credentials are not configured.
+- Added provider setup instructions in `docs/WORKSPACE_OAUTH_SETUP.md`. Activating either provider
+  requires its external application credentials, the Supabase provider toggle, the Costivra callback
+  allowlist entry, and the matching Vercel public feature flag.
+
 ## Connected customer record workspaces — August 2, 2026
 
 - Replaced the loose vendor-only related-record list with an exact connected-record model across

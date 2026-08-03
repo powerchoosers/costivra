@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const isMalwareScannerConfigured = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/security/malware-scanner", () => ({ isMalwareScannerConfigured }));
+const scanFileForMalware = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/security/malware-scanner", () => ({
+  isMalwareScannerConfigured,
+  scanFileForMalware,
+}));
 
 import { checkSystemReadiness } from "@/lib/manage/system-readiness";
 
@@ -53,6 +57,8 @@ describe("owner system readiness", () => {
     vi.stubEnv("RETENTION_ENFORCEMENT_ENABLED", "0");
     isMalwareScannerConfigured.mockReset();
     isMalwareScannerConfigured.mockReturnValue(true);
+    scanFileForMalware.mockReset();
+    scanFileForMalware.mockResolvedValue({ status: "clean" });
   });
 
   afterEach(() => {
@@ -93,6 +99,11 @@ describe("owner system readiness", () => {
       "https://openrouter.ai/api/v1/key",
       "https://api.apollo.io/api/v1/auth/health",
     ]));
+    expect(scanFileForMalware).toHaveBeenCalledWith(expect.objectContaining({
+      filename: "costivra-readiness-probe.txt",
+      mimeType: "text/plain",
+    }));
+    expect(scanFileForMalware.mock.calls[0][0].buffer.toString("utf8")).toMatch(/harmless/i);
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain("resend-secret-for-test");
     expect(serialized).not.toContain("webhook-secret-for-test");
@@ -103,11 +114,37 @@ describe("owner system readiness", () => {
     fetchMock.mockClear();
     const customerFacing = await checkSystemReadiness(database() as never, {
       includeOptionalServices: false,
+      includeOperatorServices: false,
     });
     expect(customerFacing.services.some((item) => item.id === "apollo")).toBe(false);
+    expect(scanFileForMalware).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toContain(
       "https://api.apollo.io/api/v1/auth/health",
     );
+  });
+
+  it.each([
+    ["unavailable", /rejected.*or could not be reached/i],
+    ["failed", /rejected.*or could not be reached/i],
+    ["infected", /incorrectly classified/i],
+  ] as const)("blocks launch when the live malware probe returns %s", async (status, message) => {
+    scanFileForMalware.mockResolvedValue({ status });
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("resend.com/domains")) return response({ data: [{ name: "costivra.ai", status: "verified" }] });
+      if (url.includes("resend.com/webhooks")) return response({ data: [{ endpoint: "https://costivra.ai/api/webhooks/resend", status: "enabled" }] });
+      if (url.includes("openrouter.ai")) return response({ data: { label: "Costivra" } });
+      return response({ healthy: true, is_logged_in: true });
+    }));
+
+    const result = await checkSystemReadiness(database() as never);
+
+    expect(result.services).toContainEqual(expect.objectContaining({
+      id: "malware",
+      status: "blocked",
+      message: expect.stringMatching(message),
+    }));
+    expect(result.overall).toBe("blocked");
   });
 
   it("fails closed when required configuration is missing", async () => {

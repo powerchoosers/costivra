@@ -1,7 +1,10 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isMalwareScannerConfigured } from "@/lib/security/malware-scanner";
+import {
+  isMalwareScannerConfigured,
+  scanFileForMalware,
+} from "@/lib/security/malware-scanner";
 import { retentionPolicyFromEnvironment } from "@/lib/retention/policy";
 
 export type ReadinessStatus = "ready" | "warning" | "blocked";
@@ -178,20 +181,47 @@ async function openRouterReadiness(): Promise<ReadinessService> {
       };
 }
 
-function malwareReadiness(): ReadinessService {
-  return isMalwareScannerConfigured()
-    ? {
-        id: "malware",
-        name: "Malware scanning",
-        status: "warning",
-        message: "A scanner is configured. Run a clean/infected file exercise before launch.",
-      }
-    : {
-        id: "malware",
-        name: "Malware scanning",
-        status: "blocked",
-        message: "No scanner is configured; source files remain safely quarantined.",
-      };
+async function malwareReadiness(runLiveProbe: boolean): Promise<ReadinessService> {
+  if (!isMalwareScannerConfigured())
+    return {
+      id: "malware",
+      name: "Malware scanning",
+      status: "blocked",
+      message: "No scanner is configured; source files remain safely quarantined.",
+    };
+  if (!runLiveProbe)
+    return {
+      id: "malware",
+      name: "Malware scanning",
+      status: "warning",
+      message: "A scanner is configured; an owner can run the live readiness probe.",
+    };
+
+  const probe = await scanFileForMalware({
+    buffer: Buffer.from("Costivra malware-scanner readiness probe. This harmless file contains no executable content.", "utf8"),
+    filename: "costivra-readiness-probe.txt",
+    mimeType: "text/plain",
+  });
+  if (probe.status === "clean")
+    return {
+      id: "malware",
+      name: "Malware scanning",
+      status: "warning",
+      message: "The scanner accepted a live clean-file probe. Run the documented infected-file exercise before launch.",
+    };
+  if (probe.status === "infected")
+    return {
+      id: "malware",
+      name: "Malware scanning",
+      status: "blocked",
+      message: "The scanner incorrectly classified the harmless readiness file as infected.",
+    };
+  return {
+    id: "malware",
+    name: "Malware scanning",
+    status: "blocked",
+    message: "The configured scanner rejected the live probe or could not be reached.",
+  };
 }
 
 async function retentionReadiness(db: SupabaseClient): Promise<ReadinessService> {
@@ -301,10 +331,11 @@ export async function checkSystemReadiness(
 ): Promise<SystemReadiness> {
   const includeOptionalServices = options.includeOptionalServices !== false;
   const includeOperatorServices = options.includeOperatorServices !== false;
-  const [database, resend, openrouter, retention, apollo] = await Promise.all([
+  const [database, resend, openrouter, malware, retention, apollo] = await Promise.all([
     databaseReadiness(db),
     resendReadiness(),
     openRouterReadiness(),
+    malwareReadiness(includeOperatorServices),
     includeOperatorServices ? retentionReadiness(db) : Promise.resolve(null),
     includeOptionalServices ? apolloReadiness() : Promise.resolve(null),
   ]);
@@ -313,7 +344,7 @@ export async function checkSystemReadiness(
     resend,
     workerReadiness(),
     openrouter,
-    malwareReadiness(),
+    malware,
   ];
   if (retention) services.push(retention);
   if (apollo) services.push(apollo);

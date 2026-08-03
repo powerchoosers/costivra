@@ -27,12 +27,13 @@ test("public site navigates without runtime errors", async ({ page }, testInfo) 
   expect(failures).toEqual([]);
 });
 
-test("sign-in clearly separates working and future providers", async ({ page }) => {
+test("sign-in keeps unconfigured workspace providers honest", async ({ page }) => {
   const failures = failOnConsoleErrors(page);
   await page.goto("/login");
   await expect(page.getByRole("textbox", { name: /email/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /google/i })).toBeDisabled();
-  await expect(page.getByRole("button", { name: /outlook/i })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /microsoft/i })).toBeDisabled();
+  await expect(page.getByText("Setup required")).toHaveCount(2);
   expect(failures).toEqual([]);
 });
 
