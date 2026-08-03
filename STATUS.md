@@ -821,3 +821,17 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added an owner-only, private/no-store Apollo settings route. It reads the documented zero-credit current-profile endpoint with the server-side key and returns only connection state, check time, and normalized lead-credit totals. API keys and Apollo identity fields never reach the browser.
 - The Apollo panel shows the live remaining balance, used/total progress, refresh state, provider-access errors, and the current Costivra credit model: organization search is one credit per results page and organization enrichment is one credit per company. The live check reported 3,346 remaining and 1,654 used of 5,000.
 - Validation passed: focused adapter/route coverage (13 tests); full unit suite (258 passed, 5 intentionally skipped); TypeScript; ESLint with zero errors and one unrelated existing Resend-test warning; integration suite (1 passed, 5 credential-gated skips); Playwright (10 passed, 4 intentionally skipped); and the 37-page production build. Browser QA also passed at desktop and 390×844 mobile with no horizontal overflow or console errors. The mobile test used a temporary viewport override and restored the browser afterward.
+
+## 2026-08-03 — Vercel PDF.js build repair
+
+- Vercel failures on deployments `dpl_FESK95Byh1MpiDcCsS2sTfUq3RXC` and the three preceding
+  deployments were traced to the accidental `pnpm-lock.yaml`/`pnpm-workspace.yaml` switch and two
+  direct imports of undeclared `pdfjs-dist` modules.
+- Removed the accidental pnpm metadata, added `pdfjs-dist@5.4.296` as a direct locked dependency,
+  and preserved the existing npm deployment path. This addresses the dependency-resolution cause,
+  not just the two visible import errors.
+- `git diff --check` passes. A fresh local npm install was attempted, but the OneDrive-backed
+  `node_modules` directory repeatedly failed with Windows `ENOTEMPTY`/tar extraction races; the
+  local dependency tree is therefore not a trustworthy build environment at this moment. The
+  production build had passed before the package-manager switch, and the next clean Vercel/npm
+  build is the authoritative confirmation.

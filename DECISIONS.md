@@ -574,3 +574,23 @@ Use direct organization enrichment for an exact public domain and hydrate name-s
 ### Consequences
 
 Adding a known company costs one additional bounded provider read at save time, but incomplete candidate records and browser-tampered provider details no longer determine the durable snapshot. Search remains operator-reviewed, exact websites produce complete previews, and provider failure does not block a legitimate manual CRM account.
+
+## 2026-08-03 — Keep PDF.js a direct application dependency
+
+### Context
+
+The Vercel production build began failing after an accidental pnpm lock/workspace addition. The
+PDF viewer and server text extractor import `pdfjs-dist` directly, while the package had only been
+present as a transitive dependency of `pdf-parse` and `react-pdf`. pnpm's stricter dependency
+resolution exposed that undeclared import.
+
+### Decision
+
+Restore the repository's existing npm deployment path by removing the accidental pnpm metadata and
+declare the exact PDF.js version used by both PDF consumers directly in `package.json` and
+`package-lock.json`.
+
+### Consequences
+
+Vercel returns to the previously working npm install path, and future package-manager changes cannot
+silently break the direct PDF.js imports through dependency hoisting differences.
