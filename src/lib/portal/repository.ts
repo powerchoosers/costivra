@@ -79,7 +79,7 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("inbound_email_addresses").select("id,local_part,domain,status,trusted_senders").eq("organization_id", organizationId).maybeSingle(),
     db.from("inbound_email_events").select("id,sender_address,subject,status,attachment_count,processed_attachment_count,error_message,received_at").eq("organization_id", organizationId).order("received_at", { ascending: false }).limit(12),
     db.from("invoices").select("*").eq("organization_id", organizationId).order("invoice_date", { ascending: false }),
-    db.from("invoice_line_items").select("invoice_id").eq("organization_id", organizationId),
+    db.from("invoice_line_items").select("*").eq("organization_id", organizationId).order("line_number"),
     db.from("audit_events").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(250),
   ]);
 
@@ -185,6 +185,18 @@ export async function getPortalData(): Promise<PortalData> {
       const id = stringValue(invoice.id);
       return { id, documentId: stringValue(invoice.document_id), vendorId: vendor ? stringValue(vendor.id) : null, vendorName: stringValue(vendor?.canonical_name, "Unassigned"), invoiceNumber: nullableString(invoice.invoice_number), invoiceDate: nullableString(invoice.invoice_date), dueDate: nullableString(invoice.due_date), servicePeriodStart: nullableString(invoice.service_period_start), servicePeriodEnd: nullableString(invoice.service_period_end), accountNumberLast4: nullableString(invoice.account_number_last4), purchaseOrderNumber: nullableString(invoice.purchase_order_number), currency: nullableString(invoice.currency), subtotal: invoice.subtotal == null ? null : numberValue(invoice.subtotal), taxTotal: invoice.tax_total == null ? null : numberValue(invoice.tax_total), feeTotal: invoice.fee_total == null ? null : numberValue(invoice.fee_total), creditTotal: invoice.credit_total == null ? null : numberValue(invoice.credit_total), totalAmount: invoice.total_amount == null ? null : numberValue(invoice.total_amount), amountDue: invoice.amount_due == null ? null : numberValue(invoice.amount_due), extractionConfidence: invoice.extraction_confidence == null ? null : numberValue(invoice.extraction_confidence), reviewStatus: stringValue(invoice.review_status), vendorMatchStatus: stringValue(invoice.vendor_match_status), reconciliationStatus: stringValue(invoice.reconciliation_status), reconciliationDifference: invoice.reconciliation_difference == null ? null : numberValue(invoice.reconciliation_difference), reviewPriority: stringValue(invoice.review_priority, "normal"), reviewNotes: nullableString(invoice.review_notes), expenseCategory: nullableString(invoice.expense_category), lineItemCount: invoiceLineItemCount.get(id) ?? 0, updatedAt: stringValue(invoice.updated_at) };
     }),
+    invoiceLineItems: rows(invoiceLineItemsResult.data).map((line) => ({
+      id: stringValue(line.id),
+      invoiceId: stringValue(line.invoice_id),
+      lineNumber: numberValue(line.line_number),
+      description: stringValue(line.description),
+      quantity: line.quantity == null ? null : numberValue(line.quantity),
+      unitPrice: line.unit_price == null ? null : numberValue(line.unit_price),
+      amount: numberValue(line.amount),
+      category: nullableString(line.category),
+      servicePeriodStart: nullableString(line.service_period_start),
+      servicePeriodEnd: nullableString(line.service_period_end),
+    })),
     opportunities: rows(opportunitiesResult.data).map((opportunity) => {
       const vendor = vendorForAccount(opportunity.expense_account_id);
       return { id: stringValue(opportunity.id), title: stringValue(opportunity.title), summary: stringValue(opportunity.summary), type: stringValue(opportunity.type), category: nullableString(opportunity.category), status: stringValue(opportunity.status), priority: stringValue(opportunity.priority, "medium") as "high" | "medium" | "low", confidence: opportunity.confidence == null ? null : numberValue(opportunity.confidence), estimatedAnnualValue: opportunity.estimated_annual_value == null ? null : numberValue(opportunity.estimated_annual_value), deadlineAt: nullableString(opportunity.deadline_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), vendorId: vendor ? stringValue(vendor.id) : null, evidenceCount: evidenceCount.get(stringValue(opportunity.id)) ?? 0, ruleVersion: nullableString(opportunity.rule_version), calculationInputs: (opportunity.calculation_inputs as Record<string, unknown>) ?? {}, calculationResult: (opportunity.calculation_result as Record<string, string>) ?? {}, assumptions: Array.isArray(opportunity.assumptions) ? opportunity.assumptions.filter((item): item is string => typeof item === "string") : [], updatedAt: stringValue(opportunity.updated_at) };

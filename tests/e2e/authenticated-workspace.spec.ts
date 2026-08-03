@@ -12,6 +12,7 @@ type WorkspaceFixture = {
   organizationId: string;
   organizationName: string;
   vendorId: string;
+  invoiceId: string;
   opportunityId: string;
   opportunityTitle: string;
 };
@@ -158,6 +159,55 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       .single();
     if (expense.error || !expense.data) throw expense.error;
 
+    const invoice = await admin
+      .from("invoices")
+      .insert({
+        organization_id: organizationId,
+        organization_vendor_id: relationship.data.id,
+        expense_account_id: account.data.id,
+        document_id: document.data.id,
+        invoice_number: "INV-E2E-001",
+        invoice_date: "2026-07-31",
+        due_date: "2026-08-15",
+        service_period_start: "2026-07-01",
+        service_period_end: "2026-07-31",
+        currency: "USD",
+        subtotal: "1250.00",
+        tax_total: "0.00",
+        fee_total: "0.00",
+        credit_total: "0.00",
+        total_amount: "1250.00",
+        amount_due: "1250.00",
+        extraction_confidence: "0.98",
+        vendor_match_status: "exact",
+        reconciliation_status: "reconciled",
+        reconciliation_difference: "0.00",
+        review_status: "approved",
+        source_type: "manual_upload",
+      })
+      .select("id")
+      .single();
+    if (invoice.error || !invoice.data) throw invoice.error;
+
+    const lineItem = await admin.from("invoice_line_items").insert({
+      organization_id: organizationId,
+      invoice_id: invoice.data.id,
+      line_number: 1,
+      description: "Monthly internet service",
+      quantity: "1",
+      unit_price: "1250.00",
+      amount: "1250.00",
+      category: "Telecom",
+      service_period_start: "2026-07-01",
+      service_period_end: "2026-07-31",
+    });
+    if (lineItem.error) throw lineItem.error;
+    const linkedExpense = await admin
+      .from("expenses")
+      .update({ invoice_id: invoice.data.id })
+      .eq("id", expense.data.id);
+    if (linkedExpense.error) throw linkedExpense.error;
+
     const opportunity = await admin
       .from("opportunities")
       .insert({
@@ -187,6 +237,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       organizationId,
       organizationName,
       vendorId,
+      invoiceId: String(invoice.data.id),
       opportunityId: String(opportunity.data.id),
       opportunityTitle,
     };
@@ -277,6 +328,14 @@ test.describe("authenticated customer workspace", () => {
       await policyDialog.getByRole("button", { name: "Add policy", exact: true }).click();
       await expect(page.getByText("Approval policy added.", { exact: true })).toBeVisible();
       await expect(page.getByText("E2E consequential work approval", { exact: true })).toBeVisible();
+
+      await page.goto(`/app/documents/${fixture.invoiceId}`);
+      await expect(page.getByRole("heading", { name: "Invoice INV-E2E-001" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Invoice line items" })).toBeVisible();
+      await expect(page.getByText("Monthly internet service", { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Data quality" })).toBeVisible();
+      await expect(page.locator(".record-quality", { hasText: "Vendor match" })).toContainText("exact");
+      await expect(page.locator(".record-quality", { hasText: "Reconciliation" })).toContainText("reconciled");
 
       await page.goto("/app/opportunities");
       const opportunityCard = page.locator("article.portal-card", {

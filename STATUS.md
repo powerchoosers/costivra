@@ -1,5 +1,24 @@
 # Costivra Status
 
+## Connected customer record workspaces — August 2, 2026
+
+- Replaced the loose vendor-only related-record list with an exact connected-record model across
+  expenses, contracts, documents, invoices, opportunities, actions, and savings outcomes. Direct
+  source documents, invoice links, opportunity/action chains, savings records, vendor contracts,
+  and evidence now appear together without inventing relationships that are not in Supabase.
+- Added normalized invoice line items to the customer data model and invoice detail page, including
+  quantity, unit price, signed amount, category, and service period. Invoice pages now show source
+  evidence from their own document rather than limiting evidence presentation to the document and
+  opportunity pages.
+- Added plain-language data-quality checks appropriate to each record type: source linkage,
+  comparison baseline, location, contract term/notice/owner, extraction confidence, vendor match,
+  reconciliation, required invoice fields, approval progress, policy attachment, evidence,
+  calculation method, and savings baseline/comparison state. These are honest readiness cues, not
+  model-generated assurances.
+- Expanded the authenticated browser fixture with a real invoice and normalized line item so the
+  production gate verifies the rendered invoice workspace as well as the financial approval flow.
+  Local TypeScript, lint, 187 unit tests, integration tests, and the 35-page production build pass.
+
 ## Customer approval policies and location-linked records — August 2, 2026
 
 - Added a real customer Approval Center under **Settings → Team & approvals**. Owners and

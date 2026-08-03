@@ -125,6 +125,19 @@ export type PortalInvoice = {
   updatedAt: string;
 };
 
+export type PortalInvoiceLineItem = {
+  id: string;
+  invoiceId: string;
+  lineNumber: number;
+  description: string;
+  quantity: number | null;
+  unitPrice: number | null;
+  amount: number;
+  category: string | null;
+  servicePeriodStart: string | null;
+  servicePeriodEnd: string | null;
+};
+
 export type PortalOpportunity = {
   id: string;
   title: string;
@@ -288,6 +301,7 @@ export type PortalData = {
   contracts: PortalContract[];
   documents: PortalDocument[];
   invoices: PortalInvoice[];
+  invoiceLineItems: PortalInvoiceLineItem[];
   opportunities: PortalOpportunity[];
   actions: PortalAction[];
   approvalPolicies: PortalApprovalPolicy[];

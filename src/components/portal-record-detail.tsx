@@ -7,8 +7,12 @@ import { useState } from "react";
 import { useToast } from "@/components/toast-provider";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import type { PortalData } from "@/lib/portal/types";
+import {
+  portalRecordContext,
+  type PortalRecordKind,
+} from "@/lib/portal/record-context";
 
-type Kind = "vendor" | "expense" | "contract" | "document" | "invoice" | "opportunity" | "action" | "savings";
+type Kind = PortalRecordKind;
 type FieldOption = string | { value: string; label: string };
 type Field = { key: string; label: string; value: unknown; display?: string; editable?: boolean; type?: "text" | "textarea" | "date" | "datetime-local" | "number" | "checkbox" | "select"; options?: FieldOption[]; note?: string };
 
@@ -113,15 +117,10 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
   if (!detail) return <div className="record-detail"><Link className="record-back" href={`/app/${meta.plural}`}>← Back to {meta.plural}</Link><section className="record-empty"><h1>{meta.noun} not found</h1><p>This record is not part of your workspace, or it no longer exists.</p></section></div>;
   const recordId = String((detail.record as Record<string, unknown>).id); const vendorId = (detail.record as Record<string, unknown>).vendorId as string | null;
   const audits = data.auditEvents.filter((event) => event.resourceId === detail.updateId || event.resourceId === recordId).slice(0, 8);
-  const related = [
-    ...data.documents.filter((item) => item.id !== recordId && (item.vendorId === vendorId || item.vendorId === id)).slice(0, 4).map((item) => ({ type: "Document", title: item.originalFilename, href: `/app/documents/${item.id}` })),
-    ...data.opportunities.filter((item) => item.id !== recordId && (item.vendorId === vendorId || item.vendorId === id)).slice(0, 4).map((item) => ({ type: "Opportunity", title: item.title, href: `/app/opportunities/${item.id}` })),
-    ...data.contracts.filter((item) => item.id !== recordId && (item.vendorId === vendorId || item.vendorId === id)).slice(0, 3).map((item) => ({ type: "Contract", title: item.title, href: `/app/contracts/${item.id}` })),
-  ].slice(0, 8);
-  const evidence = kind === "document" ? data.evidenceReferences.filter((item) => item.documentId === id) : kind === "opportunity" ? data.evidenceReferences.filter((item) => item.opportunityId === id) : [];
+  const context = portalRecordContext(data, kind, id);
+  const { related, evidence, lineItems, quality } = context;
   const relatedDocumentIds = new Set<string>([
-    ...(kind === "document" ? [id] : []),
-    ...(kind === "invoice" ? [String((detail.record as Record<string, unknown>).documentId ?? "")] : []),
+    ...context.evidenceDocumentIds,
     ...evidence.map((item) => item.documentId),
   ].filter(Boolean));
   const recordFiles = data.documents.filter((item) =>
@@ -130,13 +129,15 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
   return <div className="record-detail">
     <Link className="record-back" href={`/app/${meta.plural}`}>← Back to {meta.plural}</Link>
     <header className="record-detail-header"><div><span className="record-eyebrow">{meta.noun} record</span><h1>{detail.title}</h1><p>{detail.subtitle}</p></div><span className="record-status"><i />{text(detail.status)}</span></header>
-    <nav className="record-tabs" aria-label={`${meta.noun} detail sections`}><a href="#overview">Overview</a><a href="#files">Files</a><a href="#related">Related records</a>{evidence.length > 0 && <a href="#evidence">Evidence</a>}<a href="#history">History</a></nav>
+    <nav className="record-tabs" aria-label={`${meta.noun} detail sections`}><a href="#overview">Overview</a>{lineItems.length > 0 && <a href="#line-items">Line items</a>}<a href="#files">Files</a><a href="#quality">Data quality</a><a href="#related">Related records</a>{evidence.length > 0 && <a href="#evidence">Evidence</a>}<a href="#history">History</a></nav>
     <div className="record-detail-layout"><main>
       <section className="record-section" id="overview"><div className="record-section-heading"><div><h2>Record details</h2><p>Edit one field at a time. Every saved change is attributed and audited.</p></div></div><div className="record-fields">{detail.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}</div></section>
+      {lineItems.length > 0 && <section className="record-section" id="line-items"><div className="record-section-heading"><div><h2>Invoice line items</h2><p>Normalized charges and credits retained from the reviewed invoice.</p></div><span className="record-section-count">{lineItems.length}</span></div><div className="record-line-items"><div className="record-line-item record-line-item--heading"><span>Line</span><span>Description</span><span>Quantity</span><span>Unit price</span><span>Amount</span></div>{lineItems.map((item) => <div className="record-line-item" key={item.id}><span>{item.lineNumber}</span><span><strong>{item.description}</strong><small>{[item.category, item.servicePeriodStart && item.servicePeriodEnd ? `${date(item.servicePeriodStart)} – ${date(item.servicePeriodEnd)}` : null].filter(Boolean).join(" · ") || "No additional classification"}</small></span><span>{item.quantity ?? "—"}</span><span>{item.unitPrice == null ? "—" : money(item.unitPrice)}</span><span>{money(item.amount)}</span></div>)}</div></section>}
       <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={`${meta.noun} files`} description="A protected workspace for original source files and evidence connected to this record." /></div>
       {evidence.length > 0 && <section className="record-section" id="evidence"><div className="record-section-heading"><div><h2>Source evidence</h2><p>Exact excerpts retained from the private source document.</p></div></div><div className="record-evidence-list">{evidence.map((item) => <article key={item.id}><span>Page {item.pageNumber}{item.fieldPath ? ` · ${item.fieldPath}` : ""}</span><blockquote>{item.textExcerpt}</blockquote><Link href={`/api/portal/documents/${item.documentId}/download`}>Open source <FileText /></Link></article>)}</div></section>}
     </main><aside>
-      <section className="record-side-section" id="related"><h2>Related records</h2>{related.length ? related.map((item) => <Link className="record-related" href={item.href} key={`${item.type}-${item.href}`}><span><small>{item.type}</small><strong>{item.title}</strong></span><ChevronRight /></Link>) : <p>No related records yet.</p>}</section>
+      <section className="record-side-section" id="quality"><h2>Data quality</h2><div className="record-quality-list">{quality.map((item) => <div key={item.label} className={`record-quality record-quality--${item.status}`}><i /><span><strong>{item.label}</strong><small>{item.value}</small></span></div>)}</div></section>
+      <section className="record-side-section" id="related"><h2>Related records</h2>{related.length ? related.map((item) => <Link className="record-related" href={item.href} key={`${item.type}-${item.href}`}><span><small>{item.type}</small><strong>{item.title}</strong>{item.detail && <em>{text(item.detail)}</em>}</span><ChevronRight /></Link>) : <p>No related records yet.</p>}</section>
       <section className="record-side-section" id="history"><h2>Recent activity</h2>{audits.length ? audits.map((event) => <div className="record-audit" key={event.id}><i /><span><strong>{text(event.action)}</strong><small>{event.actorName} · {date(event.createdAt)}</small></span></div>) : <p>No recorded changes yet.</p>}</section>
     </aside></div>
   </div>;
