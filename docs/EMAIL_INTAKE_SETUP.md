@@ -31,7 +31,9 @@ provisioned database addresses; configuring only one side silently prevents mail
 
 Alternatively, set `CLOUDMERSIVE_API_KEY`; the built-in adapter will use Cloudmersive's file-scanning API without a custom scanner service. This sends source files to Cloudmersive for scanning, so Costivra must approve the provider's privacy terms, DPA, retention behavior, and customer disclosure before production use.
 
-Resend must have receiving enabled for `costivra.ai`, its MX record must be verified, and an `email.received` webhook must point to `https://costivra.ai/api/webhooks/resend`. Owner mailbox seats and customer document-intake addresses share the receiving domain but use separate database allowlists and processing rules.
+- Resend must have receiving enabled for `costivra.ai`, its MX record verified, and an `email.received` webhook must point to `https://costivra.ai/api/webhooks/resend`.
+- Owner mailbox seats and customer document-intake addresses share the receiving domain but use separate database allowlists and processing rules.
+- Resend API key **must support inbound-domain and webhook reads**. If readiness check returns `restricted to only send emails`, swap to an API key with inbound permission; send-only keys will always fail domain/webhook readiness.
 
 The malware scanner receives a multipart request containing a `file` part and must return JSON with either `{ "clean": true }` or `{ "infected": true, "signature": "..." }`. A missing, unavailable, or failed scanner never releases an attachment to extraction. The file stays in the private quarantine path until an administrator retries it.
 
@@ -56,3 +58,12 @@ workspace owners are notified.
 Production requires a server-only `CRON_SECRET` in Vercel. Vercel supplies it as the Bearer
 token when calling `/api/cron/inbound-email`; browsers and customer sessions cannot run the
 worker. The one-minute schedule requires a Vercel plan that supports per-minute cron jobs.
+
+## Local smoke checks
+
+- `npm run ops:readiness` checks:
+  - whether Resend secrets exist and are real values,
+  - whether Resend domain/webhook look aligned in production API checks,
+  - whether required local Supabase credentials exist and basic operational tables are readable.
+- This command does not replace production testing, but it tells you immediately what to fix in
+  environment setup before you try full E2E or authenticated workflows.

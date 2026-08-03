@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { cleanText } from "@/lib/portal/http";
+import { getConfiguredEnv } from "@/lib/env/secrets";
 
 function inquiryRateLimitKey(request: Request) {
   const clientAddress =
     request.headers.get("x-real-ip") ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     `unknown:${request.headers.get("user-agent") || "browser"}`;
-  return createHmac("sha256", process.env.SUPABASE_SECRET_KEY || "")
+  const secret = getConfiguredEnv("SUPABASE_SECRET_KEY") || getConfiguredEnv("SUPABASE_SERVICE_ROLE_KEY");
+  if (!secret) throw new Error("HMAC secret not configured.");
+  return createHmac("sha256", secret)
     .update(`public-contact:${clientAddress}`)
     .digest("hex");
 }

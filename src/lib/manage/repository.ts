@@ -15,6 +15,7 @@ import type {
 import { canUseMailbox, formatMailboxSender } from "@/lib/manage/mailboxes";
 import { hiddenOrganizationIds } from "@/lib/manage/visibility";
 import { recordedSpendTotal } from "@/lib/manage/vendor-costs";
+import { isConfiguredSecret } from "@/lib/env/secrets";
 
 type Row = Record<string, unknown>;
 const rows = (value: unknown): Row[] =>
@@ -671,7 +672,7 @@ export async function getManageData(input?: {
     expenses,
     vendorContracts,
     enrichmentAvailable,
-    enrichmentConfigured: Boolean(process.env.APOLLO_API_KEY?.trim()),
+    enrichmentConfigured: Boolean(isConfiguredSecret(process.env.APOLLO_API_KEY)),
     tasks: visibleTasks.map((task) => ({
       id: text(task.id),
       organizationId: text(task.organization_id),
@@ -725,8 +726,8 @@ export async function getManageData(input?: {
         : "No active mailbox",
       inboxAddress: selectedMailbox?.address ?? "No active mailbox",
       inboundReady: Boolean(
-        process.env.RESEND_API_KEY &&
-          process.env.RESEND_WEBHOOK_SECRET &&
+        isConfiguredSecret(process.env.RESEND_API_KEY) &&
+          isConfiguredSecret(process.env.RESEND_WEBHOOK_SECRET) &&
           selectedMailbox?.canReceive,
       ),
     },

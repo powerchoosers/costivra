@@ -13,7 +13,10 @@
     "test:integration:live": "cross-env RUN_LIVE_SUPABASE_TESTS=1 node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.mts",
     "test:e2e": "playwright test",
     "test:e2e:authenticated": "node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/authenticated-workspace.spec.ts --project=desktop-chromium",
-    "eval:invoices": "tsx --env-file-if-exists=.env.local scripts/evaluate-invoice-extraction.ts"
+    "eval:invoices": "tsx --env-file-if-exists=.env.local scripts/evaluate-invoice-extraction.ts",
+    "ops:readiness": "tsx --env-file-if-exists=.env.local scripts/ops-readiness.ts",
+    "ops:smoke": "tsx --env-file-if-exists=.env.local scripts/ops-smoke.ts",
+    "ops:verify": "npm run ops:readiness && npm run ops:smoke"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

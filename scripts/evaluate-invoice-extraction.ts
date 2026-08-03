@@ -14,6 +14,7 @@ import {
   type GoldenPredictionSet,
 } from "@/lib/ai/invoice-evaluation";
 import { extractDocumentText } from "@/lib/documents/text-extraction";
+import { getConfiguredEnv } from "../src/lib/env/secrets";
 
 type Options = {
   manifestPath: string;
@@ -133,7 +134,7 @@ async function main() {
 
   if (!options.predictionsPath) {
     const openRouterKey =
-      process.env.OPEN_ROUTER_API_KEY ?? process.env.OPENROUTER_API_KEY ?? "";
+      getConfiguredEnv("OPEN_ROUTER_API_KEY") ?? getConfiguredEnv("OPENROUTER_API_KEY") ?? "";
     if (!openRouterKey.startsWith("sk-or-") || openRouterKey.length < 20) {
       throw new Error(
         "Live evaluation needs a real OPEN_ROUTER_API_KEY in .env.local. The current value is missing or a placeholder. Use --predictions to replay a saved run without calling the provider.",

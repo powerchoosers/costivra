@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, FileSearch, Search, UserRoundCheck } from "lucide-react";
+import { FormEvent, useRef, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Copy, FileSearch, Pencil, Search, UserRoundCheck } from "lucide-react";
 import type { InvoiceReviewDetail, InvoiceReviewQueueItem, ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { useToast } from "@/components/toast-provider";
@@ -34,9 +34,18 @@ const formatDate = (value: string | null) => value
   ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(`${value}T12:00:00`))
   : "—";
 
-async function requestJson(url: string, init: RequestInit) {
+type InvoicePatchResponse = {
+  updated?: boolean;
+  status?: string;
+  warning?: string;
+  expenseId?: string;
+  evaluation?: unknown;
+  error?: string;
+};
+
+async function requestJson<T = unknown>(url: string, init: RequestInit) {
   const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init.headers } });
-  const payload = await response.json().catch(() => ({})) as { error?: string };
+  const payload = await response.json().catch(() => ({})) as T & { error?: string };
   if (!response.ok) throw new Error(payload.error || "The request could not be completed.");
   return payload;
 }
@@ -157,17 +166,33 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
     const changes = Object.fromEntries([...form.entries()].filter(([key]) => key !== "reason").map(([key,value]) => [key, String(value)]));
     setBusy("save");
     try {
-      await requestJson(`/api/manage/invoices/${invoice.id}`, { method: "PATCH", body: JSON.stringify({ action: "update", reason, changes }) });
-      toast.success("Corrections saved.", "The client record and reconciliation status are now current.");
-      router.refresh();
+      const payload = await requestJson<InvoicePatchResponse>(
+        `/api/manage/invoices/${invoice.id}`,
+        { method: "PATCH", body: JSON.stringify({ action: "update", reason, changes }) },
+      );
+      if (!payload.updated) {
+        toast.success("No changes to save", "The values are already stored for this review.");
+      } else {
+        toast.success("Corrections saved.", "The client record and reconciliation status are now current.");
+        router.refresh();
+      }
+      if (!payload.updated) return;
     } catch (error) { toast.error("Could not save corrections", error instanceof Error ? error.message : "Please try again."); }
     finally { setBusy(null); }
   }
   async function runAction(action: "approve" | "follow_up", notes?: string) {
     setBusy(action);
     try {
-      await requestJson(`/api/manage/invoices/${invoice.id}`, { method: "PATCH", body: JSON.stringify({ action, notes }) });
-      toast.success(action === "approve" ? "Invoice approved." : "Follow-up recorded.", action === "approve" ? "The client expense record is now updated." : "The invoice remains in the review queue.");
+      const payload = await requestJson<InvoicePatchResponse>(`/api/manage/invoices/${invoice.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action, notes }),
+      });
+      if (action === "approve") {
+        if (payload.warning) toast.warning("Invoice approved with review note", payload.warning);
+        else toast.success("Invoice approved.", "The review record is now updated.");
+      } else {
+        toast.success("Follow-up recorded.", "The invoice remains in the review queue.");
+      }
       router.refresh();
     } catch (error) { toast.error(action === "approve" ? "Approval blocked" : "Could not record follow-up", error instanceof Error ? error.message : "Please try again."); }
     finally { setBusy(null); }
@@ -213,5 +238,63 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
 }
 
 function Field({ name, label, value, type = "text", inputMode }: { name: string; label: string; value: string | null; type?: string; inputMode?: "decimal" }) {
-  return <label><span>{label}</span><input name={name} type={type} inputMode={inputMode} defaultValue={value || ""} /></label>;
+  const toast = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const displayValue = value || "";
+  const hasValue = Boolean(displayValue.trim());
+
+  async function copyField() {
+    if (!displayValue) {
+      toast.success("Nothing to copy", "This field has no value.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(displayValue);
+      toast.success("Field copied", `${label} copied to clipboard.`);
+    } catch {
+      const fallback = document.createElement("textarea");
+      fallback.value = displayValue;
+      fallback.style.position = "fixed";
+      fallback.style.opacity = "0";
+      document.body.appendChild(fallback);
+      fallback.focus();
+      fallback.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(fallback);
+      if (ok) toast.success("Field copied", `${label} copied to clipboard.`);
+      else throw new Error("copy blocked");
+    }
+    return;
+  }
+
+  function focusField() {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+  }
+
+  return (
+    <label>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+        <span>{label}</span>
+        <span style={{ display: "inline-flex", gap: "6px" }}>
+          <button className="manage-icon-button" type="button" aria-label={`Edit ${label}`} title={`Edit ${label}`} onClick={focusField}>
+            <Pencil size={14} />
+          </button>
+          <button className="manage-icon-button" type="button" aria-label={`Copy ${label}`} title={`Copy ${label}`} disabled={!hasValue} onClick={() => void copyField().catch((error) => toast.error("Copy failed", error instanceof Error ? error.message : "Try copying manually."))}>
+            <Copy size={14} />
+          </button>
+        </span>
+      </div>
+      <input
+        ref={inputRef}
+        id={name}
+        name={name}
+        type={type}
+        inputMode={inputMode}
+        defaultValue={displayValue}
+      />
+    </label>
+  );
 }

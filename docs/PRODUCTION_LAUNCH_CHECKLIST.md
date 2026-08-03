@@ -2,6 +2,30 @@
 
 This is the short list of work that cannot be completed honestly with code alone. Costivra should begin with a controlled pilot, not broad self-serve availability.
 
+## Immediate runbook from current state (August 3, 2026)
+
+- [ ] Set real values (not masked/redacted placeholders) for these environment variables in:
+  - local `.env.local` (for code-side smoke and live integration tests), and
+  - each Vercel environment you deploy to: **Production**, **Preview**, and **Development** (if used).
+- Required for live intake + worker operation:
+  - `RESEND_API_KEY` (inbound-capable key)
+  - `RESEND_WEBHOOK_SECRET`
+  - `RESEND_INBOUND_DOMAIN=costivra.ai`
+  - `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY`
+  - `OPEN_ROUTER_API_KEY`
+  - `CRON_SECRET`
+- After you save env values in Vercel, trigger a production redeploy and run:
+  - `npm run ops:verify` (runs `ops:readiness` + the safe public-boundary smoke check),
+  - `npm run test` and `npm run test:integration` before merging.
+- `ops:smoke` deliberately does not send local `CRON_SECRET` to production. Vercel's cron secret can be different from the local development secret. To perform a deliberate manual protected-route probe, set `COSTIVRA_VERIFY_CRON_TOKEN` to the exact production secret for that one command; never commit it.
+- To verify scheduled execution, inspect the Vercel deployment runtime logs for `GET /api/cron/inbound-email 200`. A 401 from an unauthenticated browser or curl request is expected.
+- If Vercel's own scheduled request returns 401:
+  - sign in as a Costivra owner and open `/manage` (owner session required),
+  - open `/api/manage/cron-auth` and check `configuredLength`/`configuredFingerprint` and `requestSignals`,
+  - compare the fingerprint with the production Vercel environment value and redeploy after any correction.
+- Optional external verification before pilot:
+  - configure a malware scanner (`MALWARE_SCANNER_URL` + `MALWARE_SCANNER_TOKEN` or `CLOUDMERSIVE_API_KEY`) and rerun full `npm run build` + `npm run test:e2e`.
+
 ## Lewis must provide or decide
 
 - [ ] Choose and fund a malware scanner. The existing Cloudmersive adapter is the fastest path; a provider-neutral HTTP adapter is also supported. Until configured, inbound and uploaded source files remain safely quarantined and cannot be processed.

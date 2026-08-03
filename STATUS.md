@@ -1,5 +1,71 @@
 # Costivra Status
 
+## August 3, 2026 — Cron auth diagnostics and manual-invocation support
+
+- Added robust cron credential extraction support to include debug-safe query-token paths (`secret`, `cron_secret`, `token`) for controlled manual invocation and automated verification.
+- Added coverage for both inbound/retention cron routes:
+  - header auth (`Authorization`, `x-vercel-cron-*`, `x-cron-*`) and query-token fallback
+  - explicit positive tests for accepted query-token invocation
+- Added owner-only diagnostic route `GET /api/manage/cron-auth`:
+  - reports whether `CRON_SECRET` is configured and a non-reversible fingerprint/length,
+  - shows which auth transport was seen on the request (`authorization`, `x-vercel-cron-secret`, query, etc.),
+  - shows whether a configured token and presented token match without exposing raw secrets.
+- Added unit coverage for cron auth extraction and diagnostics.
+- `npm run test` (including new cron/auth diagnostics tests) and `npm run typecheck` pass.
+
+- Current outstanding external blocker still requires manual verification:
+  - production cron still returns 401 for inbound/retention when invoked with only header tokens in `npm run ops:smoke` and direct external probes,
+  - use `/api/manage/cron-auth` from owner context to capture header presence/transport mismatch, then align `CRON_SECRET` in Vercel with the token used for any manual invocations and confirm deploys.
+
+## August 3, 2026 — Readiness truth: placeholder credentials now treated as absent
+
+- Added production smoke validation command: `npm run ops:smoke`.
+  - Default checks `https://costivra.ai` public home, `/api/status` contract, protected `/api/cron/*` routes, and webhook GET behavior.
+  - This gives a fast "is the deployed stack in the right shape" signal between code changes and manual user testing.
+- Added convenience combined command: `npm run ops:verify`, which runs readiness and smoke in one pass.
+
+- Added shared secret-validation helper (`src/lib/env/secrets.ts`) and wired it into Resend, OpenRouter, Apollo, and cron checks.
+- Updated readiness and email-intake checks so placeholder values (`[SENSITIVE]`, `redacted`, `placeholder`, etc.) now hard-fail as missing secrets rather than passing as valid.
+- Extended tests to prove placeholder secrets are blocked and never echoed in readiness payloads:
+  - `src/lib/email/resend.test.ts`
+  - `src/lib/manage/system-readiness.test.ts`
+- Current local status after this update remains blocked only until real values are set (see `npm run ops:readiness` output for the exact remaining items).
+
+## Operations hardening and readiness guardrail parity — August 3, 2026
+
+- Hardened provider secret handling in `src/lib/email/resend.ts` so placeholder/reddacted values such as `[SENSITIVE]`, `redacted`, and keys with `placeholder` in them are now treated as **not configured** in all inbound intake/mailer paths.
+- Added explicit reason mapping from Resend provider responses into readiness checks and activation flow so endpoint failures now return actionable messages instead of opaque generic errors.
+- Re-ran full validation after this hardening:
+  - `npm run typecheck` ✅
+  - `npm run lint` ✅
+  - `npm run test` (223 passed) ✅
+  - `npm run build` ✅
+  - `npm run ops:readiness` (still blocked locally because `.env.local` secrets are placeholders for webhook secret, openrouter key, Supabase service key, and cron secret).
+- Updated `docs/EMAIL_INTAKE_SETUP.md` to keep setup prerequisites in sync with current Resend inbound requirements and placeholder-handling behavior.
+
+## Operations command for immediate smoke checks — August 3, 2026
+
+- Added `scripts/ops-readiness.ts` and `npm run ops:readiness` to report environment/runtime blockers before deeper QA.
+- Current local run result with repo `.env.local`:
+  - `RESEND_API_KEY` is present in file but configured alongside placeholder values for:
+    - `RESEND_WEBHOOK_SECRET`
+    - `SUPABASE_SECRET_KEY`
+    - `OPEN_ROUTER_API_KEY`
+    - `CRON_SECRET`
+  - Full local readiness checks cannot complete with placeholders.
+- Live probe run using the supplied key (`re_fFLk...`) showed:
+  - Environment flags: `RESEND_API_KEY` present; secrets remain placeholders for other required values.
+  - API response from Resend: HTTP 401 with message `restricted to only send emails` on both `/domains` and `/webhooks` for this token.
+  - Result: Readiness now surfaces this exact rejection reason in both portal activation and manage-readiness flows.
+- Type-level and runtime checks completed on this run:
+  - `npm run typecheck` ✅
+  - `npm run lint` ✅
+  - `npm run build` ✅
+  - targeted tests:
+    - `src/lib/manage/system-readiness.test.ts` ✅
+    - `src/app/api/manage/system-readiness/route.test.ts` ✅
+    - `src/lib/email/inbound-intake.test.ts`, `src/lib/email/inbound-policy.test.ts`, `src/lib/manage/mail.test.ts` ✅
+
 ## Operational truth and worker health — August 2, 2026
 
 - Added a server-only ledger for every one-minute inbound worker invocation. The owner readiness
@@ -683,3 +749,10 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Provider checks use fixed HTTPS endpoints, a six-second timeout, no redirects, and no response caching. API keys remain server-only and are never included in the response. Operators cannot call the route; failed authorization uses the existing protected Manage API boundary.
 - Re-ran the live Resend flow with the supplied key. The production contact endpoint created a Supabase lead and delivered both the customer receipt and owner notification. A separate Azure PDF reached the Northstar dummy intake address, produced a signed `202` webhook and successful minute-worker run, and was stored privately with `scan_status=unavailable`, `processing_status=quarantined`, and no document row. That remains the correct result until a malware scanner is configured.
 - Validation passed: TypeScript; full ESLint; 143 unit tests with four intentional environment-gated skips; integration suite with four credential-gated skips; production build; and Playwright smoke with no failed tests. The two new readiness test files cover owner authorization, private/no-store responses, missing configuration, rejected provider credentials, disabled webhook, dead-letter work, database failure, and serialized secret redaction.
+
+## 2026-08-03 — Resend and scheduled intake verification
+
+- Revalidated the configured Resend API key through the provider and the application readiness probe. The verified `costivra.ai` domain and signed webhook remain aligned; the key was never returned, logged, or added to source control.
+- Targeted Resend/intake tests passed (10 tests), cron authorization/readiness tests passed (25 tests), and the complete automated suite passed (246 tests passed; 3 intentionally skipped). TypeScript and the optimized production build both passed.
+- Live Vercel runtime logs for deployment `dpl_9xxUEtrMzZfUXxZWEJwkBkdZFb6t` confirm `/api/cron/inbound-email` is receiving successful `200` scheduled invocations every minute. This is the authoritative production-worker proof.
+- The prior `ops:smoke` warning was a false operational signal: it sent the local development `CRON_SECRET` to production, where the deployed Vercel secret is intentionally independent. The smoke script now verifies unauthenticated rejection by default and only performs a protected manual invocation when `COSTIVRA_VERIFY_CRON_TOKEN` is explicitly supplied. The launch checklist explains the distinction.

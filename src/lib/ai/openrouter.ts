@@ -1,3 +1,5 @@
+import { getConfiguredEnv } from "@/lib/env/secrets";
+
 type OpenRouterMessage = {
   role: "system" | "user";
   content: string | Array<
@@ -20,7 +22,7 @@ type OpenRouterResponse = {
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 function getOpenRouterKey(): string {
-  const key = process.env.OPEN_ROUTER_API_KEY ?? process.env.OPENROUTER_API_KEY;
+  const key = getConfiguredEnv("OPEN_ROUTER_API_KEY") ?? getConfiguredEnv("OPENROUTER_API_KEY");
 
   if (!key) {
     throw new Error("OPEN_ROUTER_API_KEY is not configured for this server environment.");

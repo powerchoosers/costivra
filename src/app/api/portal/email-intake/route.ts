@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getInboundEmailDomain, isInboundEmailPlatformReady } from "@/lib/email/resend";
+import { getInboundEmailDomain, isInboundEmailPlatformReady, verifyInboundEmailProviderReadiness } from "@/lib/email/resend";
 import { releaseQuarantinedInboundAttachments } from "@/lib/email/quarantine-release";
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
@@ -21,7 +21,15 @@ export async function PATCH(request: Request) {
     if (intakeError || !intake) return NextResponse.json({ error: "Email intake is not available for this workspace." }, { status: 404 });
 
     if (operation === "activate") {
-      if (!isInboundEmailPlatformReady()) return NextResponse.json({ error: "The receiving domain, signed webhook, and malware scanner must be verified before activation." }, { status: 503 });
+      const emailProviderReadiness = await verifyInboundEmailProviderReadiness();
+      if (!isInboundEmailPlatformReady() || !emailProviderReadiness.ok) {
+        const reason = emailProviderReadiness.blocked.join(" ");
+        return NextResponse.json({
+          error: emailProviderReadiness.ok
+            ? "The receiving domain, signed webhook, and malware scanner must be verified before activation."
+            : `The email intake provider is not ready.${reason ? ` ${reason}` : " Verify Resend key, domain, and webhook configuration."}`,
+        }, { status: 503 });
+      }
       const { error } = await db.from("inbound_email_addresses").update({ status: "active", domain: getInboundEmailDomain(), updated_at: new Date().toISOString() }).eq("id", intake.id);
       if (error) throw error;
       await db.from("integrations").update({ status: "connected", updated_at: new Date().toISOString() }).eq("organization_id", organizationId).eq("provider", "resend_inbound");

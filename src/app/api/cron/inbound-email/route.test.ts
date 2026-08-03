@@ -88,6 +88,41 @@ describe("GET /api/cron/inbound-email", () => {
     }));
   });
 
+  it("supports alternate cron headers for token transport", async () => {
+    const { db } = database();
+    createServerSupabaseClient.mockReturnValue(db);
+
+    const response = await GET(new Request("https://costivra.ai/api/cron/inbound-email", {
+      headers: { "x-cron-secret": "cron-secret-for-test" },
+    }));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("supports lowercase bearer token prefix", async () => {
+    const { db } = database();
+    createServerSupabaseClient.mockReturnValue(db);
+
+    const response = await GET(new Request("https://costivra.ai/api/cron/inbound-email", {
+      headers: { authorization: "bearer cron-secret-for-test" },
+    }));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("supports token via query param for controlled debug/manual invocations", async () => {
+    const { db } = database();
+    createServerSupabaseClient.mockReturnValue(db);
+
+    const response = await GET(
+      new Request("https://costivra.ai/api/cron/inbound-email?secret=cron-secret-for-test", {
+        method: "GET",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   it("records a safe failure category when queue claiming fails", async () => {
     const { db, finalized } = database({ claimError: true });
     createServerSupabaseClient.mockReturnValue(db);
@@ -101,5 +136,18 @@ describe("GET /api/cron/inbound-email", () => {
       status: "failed",
       error_code: "queue_claim_failed",
     }));
+  });
+
+  it("rejects placeholder cron secrets", async () => {
+    const { db, finalized } = database();
+    createServerSupabaseClient.mockReturnValue(db);
+    vi.stubEnv("CRON_SECRET", "placeholder");
+
+    const response = await GET(new Request("https://costivra.ai/api/cron/inbound-email", {
+      headers: { authorization: "Bearer placeholder" },
+    }));
+
+    expect(response.status).toBe(401);
+    expect(finalized).toEqual([]);
   });
 });

@@ -57,6 +57,10 @@ describe("Apollo enrichment adapter", () => {
     expect(isApolloConfigured()).toBe(false);
     vi.stubEnv("APOLLO_API_KEY", "server-key");
     expect(isApolloConfigured()).toBe(true);
+    vi.stubEnv("APOLLO_API_KEY", "placeholder");
+    expect(isApolloConfigured()).toBe(false);
+    vi.stubEnv("APOLLO_API_KEY", "[redacted]");
+    expect(isApolloConfigured()).toBe(false);
   });
 
   it("drops unsafe provider links before they can be stored or rendered", async () => {

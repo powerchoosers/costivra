@@ -193,6 +193,40 @@ describe("owner system readiness", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("treats placeholder secrets as blocked and does not leak placeholders through readiness", async () => {
+    vi.stubEnv("RESEND_API_KEY", "[SENSITIVE]");
+    vi.stubEnv("RESEND_WEBHOOK_SECRET", "[redacted]");
+    vi.stubEnv("CRON_SECRET", "[placeholder]");
+    vi.stubEnv("OPEN_ROUTER_API_KEY", "placeholder-token");
+    vi.stubEnv("APOLLO_API_KEY", "placeholder-apollo");
+    isMalwareScannerConfigured.mockReturnValue(true);
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await checkSystemReadiness(database({
+      workerRun: {
+        status: "completed",
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        error_code: null,
+      },
+    }) as never);
+
+    expect(result.overall).toBe("blocked");
+    expect(result.services).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "resend", status: "blocked", message: expect.stringMatching(/missing/i) }),
+      expect.objectContaining({ id: "worker", status: "blocked", message: expect.stringMatching(/CRON_SECRET/i) }),
+      expect.objectContaining({ id: "openrouter", status: "blocked", message: expect.stringMatching(/missing/i) }),
+    ]));
+    expect(fetchMock).not.toHaveBeenCalled();
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain("[SENSITIVE]");
+    expect(serialized).not.toContain("[redacted]");
+    expect(serialized).not.toContain("placeholder-token");
+    expect(serialized).not.toContain("placeholder-apollo");
+  });
+
   it("reports rejected credentials and a disabled production webhook", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
       const url = String(input);

@@ -1,9 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { isConfiguredSecret } from "@/lib/env/secrets";
 
 function requireEnvironmentVariable(name: string): string {
   const value = process.env[name];
 
-  if (!value) {
+  if (!isConfiguredSecret(value)) {
     throw new Error(`${name} is not configured for this server environment.`);
   }
 
@@ -22,7 +23,7 @@ export function createServerSupabaseClient() {
     process.env.SUPABASE_SECRET_KEY ??
     process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!secretKey) {
+  if (!isConfiguredSecret(secretKey)) {
     throw new Error(
       "SUPABASE_SECRET_KEY is not configured for this server environment."
     );

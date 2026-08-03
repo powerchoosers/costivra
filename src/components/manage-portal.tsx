@@ -272,6 +272,8 @@ type ComposeContext = {
   mailboxId?: string;
 };
 
+const MANAGE_MODAL_CLOSE_DURATION_MS = 190;
+
 type ActiveComposer = { data: ManageData; context: ComposeContext };
 type ManageComposerController = {
   openComposer: (data: ManageData, context: ComposeContext) => void;
@@ -424,25 +426,77 @@ function Modal({
   copy,
   children,
   onClose,
+  isClosing,
 }: {
   title: string;
   copy?: string;
   children: ReactNode;
   onClose: () => void;
+  isClosing?: boolean;
 }) {
+  const modalRef = useRef<HTMLElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const modal = modalRef.current;
+    if (!modal) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusables = (): HTMLElement[] => {
+      const candidates = Array.from(
+        modal.querySelectorAll<HTMLElement>(
+          "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+        ),
+      );
+      return candidates.filter((item) => !item.hasAttribute("disabled"));
+    };
+    const immediateFocus = focusables()[0] || modal;
+    immediateFocus.focus();
+    return () => {
+      previousFocus.current?.focus?.({ preventScroll: true } as FocusOptions);
+    };
+  }, []);
+
   return (
     <div
-      className="manage-modal-backdrop"
+      className={`manage-modal-backdrop${isClosing ? " is-closing" : ""}`}
       role="presentation"
       onMouseDown={(event) => {
+        if (isClosing) return;
         if (event.currentTarget === event.target) onClose();
       }}
     >
       <section
-        className="manage-modal"
+        ref={modalRef}
+        tabIndex={-1}
+        className={`manage-modal${isClosing ? " is-closing" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+            return;
+          }
+          if (event.key !== "Tab") return;
+          const modal = modalRef.current;
+          if (!modal) return;
+          const focusables = Array.from(
+            modal.querySelectorAll<HTMLElement>(
+              "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+            ),
+          ).filter((item) => !item.hasAttribute("disabled"));
+          if (!focusables.length) return;
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}
       >
         <header>
           <div>
@@ -529,13 +583,13 @@ export function ManagePortal({
   const sidebarRef = useRef<HTMLElement>(null);
   const sidebarOpenTimerRef = useRef<number | null>(null);
   const sidebarCloseTimerRef = useRef<number | null>(null);
+  const dialogCloseTimerRef = useRef<number | null>(null);
+  const [dialog, setDialog] = useState<"account" | "contact" | "task" | "note" | "mailbox" | null>(null);
+  const [dialogClosing, setDialogClosing] = useState<"account" | "contact" | "task" | "note" | "mailbox" | null>(null);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [createMenuClosing, setCreateMenuClosing] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileMenuClosing, setProfileMenuClosing] = useState(false);
-  const [dialog, setDialog] = useState<
-    "account" | "contact" | "task" | "note" | "mailbox" | null
-  >(null);
   const [contextAccount, setContextAccount] = useState<ManageAccount | null>(null);
   const [busy, setBusy] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -560,6 +614,12 @@ export function ManagePortal({
       window.cancelAnimationFrame(initializationFrame);
       window.removeEventListener("resize", updateSidebarViewport);
     };
+  }, []);
+
+  useEffect(() => () => {
+    if (dialogCloseTimerRef.current !== null) {
+      window.clearTimeout(dialogCloseTimerRef.current);
+    }
   }, []);
 
   const sidebarUsesRail = sidebarViewport !== "mobile";
@@ -591,6 +651,38 @@ export function ManagePortal({
       setProfileMenuClosing(false);
     }, 150);
   }, [profileMenuClosing, profileMenuOpen]);
+
+  const closeDialog = useCallback(() => {
+    if (!dialog || dialogClosing) return;
+    setDialogClosing(dialog);
+    if (dialogCloseTimerRef.current !== null) {
+      window.clearTimeout(dialogCloseTimerRef.current);
+    }
+    dialogCloseTimerRef.current = window.setTimeout(() => {
+      setDialog(null);
+      setDialogClosing(null);
+      setContextAccount(null);
+      dialogCloseTimerRef.current = null;
+    }, MANAGE_MODAL_CLOSE_DURATION_MS);
+  }, [dialog, dialogClosing]);
+
+  const openDialog = useCallback((next: "account" | "contact" | "task" | "note" | "mailbox") => {
+    if (dialogClosing || dialog === next) return;
+    setDialog(next);
+  }, [dialog, dialogClosing]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (!dialog && !dialogClosing) return;
+      event.preventDefault();
+      closeDialog();
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [closeDialog, dialog, dialogClosing]);
 
   const clearSidebarIntent = useCallback(() => {
     if (sidebarOpenTimerRef.current !== null) {
@@ -691,7 +783,7 @@ export function ManagePortal({
     try {
       await work();
       toast.success(success);
-      setDialog(null);
+      closeDialog();
       router.refresh();
     } catch (error) {
       toast.error(
@@ -953,8 +1045,8 @@ export function ManagePortal({
               </button>
               {(createMenuOpen || createMenuClosing) && (
                 <div className={`manage-create-menu${createMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="Create a new record">
-                  <button type="button" role="menuitem" onClick={() => { setDialog("account"); closeCreateMenu(); }}><Building2 size={16} />Add account</button>
-                  <button type="button" role="menuitem" onClick={() => { setDialog("contact"); closeCreateMenu(); }}><Users size={16} />Add contact</button>
+                  <button type="button" role="menuitem" onClick={() => { openDialog("account"); closeCreateMenu(); }}><Building2 size={16} />Add account</button>
+                  <button type="button" role="menuitem" onClick={() => { openDialog("contact"); closeCreateMenu(); }}><Users size={16} />Add contact</button>
                 </div>
               )}
             </div>
@@ -967,7 +1059,7 @@ export function ManagePortal({
             {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
-                onClick={() => setDialog("note")}
+                onClick={() => openDialog("note")}
               >
                 <Plus size={16} /> Add note
               </button>
@@ -975,7 +1067,7 @@ export function ManagePortal({
               <button
                 className="manage-button manage-button--primary"
                 onClick={() =>
-                  setDialog(
+                  openDialog(
                     section === "contacts"
                       ? "contact"
                       : section === "outreach"
@@ -1022,8 +1114,8 @@ export function ManagePortal({
               data={data}
               query={search}
               run={run}
-              onTask={() => setDialog("task")}
-              onNote={() => setDialog("note")}
+              onTask={() => openDialog("task")}
+              onNote={() => openDialog("note")}
             />
           )}
           {section === "mail" && (
@@ -1039,7 +1131,7 @@ export function ManagePortal({
               data={data}
               query={search}
               run={run}
-              onAdd={() => setDialog("mailbox")}
+              onAdd={() => openDialog("mailbox")}
               onUpdated={() => router.refresh()}
             />
           )}
@@ -1057,7 +1149,7 @@ export function ManagePortal({
             <ActivityPage
               data={data}
               query={search}
-              onNote={() => setDialog("note")}
+              onNote={() => openDialog("note")}
             />
           )}
         </div>
@@ -1073,7 +1165,8 @@ export function ManagePortal({
       {dialog === "account" && (
         <AccountForm
           busy={busy}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
+          isClosing={Boolean(dialogClosing)}
           onSubmit={(form) =>
             run(
               () =>
@@ -1090,7 +1183,8 @@ export function ManagePortal({
         <ContactForm
           data={data}
           busy={busy}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
+          isClosing={Boolean(dialogClosing)}
           onSubmit={(form) =>
             run(
               () =>
@@ -1108,7 +1202,8 @@ export function ManagePortal({
           data={data}
           defaultAccount={contextAccount}
           busy={busy}
-          onClose={() => { setDialog(null); setContextAccount(null); }}
+          onClose={closeDialog}
+          isClosing={Boolean(dialogClosing)}
           onSubmit={(form) =>
             run(
               () =>
@@ -1126,7 +1221,8 @@ export function ManagePortal({
           data={data}
           defaultAccount={contextAccount}
           busy={busy}
-          onClose={() => { setDialog(null); setContextAccount(null); }}
+          onClose={closeDialog}
+          isClosing={Boolean(dialogClosing)}
           onSubmit={(form) =>
             run(
               () =>
@@ -1142,7 +1238,8 @@ export function ManagePortal({
       {dialog === "mailbox" && (
         <MailboxForm
           busy={busy}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
+          isClosing={Boolean(dialogClosing)}
           onSubmit={(form) =>
             run(
               () =>
@@ -3710,10 +3807,12 @@ function ActivityList({
 function AccountForm({
   busy,
   onClose,
+  isClosing,
   onSubmit,
 }: {
   busy: boolean;
   onClose: () => void;
+  isClosing?: boolean;
   onSubmit: (form: FormData) => void;
 }) {
   return (
@@ -3721,6 +3820,7 @@ function AccountForm({
       title="Add a real account"
       copy="This creates a live Supabase organization. It does not create a customer login or send an invitation."
       onClose={onClose}
+      isClosing={isClosing}
     >
       <form
         onSubmit={(event) => {
@@ -3778,11 +3878,13 @@ function ContactForm({
   data,
   busy,
   onClose,
+  isClosing,
   onSubmit,
 }: {
   data: ManageData;
   busy: boolean;
   onClose: () => void;
+  isClosing?: boolean;
   onSubmit: (form: FormData) => void;
 }) {
   return (
@@ -3790,6 +3892,7 @@ function ContactForm({
       title="Add client contact"
       copy="Use a real business contact. No invitation or email is sent."
       onClose={onClose}
+      isClosing={isClosing}
     >
       <form
         onSubmit={(event) => {
@@ -3845,12 +3948,14 @@ function TaskForm({
   defaultAccount,
   busy,
   onClose,
+  isClosing,
   onSubmit,
 }: {
   data: ManageData;
   defaultAccount?: ManageAccount | null;
   busy: boolean;
   onClose: () => void;
+  isClosing?: boolean;
   onSubmit: (form: FormData) => void;
 }) {
   return (
@@ -3858,6 +3963,7 @@ function TaskForm({
       title="Create follow-up"
       copy="Tasks stay internal until you deliberately call, meet, or send an email."
       onClose={onClose}
+      isClosing={isClosing}
     >
       <form
         onSubmit={(event) => {
@@ -3932,12 +4038,14 @@ function NoteForm({
   defaultAccount,
   busy,
   onClose,
+  isClosing,
   onSubmit,
 }: {
   data: ManageData;
   defaultAccount?: ManageAccount | null;
   busy: boolean;
   onClose: () => void;
+  isClosing?: boolean;
   onSubmit: (form: FormData) => void;
 }) {
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
@@ -3947,6 +4055,7 @@ function NoteForm({
       title="Add internal note"
       copy="Notes are owner-only CRM history. They are never shown in the customer portal."
       onClose={onClose}
+      isClosing={isClosing}
     >
       <form
         onSubmit={(event) => {
@@ -4077,10 +4186,12 @@ function EditAccount({
 function MailboxForm({
   busy,
   onClose,
+  isClosing,
   onSubmit,
 }: {
   busy: boolean;
   onClose: () => void;
+  isClosing?: boolean;
   onSubmit: (form: FormData) => void;
 }) {
   return (
@@ -4088,6 +4199,7 @@ function MailboxForm({
       title="Create mailbox seat"
       copy="This address can send and receive inside the Costivra CRM."
       onClose={onClose}
+      isClosing={isClosing}
     >
       <form
         onSubmit={(event) => {

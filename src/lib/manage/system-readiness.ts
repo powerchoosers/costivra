@@ -5,6 +5,7 @@ import {
   isMalwareScannerConfigured,
   scanFileForMalware,
 } from "@/lib/security/malware-scanner";
+import { getConfiguredEnv, isConfiguredSecret } from "@/lib/env/secrets";
 import { retentionPolicyFromEnvironment } from "@/lib/retention/policy";
 
 export type ReadinessStatus = "ready" | "warning" | "blocked";
@@ -28,6 +29,19 @@ const record = (value: unknown): JsonRecord | null =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as JsonRecord)
     : null;
+
+function extractResendMessage(payload: unknown) {
+  const record = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as JsonRecord)
+    : null;
+  if (!record) return null;
+  if (typeof record.name === "string" && typeof record.message === "string") {
+    return `${record.name}: ${record.message}`;
+  }
+  if (typeof record.message === "string") return record.message;
+  if (typeof record.error === "string") return record.error;
+  return null;
+}
 
 async function requestJson(url: string, init: RequestInit) {
   try {
@@ -78,8 +92,8 @@ async function databaseReadiness(db: SupabaseClient): Promise<ReadinessService> 
 }
 
 async function resendReadiness(): Promise<ReadinessService> {
-  const key = process.env.RESEND_API_KEY?.trim();
-  const webhookSecret = process.env.RESEND_WEBHOOK_SECRET?.trim();
+  const key = getConfiguredEnv("RESEND_API_KEY");
+  const webhookSecret = getConfiguredEnv("RESEND_WEBHOOK_SECRET");
   const domain = (process.env.RESEND_INBOUND_DOMAIN || "costivra.ai").trim().toLowerCase();
   if (!key || !webhookSecret)
     return {
@@ -93,13 +107,21 @@ async function resendReadiness(): Promise<ReadinessService> {
     requestJson("https://api.resend.com/domains", { method: "GET", headers }),
     requestJson("https://api.resend.com/webhooks", { method: "GET", headers }),
   ]);
-  if (!domainsResult.ok || !webhooksResult.ok)
+  if (!domainsResult.ok || !webhooksResult.ok) {
+    const domainsError = !domainsResult.ok
+      ? `domains endpoint blocked (HTTP ${domainsResult.status}${extractResendMessage(domainsResult.payload) ? `: ${extractResendMessage(domainsResult.payload)}` : ""})`
+      : null;
+    const webhooksError = !webhooksResult.ok
+      ? `webhooks endpoint blocked (HTTP ${webhooksResult.status}${extractResendMessage(webhooksResult.payload) ? `: ${extractResendMessage(webhooksResult.payload)}` : ""})`
+      : null;
+    const blocked = [domainsError, webhooksError].filter(Boolean).join(" ");
     return {
       id: "resend",
       name: "Resend",
       status: "blocked",
-      message: "Resend rejected the key or could not be reached.",
+      message: `Resend is not ready: ${blocked || "rejected the key or could not be reached."}`,
     };
+  }
   const domains = Array.isArray(domainsResult.payload?.data)
     ? domainsResult.payload.data
     : [];
@@ -138,7 +160,7 @@ async function resendReadiness(): Promise<ReadinessService> {
 }
 
 async function workerReadiness(db: SupabaseClient): Promise<ReadinessService> {
-  if (!process.env.CRON_SECRET?.trim())
+  if (!isConfiguredSecret(process.env.CRON_SECRET))
     return {
       id: "worker",
       name: "Intake worker",
@@ -213,7 +235,7 @@ async function workerReadiness(db: SupabaseClient): Promise<ReadinessService> {
 }
 
 async function openRouterReadiness(): Promise<ReadinessService> {
-  const key = (process.env.OPEN_ROUTER_API_KEY ?? process.env.OPENROUTER_API_KEY)?.trim();
+  const key = getConfiguredEnv("OPEN_ROUTER_API_KEY") ?? getConfiguredEnv("OPENROUTER_API_KEY");
   if (!key)
     return {
       id: "openrouter",
@@ -343,7 +365,7 @@ async function retentionReadiness(db: SupabaseClient): Promise<ReadinessService>
 }
 
 async function apolloReadiness(): Promise<ReadinessService> {
-  const key = process.env.APOLLO_API_KEY?.trim();
+  const key = getConfiguredEnv("APOLLO_API_KEY");
   if (!key)
     return {
       id: "apollo",

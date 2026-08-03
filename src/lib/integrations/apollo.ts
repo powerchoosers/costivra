@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
+import { isConfiguredSecret } from "@/lib/env/secrets";
 
 const APOLLO_BASE_URL = "https://api.apollo.io/api/v1";
 const REQUEST_TIMEOUT_MS = 8_000;
@@ -50,7 +51,7 @@ const hashed = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 function providerKey() {
-  return process.env.APOLLO_API_KEY?.trim() || null;
+  return isConfiguredSecret(process.env.APOLLO_API_KEY) ? process.env.APOLLO_API_KEY!.trim() : null;
 }
 
 export function isApolloConfigured() {

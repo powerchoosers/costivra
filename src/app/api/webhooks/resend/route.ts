@@ -10,6 +10,7 @@ import {
 } from "@/lib/email/inbound-policy";
 import { getResendClient } from "@/lib/email/resend";
 import { normalizeSubject, safeSnippet } from "@/lib/manage/mail";
+import { isConfiguredSecret } from "@/lib/env/secrets";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -491,7 +492,7 @@ async function persistOwnerMailboxMessage(
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
-  if (!webhookSecret)
+  if (!isConfiguredSecret(webhookSecret))
     return NextResponse.json(
       { error: "Inbound email is not configured." },
       { status: 503 },
