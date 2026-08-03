@@ -22,6 +22,10 @@
   configured document intelligence created a normalized $44 invoice, reconciled the arithmetic,
   and correctly kept it in human review because the vendor relationship was unmatched. The
   temporary operator was deleted after the probe; the demo invoice remains as visible test data.
+- A second production batch recovered both public Azure demo invoices into reconciled, reviewable
+  invoice records ($2,810.81 and $0.00). The AWS VAT sample still failed strict output validation
+  and correctly remained in extraction recovery without an invoice. This proved that batch recovery
+  advances valid records, preserves uncertain files for operators, and does not create duplicates.
 
 ## Savings attestation workspace — August 2, 2026
 
