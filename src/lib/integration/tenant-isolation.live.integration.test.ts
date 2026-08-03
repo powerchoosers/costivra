@@ -15,7 +15,7 @@ type TenantFixture = {
 
 function requiredEnvironmentVariable(name: string) {
   const value = process.env[name];
-  if (!value || value === "Encrypted") {
+  if (!value || value === "Encrypted" || value.includes("[SENSITIVE]")) {
     throw new Error(`${name} must contain a real value to run live Supabase tests.`);
   }
   return value;

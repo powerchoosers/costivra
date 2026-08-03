@@ -18,6 +18,7 @@ This is the short list of work that cannot be completed honestly with code alone
 
 - [ ] Add the selected malware-scanner secret to local, Vercel Preview, and Vercel Production environments. Never use a `NEXT_PUBLIC_` name for it.
 - [ ] Confirm Vercel has server-only OpenRouter, Supabase secret, Resend API, and Resend webhook secrets plus browser-safe Supabase URL/publishable key in each intended environment.
+- [ ] Replace the redacted `SUPABASE_SECRET_KEY` placeholder in the ignored local `.env.local` file with the Costivra project secret, then run `npm run test:integration:live`. Vercel intentionally does not reveal shared sensitive values through `vercel env pull`, so this one local setup step must be completed from the Supabase dashboard; never paste the value into chat or commit it.
 - [x] Owners have a manual production-readiness check in **Manage → Settings**. Run it after changing a key, domain, webhook, worker, or provider. It reports service state without returning secret values; it does not replace the live clean/infected scanner exercise or the golden invoice evaluation.
 - [x] `/status` now reports a sanitized live customer-facing state for the website, workspace,
   intake, and extraction. It intentionally excludes secret values, internal queue details, tenant
