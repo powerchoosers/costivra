@@ -7,6 +7,10 @@ import {
   MAX_DOCUMENT_SIZE,
 } from "@/lib/documents/intake";
 import { inboundEmailRetryDecision } from "@/lib/email/inbound-retry";
+import {
+  InboundEmailBudgetYield,
+  shouldYieldInboundEmailProcessing,
+} from "@/lib/email/inbound-budget";
 import { inboundEmailOutcomeMessage } from "@/lib/email/inbound-outcome";
 import { getResendClient } from "@/lib/email/resend";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
@@ -154,6 +158,7 @@ export async function processInboundEmailJob(
   dependencies: {
     db?: ServerDatabase;
     resend?: ResendClient;
+    deadlineAt?: number;
   } = {},
 ) {
   const db = dependencies.db ?? createServerSupabaseClient();
@@ -201,6 +206,8 @@ export async function processInboundEmailJob(
     if (["processed", "duplicate", "unsupported", "quarantined", "failed"].includes(state.processing_status)) {
       continue;
     }
+    if (shouldYieldInboundEmailProcessing(dependencies.deadlineAt))
+      throw new InboundEmailBudgetYield();
     if (
       !DOCUMENT_MIME_TYPES.has(contentType) ||
       attachment.size <= 0 ||
@@ -351,6 +358,34 @@ export async function processInboundEmailJob(
   if (finishError) throw finishError;
   if (!finished) throw new Error("Inbound email job lock expired before completion.");
   return { status: finalStatus, processedAttachmentCount: processedCount };
+}
+
+export function isInboundEmailBudgetYield(error: unknown) {
+  return error instanceof InboundEmailBudgetYield;
+}
+
+export async function recordInboundEmailJobYield(
+  db: ServerDatabase,
+  job: InboundEmailJob,
+) {
+  const now = new Date().toISOString();
+  const { data: updated, error } = await db.from("inbound_email_events")
+    .update({
+      status: "queued",
+      attempt_count: Math.max(0, job.attempt_count - 1),
+      next_attempt_at: now,
+      locked_at: null,
+      lock_token: null,
+      error_message: null,
+      updated_at: now,
+    })
+    .eq("id", job.id)
+    .eq("lock_token", job.lock_token)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!updated) throw new Error("Inbound email job lock expired before it could yield.");
+  return { status: "queued" as const, nextAttemptAt: now };
 }
 
 export async function recordInboundEmailJobFailure(

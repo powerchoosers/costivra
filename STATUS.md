@@ -30,6 +30,11 @@
   remaining in `processing` forever. Active jobs are not disturbed. If the invoice was already
   committed before an interruption, recovery repairs the document state from that invoice rather
   than calling AI again or creating a duplicate; otherwise the immutable source is reprocessed.
+- The minute-based inbound worker now keeps a one-minute shutdown reserve inside its five-minute
+  Vercel limit. It yields unfinished attachment work back to the queue without consuming a failure
+  attempt, then resumes from already persisted attachment state on the next run. OpenRouter calls
+  have a 45-second ceiling, and manual quarantine release batches are bounded by route duration so
+  multi-file emails cannot silently die at the platform timeout.
 
 ## Savings attestation workspace — August 2, 2026
 

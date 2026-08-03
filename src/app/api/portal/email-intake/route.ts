@@ -38,7 +38,7 @@ export async function PATCH(request: Request) {
       if (error) throw error;
     } else if (operation === "retry") {
       if (!isMalwareScannerConfigured()) return NextResponse.json({ error: "A malware scanner must be configured before quarantined files can be processed." }, { status: 503 });
-      await releaseQuarantinedInboundAttachments({ db, organizationId, limit: 10 });
+      await releaseQuarantinedInboundAttachments({ db, organizationId, limit: 1 });
     } else if (operation === "retry_failed") {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventId)) return NextResponse.json({ error: "Choose a valid intake event to retry." }, { status: 400 });
       const now = new Date().toISOString();

@@ -5,6 +5,8 @@ import { canRetryInboundEvent } from "@/lib/manage/intake-operations-policy";
 import type { IntakeOperationStatus } from "@/lib/manage/intake-operations-types";
 import { isMalwareScannerConfigured } from "@/lib/security/malware-scanner";
 
+export const maxDuration = 300;
+
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function PATCH(
@@ -66,7 +68,7 @@ export async function PATCH(
         db: operator.db,
         organizationId: event.organization_id,
         eventId: id,
-        limit: 25,
+        limit: 4,
       });
     } else {
       return NextResponse.json({ error: "Unsupported intake operation." }, { status: 400 });

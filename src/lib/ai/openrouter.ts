@@ -59,6 +59,7 @@ export async function generateJson({
       temperature: Math.min(1, Math.max(0, temperature)),
       max_tokens: maxTokens,
     }),
+    signal: AbortSignal.timeout(45_000),
   });
 
   const payload = (await response.json().catch(() => null)) as OpenRouterResponse | null;

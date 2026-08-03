@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import {
   processInboundEmailJob,
   recordInboundEmailJobFailure,
+  recordInboundEmailJobYield,
+  isInboundEmailBudgetYield,
   type InboundEmailJob,
 } from "@/lib/email/inbound-intake";
 import { monitorInboundEmailQueue } from "@/lib/email/inbound-monitor";
@@ -26,12 +28,15 @@ export async function GET(request: Request) {
   }
   const jobs = (Array.isArray(data) ? data : []) as InboundEmailJob[];
   const results: Array<{ id: string; status: string }> = [];
+  const deadlineAt = Date.now() + 240_000;
   for (const job of jobs) {
     try {
-      const result = await processInboundEmailJob(job, { db });
+      const result = await processInboundEmailJob(job, { db, deadlineAt });
       results.push({ id: job.id, status: result.status });
     } catch (jobError) {
-      const decision = await recordInboundEmailJobFailure(db, job, jobError);
+      const decision = isInboundEmailBudgetYield(jobError)
+        ? await recordInboundEmailJobYield(db, job)
+        : await recordInboundEmailJobFailure(db, job, jobError);
       results.push({ id: job.id, status: decision.status });
     }
   }
