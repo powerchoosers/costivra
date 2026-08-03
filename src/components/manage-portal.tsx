@@ -35,8 +35,8 @@ import {
   IndentIncrease,
   Italic,
   LayoutDashboard,
+  Linkedin,
   Link2,
-  ExternalLink,
   List,
   ListOrdered,
   Mail,
@@ -2419,40 +2419,6 @@ function RecordTabs({
   return <nav className="manage-record-tabs" aria-label="Record sections">{tabs.map((tab) => <button type="button" key={tab.id} className={active === tab.id ? "is-active" : ""} aria-current={active === tab.id ? "page" : undefined} onClick={() => onChange(tab.id)}>{tab.label}{typeof tab.count === "number" && <span>{tab.count}</span>}</button>)}</nav>;
 }
 
-function EnrichmentRefreshButton({
-  id,
-  enabled,
-  available,
-  configured,
-}: {
-  id: string;
-  enabled: boolean;
-  available: boolean;
-  configured: boolean;
-}) {
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
-  const toast = useToast();
-  const label = "Refresh company profile";
-  const unavailableCopy = "Add an account website before looking up a company profile.";
-  if (!available) return <span className="manage-record-source-note">Apollo enrichment is ready after the CRM migration is applied.</span>;
-  if (!configured) return <span className="manage-record-source-note">Add the server-side Apollo key before refreshing company profiles.</span>;
-  return <button className="manage-button manage-button--quiet manage-record-refresh" type="button" disabled={busy || !enabled} title={!enabled ? unavailableCopy : label} onClick={async () => {
-    setBusy(true);
-    try {
-      const response = await fetch(`/api/manage/accounts/${id}/enrichment`, { method: "POST" });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(payload?.error || "The profile could not be refreshed.");
-      toast.success(payload?.cached ? "Profile is already current" : "Profile refreshed");
-      router.refresh();
-    } catch (error) {
-      toast.error("Couldn’t refresh profile", error instanceof Error ? error.message : "Try again later.");
-    } finally {
-      setBusy(false);
-    }
-  }}><RefreshCw size={14} className={busy ? "spin" : undefined} /> {busy ? "Refreshing…" : label}</button>;
-}
-
 function money(value: number | null, currency: string) {
   if (value == null) return "Not recorded";
   try {
@@ -2487,24 +2453,32 @@ function VendorWorkspace({ vendors, expenses, contracts, documents, currency, se
   return <section className="manage-vendor-workspace"><div className="manage-vendor-workspace__collection"><header><div><span>Vendor directory</span><h3>{vendors.length} linked vendor{vendors.length === 1 ? "" : "s"}</h3></div></header><VendorList vendors={vendors} selectedId={selected.id} onSelect={onSelect} currency={currency} /></div><article className="manage-vendor-detail"><header className="manage-vendor-detail__heading"><CompanyLogo entity="vendor" id={selected.vendorId} name={selected.name} className="manage-vendor-detail__logo" /><div><span>Vendor detail</span><h3>{selected.name}</h3><p>{selected.category ? pretty(selected.category) : "Uncategorized"} · {pretty(selected.relationshipStatus)}</p></div>{selected.website && <a href={selected.website.startsWith("http") ? selected.website : `https://${selected.website}`} target="_blank" rel="noreferrer">Website <ChevronRight size={14} /></a>}</header><div className="manage-vendor-detail__metrics"><div><span>Recorded spend</span><strong>{money(selected.recordedSpend, currency)}</strong></div><div><span>Annualized spend</span><strong>{money(selected.annualizedSpend, currency)}</strong></div><div><span>Expense records</span><strong>{selected.expenseCount}</strong></div><div><span>Contracts</span><strong>{selected.contractCount}</strong></div></div><CostTrend title={`${selected.name} cost history`} expenses={vendorExpenses} currency={currency} /><section className="manage-vendor-detail__section"><header><h4>Associated details</h4><p>Current records connected to this vendor relationship.</p></header><dl><div><dt>Spend cadence</dt><dd>{pretty(selected.spendCadence)}</dd></div><div><dt>Next contract end</dt><dd>{selected.nextContractEnd ? date(selected.nextContractEnd) : "Not recorded"}</dd></div><div><dt>Source documents</dt><dd>{vendorDocuments.length}</dd></div></dl></section>{vendorContracts.length > 0 && <section className="manage-vendor-detail__section"><header><h4>Contracts</h4><p>Contract dates and values are shown as recorded.</p></header><div className="manage-vendor-contracts">{vendorContracts.map((contract) => <div key={contract.id}><span><strong>{contract.title}</strong><small>{contract.category ? pretty(contract.category) : "Uncategorized"} · {pretty(contract.status)}</small></span><span><strong>{money(contract.annualValue, contract.currency || currency)}</strong><small>{contract.endDate ? `Ends ${date(contract.endDate)}` : "End date not recorded"}{contract.autoRenews ? " · Auto-renews" : ""}</small></span></div>)}</div></section>}</article></section>;
 }
 
-function compactUrl(value: string) {
+function externalHref(value: string | null | undefined) {
+  if (!value) return null;
   try {
-    const url = new URL(value);
-    return url.hostname.replace(/^www\./, "");
+    const url = new URL(value.includes("://") ? value : `https://${value}`);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
   } catch {
-    return value.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    return null;
   }
 }
 
+function RecordHeaderLinks({ website, linkedinUrl, entityName }: { website: string | null | undefined; linkedinUrl: string | null | undefined; entityName: string }) {
+  const websiteHref = externalHref(website);
+  const linkedinHref = externalHref(linkedinUrl);
+  if (!websiteHref && !linkedinHref) return null;
+  return <span className="manage-record-title-links" aria-label={`${entityName} links`}>
+    {websiteHref && <a href={websiteHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} website`} title="Website"><Globe2 size={16} /></a>}
+    {linkedinHref && <a href={linkedinHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} LinkedIn profile`} title="LinkedIn"><Linkedin size={16} /></a>}
+  </span>;
+}
+
 function AccountHeaderMeta({ account, profile }: { account: ManageAccount; profile: ManageAccount["enrichment"] }) {
-  const website = profile?.website || account.website;
   const phone = profile?.phone;
   const phoneHref = phone?.replace(/[^+\d]/g, "");
   return <div className="manage-record-identity-meta" aria-label="Company contact details">
     {profile?.location && <span title="Headquarters location"><MapPin size={13} />{profile.location}</span>}
-    {website && <a href={website} target="_blank" rel="noreferrer" title="Company website"><Globe2 size={13} />{compactUrl(website)}</a>}
     {phone && phoneHref && <a href={`tel:${phoneHref}`} title={`Call ${phone}`}><Phone size={13} />{phone}</a>}
-    {profile?.linkedinUrl && <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" title="LinkedIn company profile"><ExternalLink size={13} />LinkedIn</a>}
   </div>;
 }
 
@@ -2561,7 +2535,7 @@ function AccountOverview({
       <section className="manage-record-profile">
         <div>
           <span>Company profile</span>
-          <h3>{profile ? "Apollo enrichment · internal CRM context" : "Account context"}</h3>
+          <h3>Short Description</h3>
           <p>{profileSummary}</p>
         </div>
         {profile && <div className="manage-record-profile-data">
@@ -2611,7 +2585,7 @@ function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; a
   const accountTabs = [{ id: "overview", label: "Overview" }, { id: "vendors", label: "Vendors", count: vendors.length }, { id: "people", label: "People", count: contacts.length }, { id: "files", label: "Files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Work", count: tasks.length }];
   return <div className="manage-detail-page manage-record-page motion-page">
     <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
-    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><p>Client account</p><h2>{account.name}</h2><span>{account.legalName || account.industry || "Account profile"}</span><AccountHeaderMeta account={account} profile={profile} /></div></div><div className="manage-record-actions"><EnrichmentRefreshButton id={account.id} enabled={Boolean(account.website)} available={data.enrichmentAvailable} configured={data.enrichmentConfigured} /><Link href={`/manage/accounts?account=${account.id}`} className="manage-button manage-button--quiet">Open list</Link></div></header>
+    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><p>Client account</p><h2>{account.name} <RecordHeaderLinks website={profile?.website || account.website} linkedinUrl={profile?.linkedinUrl} entityName={account.name} /></h2><span>{account.legalName || account.industry || "Account profile"}</span><AccountHeaderMeta account={account} profile={profile} /></div></div></header>
     <section className="manage-record-highlights" aria-label="Account highlights"><div><span>Lifecycle</span><Status value={account.stage || "unclassified"} /></div><div><span>Next step</span><strong>{account.nextStep || "Not set"}</strong></div><div><span>Follow-up</span><strong>{account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled"}</strong></div><div><span>Vendors</span><strong>{vendors.length}</strong></div><div><span>Open work</span><strong>{account.openTaskCount}</strong></div><div><span>Evidence files</span><strong>{documents.length}</strong></div></section>
     <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
     {active === "overview" && <AccountOverview account={account} profile={profile} profileSummary={profileSummary} vendors={vendors} expenses={expenses} documents={documents} contacts={contacts} setSelectedVendorId={setSelectedVendorId} setActive={setActive} />}
@@ -2627,11 +2601,12 @@ function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; c
   const contact = data.contacts.find((item) => item.id === contactId);
   const [active, setActive] = useState("overview");
   if (!contact) return <Empty icon={Users} title="Contact not found" copy="This contact may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/contacts"><ArrowLeft size={15} /> Back to contacts</Link>} />;
+  const contactAccount = data.accounts.find((account) => account.id === contact.organizationId);
   const activities = data.activities.filter((item) => item.organizationId === contact.organizationId);
   const tasks = data.tasks.filter((item) => item.organizationId === contact.organizationId && item.contactId === contact.id);
   const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
   const tabs = [{ id: "overview", label: "Overview" }, { id: "files", label: "Shared files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Tasks", count: tasks.length }];
-  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName}</h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-record-action-icon manage-record-action-icon--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={17} /></button>{contact.phone && <a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={17} /></a>}</div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-record-account-link" title={`Open ${contact.organizationName}`}><CompanyLogo entity="organization" id={contact.organizationId} name={contact.organizationName} className="manage-record-account-logo" /><span><small>Account</small><strong>{contact.organizationName}</strong></span></Link></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
+  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName} <RecordHeaderLinks website={contactAccount?.enrichment?.website || contactAccount?.website} linkedinUrl={contactAccount?.enrichment?.linkedinUrl} entityName={contact.fullName} /></h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-record-action-icon manage-record-action-icon--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={17} /></button>{contact.phone && <a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={17} /></a>}</div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-record-account-link" title={`Open ${contact.organizationName}`}><CompanyLogo entity="organization" id={contact.organizationId} name={contact.organizationName} className="manage-record-account-logo" /><span><small>Account</small><strong>{contact.organizationName}</strong></span></Link></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
     {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Contact details</span><dl><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd><button type="button" className="manage-contact-email" onClick={() => onCompose(contact)} title={`Compose an email to ${contact.fullName}`}>{contact.email}</button></dd></div><div><dt>Phone</dt><dd>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="manage-contact-phone" title={`Call ${contact.phone}`}>{contact.phone}</a> : "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main></div>}
     {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} emptyCopy="No account source files are available to this internal record yet." />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
