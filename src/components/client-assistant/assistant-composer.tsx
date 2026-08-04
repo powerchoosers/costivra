@@ -98,10 +98,23 @@ export function AssistantComposer() {
 
         <button
           type="button"
-          className="assistant-trigger-btn active"
           onClick={handleSend}
           disabled={(!text.trim() && state.pendingAttachments.length === 0) || state.sending}
-          style={{ padding: "8px 12px", height: 40, marginBottom: 2 }}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            border: "none",
+            background: (!text.trim() && state.pendingAttachments.length === 0) || state.sending ? "rgba(0,47,167,0.3)" : "var(--assistant-accent)",
+            color: "#ffffff",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: (!text.trim() && state.pendingAttachments.length === 0) || state.sending ? "not-allowed" : "pointer",
+            flexShrink: 0,
+            transition: "all 160ms ease",
+          }}
+          title="Send prompt"
         >
           {state.sending ? <LoaderCircle size={16} className="spin" /> : <Send size={16} />}
         </button>

@@ -30,7 +30,7 @@ import { useToast } from "@/components/toast-provider";
 import type { PortalData } from "@/lib/portal/types";
 import { createClient } from "@/lib/supabase/client";
 
-import { ClientAssistantProvider } from "@/components/client-assistant/client-assistant-provider";
+import { ClientAssistantProvider, useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { ClientAssistantTrigger } from "@/components/client-assistant/client-assistant-trigger";
 import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
 
@@ -50,7 +50,9 @@ const navigation = [
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 
-export function AppShell({ children, data }: { children: ReactNode; data: PortalData }) {
+function AppShellContent({ children, data }: { children: ReactNode; data: PortalData }) {
+  const { state: assistantState } = useClientAssistant();
+  const isDrawerOpen = assistantState.mode === "drawer";
   const pathname = usePathname();
   const router = useRouter();
   const toast = useToast();
@@ -154,8 +156,13 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
     }
   }
   return (
-    <ClientAssistantProvider>
-      <div className="app-body">
+    <div
+      className={`app-body${isDrawerOpen ? " has-assistant-drawer" : ""}`}
+      style={{
+        transition: "margin-right 320ms cubic-bezier(0.16, 1, 0.3, 1)",
+        marginRight: isDrawerOpen ? 440 : 0,
+      }}
+    >
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <aside
           className="app-sidebar"
@@ -361,6 +368,13 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
       )}
       <ClientAssistantSurface />
     </div>
+  );
+}
+
+export function AppShell({ children, data }: { children: ReactNode; data: PortalData }) {
+  return (
+    <ClientAssistantProvider>
+      <AppShellContent children={children} data={data} />
     </ClientAssistantProvider>
   );
 }

@@ -10,14 +10,27 @@ export function ClientAssistantTrigger() {
   return (
     <button
       type="button"
-      className={`assistant-trigger-btn ${isOpen ? "active" : ""}`}
+      className={`button button-quiet assistant-trigger-btn-circle ${isOpen ? "active" : ""}`}
       onClick={() => (isOpen ? closeAssistant() : openDrawer())}
       aria-expanded={isOpen}
       aria-label="Ask Costivra assistant"
       title="Ask Costivra (Cmd+Shift+K)"
+      style={{
+        position: "relative",
+        borderRadius: "50%",
+        width: 40,
+        height: 40,
+        padding: 0,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: isOpen ? "var(--assistant-accent)" : "#ffffff",
+        border: "1px solid #e2e8f0",
+        cursor: "pointer",
+        transition: "all 180ms ease",
+      }}
     >
-      <CostivraMark size={16} />
-      <span className="hide-mobile">Ask Costivra</span>
+      <CostivraMark size={20} />
     </button>
   );
 }

@@ -11,13 +11,15 @@ export function MessageThread() {
 
   if (messages.length === 0) {
     return (
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: 30, textAlign: "center" }}>
-        <CostivraMark size={40} />
-        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "16px 0 6px" }}>Ask Costivra</h3>
-        <p className="muted" style={{ fontSize: "0.85rem", maxWidth: 360, margin: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "24px 20px", textAlign: "center" }}>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#ffffff", border: "1px solid #e2e8f0", display: "grid", placeItems: "center", boxShadow: "0 4px 12px rgba(15,23,42,0.04)", marginBottom: 12 }}>
+          <CostivraMark size={28} />
+        </div>
+        <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 6px", color: "var(--assistant-text)" }}>Ask Costivra</h3>
+        <p className="muted" style={{ fontSize: "0.82rem", maxWidth: 320, margin: 0, lineHeight: 1.5 }}>
           Ask questions about your business bills, contracts, and spend, or attach an invoice for an instant review.
         </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 24, width: "100%", maxWidth: 340 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20, width: "100%", maxWidth: 320 }}>
           {[
             "Summarize our latest recurring expenses.",
             "Which contracts have notice deadlines approaching?",
@@ -27,7 +29,7 @@ export function MessageThread() {
               key={prompt}
               type="button"
               className="button button-quiet"
-              style={{ fontSize: "0.82rem", textAlign: "left", justifyContent: "flex-start" }}
+              style={{ fontSize: "0.8rem", textAlign: "left", justifyContent: "flex-start", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#ffffff" }}
               onClick={() => sendMessage(prompt)}
             >
               {prompt}

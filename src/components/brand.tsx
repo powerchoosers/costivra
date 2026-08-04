@@ -3,7 +3,15 @@ import Link from "next/link";
 
 export function CostivraMark({ size = 34 }: { size?: number }) {
   return (
-    <Image className="costivra-mark" src="/brand/costivra-circuit-mark-cropped.png" width={size} height={size} alt="" priority />
+    <Image
+      className="costivra-mark"
+      src="/brand/costivra-circuit-mark-cropped.png"
+      width={size}
+      height={size}
+      alt=""
+      priority
+      style={{ width: size, height: "auto", maxWidth: size, maxHeight: size, objectFit: "contain", flexShrink: 0 }}
+    />
   );
 }
 
