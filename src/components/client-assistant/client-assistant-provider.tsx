@@ -12,6 +12,7 @@ type AssistantState = {
   currentContext: AssistantContextRef | null;
   pendingAttachments: ClientAssistantAttachment[];
   sending: boolean;
+  error: string | null;
 };
 
 type AssistantAction =
@@ -22,10 +23,12 @@ type AssistantAction =
   | { type: "SET_MESSAGES"; messages: ClientChatMessage[] }
   | { type: "ADD_MESSAGE"; message: ClientChatMessage }
   | { type: "SET_CONTEXT"; context: AssistantContextRef | null }
-  | { type: "ADD_ATTACHMENT"; attachment: ClientAssistantAttachment }
+  | { type: "UPSERT_ATTACHMENT"; attachment: ClientAssistantAttachment }
+  | { type: "UPDATE_ATTACHMENT"; clientUploadId: string; updates: Partial<ClientAssistantAttachment> }
   | { type: "REMOVE_ATTACHMENT"; clientUploadId: string }
   | { type: "CLEAR_ATTACHMENTS" }
-  | { type: "SET_SENDING"; sending: boolean };
+  | { type: "SET_SENDING"; sending: boolean }
+  | { type: "SET_ERROR"; error: string | null };
 
 const initialState: AssistantState = {
   mode: "closed",
@@ -36,6 +39,7 @@ const initialState: AssistantState = {
   currentContext: null,
   pendingAttachments: [],
   sending: false,
+  error: null,
 };
 
 function assistantReducer(state: AssistantState, action: AssistantAction): AssistantState {
@@ -47,21 +51,38 @@ function assistantReducer(state: AssistantState, action: AssistantAction): Assis
     case "SET_SESSIONS":
       return { ...state, sessions: action.sessions };
     case "SET_ACTIVE_SESSION":
-      return { ...state, activeSessionId: action.sessionId, historyOpen: false };
+      return { ...state, activeSessionId: action.sessionId, historyOpen: false, error: null };
     case "SET_MESSAGES":
       return { ...state, messages: action.messages };
     case "ADD_MESSAGE":
       return { ...state, messages: [...state.messages, action.message] };
     case "SET_CONTEXT":
       return { ...state, currentContext: action.context };
-    case "ADD_ATTACHMENT":
+    case "UPSERT_ATTACHMENT": {
+      const idx = state.pendingAttachments.findIndex((a) => a.clientUploadId === action.attachment.clientUploadId);
+      if (idx >= 0) {
+        const next = [...state.pendingAttachments];
+        next[idx] = { ...next[idx], ...action.attachment };
+        return { ...state, pendingAttachments: next };
+      }
       return { ...state, pendingAttachments: [...state.pendingAttachments, action.attachment] };
+    }
+    case "UPDATE_ATTACHMENT": {
+      return {
+        ...state,
+        pendingAttachments: state.pendingAttachments.map((a) =>
+          a.clientUploadId === action.clientUploadId ? { ...a, ...action.updates } : a
+        ),
+      };
+    }
     case "REMOVE_ATTACHMENT":
       return { ...state, pendingAttachments: state.pendingAttachments.filter((a) => a.clientUploadId !== action.clientUploadId) };
     case "CLEAR_ATTACHMENTS":
       return { ...state, pendingAttachments: [] };
     case "SET_SENDING":
       return { ...state, sending: action.sending };
+    case "SET_ERROR":
+      return { ...state, error: action.error };
     default:
       return state;
   }
@@ -74,7 +95,7 @@ type ContextValue = {
   closeAssistant: () => void;
   toggleHistory: () => void;
   selectSession: (id: string | null) => Promise<void>;
-  createSession: () => Promise<void>;
+  createSession: () => void;
   sendMessage: (text: string) => Promise<void>;
   uploadAttachment: (file: File) => Promise<void>;
   removeAttachment: (clientUploadId: string) => void;
@@ -93,7 +114,9 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         dispatch({ type: "SET_SESSIONS", sessions: data.sessions });
       }
-    } catch {}
+    } catch (err) {
+      dispatch({ type: "SET_ERROR", error: "Failed to load chat history." });
+    }
   }, []);
 
   const selectSession = useCallback(async (sessionId: string | null) => {
@@ -108,23 +131,22 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         dispatch({ type: "SET_MESSAGES", messages: data.messages });
       }
-    } catch {}
+    } catch {
+      dispatch({ type: "SET_ERROR", error: "Failed to load session messages." });
+    }
   }, []);
 
-  const createSession = useCallback(async () => {
-    try {
-      const res = await fetch("/api/portal/chat/sessions", { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        await fetchSessions();
-        await selectSession(data.session.id);
-      }
-    } catch {}
-  }, [fetchSessions, selectSession]);
+  // Plus button creates a local blank state without immediately writing a DB row
+  const createSession = useCallback(() => {
+    dispatch({ type: "SET_ACTIVE_SESSION", sessionId: null });
+    dispatch({ type: "SET_MESSAGES", messages: [] });
+    dispatch({ type: "CLEAR_ATTACHMENTS" });
+  }, []);
 
   const sendMessage = useCallback(async (text: string) => {
     let sessId = state.activeSessionId;
     if (!sessId) {
+      // Lazy-create session on first turn
       const res = await fetch("/api/portal/chat/sessions", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
@@ -136,6 +158,9 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
     if (!sessId) return;
 
     dispatch({ type: "SET_SENDING", sending: true });
+    dispatch({ type: "SET_ERROR", error: null });
+
+    const docIds = state.pendingAttachments.map((a) => a.documentId).filter((id): id is string => Boolean(id));
 
     // Client User Message Optimistic
     const optUserMsg: ClientChatMessage = {
@@ -145,11 +170,9 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
       content: text,
       status: "complete",
       createdAt: new Date().toISOString(),
-      attachedDocumentIds: state.pendingAttachments.map((a) => a.documentId).filter((id): id is string => Boolean(id)),
+      attachedDocumentIds: docIds,
     };
     dispatch({ type: "ADD_MESSAGE", message: optUserMsg });
-
-    const docIds = state.pendingAttachments.map((a) => a.documentId).filter((id): id is string => Boolean(id));
     dispatch({ type: "CLEAR_ATTACHMENTS" });
 
     try {
@@ -167,8 +190,13 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         dispatch({ type: "ADD_MESSAGE", message: data.assistantMessage });
+        await fetchSessions();
+      } else {
+        const errData = await res.json().catch(() => null);
+        dispatch({ type: "SET_ERROR", error: errData?.error || "Failed to send message." });
       }
     } catch {
+      dispatch({ type: "SET_ERROR", error: "Connection error while generating response." });
     } finally {
       dispatch({ type: "SET_SENDING", sending: false });
     }
@@ -177,7 +205,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
   const uploadAttachment = useCallback(async (file: File) => {
     const clientUploadId = crypto.randomUUID();
     dispatch({
-      type: "ADD_ATTACHMENT",
+      type: "UPSERT_ATTACHMENT",
       attachment: {
         clientUploadId,
         file,
@@ -201,20 +229,29 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         dispatch({
-          type: "ADD_ATTACHMENT",
-          attachment: {
-            clientUploadId,
+          type: "UPDATE_ATTACHMENT",
+          clientUploadId,
+          updates: {
             documentId: data.documentId,
-            filename: file.name,
-            byteSize: file.size,
-            mimeType: file.type,
             status: data.outcome === "processed" || data.outcome === "duplicate" ? "processed" : "rejected",
             invoiceId: data.invoiceId,
             reviewStatus: data.reviewStatus,
           },
         });
+      } else {
+        dispatch({
+          type: "UPDATE_ATTACHMENT",
+          clientUploadId,
+          updates: { status: "failed" },
+        });
       }
-    } catch {}
+    } catch {
+      dispatch({
+        type: "UPDATE_ATTACHMENT",
+        clientUploadId,
+        updates: { status: "failed" },
+      });
+    }
   }, []);
 
   const removeAttachment = useCallback((clientUploadId: string) => {

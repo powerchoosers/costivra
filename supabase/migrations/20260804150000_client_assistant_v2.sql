@@ -1,5 +1,5 @@
 -- Migration: 20260804150000_client_assistant_v2.sql
--- Description: Client Assistant V2 schema enhancements, chat attachments, global vendor/category discovery pipeline, and RLS policies.
+-- Description: Client Assistant V2 schema enhancements, personal chat attachments, global vendor/category discovery pipeline, and RLS policies.
 
 -- 1. Chat Sessions Enhancements
 ALTER TABLE public.chat_sessions
@@ -27,7 +27,8 @@ ALTER TABLE public.chat_messages
   ADD COLUMN IF NOT EXISTS model_identifier TEXT NULL,
   ADD COLUMN IF NOT EXISTS trace_id UUID NULL,
   ADD COLUMN IF NOT EXISTS error_code TEXT NULL,
-  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ NULL;
+  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ NULL,
+  ADD COLUMN IF NOT EXISTS reply_to_message_id UUID NULL REFERENCES public.chat_messages(id);
 
 -- Idempotency index for message turns
 CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_messages_client_request
@@ -46,15 +47,18 @@ CREATE TABLE IF NOT EXISTS public.chat_message_documents (
 
 ALTER TABLE public.chat_message_documents ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS chat_message_documents_select_member ON public.chat_message_documents;
+
 CREATE POLICY chat_message_documents_select_member ON public.chat_message_documents
   FOR SELECT TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.chat_messages cm
       JOIN public.chat_sessions cs ON cs.id = cm.session_id
-      JOIN public.organization_memberships om ON om.organization_id = cs.organization_id
+      JOIN public.memberships om ON om.organization_id = cs.organization_id
       WHERE cm.id = chat_message_documents.message_id
         AND om.user_id = auth.uid()
+        AND cs.user_id = auth.uid()
     )
   );
 
@@ -74,6 +78,8 @@ CREATE TABLE IF NOT EXISTS public.vendor_categories (
 );
 
 ALTER TABLE public.vendor_categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS vendor_categories_read_authenticated ON public.vendor_categories;
 
 CREATE POLICY vendor_categories_read_authenticated ON public.vendor_categories
   FOR SELECT TO authenticated
@@ -97,6 +103,8 @@ CREATE TABLE IF NOT EXISTS public.vendor_domains (
 CREATE INDEX IF NOT EXISTS idx_vendor_domains_normalized ON public.vendor_domains (normalized_domain);
 
 ALTER TABLE public.vendor_domains ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS vendor_domains_read_authenticated ON public.vendor_domains;
 
 CREATE POLICY vendor_domains_read_authenticated ON public.vendor_domains
   FOR SELECT TO authenticated
@@ -135,7 +143,9 @@ CREATE TABLE IF NOT EXISTS public.vendor_enrichment_runs (
 );
 
 ALTER TABLE public.vendor_enrichment_runs ENABLE ROW LEVEL SECURITY;
--- Server-only access policy (no browser reads)
+
+DROP POLICY IF EXISTS vendor_enrichment_runs_deny_all ON public.vendor_enrichment_runs;
+
 CREATE POLICY vendor_enrichment_runs_deny_all ON public.vendor_enrichment_runs
   FOR ALL TO authenticated USING (false);
 

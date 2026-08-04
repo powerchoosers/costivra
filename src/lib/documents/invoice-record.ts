@@ -1,90 +1,11 @@
 import type { DocumentIntelligence } from "@/lib/ai/document-intelligence";
-import { findExactVendorMatches, reconcileInvoice } from "@/lib/domain/invoices";
+import { reconcileInvoice } from "@/lib/domain/invoices";
 import { classifyInvoiceReview } from "@/lib/domain/invoice-review";
+import { resolveVendorAndCategory } from "@/lib/vendors/resolve";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
 type SourceType = "manual_upload" | "email_forwarding" | "provider_integration";
-type Row = Record<string, unknown>;
-
-async function resolveVendor(input: {
-  db: DatabaseClient;
-  organizationId: string;
-  providedRelationshipId?: string | null;
-  vendorName: string | null;
-}) {
-  const { data: relationships, error: relationshipError } = await input.db
-    .from("organization_vendors")
-    .select("id,vendor_id,vendors(category)")
-    .eq("organization_id", input.organizationId);
-  if (relationshipError) throw relationshipError;
-
-  const relationshipRows = (relationships ?? []) as Row[];
-  if (input.providedRelationshipId) {
-    const provided = relationshipRows.find(
-      (row) => row.id === input.providedRelationshipId,
-    );
-    if (!provided) throw new Error("The supplied vendor relationship is outside this organization.");
-    const vendor = vendorByRelationship(relationshipRows, input.providedRelationshipId);
-    return {
-      relationshipId: input.providedRelationshipId,
-      status: "provided" as const,
-      category: typeof vendor?.category === "string" ? vendor.category : null,
-    };
-  }
-
-  if (!input.vendorName || !relationshipRows.length) {
-    return { relationshipId: null, status: "unmatched" as const, category: null };
-  }
-
-  const vendorIds = relationshipRows
-    .map((row) => row.vendor_id)
-    .filter((value): value is string => typeof value === "string");
-  const { data: vendors, error: vendorError } = await input.db
-    .from("vendors")
-    .select("id,canonical_name,category,search_aliases")
-    .in("id", vendorIds);
-  if (vendorError) throw vendorError;
-
-  const vendorById = new Map(
-    ((vendors ?? []) as Row[]).map((vendor) => [vendor.id, vendor]),
-  );
-  const matches = findExactVendorMatches(
-    input.vendorName,
-    relationshipRows.flatMap((relationship) => {
-      const vendor = vendorById.get(relationship.vendor_id);
-      if (!vendor || typeof relationship.id !== "string") return [];
-      return [{
-        relationshipId: relationship.id,
-        canonicalName: typeof vendor.canonical_name === "string" ? vendor.canonical_name : "",
-        aliases: Array.isArray(vendor.search_aliases)
-          ? vendor.search_aliases.filter((alias): alias is string => typeof alias === "string")
-          : [],
-      }];
-    }),
-  );
-
-  if (matches.length === 1) {
-    const relationship = relationshipRows.find((row) => row.id === matches[0]);
-    const matchedVendor = relationship ? vendorById.get(relationship.vendor_id) : null;
-    return {
-      relationshipId: matches[0],
-      status: "exact" as const,
-      category: typeof matchedVendor?.category === "string" ? matchedVendor.category : null,
-    };
-  }
-  if (matches.length > 1) return { relationshipId: null, status: "ambiguous" as const, category: null };
-  return { relationshipId: null, status: "unmatched" as const, category: null };
-}
-
-function vendorByRelationship(relationships: Row[], relationshipId: string) {
-  const relationship = relationships.find((row) => row.id === relationshipId);
-  if (!relationship) return null;
-  const vendor = Array.isArray(relationship.vendors)
-    ? relationship.vendors[0]
-    : relationship.vendors;
-  return vendor && typeof vendor === "object" ? (vendor as Row) : null;
-}
 
 export async function createInvoiceRecordFromExtraction(input: {
   db: DatabaseClient;
@@ -100,22 +21,25 @@ export async function createInvoiceRecordFromExtraction(input: {
     return null;
   }
 
-  const vendor = await resolveVendor({
+  // Call shared 8-step vendor and category resolver
+  const vendorResult = await resolveVendorAndCategory({
     db: input.db,
     organizationId: input.organizationId,
+    extractedName: input.intelligence.vendorName || "Unknown Vendor",
     providedRelationshipId: input.providedRelationshipId,
-    vendorName: input.intelligence.vendorName,
+    documentId: input.documentId,
   });
+
   const reconciliation = reconcileInvoice(candidate);
   const review = classifyInvoiceReview({
-    hasVendor: Boolean(vendor.relationshipId),
+    hasVendor: Boolean(vendorResult.organizationVendorId),
     invoiceNumber: candidate.invoiceNumber,
     invoiceDate: candidate.invoiceDate,
     servicePeriodStart: candidate.servicePeriodStart,
     servicePeriodEnd: candidate.servicePeriodEnd,
     currency: input.intelligence.currency,
     totalAmount: candidate.totalAmount,
-    expenseCategory: vendor.category,
+    expenseCategory: vendorResult.categoryName,
     reconciliationStatus: reconciliation.status,
     confidence: input.intelligence.confidence,
   });
@@ -125,7 +49,7 @@ export async function createInvoiceRecordFromExtraction(input: {
     .from("invoices")
     .insert({
       organization_id: input.organizationId,
-      organization_vendor_id: vendor.relationshipId,
+      organization_vendor_id: vendorResult.organizationVendorId,
       document_id: input.documentId,
       extraction_version_id: input.extractionVersionId,
       invoice_number: candidate.invoiceNumber,
@@ -142,9 +66,12 @@ export async function createInvoiceRecordFromExtraction(input: {
       credit_total: candidate.creditTotal,
       total_amount: candidate.totalAmount,
       amount_due: candidate.amountDue,
-      expense_category: vendor.category,
+      expense_category: vendorResult.categoryName,
+      expense_category_id: vendorResult.categoryId,
       extraction_confidence: input.intelligence.confidence,
-      vendor_match_status: vendor.status,
+      vendor_match_confidence: vendorResult.confidence,
+      vendor_resolution_method: vendorResult.resolutionMethod,
+      vendor_match_status: vendorResult.matchStatus,
       reconciliation_status: reconciliation.status,
       reconciliation_difference: reconciliation.difference,
       review_status: reviewStatus,
@@ -154,6 +81,7 @@ export async function createInvoiceRecordFromExtraction(input: {
         schemaVersion: "invoice-v1",
         reconciliationChecks: reconciliation.checks,
         extractedVendorName: input.intelligence.vendorName,
+        isCandidateVendor: vendorResult.isCandidate,
       },
     })
     .select("id")
@@ -181,10 +109,10 @@ export async function createInvoiceRecordFromExtraction(input: {
     }
   }
 
-  if (vendor.relationshipId) {
+  if (vendorResult.organizationVendorId) {
     const { error: documentVendorError } = await input.db
       .from("documents")
-      .update({ organization_vendor_id: vendor.relationshipId })
+      .update({ organization_vendor_id: vendorResult.organizationVendorId })
       .eq("id", input.documentId)
       .eq("organization_id", input.organizationId);
     if (documentVendorError) throw documentVendorError;
@@ -193,7 +121,7 @@ export async function createInvoiceRecordFromExtraction(input: {
   return {
     invoiceId: invoice.id as string,
     reviewStatus,
-    vendorMatchStatus: vendor.status,
+    vendorMatchStatus: vendorResult.matchStatus,
     reconciliationStatus: reconciliation.status,
   };
 }

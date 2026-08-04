@@ -877,3 +877,9 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added Supabase-backed manage locations with map links/previews, multi-site location lists, and a parent/child account relationship editor.
 - Added migration `20260803220625_manage_account_relationships.sql` for `organizations.parent_organization_id`.
 - Browser QA passed locally on the account, contact, and client Settings pages at desktop width. `npm run typecheck` passed. The migration was applied to project `skfocjrykyvsaviyhdea` and verified with an information-schema query. Supabase advisors returned one existing Auth warning and existing unused-index notices; the new parent index is listed as unused until hierarchy data is created.
+# 2026-08-04 — Full HTML email reading in Manage
+
+- The Manage mail reader now renders stored HTML email in an isolated iframe instead of reducing every message to its plain-text fallback. Email layout, tables, inline styling, and links remain visible without being able to alter the CRM page.
+- Remote images are blocked by default to prevent invisible tracking requests. Operators can explicitly load them for an individual message, and links open in a separate tab with no referrer.
+- Added focused viewer-document tests covering content isolation, external-image policy, text fallback, and removal of email-provided document-control tags.
+- Validation passed: `npm run typecheck`, `npm run lint`, focused Manage mail/viewer tests (12 passing), and `git diff --check`. The local app started on port 3000, but in-app browser attachment timed out before visual QA could run; a browser read-through remains the only uncompleted check.

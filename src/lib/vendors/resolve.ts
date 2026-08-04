@@ -28,6 +28,10 @@ export type VendorResolutionResult = {
   needsReview: boolean;
 };
 
+function getVendorDisplayName(v: { name?: string | null; canonical_name?: string | null } | null | undefined): string {
+  return v?.canonical_name || v?.name || "";
+}
+
 /**
  * Shared 8-step vendor and category discovery & resolution pipeline:
  * 1. Provided relationship hint
@@ -60,13 +64,13 @@ export async function resolveVendorAndCategory(
   if (providedRelationshipId) {
     const { data: rel } = await db
       .from("organization_vendors")
-      .select("id, vendor_id, vendors(name, category)")
+      .select("id, vendor_id, vendors(id, name, canonical_name, category)")
       .eq("id", providedRelationshipId)
       .eq("organization_id", organizationId)
       .maybeSingle();
 
     if (rel && rel.vendor_id) {
-      const vendorData = rel.vendors as unknown as { name?: string; category?: string } | null;
+      const vendorData = rel.vendors as unknown as { id?: string; name?: string; canonical_name?: string; category?: string } | null;
       return {
         vendorId: rel.vendor_id,
         organizationVendorId: rel.id,
@@ -85,13 +89,14 @@ export async function resolveVendorAndCategory(
   if (normalizedExtractedName) {
     const { data: orgVendors } = await db
       .from("organization_vendors")
-      .select("id, vendor_id, vendors(id, name, normalized_name, category)")
+      .select("id, vendor_id, vendors(id, name, canonical_name, normalized_name, category)")
       .eq("organization_id", organizationId);
 
     if (orgVendors && orgVendors.length > 0) {
       for (const ov of orgVendors) {
-        const v = ov.vendors as unknown as { id: string; name: string; normalized_name?: string; category?: string } | null;
-        if (v && (normalizeVendorName(v.name) === normalizedExtractedName || (v.normalized_name && normalizeVendorName(v.normalized_name) === normalizedExtractedName))) {
+        const v = ov.vendors as unknown as { id: string; name?: string; canonical_name?: string; normalized_name?: string; category?: string } | null;
+        const dispName = getVendorDisplayName(v);
+        if (v && (normalizeVendorName(dispName) === normalizedExtractedName || (v.normalized_name && normalizeVendorName(v.normalized_name) === normalizedExtractedName))) {
           return {
             vendorId: v.id,
             organizationVendorId: ov.id,
@@ -112,8 +117,8 @@ export async function resolveVendorAndCategory(
   if (normalizedExtractedName) {
     const { data: catalogVendors } = await db
       .from("vendors")
-      .select("id, name, normalized_name, category, catalog_status")
-      .or(`name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName}`)
+      .select("id, name, canonical_name, normalized_name, category, catalog_status")
+      .or(`name.ilike.${extractedName},canonical_name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName}`)
       .limit(5);
 
     if (catalogVendors && catalogVendors.length === 1) {
@@ -137,12 +142,12 @@ export async function resolveVendorAndCategory(
   if (normalizedDomains.length > 0) {
     const { data: domainMatches } = await db
       .from("vendor_domains")
-      .select("vendor_id, domain, vendors(id, name, category, catalog_status)")
+      .select("vendor_id, domain, vendors(id, name, canonical_name, category, catalog_status)")
       .in("normalized_domain", normalizedDomains)
       .limit(5);
 
     if (domainMatches && domainMatches.length === 1) {
-      const v = (domainMatches[0] as unknown as { vendors: { id: string; name: string; category?: string; catalog_status: string } }).vendors;
+      const v = (domainMatches[0] as unknown as { vendors: { id: string; name?: string; canonical_name?: string; category?: string; catalog_status: string } }).vendors;
       if (v) {
         const orgRelId = await ensureOrganizationRelationship(db, organizationId, v.id);
         return {
@@ -201,7 +206,7 @@ export async function resolveVendorAndCategory(
   const { data: existingVendor } = await db
     .from("vendors")
     .select("id, catalog_status")
-    .eq("name", targetName)
+    .or(`name.eq.${targetName},canonical_name.eq.${targetName}`)
     .maybeSingle();
 
   let vendorId: string;
@@ -215,6 +220,7 @@ export async function resolveVendorAndCategory(
       .from("vendors")
       .insert({
         name: targetName,
+        canonical_name: targetName,
         normalized_name: normalizeVendorName(targetName),
         category: targetCategory,
         category_id: categoryId,

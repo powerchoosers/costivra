@@ -79,6 +79,7 @@ import type {
   ManageLocation,
   ManageVendorRelationship,
 } from "@/lib/manage/types";
+import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/toast-provider";
 import { CostivraMark } from "@/components/brand";
@@ -3619,7 +3620,17 @@ function ThreadMessage({
   onReply: () => void;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
+  const [blockExternalImages, setBlockExternalImages] = useState(true);
   const timestamp = message.sentAt || message.receivedAt || message.createdAt;
+  const emailDocument = useMemo(
+    () =>
+      buildEmailViewerDocument({
+        htmlBody: message.htmlBody,
+        textBody: message.textBody,
+        blockExternalImages,
+      }),
+    [blockExternalImages, message.htmlBody, message.textBody],
+  );
 
   return (
     <article className={`manage-message${open ? " is-open" : ""}`}>
@@ -3651,7 +3662,25 @@ function ThreadMessage({
         aria-hidden={!open}
       >
         <div className="manage-message-content">
-          <pre>{message.textBody || "No plain-text body was available."}</pre>
+          <div className="manage-message-viewer-tools">
+            <span>{message.htmlBody ? "HTML email" : "Plain-text email"}</span>
+            {message.htmlBody && (
+              <button
+                type="button"
+                onClick={() => setBlockExternalImages((value) => !value)}
+                aria-pressed={!blockExternalImages}
+              >
+                {blockExternalImages ? "Load remote images" : "Block remote images"}
+              </button>
+            )}
+          </div>
+          <iframe
+            className="manage-message-viewer"
+            srcDoc={emailDocument}
+            title={`Email: ${message.subject || "No subject"}`}
+            sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+            referrerPolicy="no-referrer"
+          />
           {message.attachments.length > 0 && (
             <div className="manage-attachments">
               {message.attachments.map((attachment) => {

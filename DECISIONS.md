@@ -650,3 +650,16 @@ Use a right-side, independently scrollable context rail on overview pages. Keep 
 ### Consequences
 
 The main record stays calm and scannable while relationship actions remain close at hand. Parent-company links are stored as an explicit self-reference on organizations, with server validation against self-parenting and unknown accounts. The client workspace continues to manage locations in Settings, which is the correct permission boundary for adding and archiving sites.
+## 2026-08-04 — Isolate inbound email HTML in a sandboxed viewer
+
+### Context
+
+The Manage mail reader displayed only the plain-text fallback even when the mailbox had retained a complete HTML message. Rendering that markup directly in the CRM would let untrusted email styles affect the operator workspace and could enable tracking or executable behavior.
+
+### Decision
+
+Render each message in an iframe using `srcDoc`, a restrictive Content Security Policy, and a sandbox without script permission. The viewer preserves the email's own layout while preventing it from accessing or changing the parent application. External images are blocked by default and require an explicit per-message operator action; every link opens in a new tab without a referrer.
+
+### Consequences
+
+Operators can read real HTML emails, including conventional table-based designs, while normal tracking pixels are not contacted on open. The iframe is intentionally scrollable rather than dynamically measuring its document height, avoiding a broader same-origin interaction surface and keeping long emails usable.

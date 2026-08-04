@@ -155,13 +155,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     }
   }
   return (
-    <div
-      className={`app-body${isDrawerOpen ? " has-assistant-drawer" : ""}`}
-      style={{
-        transition: "margin-right 320ms cubic-bezier(0.16, 1, 0.3, 1)",
-        marginRight: isDrawerOpen ? 440 : 0,
-      }}
-    >
+    <div className={`app-body${isDrawerOpen ? " has-assistant-drawer" : ""}`}>
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <aside
           className="app-sidebar"
