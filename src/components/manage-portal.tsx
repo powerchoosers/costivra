@@ -35,6 +35,7 @@ import {
   IndentIncrease,
   Italic,
   LayoutDashboard,
+  LoaderCircle,
   Link2,
   List,
   ListOrdered,
@@ -58,6 +59,7 @@ import {
   Send,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   Star,
   Strikethrough,
   Trash2,
@@ -3621,6 +3623,9 @@ function ThreadMessage({
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   const [blockExternalImages, setBlockExternalImages] = useState(true);
+  const [openingAttachment, setOpeningAttachment] = useState<string | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{ id: string; filename: string; contentType: string } | null>(null);
+  const router = useRouter();
   const timestamp = message.sentAt || message.receivedAt || message.createdAt;
   const emailDocument = useMemo(
     () =>
@@ -3631,6 +3636,21 @@ function ThreadMessage({
       }),
     [blockExternalImages, message.htmlBody, message.textBody],
   );
+  async function openAttachment(attachment: NonNullable<typeof message.attachments[number]>) {
+    if (!attachment.id || openingAttachment) return;
+    setOpeningAttachment(attachment.id);
+    try {
+      const response = await fetch(`/api/manage/mail/attachments/${attachment.id}`, { method: "POST" });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "The security scan did not complete.");
+      setPreviewAttachment({ id: attachment.id, filename: attachment.filename, contentType: attachment.contentType || "application/octet-stream" });
+      router.refresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "The attachment could not be opened.");
+    } finally {
+      setOpeningAttachment(null);
+    }
+  }
 
   return (
     <article className={`manage-message${open ? " is-open" : ""}`}>
@@ -3686,9 +3706,9 @@ function ThreadMessage({
               {message.attachments.map((attachment) => {
                 const ready = attachment.id && attachment.status === "clean";
                 const content = <><Paperclip size={14} /> <span>{attachment.filename}</span>{attachment.status && attachment.status !== "clean" && <small>{attachment.status === "infected" ? "Blocked" : "Scanning"}</small>}</>;
-                return ready
-                  ? <a href={`/api/manage/mail/attachments/${attachment.id}`} target="_blank" rel="noreferrer" key={attachment.id}>{content}</a>
-                  : <span className="is-unavailable" title="This attachment is waiting for a security scan." key={attachment.id || attachment.filename}>{content}</span>;
+                return attachment.id
+                  ? <button className={`manage-attachment-button${ready ? " is-clean" : ""}${openingAttachment === attachment.id ? " is-scanning" : ""}`} type="button" onClick={() => void openAttachment(attachment)} disabled={Boolean(openingAttachment)} key={attachment.id}>{openingAttachment === attachment.id ? <LoaderCircle className="manage-attachment-spinner" size={14} /> : ready ? <ShieldCheck size={14} /> : <Paperclip size={14} />} <span>{openingAttachment === attachment.id ? "Scanning securely…" : content}</span>{ready && <small>Safe</small>}</button>
+                  : <span className="is-unavailable" title="This attachment is unavailable." key={attachment.filename}>{content}</span>;
               })}
             </div>
           )}
@@ -3701,6 +3721,7 @@ function ThreadMessage({
           </button>
         </div>
       </div>
+      {previewAttachment && <div className="manage-file-preview-backdrop" role="presentation" onClick={() => setPreviewAttachment(null)}><section className="manage-file-preview" role="dialog" aria-modal="true" aria-label={`${previewAttachment.filename} preview`} onClick={(event) => event.stopPropagation()}><header><div><strong>{previewAttachment.filename}</strong><span><ShieldCheck size={13} /> Security scan passed</span></div><button type="button" onClick={() => setPreviewAttachment(null)} aria-label="Close file preview"><X size={17} /></button></header><iframe src={`/api/manage/mail/attachments/${previewAttachment.id}`} title={previewAttachment.filename} /></section></div>}
     </article>
   );
 }

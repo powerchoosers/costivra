@@ -225,7 +225,7 @@ export type ManageMailMessage = {
     filename: string;
     contentType?: string;
     size?: number;
-    status?: "pending" | "clean" | "infected" | "unavailable" | "failed";
+    status?: "pending" | "scanning" | "clean" | "infected" | "unavailable" | "failed";
     disposition?: "inline" | "attachment";
   }>;
   sentAt: string | null;

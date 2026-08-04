@@ -648,7 +648,7 @@ export async function getManageData(input?: {
                   contentType?: string;
                   size?: number;
                   id?: string;
-                  status?: "pending" | "clean" | "infected" | "unavailable" | "failed";
+                  status?: "pending" | "scanning" | "clean" | "infected" | "unavailable" | "failed";
                   disposition?: "inline" | "attachment";
                 } =>
                   Boolean(item) &&

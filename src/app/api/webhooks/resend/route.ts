@@ -11,7 +11,6 @@ import {
 import { getResendClient } from "@/lib/email/resend";
 import { normalizeSubject, safeSnippet } from "@/lib/manage/mail";
 import { isConfiguredSecret } from "@/lib/env/secrets";
-import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -232,23 +231,8 @@ async function persistOwnerMailboxAttachments(
     if (!buffer.length || buffer.length > MAX_MAIL_ATTACHMENT_SIZE)
       throw new Error("Downloaded attachment size is outside the supported range.");
     const sha256 = createHash("sha256").update(buffer).digest("hex");
-    const scan = await scanFileForMalware({ buffer, filename, mimeType: contentType });
-    if (scan.status === "infected") {
-      await db
-        .from("crm_email_attachments")
-        .update({
-          sha256,
-          scan_status: "infected",
-          error_message: "Malware scanning blocked this attachment.",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", attachmentId);
-      continue;
-    }
-
     const safeName = filename.replace(/[^A-Za-z0-9._-]/g, "-").slice(-180) || "attachment";
-    const readiness = scan.status === "clean" ? "ready" : "quarantine";
-    const storagePath = `${input.mailboxId}/${readiness}/${input.messageId}/${randomUUID()}-${safeName}`;
+    const storagePath = `${input.mailboxId}/pending/${input.messageId}/${randomUUID()}-${safeName}`;
     const upload = await db.storage
       .from("costivra-mail-attachments")
       .upload(storagePath, buffer, { contentType, upsert: false });
@@ -257,11 +241,9 @@ async function persistOwnerMailboxAttachments(
       .from("crm_email_attachments")
       .update({
         sha256,
-        scan_status: scan.status,
         storage_path: storagePath,
-        error_message: scan.status === "clean"
-          ? null
-          : scan.detail || "The attachment is waiting for malware scanning.",
+        scan_status: "pending",
+        error_message: "Scan begins when an authorized operator first opens this attachment.",
         updated_at: new Date().toISOString(),
       })
       .eq("id", attachmentId);
