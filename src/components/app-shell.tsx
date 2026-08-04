@@ -30,6 +30,10 @@ import { useToast } from "@/components/toast-provider";
 import type { PortalData } from "@/lib/portal/types";
 import { createClient } from "@/lib/supabase/client";
 
+import { ClientAssistantProvider } from "@/components/client-assistant/client-assistant-provider";
+import { ClientAssistantTrigger } from "@/components/client-assistant/client-assistant-trigger";
+import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
+
 const navigation = [
   ["Command Center", "/app", LayoutDashboard],
   ["Expenses", "/app/expenses", ReceiptText],
@@ -40,7 +44,6 @@ const navigation = [
   ["Savings", "/app/savings", ChartNoAxesCombined],
   ["Vendors", "/app/vendors", Building2],
   ["Reports", "/app/reports", Gauge],
-  ["Ask Costivra", "/app/ask", Bot],
   ["Settings", "/app/settings", Settings],
 ] as const;
 
@@ -151,7 +154,8 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
     }
   }
   return (
-    <div className="app-body">
+    <ClientAssistantProvider>
+      <div className="app-body">
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <aside
           className="app-sidebar"
@@ -288,6 +292,7 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
                 <span className="global-search-label">Search documents, vendors, or evidence</span>
                 <span className="command-shortcut">⌘K</span>
               </button>
+              <ClientAssistantTrigger />
               <Link className="button button-primary" href="/app/documents" style={{ borderRadius: 10, padding: "0 18px", fontSize: ".84rem" }}>
                 <Upload aria-hidden="true" size={16} /> Upload documents
               </Link>
@@ -354,7 +359,9 @@ export function AppShell({ children, data }: { children: ReactNode; data: Portal
           </div>
         </div>
       )}
+      <ClientAssistantSurface />
     </div>
+    </ClientAssistantProvider>
   );
 }
 

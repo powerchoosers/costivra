@@ -40,18 +40,18 @@ export function HomePage() {
       <section className="hero">
         <div className="container hero-inner">
           <div className="hero-copy">
-            <span className="hero-eyebrow">Operating-margin intelligence for finance and operations</span>
-            <h1>Find the costs hiding in your operating margin.</h1>
-            <p>Costivra turns bills, contracts, and vendor records into an evidence-backed control system. Find price drift, unused services, duplicate spend, and renewal risk—then route the next decision to the right owner.</p>
-            <p className="hero-fit">For teams managing recurring spend across vendors, locations, and contracts.</p>
+            <span className="hero-eyebrow">Recurring bill and contract monitoring for growing businesses</span>
+            <h1>Find unnecessary costs and renewal risks in your business bills.</h1>
+            <p>Costivra reviews recurring bills and contracts for unexplained price increases, possible duplicate or unused services, and deadlines that are easy to miss. Every finding shows the source evidence, and your team approves what happens next.</p>
+            <p className="hero-fit">For owners, CFOs, and operations leaders managing recurring business spend.</p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link>
-              <Link className="button button-secondary" href="#how-it-works">See the platform</Link>
+              <Link className="button button-primary" href="/scan">Upload 3 bills for a free review <ArrowRight aria-hidden="true" size={17} /></Link>
+              <Link className="button button-secondary" href="#how-it-works">See how monitoring works</Link>
             </div>
             <div className="hero-assurance" aria-label="Costivra product assurances">
-              <span><ShieldCheck aria-hidden="true" size={15} /> Source-linked findings</span>
-              <span><Users aria-hidden="true" size={15} /> Approval before action</span>
-              <span><LockKeyhole aria-hidden="true" size={15} /> Private by organization</span>
+              <span><LockKeyhole aria-hidden="true" size={15} /> Only the documents you choose</span>
+              <span><ShieldCheck aria-hidden="true" size={15} /> No broad inbox access required</span>
+              <span><Users aria-hidden="true" size={15} /> Human approval before any outside action</span>
             </div>
           </div>
           <OpportunityPreview />

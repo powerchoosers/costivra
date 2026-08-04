@@ -45,7 +45,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import type { PortalApprovalPolicy, PortalData, PortalLocation, PortalTeamMember } from "@/lib/portal/types";
+import type { PortalApprovalPolicy, PortalContract, PortalData, PortalLocation, PortalTeamMember, PortalVendor } from "@/lib/portal/types";
 import { useToast } from "@/components/toast-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
@@ -55,12 +55,14 @@ import { CompanyLogo } from "@/components/company-logo";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
+import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState } from "@/lib/vendors/monitoring";
+import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 
 type ApiOptions = {
   method?: string;
   body?: BodyInit | Record<string, unknown>;
 };
-type ModalState = null | "expense" | "contract" | "invite" | "upload";
+type ModalState = null | "expense" | "contract" | "invite" | "upload" | "monitor";
 
 async function api(url: string, options: ApiOptions = {}) {
   const body =
@@ -400,15 +402,15 @@ function CommandCenter({ data }: { data: PortalData }) {
   const verified = data.savings
     .filter((item) => item.status === "verified")
     .reduce((sum, item) => sum + item.amount, 0);
-  const potential = data.opportunities
-    .filter((item) => !["declined", "closed", "verified"].includes(item.status))
-    .reduce((sum, item) => sum + (item.estimatedAnnualValue ?? 0), 0);
+  const underReviewCount = data.opportunities.filter((item) =>
+    ["open", "under_review"].includes(item.status),
+  ).length;
   const spend = data.vendors.reduce(
     (sum, item) => sum + item.annualizedSpend,
     0,
   );
-  const due = data.actions.filter(
-    (item) => !["complete", "cancelled"].includes(item.status),
+  const pendingApprovalCount = data.actions.filter((item) =>
+    ["pending_approval", "draft"].includes(item.status),
   ).length;
   return (
     <>
@@ -418,30 +420,31 @@ function CommandCenter({ data }: { data: PortalData }) {
       />
       <div className="portal-metrics">
         <Metric
-          label="Verified value"
-          value={money(verified, true)}
-          note={`${data.savings.filter((x) => x.status === "verified").length} proven outcomes`}
-          icon={<CheckCircle2 />}
-        />
-        <Metric
-          label="Potential value"
-          value={money(potential, true)}
-          note={`${data.opportunities.length} active findings`}
-          icon={<CircleDollarSign />}
-        />
-        <Metric
           label="Monitored spend"
           value={money(spend, true)}
           note={`${data.vendors.length} vendor relationships`}
           icon={<ReceiptText />}
         />
         <Metric
-          label="Actions due"
-          value={String(due)}
-          note="Decisions needing attention"
+          label="Findings under review"
+          value={String(underReviewCount)}
+          note={`${data.opportunities.length} total findings`}
+          icon={<CircleDollarSign />}
+        />
+        <Metric
+          label="Actions pending approval"
+          value={String(pendingApprovalCount)}
+          note="Decisions needing authorization"
           icon={<CalendarClock />}
         />
+        <Metric
+          label="Verified value"
+          value={money(verified, true)}
+          note={`${data.savings.filter((x) => x.status === "verified").length} proven outcomes`}
+          icon={<CheckCircle2 />}
+        />
       </div>
+      <ActivationChecklist data={data} />
       <section className="portal-panel">
         <div className="portal-panel-heading">
           <div>
@@ -480,6 +483,59 @@ function CommandCenter({ data }: { data: PortalData }) {
         )}
       </section>
     </>
+  );
+}
+
+function ActivationChecklist({ data }: { data: PortalData }) {
+  const docCount = data.documents.length;
+  const locationCount = data.locations.length;
+  const monitoredCount = data.vendors.filter((v) =>
+    ["active", "test_needed"].includes(String((v as unknown as Record<string, unknown>).monitoringState ?? "")),
+  ).length;
+  const needsReviewInvoices = data.invoices.filter(
+    (i) => i.reviewStatus === "needs_review",
+  ).length;
+
+  const steps = [
+    { id: "workspace", title: "Create workspace", done: true, copy: "Organization workspace created.", href: undefined },
+    { id: "details", title: "Add company & location details", done: locationCount > 0, copy: locationCount > 0 ? `${locationCount} location(s) assigned.` : "Add your primary business location.", href: "/app/settings?tab=locations" },
+    { id: "documents", title: "Upload 3 bills or contracts", done: docCount >= 3, copy: docCount >= 3 ? `${docCount} documents uploaded.` : `${docCount} of 3 uploaded. Add your recurring bills.`, href: "/app/documents" },
+    { id: "review", title: "Review extracted facts & invoices", done: docCount > 0 && needsReviewInvoices === 0, copy: needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "No pending invoice exceptions.", href: "/app/documents" },
+    { id: "monitoring", title: "Select first vendor to monitor", done: monitoredCount > 0, copy: monitoredCount > 0 ? `${monitoredCount} vendor(s) monitored.` : "Set up continuous monitoring for one vendor.", href: "/app/vendors" },
+  ];
+
+  const completedCount = steps.filter((s) => s.done).length;
+
+  return (
+    <section className="portal-panel activation-panel" style={{ marginBottom: 24, padding: "20px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div>
+          <h2 style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0 }}>Activation Checklist</h2>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.85rem" }}>Complete these steps to set up cost control and bill monitoring.</p>
+        </div>
+        <span style={{ fontSize: "0.82rem", fontWeight: 700, padding: "4px 12px", borderRadius: 12, background: completedCount === steps.length ? "rgba(16,185,129,0.12)" : "rgba(0,47,167,0.08)", color: completedCount === steps.length ? "#059669" : "#002FA7" }}>
+          {completedCount} of {steps.length} completed
+        </span>
+      </div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {steps.map((step, idx) => (
+          <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: step.done ? "rgba(0,0,0,0.015)" : "var(--bg-subtle, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: "50%", background: step.done ? "#10b981" : "var(--blue, #002FA7)", color: "#fff", fontSize: "0.75rem", fontWeight: 700, flexShrink: 0 }}>
+              {step.done ? <Check size={14} /> : idx + 1}
+            </span>
+            <div style={{ flex: 1 }}>
+              <strong style={{ fontSize: "0.92rem", color: step.done ? "var(--text-muted)" : "inherit" }}>{step.title}</strong>
+              <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 2 }}>{step.copy}</div>
+            </div>
+            {!step.done && step.href && (
+              <Link className="button button-quiet button-sm" href={step.href} style={{ fontSize: "0.8rem", padding: "6px 12px", gap: 4 }}>
+                Action <ChevronRight size={14} />
+              </Link>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 function Metric({
@@ -1182,6 +1238,19 @@ export function VendorDetail({
   const actions = data.actions.filter((item) => item.vendorId === vendorId);
   const contract = contracts[0];
   const latest = expenses[0];
+  const rawMonitoringState = (vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState || "not_set_up";
+  const hasPendingReviewInvoice = data.invoices.some((i) => i.vendorId === vendorId && i.reviewStatus === "needs_review");
+  const hasOpenFinding = opportunities.some((o) => !["closed", "declined"].includes(o.status));
+  const hasPendingAction = actions.some((a) => !["complete", "cancelled"].includes(a.status));
+
+  const primaryAction = getDynamicPrimaryAction({
+    documentCount: documents.length,
+    hasPendingReviewInvoice,
+    monitoringState: rawMonitoringState,
+    hasOpenFinding,
+    hasPendingAction,
+  });
+
   return (
     <div className="vendor-detail">
       <Link className="vendor-back" href="/app/vendors">
@@ -1211,38 +1280,35 @@ export function VendorDetail({
           <Status value={vendor.relationshipStatus} />
         </div>
         <div className="vendor-detail-actions">
-          {vendor.website && (
-            <a
-              className="button button-quiet"
-              href={vendor.website}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Globe2 size={16} /> Visit website
-            </a>
-          )}
-          {canWrite ? (
-            <>
-              <button
-                className="button button-primary"
-                onClick={() => onAdd("expense", vendor.relationshipId)}
-              >
-                <Plus size={16} /> Add expense
+          {canWrite && (
+            primaryAction.actionKind === "upload" ? (
+              <button className="button button-primary" onClick={() => onAdd("upload", vendor.relationshipId)}>
+                <Plus size={16} /> {primaryAction.label}
               </button>
-              <button
-                className="button button-quiet"
-                onClick={() => onAdd("contract", vendor.relationshipId)}
-              >
+            ) : primaryAction.actionKind === "monitor" || primaryAction.actionKind === "test_forwarding" ? (
+              <button className="button button-primary" onClick={() => onAdd("monitor", vendor.relationshipId)}>
+                <Mail size={16} /> {primaryAction.label}
+              </button>
+            ) : primaryAction.href ? (
+              <Link className="button button-primary" href={primaryAction.href}>
+                {primaryAction.label} <ArrowUpRight size={16} />
+              </Link>
+            ) : (
+              <button className="button button-primary" onClick={() => onAdd("expense", vendor.relationshipId)}>
+                <Plus size={16} /> {primaryAction.label}
+              </button>
+            )
+          )}
+          {canWrite && (
+            <>
+              <button className="button button-quiet" onClick={() => onAdd("contract", vendor.relationshipId)}>
                 Add contract
               </button>
-              <button
-                className="button button-quiet"
-                onClick={() => onAdd("upload", vendor.relationshipId)}
-              >
-                Upload document
+              <button className="button button-quiet" onClick={() => onAdd("upload", vendor.relationshipId)}>
+                Upload file
               </button>
             </>
-          ) : null}
+          )}
         </div>
       </header>
       <section className="vendor-summary-band">
@@ -1265,14 +1331,22 @@ export function VendorDetail({
         <VendorCount label="Expenses" value={expenses.length} />
         <VendorCount
           label="Open findings"
-          value={
-            opportunities.filter(
-              (item) => !["closed", "declined"].includes(item.status),
-            ).length
-          }
+          value={opportunities.filter((item) => !["closed", "declined"].includes(item.status)).length}
         />
         <VendorCount label="Actions" value={actions.length} />
       </section>
+      <VendorMonitoringCard
+        vendor={vendor}
+        organizationId={data.organization.id}
+        canWrite={canWrite}
+        onMonitor={() => onAdd("monitor", vendor.relationshipId)}
+      />
+      <DataCompletenessChecklist
+        documentsCount={documents.length}
+        expensesCount={expenses.length}
+        contract={contract}
+        monitoringActive={rawMonitoringState === "active"}
+      />
       <div className="vendor-detail-grid">
         <section className="portal-panel vendor-contract-summary">
           <div className="portal-panel-heading">
@@ -1454,6 +1528,102 @@ export function VendorDetail({
         }))}
       />
     </div>
+  );
+}
+
+function VendorMonitoringCard({
+  vendor,
+  organizationId,
+  canWrite,
+  onMonitor,
+}: {
+  vendor: PortalVendor;
+  organizationId: string;
+  canWrite: boolean;
+  onMonitor: () => void;
+}) {
+  const rawState = (vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState || "not_set_up";
+  const { label, copy, badgeClass } = getMonitoringStateLabel(rawState);
+  const privateAddress = `inbox-${organizationId.slice(0, 8)}@costivra.ai`;
+
+  return (
+    <section className="portal-panel vendor-monitoring-card" style={{ marginBottom: 24, padding: "20px 24px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>Continuous Bill Monitoring</h2>
+            <span className={`portal-status ${badgeClass}`}>{label}</span>
+          </div>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.85rem" }}>{copy}</p>
+        </div>
+        {canWrite && (
+          <button className="button button-primary button-sm" onClick={onMonitor}>
+            <Mail size={14} /> {rawState === "not_set_up" ? "Monitor this vendor" : "Configure rule"}
+          </button>
+        )}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, background: "var(--bg-subtle, #f8fafc)", padding: "16px", borderRadius: 10, border: "1px solid var(--border-color, #e2e8f0)" }}>
+        <div>
+          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Approved forwarding sender</span>
+          <strong style={{ fontSize: "0.9rem" }}>{vendor.approvedForwardingEmail ?? "Not configured"}</strong>
+        </div>
+        <div>
+          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Private intake address</span>
+          <code style={{ fontSize: "0.85rem", background: "rgba(0,0,0,0.04)", padding: "2px 6px", borderRadius: 4 }}>{privateAddress}</code>
+        </div>
+        <div>
+          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Expected cadence</span>
+          <strong style={{ fontSize: "0.9rem" }}>Monthly (30 days)</strong>
+        </div>
+      </div>
+      <p className="muted" style={{ fontSize: "0.78rem", margin: "14px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
+        <ShieldCheck size={14} style={{ color: "#002FA7" }} /> Costivra receives only messages sent to your private workspace address. Costivra does not read the rest of your inbox.
+      </p>
+    </section>
+  );
+}
+
+function DataCompletenessChecklist({
+  documentsCount,
+  expensesCount,
+  contract,
+  monitoringActive,
+}: {
+  documentsCount: number;
+  expensesCount: number;
+  contract?: PortalContract;
+  monitoringActive: boolean;
+}) {
+  const items = [
+    { label: "Recent invoice", done: expensesCount > 0 || documentsCount > 0 },
+    { label: "Vendor matched", done: true },
+    { label: "Totals reconciled", done: expensesCount > 0 },
+    { label: "Contract recorded", done: Boolean(contract) },
+    { label: "Renewal date recorded", done: Boolean(contract?.endDate) },
+    { label: "Location assigned", done: Boolean(contract?.locationId) },
+    { label: "Monitoring active", done: monitoringActive },
+  ];
+  const score = Math.round((items.filter((i) => i.done).length / items.length) * 100);
+
+  return (
+    <section className="portal-panel" style={{ marginBottom: 24, padding: "20px 24px" }}>
+      <div className="portal-panel-heading" style={{ marginBottom: 12 }}>
+        <div>
+          <h2>Data Completeness</h2>
+          <p>{score}% of recommended relationship fields recorded.</p>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        {items.map((item) => (
+          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: item.done ? "#10b981" : "#cbd5e1", color: "#fff", flexShrink: 0 }}>
+              {item.done ? <Check size={12} /> : <X size={12} />}
+            </span>
+            <span style={{ color: item.done ? "inherit" : "var(--text-muted)" }}>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -2051,149 +2221,14 @@ type ChatMessage = {
   }>;
 };
 function Ask({ data }: { data: PortalData }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [value, setValue] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [sessionId, setSessionId] = useState<string>();
-  const end = useRef<HTMLDivElement>(null);
+  const { openFullscreen } = useClientAssistant();
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, busy]);
-  const submit = async (event?: FormEvent) => {
-    event?.preventDefault();
-    const question = value.trim();
-    if (!question || busy) return;
-    setMessages((x) => [...x, { role: "user", content: question }]);
-    setValue("");
-    setBusy(true);
-    try {
-      const result = await api("/api/portal/ask", {
-        body: { question, sessionId },
-      });
-      setSessionId(result.sessionId);
-      setMessages((x) => [
-        ...x,
-        {
-          role: "assistant",
-          content: result.answer,
-          citations: result.citations,
-        },
-      ]);
-    } catch (error) {
-      setMessages((x) => [
-        ...x,
-        {
-          role: "assistant",
-          content:
-            error instanceof Error
-              ? error.message
-              : "The answer could not be generated.",
-        },
-      ]);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const suggestions = [
-    `Which contracts renew next?`,
-    `Where did spending increase?`,
-    `What requires my approval?`,
-    `Summarize our highest-value opportunity.`,
-  ];
+    openFullscreen();
+  }, [openFullscreen]);
+
   return (
-    <div className="portal-chat">
-      <header>
-        <div>
-          <Bot />
-          <span>
-            <strong>Ask Costivra</strong>
-            <small>
-              Grounded in {data.documents.length} source document
-              {data.documents.length === 1 ? "" : "s"}
-            </small>
-          </span>
-        </div>
-        <span className="portal-status status-ready">Citations enforced</span>
-      </header>
-      <div className="chat-scroll">
-        {!messages.length ? (
-          <div className="chat-welcome">
-            <MessageSquareText />
-            <h1>What would you like to understand?</h1>
-            <p>
-              Ask about your bills, contracts, vendors, findings, or supporting
-              evidence.
-            </p>
-            <div className="chat-suggestions">
-              {suggestions.map((item) => (
-                <button key={item} onClick={() => setValue(item)}>
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          messages.map((item, index) => (
-            <div className={`chat-message ${item.role}`} key={index}>
-              <span>
-                {item.role === "assistant" ? (
-                  <Bot />
-                ) : (
-                  data.currentUser.fullName.slice(0, 1)
-                )}
-              </span>
-              <div>
-                <p>{item.content}</p>
-                {item.citations?.map((c) => (
-                  <a
-                    key={c.id}
-                    href={`/api/portal/documents/${c.documentId}/download`}
-                    title={c.quote}
-                  >
-                    <FileText size={13} />
-                    {c.documentName}
-                    {c.pageNumber ? ` · page ${c.pageNumber}` : ""}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-        {busy && (
-          <div className="chat-message assistant">
-            <span>
-              <Bot />
-            </span>
-            <div className="typing">
-              <i />
-              <i />
-              <i />
-            </div>
-          </div>
-        )}
-        <div ref={end} />
-      </div>
-      <form className="chat-composer" onSubmit={submit}>
-        <textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-          placeholder="Ask about your organization records…"
-          rows={1}
-        />
-        <button disabled={!value.trim() || busy} aria-label="Send message">
-          <Send size={18} />
-        </button>
-        <small>
-          Answers cite available evidence. Review source files before making a
-          consequential decision.
-        </small>
-      </form>
+    <div style={{ padding: 40, textAlign: "center" }}>
+      <p className="muted">Opening Ask Costivra in Fullscreen Mode...</p>
     </div>
   );
 }
@@ -3221,6 +3256,45 @@ function CreateModals({
             />
           </div>
           <FormActions busy={busy} onCancel={close} label="Add expense" />
+        </form>
+      </PortalModal>
+      <PortalModal
+        open={kind === "monitor"}
+        title={`Monitor ${selectedVendor?.name ?? "vendor"}`}
+        description="Set up automatic bill forwarding or manual forwarding rules for this vendor."
+        onClose={close}
+      >
+        <form onSubmit={submit(`/api/portal/vendors/${selectedVendor?.relationshipId ?? ""}/monitoring`, "Vendor monitoring updated.")}>
+          <div className="form-grid">
+            <Field
+              label="Approved forwarding email sender"
+              name="approvedForwardingEmail"
+              defaultValue={selectedVendor?.approvedForwardingEmail || data.currentUser.email}
+              required={true}
+            />
+            <SelectField
+              label="Forwarding method"
+              name="sourceMethod"
+              options={[
+                { value: "email_forwarding", label: "Automatic Email Rule (Gmail / Outlook)" },
+                { value: "manual_forwarding", label: "Manual Forwarding per Invoice" },
+                { value: "manual_upload", label: "Manual File Upload" },
+              ]}
+            />
+          </div>
+          <div style={{ background: "var(--bg-subtle, #f8fafc)", padding: 14, borderRadius: 8, marginTop: 14, border: "1px solid var(--border-color, #e2e8f0)" }}>
+            <strong style={{ fontSize: "0.85rem", display: "block", marginBottom: 6 }}>Your Private Intake Address:</strong>
+            <code style={{ fontSize: "0.85rem", background: "rgba(0,0,0,0.06)", padding: "4px 8px", borderRadius: 4, display: "inline-block" }}>
+              inbox-{data.organization.id.slice(0, 8)}@costivra.ai
+            </code>
+            <p className="muted" style={{ fontSize: "0.78rem", margin: "8px 0 0" }}>
+              Set up a forwarding rule in Gmail or Outlook from <strong>{selectedVendor?.name ?? "this vendor"}</strong> to your private intake address.
+            </p>
+          </div>
+          <p className="muted" style={{ fontSize: "0.78rem", marginTop: 12, display: "flex", gap: 6, alignItems: "center" }}>
+            <ShieldCheck size={14} style={{ color: "#002FA7" }} /> Costivra receives only messages sent to your private workspace address.
+          </p>
+          <FormActions busy={busy} onCancel={close} label="Save monitoring rule" />
         </form>
       </PortalModal>
     </>

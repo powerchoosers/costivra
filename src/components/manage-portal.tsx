@@ -63,6 +63,7 @@ import {
   Trash2,
   Underline,
   Undo2,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -1107,13 +1108,25 @@ export function ManagePortal({
           </div>
           {(["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") && (
             <div className="manage-create-wrap" ref={createMenuRef}>
-              <button className="manage-button manage-button--primary manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
+              <button className={`manage-button manage-button--primary manage-create-trigger${createMenuOpen ? " is-active" : ""}`} type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
                 <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
               </button>
               {(createMenuOpen || createMenuClosing) && (
                 <div className={`manage-create-menu${createMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="Create a new record">
-                  <button type="button" role="menuitem" onClick={() => { openDialog("account"); closeCreateMenu(); }}><Building2 size={16} />Add account</button>
-                  <button type="button" role="menuitem" onClick={() => { openDialog("contact"); closeCreateMenu(); }}><Users size={16} />Add contact</button>
+                  <button type="button" role="menuitem" onClick={() => { openDialog("account"); closeCreateMenu(); }}>
+                    <span className="manage-create-icon manage-create-icon--account"><Building2 size={16} /></span>
+                    <span className="manage-create-label">
+                      <strong>Add account</strong>
+                      <small>Client or prospect organization</small>
+                    </span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => { openDialog("contact"); closeCreateMenu(); }}>
+                    <span className="manage-create-icon manage-create-icon--contact"><UserPlus size={16} /></span>
+                    <span className="manage-create-label">
+                      <strong>Add contact</strong>
+                      <small>Key person or decision maker</small>
+                    </span>
+                  </button>
                 </div>
               )}
             </div>
@@ -2474,11 +2487,9 @@ function RecordHeaderLinks({ website, linkedinUrl, entityName }: { website: stri
 }
 
 function AccountHeaderMeta({ account, profile }: { account: ManageAccount; profile: ManageAccount["enrichment"] }) {
-  const phone = profile?.phone;
-  const phoneHref = phone?.replace(/[^+\d]/g, "");
+  if (!profile?.location) return null;
   return <div className="manage-record-identity-meta" aria-label="Company contact details">
-    {profile?.location && <span title="Headquarters location"><MapPin size={13} />{profile.location}</span>}
-    {phone && phoneHref && <a href={`tel:${phoneHref}`} title={`Call ${phone}`}><Phone size={13} />{phone}</a>}
+    <span title="Headquarters location"><MapPin size={13} />{profile.location}</span>
   </div>;
 }
 
@@ -2635,11 +2646,13 @@ function AccountDetailPage({ data, accountId, run, onCompose }: { data: ManageDa
   const expenses = data.expenses.filter((item) => item.organizationId === account.id);
   const vendorContracts = data.vendorContracts.filter((item) => item.organizationId === account.id);
   const profile = account.enrichment;
+  const companyPhone = profile?.phone;
+  const companyPhoneHref = companyPhone?.replace(/[^+\d]/g, "");
   const profileSummary = profile?.shortDescription || (account.industry ? `${account.name} is recorded in the ${account.industry} industry.` : "Add the account website or a short internal note to make this record easier to recognize at a glance.");
   const accountTabs = [{ id: "overview", label: "Overview" }, { id: "vendors", label: "Vendors", count: vendors.length }, { id: "files", label: "Files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Work", count: tasks.length }];
   return <div className="manage-detail-page manage-record-page motion-page">
     <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
-    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><p>Client account</p><h2>{account.name} <RecordHeaderLinks website={profile?.website || account.website} linkedinUrl={profile?.linkedinUrl} entityName={account.name} /></h2><span>{account.legalName || account.industry || "Account profile"}</span><AccountHeaderMeta account={account} profile={profile} /></div></div></header>
+    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><h2>{account.name} <RecordHeaderLinks website={profile?.website || account.website} linkedinUrl={profile?.linkedinUrl} entityName={account.name} /></h2><span>{account.legalName || account.industry || "Account profile"}</span><AccountHeaderMeta account={account} profile={profile} /></div></div>{companyPhone && companyPhoneHref && <div className="manage-record-actions"><a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${companyPhoneHref}`} aria-label={`Call ${account.name}`} title={`Call ${companyPhone}`}><Phone size={17} /></a></div>}</header>
     <section className="manage-record-highlights" aria-label="Account highlights"><div><span>Lifecycle</span><Status value={account.stage || "unclassified"} /></div><div><span>Next step</span><strong>{account.nextStep || "Not set"}</strong></div><div><span>Follow-up</span><strong>{account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled"}</strong></div><div><span>Vendors</span><strong>{vendors.length}</strong></div><div><span>Open work</span><strong>{account.openTaskCount}</strong></div><div><span>Evidence files</span><strong>{documents.length}</strong></div></section>
     <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
     {active === "overview" && <AccountOverview account={account} profile={profile} profileSummary={profileSummary} vendors={vendors} expenses={expenses} documents={documents} contacts={contacts} allAccounts={data.accounts} locations={data.locations} setSelectedVendorId={setSelectedVendorId} setActive={setActive} onCompose={onCompose} run={run} />}
@@ -2669,7 +2682,7 @@ function ContactDetailPage({ data, contactId, run, onCompose }: { data: ManageDa
   const tasks = data.tasks.filter((item) => item.organizationId === contact.organizationId && item.contactId === contact.id);
   const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
   const tabs = [{ id: "overview", label: "Overview" }, { id: "files", label: "Shared files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Tasks", count: tasks.length }];
-  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName} <RecordHeaderLinks website={contactAccount?.enrichment?.website || contactAccount?.website} linkedinUrl={contactAccount?.enrichment?.linkedinUrl} entityName={contact.fullName} /></h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-record-action-icon manage-record-action-icon--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={17} /></button>{contact.phone && <a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={17} /></a>}</div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-record-account-link" title={`Open ${contact.organizationName}`}><CompanyLogo entity="organization" id={contact.organizationId} name={contact.organizationName} className="manage-record-account-logo" /><span><small>Account</small><strong>{contact.organizationName}</strong></span></Link></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
+  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><h2>{contact.fullName} <RecordHeaderLinks website={contactAccount?.enrichment?.website || contactAccount?.website} linkedinUrl={contactAccount?.enrichment?.linkedinUrl} entityName={contact.fullName} /></h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-record-action-icon manage-record-action-icon--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={17} /></button>{contact.phone && <a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={17} /></a>}</div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-record-account-link" title={`Open ${contact.organizationName}`}><CompanyLogo entity="organization" id={contact.organizationId} name={contact.organizationName} className="manage-record-account-logo" /><span><small>Account</small><strong>{contact.organizationName}</strong></span></Link></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
     {active === "overview" && <div className="manage-record-layout manage-record-layout--right-rail"><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main><ContactContextRail contact={contact} account={contactAccount} accounts={data.accounts} contacts={data.contacts} locations={data.locations} onCompose={onCompose} run={run} /></div>}
     {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} emptyCopy="No account source files are available to this internal record yet." />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
@@ -5028,7 +5041,8 @@ function Compose({
 }) {
   const router = useRouter();
   const toast = useToast();
-  const [busy, setBusy] = useState(false);
+  const [busyMode, setBusyMode] = useState<"draft" | "send" | null>(null);
+  const busy = busyMode !== null;
   const [showCc, setShowCc] = useState(false);
   const [toRecipients, setToRecipients] = useState(() => splitRecipientValues(context.to));
   const [ccRecipients, setCcRecipients] = useState<string[]>([]);
@@ -5073,6 +5087,12 @@ function Compose({
   }, []);
   async function submitForm(element: HTMLFormElement, mode: "draft" | "send") {
     const form = new FormData(element);
+    const recipientSearchInput = element.querySelector<HTMLInputElement>(".manage-compose-recipient-search");
+    const uncommittedSearch = recipientSearchInput?.value.trim();
+    if (uncommittedSearch) {
+      const currentTo = String(form.get("to") || "").trim();
+      form.set("to", currentTo ? `${currentTo},${uncommittedSearch}` : uncommittedSearch);
+    }
     if (mode === "send" && splitRecipientValues(String(form.get("to") || "")).length === 0) {
       toast.error("Add a recipient", "Choose a contact or enter an email address before sending.");
       return;
@@ -5082,7 +5102,7 @@ function Compose({
     form.set("mode", mode);
     form.set("idempotencyKey", crypto.randomUUID());
     if (mode === "draft") form.delete("attachments");
-    setBusy(true);
+    setBusyMode(mode);
     try {
       const result = await api("/api/manage/mail/messages", {
         method: "POST",
@@ -5100,7 +5120,9 @@ function Compose({
         ? `/manage/mail/${result.threadId}?folder=${mode === "draft" ? "drafts" : "sent"}&mailbox=${selectedMailbox}`
         : `/manage/mail?mailbox=${selectedMailbox}`;
       onClose(() => {
-        router.push(destination);
+        if (mode === "send") {
+          router.push(destination);
+        }
         router.refresh();
       });
     } catch (error) {
@@ -5109,7 +5131,7 @@ function Compose({
         error instanceof Error ? error.message : "Please try again.",
       );
     } finally {
-      setBusy(false);
+      setBusyMode(null);
     }
   }
   function runEditorCommand(command: string, value?: string) {
@@ -5179,12 +5201,9 @@ function Compose({
   function saveOnClose(button: HTMLButtonElement) {
     const form = button.form;
     const formData = form ? new FormData(form) : null;
-    const hasDraftContent = Boolean(
-      form && (
-        ["to", "subject"].some((name) => String(formData?.get(name) || "").trim()) ||
-        editorRef.current?.innerText.trim()
-      ),
-    );
+    const hasSubject = Boolean(String(formData?.get("subject") || "").trim());
+    const hasBody = Boolean(editorRef.current?.innerText.trim());
+    const hasDraftContent = Boolean(form && (hasSubject || hasBody));
     if (form && hasDraftContent && !busy && selectedMailbox) void submitForm(form, "draft");
     else if (!busy) onClose();
   }
@@ -5405,7 +5424,7 @@ function Compose({
               className="manage-button manage-button--primary"
               disabled={busy || !selectedMailbox}
             >
-              {busy ? "Sending…" : scheduledAt ? "Schedule" : "Send"}
+              {busyMode === "send" ? "Sending…" : scheduledAt ? "Schedule" : "Send"}
               <Send size={16} />
             </button>
           </div>

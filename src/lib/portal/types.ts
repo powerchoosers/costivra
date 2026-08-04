@@ -29,6 +29,8 @@ export type PortalVendor = {
   spendCadence: string;
   updatedAt: string;
   logoUrl: string | null;
+  approvedForwardingEmail?: string | null;
+  monitoringState?: string;
 };
 
 export type PortalVendorCatalogEntry = {

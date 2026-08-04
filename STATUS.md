@@ -1,5 +1,18 @@
 # Costivra Status
 
+## August 4, 2026 — Pilot Platform Completion Program Execution
+
+- Implemented full P0 scope per `COSTIVRA_PILOT_PLATFORM_COMPLETION_SPEC.md`:
+  - **Public Site & 5-Second Comprehension**: Updated homepage hero, eyebrow, copy, actions, and trust row; simplified marketing navigation labels ("What Costivra does", "What we review", "How it works", "Security", "Pricing"); hidden unconfigured OAuth buttons on `/login` and `/signup`.
+  - **Customer Workspace Activation Journey**: Added 8-step `ActivationChecklist` to `CommandCenter` (`src/components/portal-pages.tsx`); updated headline metrics to Monitored spend, Findings under review, Actions pending approval, Verified value.
+  - **One-Vendor Continuous Monitoring**: Created `src/lib/vendors/monitoring.ts` domain module, `VendorMonitoringCard`, `DataCompletenessChecklist`, and `/api/portal/vendors/[id]/monitoring` API endpoint supporting email rules, manual forwarding, and test invoice verification.
+  - **Vendor Command Page**: Enhanced `/app/vendors/[id]` with first-class monitoring state, data quality score, and dynamic primary actions.
+  - **Verification & Validation**:
+    - `npm run typecheck` ✅ (0 errors)
+    - `npm test -- --run` ✅ (76 test files passed, 264 unit tests passed)
+    - `npm run ops:verify` ✅ (Resend, OpenRouter, Supabase probes & public smoke test passed)
+    - `npm run build` ✅ (37 static pages generated, zero errors)
+
 ## August 3, 2026 — Cron auth diagnostics and manual-invocation support
 
 - Added robust cron credential extraction support to include debug-safe query-token paths (`secret`, `cron_secret`, `token`) for controlled manual invocation and automated verification.

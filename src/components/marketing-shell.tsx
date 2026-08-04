@@ -6,11 +6,11 @@ import { useState } from "react";
 import { Brand } from "@/components/brand";
 
 const nav = [
-  ["Product", "/product"],
-  ["Solutions", "/solutions"],
+  ["What Costivra does", "/product"],
+  ["What we review", "/solutions"],
   ["How it works", "/how-it-works"],
-  ["Pricing", "/pricing"],
   ["Security", "/security"],
+  ["Pricing", "/pricing"],
 ] as const;
 
 export function MarketingHeader() {

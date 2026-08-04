@@ -28,30 +28,61 @@ function field(form: FormData, name: string, max = 20_000) {
 
 async function resolveContact(
   db: Awaited<ReturnType<typeof requireInternalOperator>>["db"],
-  organizationId: string,
+  organizationId: string | null | undefined,
   recipient: string,
 ) {
-  const { data } = await db
+  if (!recipient) return null;
+  const target = recipient.trim();
+  if (!target) return null;
+
+  let query = db
     .from("crm_contacts")
-    .select("id,full_name,email")
-    .eq("organization_id", organizationId)
-    .ilike("email", recipient)
+    .select("id,full_name,email,organization_id");
+  if (organizationId) {
+    query = query.eq("organization_id", organizationId);
+  }
+  const { data: byEmail } = await query
+    .ilike("email", target)
     .limit(1)
     .maybeSingle();
-  return data;
+  if (byEmail) return byEmail;
+
+  let nameQuery = db
+    .from("crm_contacts")
+    .select("id,full_name,email,organization_id");
+  if (organizationId) {
+    nameQuery = nameQuery.eq("organization_id", organizationId);
+  }
+  const { data: byName } = await nameQuery
+    .ilike("full_name", target)
+    .limit(1)
+    .maybeSingle();
+  return byName;
 }
 
 async function resolveOrganizationId(
   db: Awaited<ReturnType<typeof requireInternalOperator>>["db"],
   recipient: string,
-) {
-  const { data } = await db
+): Promise<string | null> {
+  if (!recipient) return null;
+  const target = recipient.trim();
+  if (!target) return null;
+
+  const { data: byEmail } = await db
     .from("crm_contacts")
     .select("organization_id")
-    .ilike("email", recipient)
+    .ilike("email", target)
     .limit(1)
     .maybeSingle();
-  return cleanUuid(data?.organization_id);
+  if (byEmail?.organization_id) return cleanUuid(byEmail.organization_id) || null;
+
+  const { data: byName } = await db
+    .from("crm_contacts")
+    .select("organization_id")
+    .ilike("full_name", target)
+    .limit(1)
+    .maybeSingle();
+  return cleanUuid(byName?.organization_id) || null;
 }
 
 export async function POST(request: Request) {
@@ -60,20 +91,40 @@ export async function POST(request: Request) {
     const { db, userId } = operator;
     const form = await request.formData();
     const mode = field(form, "mode", 20) || "send";
-    let organizationId = cleanUuid(form.get("organizationId"));
+    let organizationId: string | null = cleanUuid(form.get("organizationId")) || null;
     const mailboxId = cleanUuid(form.get("mailboxId"));
     const threadId = cleanUuid(form.get("threadId")) || null;
     const subject = field(form, "subject", 500) || "(no subject)";
     const htmlBody = sanitizeEmailHtml(field(form, "htmlBody", 200_000));
     const body = field(form, "body", 100_000) || emailHtmlToText(htmlBody);
-    const to = parseAddressList(field(form, "to", 2_000));
-    const cc = parseAddressList(field(form, "cc", 2_000));
-    const bcc = parseAddressList(field(form, "bcc", 2_000));
+    const rawTo = parseAddressList(field(form, "to", 2_000));
+    const rawCc = parseAddressList(field(form, "cc", 2_000));
+    const rawBcc = parseAddressList(field(form, "bcc", 2_000));
     const scheduledAtValue = field(form, "scheduledAt", 50) || null;
     const scheduledAt = scheduledAtValue ? new Date(scheduledAtValue) : null;
+
+    if (!organizationId && rawTo[0]) {
+      organizationId = await resolveOrganizationId(db, rawTo[0]);
+    }
+
+    const resolveAddressList = async (list: string[]) => {
+      return Promise.all(
+        list.map(async (item) => {
+          if (isValidEmail(item)) return item;
+          const matched = await resolveContact(db, organizationId, item);
+          return matched?.email ? matched.email : item;
+        }),
+      );
+    };
+
+    const to = await resolveAddressList(rawTo);
+    const cc = await resolveAddressList(rawCc);
+    const bcc = await resolveAddressList(rawBcc);
+
     if (!organizationId && to[0]) {
       organizationId = await resolveOrganizationId(db, to[0]);
     }
+
     if (!organizationId && mode !== "draft")
       return NextResponse.json(
         {
@@ -113,7 +164,7 @@ export async function POST(request: Request) {
         { error: "Add a recipient and message before sending." },
         { status: 400 },
       );
-    if ([...to, ...cc, ...bcc].some((email) => !isValidEmail(email)))
+    if (mode !== "draft" && [...to, ...cc, ...bcc].some((email) => !isValidEmail(email)))
       return NextResponse.json(
         { error: "One or more recipient addresses are invalid." },
         { status: 400 },
@@ -286,6 +337,16 @@ export async function POST(request: Request) {
         resource_id: resolvedThreadId,
       });
       return NextResponse.json({ ok: true, threadId: resolvedThreadId });
+    }
+
+    if (!organizationId) {
+      return NextResponse.json(
+        {
+          error:
+            "The recipient does not match a client contact yet. Add that email to the correct CRM account before sending.",
+        },
+        { status: 400 },
+      );
     }
 
     const idempotencyKey = field(form, "idempotencyKey", 256) || randomUUID();
