@@ -75,6 +75,7 @@ import type {
   ManageMailbox,
   ManageMailThread,
   ManageOperator,
+  ManageLocation,
   ManageVendorRelationship,
 } from "@/lib/manage/types";
 import { createClient } from "@/lib/supabase/client";
@@ -1157,13 +1158,13 @@ export function ManagePortal({
             <Overview data={data} />
           )}
           {section === "accounts" && (
-            detailId ? <AccountDetailPage data={data} accountId={detailId} onCompose={(contact) => setCompose(contactComposeContext(contact))} /> : <Accounts
+              detailId ? <AccountDetailPage data={data} accountId={detailId} run={run} onCompose={(contact) => setCompose(contactComposeContext(contact))} /> : <Accounts
               data={data}
               query={search}
             />
           )}
           {section === "contacts" && (
-            detailId ? <ContactDetailPage data={data} contactId={detailId} onCompose={(contact) => setCompose(contactComposeContext(contact))} /> : <Contacts
+              detailId ? <ContactDetailPage data={data} contactId={detailId} run={run} onCompose={(contact) => setCompose(contactComposeContext(contact))} /> : <Contacts
               data={data}
               query={search}
               onCompose={(contact) => setCompose(contactComposeContext(contact))}
@@ -2493,6 +2494,57 @@ function TechnologyList({ technologies }: { technologies: string[] }) {
   </div>;
 }
 
+function readableLocation(location: ManageLocation) {
+  const address = location.address ?? {};
+  return [address.line1, address.city, address.state, address.postal_code].filter(Boolean).join(", ") || "Address not added";
+}
+
+function locationSearchHref(label: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
+}
+
+function LocationMapCard({ locations, fallback }: { locations: ManageLocation[]; fallback?: string | null }) {
+  const activeLocations = locations.filter((location) => location.status !== "inactive");
+  const mapLabel = activeLocations[0] ? `${activeLocations[0].name}, ${readableLocation(activeLocations[0])}` : fallback;
+  return <section className="manage-context-card manage-location-context" id="account-locations">
+    <div className="manage-context-card__heading"><div><span>Operating footprint</span><h3>Locations</h3></div><span className="manage-context-count">{activeLocations.length}</span></div>
+    {mapLabel ? <>
+      <a className="manage-location-map" href={locationSearchHref(mapLabel)} target="_blank" rel="noreferrer" aria-label={`Open map for ${mapLabel}`}>
+        <span className="manage-location-map__grid" aria-hidden="true" /><span className="manage-location-map__pin"><MapPin size={18} /></span><span className="manage-location-map__label">Open map</span>
+      </a>
+      <p className="manage-location-map__caption">{mapLabel}</p>
+    </> : <div className="manage-context-empty"><MapPin size={16} /><span>Add a physical address in the client workspace to map this account.</span></div>}
+    {activeLocations.length > 1 && <div className="manage-location-list">{activeLocations.slice(0, 4).map((location) => <a href={locationSearchHref(`${location.name}, ${readableLocation(location)}`)} target="_blank" rel="noreferrer" key={location.id}><span>{location.name}</span><small>{readableLocation(location)}</small><ChevronRight size={13} /></a>)}</div>}
+    {activeLocations.length > 4 && <small className="manage-context-footnote">+{activeLocations.length - 4} more locations in the client workspace</small>}
+  </section>;
+}
+
+function AccountPeopleRail({ contacts, onCompose }: { contacts: ManageContact[]; onCompose: (contact: ManageContact) => void }) {
+  const ordered = [...contacts].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || Number(a.source === "workspace") - Number(b.source === "workspace") || a.fullName.localeCompare(b.fullName));
+  return <section className="manage-context-card manage-people-context" id="account-people">
+    <div className="manage-context-card__heading"><div><span>Relationship map</span><h3>People</h3></div><span className="manage-context-count">{contacts.length}</span></div>
+    {ordered.length ? <div className="manage-context-people">{ordered.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div className="manage-context-person"><Link href={`/manage/contacts/${contact.id}`}><strong>{contact.fullName}</strong></Link><small>{contact.title || "Role not set"}</small></div>{contact.isPrimary && <span className="manage-record-primary">Primary</span>}<div className="manage-context-person-actions"><button type="button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`} title={`Email ${contact.fullName}`}><Mail size={14} /></button>{contact.phone && <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.fullName}`}><Phone size={14} /></a>}</div></article>)}</div> : <div className="manage-context-empty"><Users size={16} /><span>No contacts connected yet.</span></div>}
+  </section>;
+}
+
+function AccountHierarchyCard({ account, accounts, run }: { account: ManageAccount; accounts: ManageAccount[]; run: (work: () => Promise<unknown>, success: string) => Promise<void> }) {
+  const parent = account.parentAccountId ? accounts.find((item) => item.id === account.parentAccountId) : null;
+  const children = accounts.filter((item) => item.parentAccountId === account.id);
+  const [editing, setEditing] = useState(false);
+  const [parentId, setParentId] = useState(account.parentAccountId ?? "");
+  const candidates = accounts.filter((item) => item.id !== account.id);
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await run(() => fetch(`/api/manage/accounts/${account.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ parentAccountId: parentId || null }) }).then(async (response) => { if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "The account relationship could not be saved."); }), "Account relationship updated.");
+    setEditing(false);
+  };
+  return <section className="manage-context-card manage-hierarchy-context">
+    <div className="manage-context-card__heading"><div><span>Account structure</span><h3>Parent & child companies</h3></div><button type="button" className="manage-context-edit" onClick={() => setEditing((value) => !value)}>{editing ? "Close" : "Edit"}</button></div>
+    {editing && <form className="manage-hierarchy-form" onSubmit={save}><label><span>Parent company</span><select value={parentId} onChange={(event) => setParentId(event.target.value)}><option value="">No parent company</option>{candidates.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label><button type="submit" className="manage-button manage-button--quiet">Save relationship</button></form>}
+    <div className="manage-hierarchy-list">{parent ? <Link href={`/manage/accounts/${parent.id}`}><small>Parent company</small><strong>{parent.name}</strong><ChevronRight size={13} /></Link> : <div className="manage-context-empty"><Building2 size={16} /><span>No parent company recorded.</span></div>}{children.length > 0 && <div className="manage-hierarchy-children"><small>Child companies · {children.length}</small>{children.slice(0, 4).map((child) => <Link href={`/manage/accounts/${child.id}`} key={child.id}><span>{child.name}</span><ChevronRight size={13} /></Link>)}</div>}</div>
+  </section>;
+}
+
 function AccountOverview({
   account,
   profile,
@@ -2501,8 +2553,12 @@ function AccountOverview({
   expenses,
   documents,
   contacts,
+  allAccounts,
+  locations,
   setSelectedVendorId,
   setActive,
+  onCompose,
+  run,
 }: {
   account: ManageAccount;
   profile: ManageAccount["enrichment"];
@@ -2511,25 +2567,17 @@ function AccountOverview({
   expenses: ManageData["expenses"];
   documents: ManageData["documents"];
   contacts: ManageContact[];
+  allAccounts: ManageAccount[];
+  locations: ManageLocation[];
   setSelectedVendorId: (id: string) => void;
   setActive: (active: string) => void;
+  onCompose: (contact: ManageContact) => void;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
 }) {
   const companyPhone = profile?.phone;
   const phoneHref = companyPhone?.replace(/[^+\d]/g, "");
-  return <div className="manage-record-layout">
-    <aside className="manage-record-rail">
-      <section>
-        <span>Account details</span>
-        <dl>
-          <div><dt>Industry</dt><dd>{account.industry || profile?.industry || "Not set"}</dd></div>
-          <div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div>
-          <div><dt>Phone</dt><dd>{companyPhone && phoneHref ? <a href={`tel:${phoneHref}`} className="manage-record-company-phone">{companyPhone}</a> : "Not recorded"}</dd></div>
-          <div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div>
-          <div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div>
-        </dl>
-      </section>
-      <section><span>Internal CRM</span><p>{account.privateNotes || "No private account note yet."}</p></section>
-    </aside>
+  const accountLocations = locations.filter((location) => location.organizationId === account.id);
+  return <div className="manage-record-layout manage-record-layout--right-rail">
     <main className="manage-record-main">
       <section className="manage-record-profile">
         <div>
@@ -2558,16 +2606,23 @@ function AccountOverview({
       <section className="manage-panel manage-record-overview-panel">
         <header><div><h3>Relationship snapshot</h3><p>Keep people, vendors, files, and activity close together.</p></div></header>
         <div className="manage-record-snapshot">
-          <button type="button" onClick={() => setActive("people")}><Users size={16} /><span><strong>{contacts.length}</strong> people</span><ChevronRight size={15} /></button>
+          <a href="#account-people"><Users size={16} /><span><strong>{contacts.length}</strong> people</span><ChevronRight size={15} /></a>
           <button type="button" onClick={() => setActive("vendors")}><Building2 size={16} /><span><strong>{vendors.length}</strong> vendors</span><ChevronRight size={15} /></button>
           <button type="button" onClick={() => setActive("files")}><FileText size={16} /><span><strong>{documents.length}</strong> source files</span><ChevronRight size={15} /></button>
         </div>
       </section>
     </main>
+    <aside className="manage-record-rail manage-record-right-rail" aria-label="Account context">
+      <section className="manage-context-card manage-account-details-context"><div className="manage-context-card__heading"><div><span>Account details</span><h3>At a glance</h3></div></div><dl><div><dt>Industry</dt><dd>{account.industry || profile?.industry || "Not set"}</dd></div><div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div><div><dt>Phone</dt><dd>{companyPhone && phoneHref ? <a href={`tel:${phoneHref}`} className="manage-record-company-phone">{companyPhone}</a> : "Not recorded"}</dd></div><div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div><div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div></dl></section>
+      <AccountPeopleRail contacts={contacts} onCompose={onCompose} />
+      <AccountHierarchyCard account={account} accounts={allAccounts} run={run} />
+      <LocationMapCard locations={accountLocations} fallback={profile?.location} />
+      <section className="manage-context-card"><div className="manage-context-card__heading"><div><span>Internal CRM</span><h3>Operator note</h3></div></div><p className="manage-context-copy">{account.privateNotes || "No private account note yet."}</p></section>
+    </aside>
   </div>;
 }
 
-function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; accountId: string; onCompose: (contact: ManageContact) => void }) {
+function AccountDetailPage({ data, accountId, run, onCompose }: { data: ManageData; accountId: string; run: (work: () => Promise<unknown>, success: string) => Promise<void>; onCompose: (contact: ManageContact) => void }) {
   const account = data.accounts.find((item) => item.id === accountId);
   const [active, setActive] = useState("overview");
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
@@ -2581,22 +2636,31 @@ function AccountDetailPage({ data, accountId, onCompose }: { data: ManageData; a
   const vendorContracts = data.vendorContracts.filter((item) => item.organizationId === account.id);
   const profile = account.enrichment;
   const profileSummary = profile?.shortDescription || (account.industry ? `${account.name} is recorded in the ${account.industry} industry.` : "Add the account website or a short internal note to make this record easier to recognize at a glance.");
-  const accountTabs = [{ id: "overview", label: "Overview" }, { id: "vendors", label: "Vendors", count: vendors.length }, { id: "people", label: "People", count: contacts.length }, { id: "files", label: "Files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Work", count: tasks.length }];
+  const accountTabs = [{ id: "overview", label: "Overview" }, { id: "vendors", label: "Vendors", count: vendors.length }, { id: "files", label: "Files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Work", count: tasks.length }];
   return <div className="manage-detail-page manage-record-page motion-page">
     <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
     <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><p>Client account</p><h2>{account.name} <RecordHeaderLinks website={profile?.website || account.website} linkedinUrl={profile?.linkedinUrl} entityName={account.name} /></h2><span>{account.legalName || account.industry || "Account profile"}</span><AccountHeaderMeta account={account} profile={profile} /></div></div></header>
     <section className="manage-record-highlights" aria-label="Account highlights"><div><span>Lifecycle</span><Status value={account.stage || "unclassified"} /></div><div><span>Next step</span><strong>{account.nextStep || "Not set"}</strong></div><div><span>Follow-up</span><strong>{account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled"}</strong></div><div><span>Vendors</span><strong>{vendors.length}</strong></div><div><span>Open work</span><strong>{account.openTaskCount}</strong></div><div><span>Evidence files</span><strong>{documents.length}</strong></div></section>
     <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
-    {active === "overview" && <AccountOverview account={account} profile={profile} profileSummary={profileSummary} vendors={vendors} expenses={expenses} documents={documents} contacts={contacts} setSelectedVendorId={setSelectedVendorId} setActive={setActive} />}
+    {active === "overview" && <AccountOverview account={account} profile={profile} profileSummary={profileSummary} vendors={vendors} expenses={expenses} documents={documents} contacts={contacts} allAccounts={data.accounts} locations={data.locations} setSelectedVendorId={setSelectedVendorId} setActive={setActive} onCompose={onCompose} run={run} />}
     {active === "vendors" && <VendorWorkspace vendors={vendors} expenses={expenses} contracts={vendorContracts} documents={documents} currency={account.currency} selectedId={selectedVendorId} onSelect={setSelectedVendorId} />}
-    {active === "people" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>People</h3><p>Contacts connected to this account. Compose and record actions stay explicit.</p></div></header>{contacts.length ? <div className="manage-record-person-list">{contacts.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div><Link href={`/manage/contacts/${contact.id}`}><strong>{contact.fullName}</strong></Link><p>{contact.title || "Role not set"} · <button type="button" className="manage-contact-email" onClick={() => onCompose(contact)} title={`Compose an email to ${contact.fullName}`}>{contact.email}</button></p></div>{contact.isPrimary && <span className="manage-record-primary">Primary</span>}<button className="manage-icon-button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`}><Mail size={15} /></button></article>)}</div> : <Empty icon={Users} title="No contacts" copy="Add a real client contact to this account." />}</section>}
     {active === "files" && <RecordFilesWorkspace title="Account files" description="A clean, searchable view of this client’s private source documents. Collections never change the immutable storage record." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: account.name, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
     {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>}
   </div>;
 }
 
-function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; contactId: string; onCompose: (contact: ManageContact) => void }) {
+function ContactContextRail({ contact, account, accounts, contacts, locations, onCompose, run }: { contact: ManageContact; account: ManageAccount | undefined; accounts: ManageAccount[]; contacts: ManageContact[]; locations: ManageLocation[]; onCompose: (contact: ManageContact) => void; run: (work: () => Promise<unknown>, success: string) => Promise<void> }) {
+  const accountLocations = account ? locations.filter((location) => location.organizationId === account.id) : [];
+  const accountContacts = account ? contacts.filter((item) => item.organizationId === account.id) : [];
+  return <aside className="manage-record-rail manage-record-right-rail" aria-label="Contact context">
+    <section className="manage-context-card"><div className="manage-context-card__heading"><div><span>Contact details</span><h3>At a glance</h3></div></div><dl><div><dt>Account</dt><dd>{account ? <Link href={`/manage/accounts/${account.id}`}>{account.name}</Link> : contact.organizationName}</dd></div><div><dt>Email</dt><dd><button type="button" className="manage-contact-email" onClick={() => onCompose(contact)}>{contact.email}</button></dd></div><div><dt>Phone</dt><dd>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="manage-contact-phone">{contact.phone}</a> : "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section>
+    {account && <><AccountPeopleRail contacts={accountContacts} onCompose={onCompose} /><AccountHierarchyCard account={account} accounts={accounts} run={run} /><LocationMapCard locations={accountLocations} fallback={account.enrichment?.location} /></>}
+    <section className="manage-context-card"><div className="manage-context-card__heading"><div><span>Relationship status</span><h3>Ready for outreach</h3></div></div><p className="manage-context-copy">{contact.isPrimary ? "Primary contact for this account." : "Client contact linked to this account."} {contact.marketingStatus ? `Marketing status: ${pretty(contact.marketingStatus)}.` : "Marketing consent is not recorded."}</p></section>
+  </aside>;
+}
+
+function ContactDetailPage({ data, contactId, run, onCompose }: { data: ManageData; contactId: string; run: (work: () => Promise<unknown>, success: string) => Promise<void>; onCompose: (contact: ManageContact) => void }) {
   const contact = data.contacts.find((item) => item.id === contactId);
   const [active, setActive] = useState("overview");
   if (!contact) return <Empty icon={Users} title="Contact not found" copy="This contact may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/contacts"><ArrowLeft size={15} /> Back to contacts</Link>} />;
@@ -2606,7 +2670,7 @@ function ContactDetailPage({ data, contactId, onCompose }: { data: ManageData; c
   const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
   const tabs = [{ id: "overview", label: "Overview" }, { id: "files", label: "Shared files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Tasks", count: tasks.length }];
   return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><p>Client contact</p><h2>{contact.fullName} <RecordHeaderLinks website={contactAccount?.enrichment?.website || contactAccount?.website} linkedinUrl={contactAccount?.enrichment?.linkedinUrl} entityName={contact.fullName} /></h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-record-action-icon manage-record-action-icon--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={17} /></button>{contact.phone && <a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={17} /></a>}</div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-record-account-link" title={`Open ${contact.organizationName}`}><CompanyLogo entity="organization" id={contact.organizationId} name={contact.organizationName} className="manage-record-account-logo" /><span><small>Account</small><strong>{contact.organizationName}</strong></span></Link></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
-    {active === "overview" && <div className="manage-record-layout"><aside className="manage-record-rail"><section><span>Contact details</span><dl><div><dt>Account</dt><dd><Link href={`/manage/accounts/${contact.organizationId}`}>{contact.organizationName}</Link></dd></div><div><dt>Email</dt><dd><button type="button" className="manage-contact-email" onClick={() => onCompose(contact)} title={`Compose an email to ${contact.fullName}`}>{contact.email}</button></dd></div><div><dt>Phone</dt><dd>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="manage-contact-phone" title={`Call ${contact.phone}`}>{contact.phone}</a> : "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section></aside><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main></div>}
+    {active === "overview" && <div className="manage-record-layout manage-record-layout--right-rail"><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main><ContactContextRail contact={contact} account={contactAccount} accounts={data.accounts} contacts={data.contacts} locations={data.locations} onCompose={onCompose} run={run} /></div>}
     {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} emptyCopy="No account source files are available to this internal record yet." />}
     {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
     {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Tasks for {contact.fullName}</h3><p>Only work explicitly linked to this CRM contact is shown.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No contact tasks" copy="Assign a task to this contact when there is a clear next step." />}</section>}

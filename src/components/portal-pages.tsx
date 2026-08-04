@@ -2531,6 +2531,7 @@ function LocationManager({
                 <small>{addressLine(item)}</small>
               </div>
               <Status value={item.status} />
+              {addressLine(item) !== "Address not added" && <a className="settings-location-map-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${item.name}, ${addressLine(item)}`)}`} target="_blank" rel="noreferrer">Open map</a>}
               {canManage && (
                 <button className="icon-button" type="button" onClick={() => setSelected(item)} aria-label={`Edit ${item.name}`}>
                   <Pencil size={15} />

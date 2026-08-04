@@ -367,3 +367,9 @@ A task is complete only when:
 - No external communication, referral, cancellation, contract action, payment change, or fee without the required authorization and audit record.
 - No direct UCEP integration that bypasses disclosure, consent, customer choice, or data separation.
 - No claim of legal, tax, regulatory, security, trademark, or employment clearance based only on model output.
+
+## Local Runtime Guardrails
+
+- Run only one local Next.js app instance at a time to avoid UI overlap.
+- Before launching `npm run dev`, stop any existing `next dev`/`next start` processes.
+- Keep local development on `http://localhost:3000` by default, and verify with `Get-NetTCPConnection -LocalPort 3000 -State Listen`.

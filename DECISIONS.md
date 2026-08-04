@@ -497,6 +497,28 @@ route, schema change, or browser access to privileged vendor data. Chart values 
 only; annualized relationship values remain separately labelled and no view presents an estimated
 or verified savings amount.
 
+## 2026-08-03 — Keep record updates server-authorized and soft-revalidated
+
+### Context
+
+Manage account and contact records are loaded through an internal operator boundary. The browser
+should reflect edits quickly, but exposing privileged CRM tables directly to a Realtime subscription
+would require a new RLS and Data API surface.
+
+### Decision
+
+Use the existing mutation APIs and `router.refresh()` after a successful save. In Next.js this is a
+soft Server Component data re-fetch that preserves the current route and client state; it is not a
+full browser reload. Keep the manual Apollo refresh/list controls out of the record header. If true
+cross-session push updates become necessary, emit a narrow internal notification and reuse the
+existing authorized notification listener before considering direct table subscriptions.
+
+### Consequences
+
+Edits update the visible record without a disruptive page reload, while service-role access and
+tenant isolation stay on the server. The implementation avoids Realtime subscription cost and
+permission expansion until there is a concrete cross-session update requirement.
+
 ## 2026-08-03 — Use Apollo as an operator-selected account discovery source
 
 ### Context
@@ -594,3 +616,16 @@ declare the exact PDF.js version used by both PDF consumers directly in `package
 
 Vercel returns to the previously working npm install path, and future package-manager changes cannot
 silently break the direct PDF.js imports through dependency hoisting differences.
+## 2026-08-03 — Use a context rail for account and contact relationships
+
+### Context
+
+Account and contact detail pages had important relationship context below the fold or in a separate People tab. Operators need the primary contact, direct outreach actions, account hierarchy, and operating locations while reviewing the main record.
+
+### Decision
+
+Use a right-side, independently scrollable context rail on overview pages. Keep vendors, files, activity, and work as focused tabs, but keep people, account hierarchy, and locations visible beside the main overview. Locations come from the tenant-scoped `locations` table; map previews use a lightweight, external map search link so Costivra does not add a paid map SDK or expose a location API key.
+
+### Consequences
+
+The main record stays calm and scannable while relationship actions remain close at hand. Parent-company links are stored as an explicit self-reference on organizations, with server validation against self-parenting and unknown accounts. The client workspace continues to manage locations in Settings, which is the correct permission boundary for adding and archiving sites.

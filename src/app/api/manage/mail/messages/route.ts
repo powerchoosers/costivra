@@ -74,10 +74,10 @@ export async function POST(request: Request) {
     if (!organizationId && to[0]) {
       organizationId = await resolveOrganizationId(db, to[0]);
     }
-    if (!organizationId)
+    if (!organizationId && mode !== "draft")
       return NextResponse.json(
         {
-          error: "The recipient does not match a client contact yet. Add that email to the correct CRM account before saving or sending.",
+          error: "The recipient does not match a client contact yet. Add that email to the correct CRM account before sending.",
         },
         { status: 400 },
       );

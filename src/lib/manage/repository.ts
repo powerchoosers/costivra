@@ -6,6 +6,7 @@ import type {
   ManageData,
   ManageExpense,
   ManageMailbox,
+  ManageLocation,
   ManageMailMessage,
   ManageMailThread,
   ManageStaffMember,
@@ -64,6 +65,8 @@ export async function getManageData(input?: {
       : null;
   const [
     organizationsResult,
+    organizationHierarchyResult,
+    locationsResult,
     overlaysResult,
     membershipsResult,
     profilesResult,
@@ -87,6 +90,8 @@ export async function getManageData(input?: {
       .from("organizations")
       .select("id,name,legal_name,industry,currency,primary_contact_name,created_at,logo_url")
       .order("created_at", { ascending: false }),
+    db.from("organizations").select("id,parent_organization_id"),
+    db.from("locations").select("id,organization_id,name,status,address").order("name", { ascending: true }),
     db
       .from("crm_account_profiles")
       .select("*")
@@ -194,6 +199,18 @@ export async function getManageData(input?: {
   const organizationsById = new Map(
     organizations.map((row) => [text(row.id), row]),
   );
+  const parentOrganizationById = new Map(
+    rows(organizationHierarchyResult.data).map((row) => [text(row.id), nullable(row.parent_organization_id)]),
+  );
+  const locations: ManageLocation[] = rows(locationsResult.data)
+    .filter((location) => isVisibleOrganization(text(location.organization_id)))
+    .map((location) => ({
+      id: text(location.id),
+      organizationId: text(location.organization_id),
+      name: text(location.name, "Unnamed location"),
+      status: text(location.status, "active"),
+      address: location.address && typeof location.address === "object" ? location.address as Record<string, string> : null,
+    }));
   const accountEnrichmentsByOrganization = new Map(
     (enrichmentAvailable ? rows(accountEnrichmentsResult.data) : [])
       .filter((row) => isVisibleOrganization(text(row.organization_id)))
@@ -499,6 +516,7 @@ export async function getManageData(input?: {
       privateNotes: nullable(overlay?.private_notes),
       createdAt: text(organization.created_at),
       logoUrl: nullable(organization.logo_url),
+      parentAccountId: parentOrganizationById.get(id) ?? null,
       enrichment: enrichment
         ? {
             provider: "apollo" as const,
@@ -668,6 +686,7 @@ export async function getManageData(input?: {
     },
     staff,
     accounts,
+    locations,
     contacts: contacts.sort(
       (a, b) =>
         a.organizationName.localeCompare(b.organizationName) ||

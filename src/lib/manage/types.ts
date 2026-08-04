@@ -39,7 +39,16 @@ export type ManageAccount = {
   privateNotes: string | null;
   createdAt: string;
   logoUrl: string | null;
+  parentAccountId: string | null;
   enrichment: ManageAccountEnrichment | null;
+};
+
+export type ManageLocation = {
+  id: string;
+  organizationId: string;
+  name: string;
+  status: string;
+  address: Record<string, string> | null;
 };
 
 export type ManageAccountEnrichment = {
@@ -249,6 +258,7 @@ export type ManageData = {
   operator: ManageOperator;
   staff: ManageStaffMember[];
   accounts: ManageAccount[];
+  locations: ManageLocation[];
   contacts: ManageContact[];
   documents: ManageDocument[];
   vendorRelationships: ManageVendorRelationship[];

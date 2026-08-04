@@ -31,6 +31,29 @@ export async function PATCH(
     const nextFollowUpAt = cleanText(body.nextFollowUpAt, 40) || null;
     const websiteInput = cleanText(body.website, 2_048);
     const website = websiteInput ? normalizeAccountWebsite(websiteInput) : null;
+    const parentAccountId = "parentAccountId" in body
+      ? cleanUuid(body.parentAccountId) || null
+      : undefined;
+    if (parentAccountId === organizationId) {
+      return NextResponse.json(
+        { error: "An account cannot be its own parent." },
+        { status: 400 },
+      );
+    }
+    if (parentAccountId) {
+      const parent = await db
+        .from("organizations")
+        .select("id")
+        .eq("id", parentAccountId)
+        .maybeSingle();
+      if (parent.error) throw parent.error;
+      if (!parent.data) {
+        return NextResponse.json(
+          { error: "Choose an existing parent account." },
+          { status: 400 },
+        );
+      }
+    }
     if (nextFollowUpAt && Number.isNaN(Date.parse(nextFollowUpAt)))
       return NextResponse.json(
         { error: "Choose a valid follow-up date." },
@@ -41,6 +64,13 @@ export async function PATCH(
         { error: "Enter a public http or https account website." },
         { status: 400 },
       );
+    if (parentAccountId !== undefined) {
+      const hierarchy = await db
+        .from("organizations")
+        .update({ parent_organization_id: parentAccountId })
+        .eq("id", organizationId);
+      if (hierarchy.error) throw hierarchy.error;
+    }
     const record = {
       organization_id: organizationId,
       ...("stage" in body ? { lifecycle_stage: stage || "onboarding" } : {}),
@@ -76,6 +106,8 @@ export async function PATCH(
           stage: "stage" in body ? stage || "onboarding" : null,
           follow_up_changed: "nextFollowUpAt" in body,
           website_changed: "website" in body,
+          parent_account_changed: parentAccountId !== undefined,
+          parent_account_id: parentAccountId ?? null,
         },
       });
     return NextResponse.json({ ok: true });
