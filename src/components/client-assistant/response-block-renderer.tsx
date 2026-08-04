@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, ArrowRight, ShieldCheck, AlertCircle, Building2, CheckCircle2, TrendingUp } from "lucide-react";
+import { FileText, ArrowRight, AlertCircle, Building2, TrendingUp } from "lucide-react";
 import type { AssistantBlockV1 } from "@/lib/client-assistant/types";
 
 export function ResponseBlockRenderer({ block }: { block: AssistantBlockV1 }) {

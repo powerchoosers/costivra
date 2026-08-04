@@ -78,9 +78,6 @@ describe("POST /api/webhooks/resend", () => {
     process.env.RESEND_WEBHOOK_SECRET = webhookSecret;
     const { getResendClient } = await import("@/lib/email/resend");
     const { createServerSupabaseClient } = await import("@/lib/supabase/server");
-  const verify = vi.fn().mockImplementation(() => {
-      throw new Error("Invalid signature");
-    });
     vi.mocked(getResendClient).mockReturnValue({
       webhooks: {
         verify: vi.fn(() => {

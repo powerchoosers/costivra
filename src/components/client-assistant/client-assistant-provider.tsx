@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useReducer, ReactNode, useCallback } from "react";
 import type { AssistantMode, AssistantContextRef, ChatSessionSummary, ClientChatMessage, ClientAssistantAttachment } from "@/lib/client-assistant/types";
 
 type AssistantState = {

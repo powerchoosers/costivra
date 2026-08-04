@@ -15,7 +15,6 @@ import {
   ArrowDownRight,
   ArrowLeft,
   ArrowUpRight,
-  Bot,
   Building2,
   CalendarClock,
   Check,
@@ -26,19 +25,16 @@ import {
   Download,
   ExternalLink,
   FileText,
-  Globe2,
   Info,
   LoaderCircle,
   Mail,
   MapPin,
-  MessageSquareText,
   Pause,
   Pencil,
   Plus,
   ReceiptText,
   RotateCcw,
   Search,
-  Send,
   ShieldCheck,
   Trash2,
   TrendingUp,
@@ -2209,18 +2205,7 @@ function Team({ data, onInvite, run, embedded = false }: {
   );
 }
 
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-  citations?: Array<{
-    id: string;
-    documentId: string;
-    documentName: string;
-    pageNumber: number;
-    quote: string;
-  }>;
-};
-function Ask({ data }: { data: PortalData }) {
+function Ask({ data: _data }: { data?: PortalData }) {
   const { openFullscreen } = useClientAssistant();
   useEffect(() => {
     openFullscreen();

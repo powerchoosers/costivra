@@ -1,5 +1,26 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-04 — Durable vendor monitoring storage, state machine, and lifecycle email triggers
+
+### Context
+
+Prior monitoring status was stored as loose transient metadata on `organization_vendors`. When an inbound bill was forwarded, there was no dedicated table tracking approved sender addresses, test events, cadence boundaries, or grace periods across vendor relationships.
+
+### Decision
+
+1. **Durable Storage (`vendor_monitoring_configs`)**: Store per-vendor monitoring rules in a dedicated relational table with explicit foreign keys to `organization_vendors`, `organizations`, `inbound_email_addresses`, and `inbound_email_events`.
+2. **State Machine (`not_configured` -> `pending_test` -> `active` -> `attention_needed` | `paused`)**:
+   - `not_configured`: Default state before forwarding rules are configured.
+   - `pending_test`: Configured with an approved sender; awaits initial test bill forwarding.
+   - `active`: Test bill received and verified; continuously monitors recurring bills on expected cadence.
+   - `attention_needed`: Triggered when an expected bill is missed beyond the grace period.
+   - `paused`: Explicit human pause rule.
+3. **Transactional Lifecycle Email Triggers (`src/lib/email/lifecycle.ts`)**: Implement 9 transactional email triggers with SHA-256 idempotency key deduplication in `external_side_effects` to prevent duplicate customer emails during automated retries.
+
+### Consequences
+
+Monitoring states persist across sessions and database restarts with strict Row Level Security. Intake processing automatically activates monitoring upon verified bill forwarding.
+
 ## 2026-08-02 — Deliver live mail activity through targeted notifications and scan-gated private attachments
 
 ### Context

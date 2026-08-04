@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssistantBlockRequest, AssistantBlockV1 } from "./types";
-import { parseMoneyToCents, annualizeSpendCents } from "@/lib/vendors/spend";
+import { parseMoneyToCents } from "@/lib/vendors/spend";
 
 /**
  * Hydrates block requests into authoritative versioned AssistantBlockV1 payloads.

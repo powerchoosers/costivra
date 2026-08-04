@@ -1,6 +1,6 @@
 import "server-only";
 
-import { normalizeVendorName, normalizeDomain } from "./normalize";
+import { normalizeDomain } from "./normalize";
 import { isConfiguredSecret } from "@/lib/env/secrets";
 
 export type VendorEnrichmentInput = {

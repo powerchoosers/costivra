@@ -2486,7 +2486,7 @@ function RecordHeaderLinks({ website, linkedinUrl, entityName }: { website: stri
   </span>;
 }
 
-function AccountHeaderMeta({ account, profile }: { account: ManageAccount; profile: ManageAccount["enrichment"] }) {
+function AccountHeaderMeta({ profile }: { account?: ManageAccount; profile: ManageAccount["enrichment"] }) {
   if (!profile?.location) return null;
   return <div className="manage-record-identity-meta" aria-label="Company contact details">
     <span title="Headquarters location"><MapPin size={13} />{profile.location}</span>

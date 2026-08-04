@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
-  Bot,
   Building2,
   ChartNoAxesCombined,
   CheckSquare2,
@@ -374,7 +373,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 export function AppShell({ children, data }: { children: ReactNode; data: PortalData }) {
   return (
     <ClientAssistantProvider>
-      <AppShellContent children={children} data={data} />
+      <AppShellContent data={data}>{children}</AppShellContent>
     </ClientAssistantProvider>
   );
 }

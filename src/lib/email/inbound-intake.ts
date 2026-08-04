@@ -327,6 +327,12 @@ export async function processInboundEmailJob(
     .eq("organization_id", job.organization_id)
     .eq("provider", "resend_inbound");
   if (integrationError) throw integrationError;
+
+  // Reconcile durable vendor monitoring state transitions
+  if (processedCount > 0) {
+    await reconcileVendorMonitoringIntake(db, job);
+  }
+
   await recordCompletionAudit(db, job, `inbound_email.${finalStatus}`);
   await notifyOrganizationOwners(
     db,
@@ -358,6 +364,62 @@ export async function processInboundEmailJob(
   if (finishError) throw finishError;
   if (!finished) throw new Error("Inbound email job lock expired before completion.");
   return { status: finalStatus, processedAttachmentCount: processedCount };
+}
+
+export async function reconcileVendorMonitoringIntake(
+  db: ServerDatabase,
+  job: InboundEmailJob,
+) {
+  const now = new Date().toISOString();
+
+  // Find monitoring configs matching organization
+  const { data: configs } = await db
+    .from("vendor_monitoring_configs")
+    .select("*")
+    .eq("organization_id", job.organization_id);
+
+  if (!configs?.length) return;
+
+  for (const config of configs) {
+    const senderMatches =
+      config.approved_sender_address &&
+      job.sender_address.toLowerCase().includes(config.approved_sender_address.toLowerCase());
+
+    const isPendingTest = config.state === "pending_test" || !config.test_completed_at;
+
+    if (senderMatches || isPendingTest) {
+      const cadenceDays = config.expected_cadence_days || 30;
+      const graceDays = config.grace_period_days || 7;
+      const nextExpected = new Date(Date.now() + (cadenceDays + graceDays) * 24 * 60 * 60 * 1000).toISOString();
+
+      await db
+        .from("vendor_monitoring_configs")
+        .update({
+          state: "active",
+          test_completed_at: config.test_completed_at || now,
+          test_event_id: config.test_event_id || job.id,
+          last_received_event_id: job.id,
+          last_received_at: now,
+          next_expected_at: nextExpected,
+          updated_at: now,
+        })
+        .eq("id", config.id);
+
+      await db.from("audit_events").insert({
+        organization_id: job.organization_id,
+        actor_type: "service",
+        action: isPendingTest ? "vendor_monitoring.test_passed" : "vendor_monitoring.bill_received",
+        resource_type: "vendor_monitoring_configs",
+        resource_id: config.id,
+        payload: {
+          eventId: job.id,
+          senderAddress: job.sender_address,
+          state: "active",
+          nextExpectedAt: nextExpected,
+        },
+      });
+    }
+  }
 }
 
 export function isInboundEmailBudgetYield(error: unknown) {

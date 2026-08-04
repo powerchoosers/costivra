@@ -151,6 +151,20 @@ async function openRouterReadiness() {
   return { ok: true, status: "ready" as const };
 }
 
+async function scannerReadiness() {
+  const url = process.env.MALWARE_SCANNER_URL?.trim();
+  const apiKey = process.env.CLOUDMERSIVE_API_KEY?.trim();
+  console.log("\nMalware scanner checks:");
+  console.log(`  MALWARE_SCANNER_URL: ${hasRealValue(url)}`);
+  console.log(`  CLOUDMERSIVE_API_KEY: ${hasRealValue(apiKey)}`);
+
+  if (hasRealValue(url) === "ok" || hasRealValue(apiKey) === "ok") {
+    console.log("  - Malware scanner configured. Production intake will perform live virus scanning.");
+  } else {
+    console.log("  - Malware scanner unavailable. Private intake will quarantine files until scanning is active.");
+  }
+}
+
 async function runSupabaseProbe(): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -229,6 +243,7 @@ async function run() {
     }
   }
   const openRouter = await openRouterReadiness();
+  await scannerReadiness();
 
   const ready = hasRealValue(process.env.RESEND_API_KEY) === "ok"
     && hasRealValue(process.env.RESEND_WEBHOOK_SECRET) === "ok"
