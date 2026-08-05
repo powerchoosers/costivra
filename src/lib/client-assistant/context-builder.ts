@@ -7,15 +7,23 @@ import type { AssistantContextRef } from "./types";
 export type AssistantBoundedContext = {
   organizationName: string;
   currentViewContext: string | null;
+  currentContextCategory: string | null;
   attachedDocuments: Array<{
     id: string;
     filename: string;
     extractionSummary: string | null;
+    category: string | null;
   }>;
-  recentVendors: Array<{ id: string; name: string; category: string | null; spend: number }>;
+  recentVendors: Array<{
+    id: string;
+    name: string;
+    category: string | null;
+    spend: number;
+  }>;
   recentInvoices: Array<{
     id: string;
     vendorName: string | null;
+    category: string | null;
     amount: number;
     date: string;
     status: string;
@@ -29,11 +37,29 @@ export type AssistantBoundedContext = {
   upcomingContracts: UpcomingContract[];
 };
 
+type VendorJoin = {
+  canonical_name?: string;
+  category?: string | null;
+};
+
+type OrganizationVendorJoin = {
+  vendors?: VendorJoin | null;
+};
+
+function joinedVendor(
+  value: unknown,
+): { name: string | null; category: string | null } {
+  const relationship = value as OrganizationVendorJoin | null;
+  return {
+    name: relationship?.vendors?.canonical_name ?? null,
+    category: relationship?.vendors?.category ?? null,
+  };
+}
+
 /**
- * Collects bounded, tenant-isolated record context for the assistant system prompt.
- * Uses correct live schema fields: vendors.canonical_name, documents.extraction_summary,
- * opportunities.estimated_annual_value. Invoice vendor resolved through join — no vendor_name column.
- * Zero cross-tenant data leaks.
+ * Collects bounded, tenant-isolated record context for the assistant.
+ * Category is resolved from the active record or attachment whenever possible,
+ * preventing an unrelated top-spend vendor from selecting the expert pack.
  */
 export async function buildAssistantContext(
   db: SupabaseClient,
@@ -41,7 +67,6 @@ export async function buildAssistantContext(
   contextRef?: AssistantContextRef | null,
   attachedDocumentIds?: string[],
 ): Promise<AssistantBoundedContext> {
-  // Fetch Org name
   const { data: org } = await db
     .from("organizations")
     .select("name")
@@ -49,129 +74,171 @@ export async function buildAssistantContext(
     .single();
 
   const organizationName = org?.name ?? "Your Workspace";
-
-  // Current View Context — resolve display label server-side
   let currentViewContext: string | null = null;
-  if (contextRef) {
-    if (contextRef.kind === "vendor") {
-      const { data: rel } = await db
-        .from("organization_vendors")
-        .select("id, vendors(canonical_name)")
-        .eq("id", contextRef.id)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-      if (rel?.vendors) {
-        const vName = (rel.vendors as unknown as { canonical_name: string }).canonical_name;
-        if (vName) currentViewContext = `Viewing Vendor: ${vName}`;
-      }
-    } else if (contextRef.kind === "invoice") {
-      // invoices has no vendor_name column — resolve through organization_vendor_id join
-      const { data: inv } = await db
+  let currentContextCategory: string | null = null;
+
+  if (contextRef?.kind === "vendor") {
+    const { data: relationship } = await db
+      .from("organization_vendors")
+      .select("id, vendors(canonical_name, category)")
+      .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    const vendor = joinedVendor(
+      (relationship as unknown as { vendors?: unknown } | null)?.vendors
+        ? { vendors: (relationship as unknown as { vendors?: unknown }).vendors }
+        : null,
+    );
+    if (vendor.name) currentViewContext = `Viewing Vendor: ${vendor.name}`;
+    currentContextCategory = vendor.category;
+  } else if (contextRef?.kind === "invoice") {
+    const { data: invoice } = await db
+      .from("invoices")
+      .select(
+        "invoice_number, total_amount, organization_vendor_id, organization_vendors(vendors(canonical_name, category))",
+      )
+      .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (invoice) {
+      const vendor = joinedVendor(invoice.organization_vendors);
+      const label = vendor.name ? `${vendor.name} — ` : "";
+      currentViewContext = `Reviewing Invoice: ${label}${invoice.invoice_number ?? "Record"} ($${invoice.total_amount ?? 0})`;
+      currentContextCategory = vendor.category;
+    }
+  } else if (contextRef?.kind === "document") {
+    const { data: document } = await db
+      .from("documents")
+      .select("original_filename")
+      .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (document) {
+      currentViewContext = `Viewing Document: ${document.original_filename}`;
+    }
+    const { data: invoice } = await db
+      .from("invoices")
+      .select("organization_vendors(vendors(category))")
+      .eq("document_id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    currentContextCategory = invoice
+      ? joinedVendor(invoice.organization_vendors).category
+      : null;
+  } else if (contextRef?.kind === "opportunity") {
+    const { data: opportunity } = await db
+      .from("opportunities")
+      .select("title, organization_vendor_id, organization_vendors(vendors(category))")
+      .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (opportunity) {
+      currentViewContext = `Opportunity: ${opportunity.title}`;
+      currentContextCategory = joinedVendor(
+        opportunity.organization_vendors,
+      ).category;
+    }
+  } else if (contextRef?.kind === "contract") {
+    const { data: contract } = await db
+      .from("contracts")
+      .select("title, organization_vendors(vendors(category))")
+      .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (contract) {
+      currentViewContext = `Contract Review: ${contract.title ?? "Contract"}`;
+      currentContextCategory = joinedVendor(
+        contract.organization_vendors,
+      ).category;
+    }
+  } else if (contextRef?.kind === "expense") {
+    const { data: expense } = await db
+      .from("expenses")
+      .select("description, organization_vendors(vendors(category))")
+      .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (expense) {
+      currentViewContext = `Expense Review: ${expense.description ?? "Expense"}`;
+      currentContextCategory = joinedVendor(
+        expense.organization_vendors,
+      ).category;
+    }
+  }
+
+  let attachedDocuments: AssistantBoundedContext["attachedDocuments"] = [];
+  if (attachedDocumentIds?.length) {
+    const uniqueDocumentIds = Array.from(new Set(attachedDocumentIds));
+    const [{ data: documents }, { data: linkedInvoices }] = await Promise.all([
+      db
+        .from("documents")
+        .select("id, original_filename, extraction_summary")
+        .in("id", uniqueDocumentIds)
+        .eq("organization_id", organizationId),
+      db
         .from("invoices")
         .select(
-          "invoice_number, total_amount, organization_vendor_id, organization_vendors(vendors(canonical_name))",
+          "document_id, organization_vendors(vendors(category))",
         )
-        .eq("id", contextRef.id)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-      if (inv) {
-        const vendorName =
-          (
-            inv.organization_vendors as unknown as {
-              vendors?: { canonical_name?: string };
-            } | null
-          )?.vendors?.canonical_name ?? null;
-        const label = vendorName ? `${vendorName} — ` : "";
-        currentViewContext = `Reviewing Invoice: ${label}${inv.invoice_number ?? "Record"} ($${inv.total_amount ?? 0})`;
-      }
-    } else if (contextRef.kind === "document") {
-      const { data: doc } = await db
-        .from("documents")
-        .select("original_filename")
-        .eq("id", contextRef.id)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-      if (doc) currentViewContext = `Viewing Document: ${doc.original_filename}`;
-    } else if (contextRef.kind === "opportunity") {
-      const { data: opp } = await db
-        .from("opportunities")
-        .select("title")
-        .eq("id", contextRef.id)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-      if (opp) currentViewContext = `Opportunity: ${opp.title}`;
-    } else if (contextRef.kind === "contract") {
-      const { data: contract } = await db
-        .from("contracts")
-        .select("title")
-        .eq("id", contextRef.id)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-      if (contract) currentViewContext = `Contract Review: ${(contract as unknown as { title?: string }).title ?? "Contract"}`;
+        .in("document_id", uniqueDocumentIds)
+        .eq("organization_id", organizationId),
+    ]);
+
+    const categoriesByDocument = new Map<string, string | null>();
+    for (const invoice of linkedInvoices ?? []) {
+      categoriesByDocument.set(
+        invoice.document_id,
+        joinedVendor(invoice.organization_vendors).category,
+      );
     }
+
+    attachedDocuments = (documents ?? []).map((document) => ({
+      id: document.id,
+      filename: document.original_filename,
+      extractionSummary: document.extraction_summary ?? null,
+      category: categoriesByDocument.get(document.id) ?? null,
+    }));
   }
 
-  // Attached Documents — use extraction_summary (live field), not summary
-  let attachedDocuments: AssistantBoundedContext["attachedDocuments"] = [];
-  if (attachedDocumentIds && attachedDocumentIds.length > 0) {
-    const { data: docs } = await db
-      .from("documents")
-      .select("id, original_filename, extraction_summary")
-      .in("id", attachedDocumentIds)
-      .eq("organization_id", organizationId);
-
-    if (docs) {
-      attachedDocuments = docs.map((d) => ({
-        id: d.id,
-        filename: d.original_filename,
-        extractionSummary: (d as unknown as { extraction_summary?: string | null }).extraction_summary ?? null,
-      }));
-    }
-  }
-
-  // Recent Vendors (top 10 by spend) — use canonical_name, no name column
-  const { data: vendors } = await db
+  const { data: vendorRows } = await db
     .from("organization_vendors")
     .select("id, annualized_spend, vendors(canonical_name, category)")
     .eq("organization_id", organizationId)
     .order("annualized_spend", { ascending: false })
     .limit(10);
 
-  const recentVendors = (vendors ?? []).map((v) => ({
-    id: v.id,
-    name: (v.vendors as unknown as { canonical_name?: string })?.canonical_name ?? "Unknown",
-    category: (v.vendors as unknown as { category?: string | null })?.category ?? null,
-    spend: v.annualized_spend ?? 0,
-  }));
+  const recentVendors = (vendorRows ?? []).map((row) => {
+    const vendor = row.vendors as unknown as VendorJoin | null;
+    return {
+      id: row.id,
+      name: vendor?.canonical_name ?? "Unknown",
+      category: vendor?.category ?? null,
+      spend: row.annualized_spend ?? 0,
+    };
+  });
 
-  // Recent Invoices (top 10) — resolve vendor through join, no vendor_name column
-  const { data: invoices } = await db
+  const { data: invoiceRows } = await db
     .from("invoices")
     .select(
-      "id, total_amount, invoice_date, review_status, organization_vendor_id, organization_vendors(vendors(canonical_name))",
+      "id, total_amount, invoice_date, review_status, organization_vendor_id, organization_vendors(vendors(canonical_name, category))",
     )
     .eq("organization_id", organizationId)
     .order("invoice_date", { ascending: false })
     .limit(10);
 
-  const recentInvoices = (invoices ?? []).map((i) => {
-    const vendorName =
-      (
-        i.organization_vendors as unknown as {
-          vendors?: { canonical_name?: string };
-        } | null
-      )?.vendors?.canonical_name ?? null;
+  const recentInvoices = (invoiceRows ?? []).map((invoice) => {
+    const vendor = joinedVendor(invoice.organization_vendors);
     return {
-      id: i.id,
-      vendorName,
-      amount: i.total_amount ?? 0,
-      date: i.invoice_date ?? "Unknown",
-      status: i.review_status ?? "recorded",
+      id: invoice.id,
+      vendorName: vendor.name,
+      category: vendor.category,
+      amount: invoice.total_amount ?? 0,
+      date: invoice.invoice_date ?? "Unknown",
+      status: invoice.review_status ?? "recorded",
     };
   });
 
-  // Open Opportunities (top 10) — use estimated_annual_value, not estimated_annual_savings
-  const { data: opps } = await db
+  const { data: opportunityRows } = await db
     .from("opportunities")
     .select("id, title, estimated_annual_value, status")
     .eq("organization_id", organizationId)
@@ -179,44 +246,43 @@ export async function buildAssistantContext(
     .order("estimated_annual_value", { ascending: false })
     .limit(10);
 
-  const openOpportunities = (opps ?? []).map((o) => ({
-    id: o.id,
-    title: o.title,
-    estimatedAnnualValue: o.estimated_annual_value ?? 0,
-    status: o.status,
+  const openOpportunities = (opportunityRows ?? []).map((opportunity) => ({
+    id: opportunity.id,
+    title: opportunity.title,
+    estimatedAnnualValue: opportunity.estimated_annual_value ?? 0,
+    status: opportunity.status,
   }));
 
-  // Upcoming contract dates are tenant-scoped and sorted by code before they reach the model.
-  // They power deterministic answers to deadline questions and provide bounded context for related follow-ups.
   const today = new Date().toISOString().slice(0, 10);
-  const { data: contracts } = await db
+  const { data: contractRows } = await db
     .from("contracts")
-    .select("id, title, end_date, notice_deadline, auto_renews, organization_vendors(vendors(canonical_name))")
+    .select(
+      "id, title, end_date, notice_deadline, auto_renews, organization_vendors(vendors(canonical_name))",
+    )
     .eq("organization_id", organizationId)
     .gte("end_date", today)
     .order("end_date", { ascending: true })
     .limit(10);
 
-  const upcomingContracts = (contracts ?? []).flatMap((contract) => {
+  const upcomingContracts = (contractRows ?? []).flatMap((contract) => {
     if (!contract.end_date) return [];
-    const vendorName = (
-      contract.organization_vendors as unknown as {
-        vendors?: { canonical_name?: string };
-      } | null
-    )?.vendors?.canonical_name ?? null;
-    return [{
-      id: contract.id,
-      title: contract.title ?? "Untitled contract",
-      vendorName,
-      endDate: contract.end_date,
-      noticeDeadline: contract.notice_deadline ?? null,
-      autoRenews: Boolean(contract.auto_renews),
-    }];
+    const vendorName = joinedVendor(contract.organization_vendors).name;
+    return [
+      {
+        id: contract.id,
+        title: contract.title ?? "Untitled contract",
+        vendorName,
+        endDate: contract.end_date,
+        noticeDeadline: contract.notice_deadline ?? null,
+        autoRenews: Boolean(contract.auto_renews),
+      },
+    ];
   });
 
   return {
     organizationName,
     currentViewContext,
+    currentContextCategory,
     attachedDocuments,
     recentVendors,
     recentInvoices,
