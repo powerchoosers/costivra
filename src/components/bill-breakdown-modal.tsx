@@ -96,17 +96,9 @@ export function BillBreakdownModal({
   const { openDrawer, setContext } = useClientAssistant();
 
   useEffect(() => {
-    if (!documentId) {
-      setData(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+    if (!documentId) return;
 
     let isMounted = true;
-    setLoading(true);
-    setError(null);
-
     fetch(`/api/portal/documents/${documentId}/breakdown`)
       .then(async (res) => {
         if (!res.ok) {

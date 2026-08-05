@@ -2206,7 +2206,7 @@ function Team({ data, onInvite, run, embedded = false }: {
   );
 }
 
-function Ask() {
+function Ask(_props?: { data?: PortalData }) {
   const { openFullscreen } = useClientAssistant();
   useEffect(() => {
     openFullscreen();

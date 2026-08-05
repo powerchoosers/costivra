@@ -119,7 +119,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         dispatch({ type: "SET_SESSIONS", sessions: data.sessions });
       }
-    } catch (err) {
+    } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to load chat history." });
     }
   }, []);
