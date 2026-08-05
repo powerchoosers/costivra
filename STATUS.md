@@ -1,5 +1,18 @@
 # Costivra Status
 
+## August 4, 2026 — Ask Costivra Visual Cards, Layout, & Motion Polish
+
+- **Deterministic Response Planner (`src/lib/client-assistant/presentation-planner.ts`)**: Built server-side deterministic block selection to map common financial queries (spend overview, latest bill, bill comparison, contract calendar, attached file intake, opportunities) to authoritative response blocks.
+- **13-Card Modular System (`src/components/client-assistant/cards/`)**: Implemented shared `AssistantCardShell`, `CardStatus`, `CardMetric`, and `RenderAssistantCard` supporting all 13 card block types with Apple-style calm financial aesthetics.
+- **Fullscreen History Rail & Inspector**: Added collapsible history rail control (`PanelLeftClose`/`PanelLeftOpen`) in full-screen mode, persisting preference to `localStorage`, and right-hand Record Inspector panel.
+- **Surface Transitions**: Implemented unified `.assistant-surface` with `data-mode`, `data-phase`, slide/scale entrance, and exit animations on close.
+- **Verification Gates**:
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm test -- --run`: ✅ PASS (82 test files passed, 289 unit tests passed)
+  - Git Commit: `cae0c3c` -> `main`
+
+
 ## August 4, 2026 — Bill Breakdown Inspector Modal & Supervised Pilot Readiness
 
 - **Bill Breakdown Inspector Modal**: Created interactive PDF & Image viewer with full extraction breakdown, line items table, detected anomalies/flags, regional market benchmark comparisons (% variance and annual savings), CFO guidance deck, and one-click integration into Ask Costivra AI preloaded with document context.
