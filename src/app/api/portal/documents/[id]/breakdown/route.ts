@@ -3,33 +3,45 @@ import { apiError, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { categoryIntelligence } from "@/lib/category-intelligence/service";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const { db, organizationId } = await requirePortalContext();
     const id = cleanUuid((await params).id);
-    if (!id) return NextResponse.json({ error: "Document ID required." }, { status: 400 });
+    if (!id) {
+      return NextResponse.json(
+        { error: "Document ID required." },
+        { status: 400 },
+      );
+    }
 
-    // Fetch document record
-    const { data: doc, error: docError } = await db
+    const { data: document, error: documentError } = await db
       .from("documents")
-      .select("id, original_filename, mime_type, byte_size, status, extraction_summary, created_at, storage_path, security_scan_status, security_scanned_at, sha256_digest")
+      .select(
+        "id, original_filename, mime_type, byte_size, status, extraction_summary, created_at, storage_path, security_scan_status, security_scanned_at, sha256_digest",
+      )
       .eq("id", id)
       .eq("organization_id", organizationId)
       .maybeSingle();
 
-    if (docError || !doc) {
-      return NextResponse.json({ error: "Document not found or access denied." }, { status: 404 });
+    if (documentError || !document) {
+      return NextResponse.json(
+        { error: "Document not found or access denied." },
+        { status: 404 },
+      );
     }
 
-    // Fetch invoice linked to document
-    const { data: inv } = await db
+    const { data: invoice } = await db
       .from("invoices")
-      .select("id, invoice_number, invoice_date, due_date, total_amount, subtotal_amount, tax_amount, currency, review_status, vendor_match_status, vendor_match_confidence, reconciliation_status, organization_vendor_id, review_issue_codes, metadata")
+      .select(
+        "id, invoice_number, invoice_date, due_date, total_amount, subtotal, tax_total, currency, review_status, vendor_match_status, vendor_match_confidence, reconciliation_status, organization_vendor_id, review_issue_codes, metadata",
+      )
       .eq("document_id", id)
       .eq("organization_id", organizationId)
       .maybeSingle();
 
-    // Fetch vendor info if linked
     let vendor: {
       id: string;
       name: string;
@@ -40,16 +52,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       annualizedSpend: number;
     } | null = null;
 
-    if (inv?.organization_vendor_id) {
-      const { data: rel } = await db
+    if (invoice?.organization_vendor_id) {
+      const { data: relationship } = await db
         .from("organization_vendors")
-        .select("id, annualized_spend, vendors(id, canonical_name, category, website, catalog_status, logo_url)")
-        .eq("id", inv.organization_vendor_id)
+        .select(
+          "id, annualized_spend, vendors(id, canonical_name, category, website, catalog_status, logo_url)",
+        )
+        .eq("id", invoice.organization_vendor_id)
         .eq("organization_id", organizationId)
         .maybeSingle();
 
-      if (rel?.vendors) {
-        const v = rel.vendors as unknown as {
+      if (relationship?.vendors) {
+        const catalogVendor = relationship.vendors as unknown as {
           id: string;
           canonical_name: string;
           category?: string | null;
@@ -58,163 +72,206 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           logo_url?: string | null;
         };
         vendor = {
-          id: v.id,
-          name: v.canonical_name,
-          category: v.category ?? "General",
-          website: v.website ?? null,
-          catalogStatus: v.catalog_status,
-          logoUrl: v.logo_url ?? null,
-          annualizedSpend: rel.annualized_spend ?? 0,
+          id: catalogVendor.id,
+          name: catalogVendor.canonical_name,
+          category: catalogVendor.category ?? "General",
+          website: catalogVendor.website ?? null,
+          catalogStatus: catalogVendor.catalog_status,
+          logoUrl: catalogVendor.logo_url ?? null,
+          annualizedSpend: relationship.annualized_spend ?? 0,
         };
       }
     }
 
-    // Fetch line items if invoice exists
-    let lineItems: Array<{ id: string; lineNumber: number; description: string; amount: number; quantity?: number; unitPrice?: number }> = [];
-    if (inv) {
-      const { data: items } = await db
+    let lineItems: Array<{
+      id: string;
+      lineNumber: number;
+      description: string;
+      amount: number;
+      quantity?: number;
+      unitPrice?: number;
+    }> = [];
+
+    if (invoice) {
+      const { data: rows } = await db
         .from("invoice_line_items")
         .select("id, line_number, description, amount, quantity, unit_price")
-        .eq("invoice_id", inv.id)
+        .eq("invoice_id", invoice.id)
+        .eq("organization_id", organizationId)
         .order("line_number", { ascending: true });
-      if (items) {
-        lineItems = items.map((item) => ({
-          id: item.id,
-          lineNumber: item.line_number ?? 1,
-          description: item.description ?? "Line item",
-          amount: Number(item.amount ?? 0),
-          quantity: item.quantity != null ? Number(item.quantity) : undefined,
-          unitPrice: item.unit_price != null ? Number(item.unit_price) : undefined,
-        }));
-      }
+
+      lineItems = (rows ?? []).map((item) => ({
+        id: item.id,
+        lineNumber: item.line_number ?? 1,
+        description: item.description ?? "Line item",
+        amount: Number(item.amount ?? 0),
+        quantity:
+          item.quantity != null ? Number(item.quantity) : undefined,
+        unitPrice:
+          item.unit_price != null ? Number(item.unit_price) : undefined,
+      }));
     }
 
-    // Fetch evidence references
     const { data: evidenceRows } = await db
       .from("evidence_references")
       .select("id, page_number, text_excerpt, field_path")
       .eq("document_id", id)
+      .eq("organization_id", organizationId)
       .limit(10);
 
-    const evidence = (evidenceRows ?? []).map((e) => ({
-      id: e.id,
-      pageNumber: e.page_number ?? 1,
-      textExcerpt: e.text_excerpt ?? "",
-      fieldPath: e.field_path ?? null,
+    const evidence = (evidenceRows ?? []).map((item) => ({
+      id: item.id,
+      pageNumber: item.page_number ?? 1,
+      textExcerpt: item.text_excerpt ?? "",
+      fieldPath: item.field_path ?? null,
     }));
 
-    // Resolve Category using Category Intelligence Service
     const categoryResolution = await categoryIntelligence.resolveCategory({
       vendorName: vendor?.name,
       rawCategory: vendor?.category,
-      lineItemDescriptions: lineItems.map((l) => l.description),
+      lineItemDescriptions: lineItems.map((item) => item.description),
+      extractedText: document.extraction_summary,
     });
 
-    // Analyze Bill Quality deterministically
-    const totalAmt = inv?.total_amount ?? 0;
+    const totalAmount = Number(invoice?.total_amount ?? 0);
     const billQuality = await categoryIntelligence.analyzeBill({
-      invoiceId: inv?.id,
-      totalAmount: totalAmt,
-      subtotalAmount: inv?.subtotal_amount,
-      taxAmount: inv?.tax_amount,
-      invoiceNumber: inv?.invoice_number,
-      invoiceDate: inv?.invoice_date,
-      dueDate: inv?.due_date,
-      vendorMatchStatus: inv?.vendor_match_status,
-      reconciliationStatus: inv?.reconciliation_status,
+      invoiceId: invoice?.id,
+      totalAmount,
+      subtotalAmount:
+        invoice?.subtotal != null ? Number(invoice.subtotal) : null,
+      taxAmount:
+        invoice?.tax_total != null ? Number(invoice.tax_total) : null,
+      currency: invoice?.currency ?? "USD",
+      invoiceNumber: invoice?.invoice_number,
+      invoiceDate: invoice?.invoice_date,
+      dueDate: invoice?.due_date,
+      vendorMatchStatus: invoice?.vendor_match_status,
+      reconciliationStatus: invoice?.reconciliation_status,
+      lineItems: lineItems.map((item) => ({
+        description: item.description,
+        amount: item.amount,
+      })),
       categoryKey: categoryResolution.key,
     });
 
-    // Evaluate Honest Market Benchmark (no synthetic ratios!)
     const benchmark = await categoryIntelligence.benchmark({
       categoryKey: categoryResolution.key,
       metric: "effective_rate",
-      billedAmount: totalAmt,
+      billedAmount: totalAmount,
+      serviceDate: invoice?.invoice_date,
+      unit: invoice?.currency ?? "USD",
     });
 
-    // Normalize line item explanations
-    const normalizedLineItems = await categoryIntelligence.normalizeLineItems(lineItems, categoryResolution.key);
-    const lineItemExplanations = normalizedLineItems.map((n, idx) => ({
-      lineItemId: n.lineItemId || `li-${idx}`,
-      canonicalCode: n.canonicalCode,
-      originalDescription: n.originalDescription,
-      explanation: n.explanation,
-      chargeClass: n.chargeClass,
-      confidence: n.confidence,
-      evidenceIds: [],
+    const normalizedLineItems = await categoryIntelligence.normalizeLineItems(
+      lineItems,
+      categoryResolution.key,
+    );
+    const lineItemExplanations = normalizedLineItems.map((item, index) => ({
+      lineItemId: item.lineItemId || `li-${index}`,
+      canonicalCode: item.canonicalCode,
+      originalDescription: item.originalDescription,
+      explanation: item.explanation,
+      chargeClass: item.chargeClass,
+      confidence: item.confidence,
+      reviewRequired: item.reviewRequired,
+      matchedAlias: item.matchedAlias,
+      evidenceIds: item.evidenceIds,
     }));
 
-    // Map anomalies from bill quality findings
-    const anomalies = billQuality.findings.map((f) => ({
-      type: f.severity === "critical" || f.severity === "high" ? ("alert" as const) : f.severity === "medium" ? ("warning" as const) : ("info" as const),
-      title: f.title,
-      message: f.message,
+    const anomalies = billQuality.findings.map((finding) => ({
+      type:
+        finding.severity === "critical" || finding.severity === "high"
+          ? ("alert" as const)
+          : finding.severity === "medium"
+            ? ("warning" as const)
+            : ("info" as const),
+      title: finding.title,
+      message: finding.message,
     }));
 
-    // Market Benchmark response matching Section 1 & Section 17 contract
     const marketBenchmark = {
       category: categoryResolution.displayName,
-      billedAmount: totalAmt,
+      billedAmount: totalAmount,
       estimatedMarketRate: benchmark.estimatedMarketRate,
-      variancePercentage: benchmark.variancePercentage ?? 0,
-      potentialAnnualSavings: benchmark.potentialAnnualSavings ?? 0,
+      variancePercentage: benchmark.variancePercentage,
+      potentialAnnualSavings: benchmark.potentialAnnualSavings,
       benchmarkSource: benchmark.benchmarkSource,
       benchmarkStatus: benchmark.status,
+      comparisonRange: benchmark.comparisonRange,
       missingDimensions: benchmark.missingDimensions,
       caveats: benchmark.caveats,
+      asOf: benchmark.asOf,
     };
 
-    // CFO Guidance & Recommended Next Actions
+    const marketGuidance =
+      benchmark.status === "unsupported"
+        ? "Costivra does not yet have a reviewed benchmark method for this category. A category specialist should review the bill before any market conclusion is made."
+        : benchmark.status === "insufficient_data"
+          ? `A comparable market review requires: ${benchmark.missingDimensions.join(", ")}.`
+          : "The bill has enough descriptive dimensions for research, but a dated source-backed quote or comparable dataset is still required.";
+
     const guidance = [
+      ...(invoice?.vendor_match_status !== "exact"
+        ? [
+            {
+              title: "Verify Vendor Identity",
+              action:
+                "Confirm the canonical vendor and service category before approving category-specific findings.",
+              priority: "high",
+            },
+          ]
+        : []),
       {
-        title: "Verify Vendor Identity",
-        action: "Confirm canonical vendor profile before payment approval.",
-        priority: inv?.vendor_match_status === "exact" ? "low" : "high",
-      },
-      {
-        title: "Market Rate Review",
-        action: benchmark.status === "comparable" && (benchmark.potentialAnnualSavings || 0) > 500
-          ? `Estimated ~$${(benchmark.potentialAnnualSavings || 0).toLocaleString()}/yr savings opportunity by renegotiating rate to regional benchmark.`
-          : "A comparable market benchmark requires additional service, usage, geography, and contract details.",
-        priority: benchmark.status === "comparable" && (benchmark.potentialAnnualSavings || 0) > 500 ? "high" : "medium",
+        title: "Market Comparison",
+        action: marketGuidance,
+        priority: benchmark.status === "unsupported" ? "high" : "medium",
       },
       {
         title: "Audit Line Items",
-        action: "Review line items against active contract agreement for unexpected recurring fees.",
+        action:
+          lineItemExplanations.some((item) => item.reviewRequired)
+            ? "Review unclassified or draft-pack line items against the source bill and active contract."
+            : "Review line items against the active contract for unexpected recurring fees.",
         priority: "medium",
       },
     ];
 
     return NextResponse.json({
       document: {
-        id: doc.id,
-        filename: doc.original_filename,
-        mimeType: doc.mime_type,
-        byteSize: doc.byte_size,
-        status: doc.status,
-        extractionSummary: doc.extraction_summary,
-        createdAt: doc.created_at,
-        securityScanStatus: doc.security_scan_status ?? "passed",
-        securityScannedAt: doc.security_scanned_at ?? doc.created_at,
-        sha256Digest: doc.sha256_digest ?? "SHA256-VERIFIED",
-        downloadUrl: `/api/portal/documents/${doc.id}/download`,
+        id: document.id,
+        filename: document.original_filename,
+        mimeType: document.mime_type,
+        byteSize: document.byte_size,
+        status: document.status,
+        extractionSummary: document.extraction_summary,
+        createdAt: document.created_at,
+        securityScanStatus: document.security_scan_status ?? "unknown",
+        securityScannedAt: document.security_scanned_at ?? null,
+        sha256Digest: document.sha256_digest ?? null,
+        downloadUrl: `/api/portal/documents/${document.id}/download`,
       },
-      invoice: inv
+      invoice: invoice
         ? {
-            id: inv.id,
-            invoiceNumber: inv.invoice_number,
-            invoiceDate: inv.invoice_date,
-            dueDate: inv.due_date,
-            totalAmount: inv.total_amount,
-            subtotalAmount: inv.subtotal_amount,
-            taxAmount: inv.tax_amount,
-            currency: inv.currency ?? "USD",
-            reviewStatus: inv.review_status,
-            vendorMatchStatus: inv.vendor_match_status,
-            reconciliationStatus: inv.reconciliation_status,
+            id: invoice.id,
+            invoiceNumber: invoice.invoice_number,
+            invoiceDate: invoice.invoice_date,
+            dueDate: invoice.due_date,
+            totalAmount:
+              invoice.total_amount != null
+                ? Number(invoice.total_amount)
+                : null,
+            subtotalAmount:
+              invoice.subtotal != null ? Number(invoice.subtotal) : null,
+            taxAmount:
+              invoice.tax_total != null ? Number(invoice.tax_total) : null,
+            currency: invoice.currency ?? "USD",
+            reviewStatus: invoice.review_status,
+            vendorMatchStatus: invoice.vendor_match_status,
+            reconciliationStatus: invoice.reconciliation_status,
           }
         : null,
       vendor,
+      category: categoryResolution,
       lineItems,
       lineItemExplanations,
       evidence,
