@@ -112,11 +112,13 @@ export async function GET(
       }));
     }
 
+    // The document was already validated against the authenticated organization.
+    // evidence_references has no organization_id column and is safely scoped by
+    // its foreign key to this validated document ID.
     const { data: evidenceRows } = await db
       .from("evidence_references")
       .select("id, page_number, text_excerpt, field_path")
-      .eq("document_id", id)
-      .eq("organization_id", organizationId)
+      .eq("document_id", document.id)
       .limit(10);
 
     const evidence = (evidenceRows ?? []).map((item) => ({
