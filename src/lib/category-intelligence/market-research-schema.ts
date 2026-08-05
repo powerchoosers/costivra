@@ -22,6 +22,13 @@ export const TrustedSourceSchema = z.object({
     "annual",
     "event_driven",
   ]),
+  freshnessDays: z.number().int().positive(),
+  accessType: z.enum(["public_web", "licensed", "customer_provided"]),
+  lastVerifiedAt: z.string().date(),
+  nextReviewAt: z.string().date(),
+  licenseNotes: z.string(),
+  allowedUses: z.array(z.enum(["research", "context", "benchmark_validation"])),
+  status: z.enum(["active", "review_required", "deprecated"]),
   restrictionNotes: z.string(),
 });
 

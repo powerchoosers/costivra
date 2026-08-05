@@ -7,10 +7,28 @@ export type TrustedSource = {
   authorityLevel: "primary" | "secondary" | "contextual";
   jurisdiction: string;
   updateFrequency: "weekly" | "monthly" | "quarterly" | "annual" | "event_driven";
+  freshnessDays: number;
+  accessType: "public_web" | "licensed" | "customer_provided";
+  lastVerifiedAt: string;
+  nextReviewAt: string;
+  licenseNotes: string;
+  allowedUses: Array<"research" | "context" | "benchmark_validation">;
+  status: "active" | "review_required" | "deprecated";
   restrictionNotes: string;
 };
 
-export const TRUSTED_SOURCES_REGISTRY: TrustedSource[] = [
+type TrustedSourceSeed = Omit<
+  TrustedSource,
+  | "freshnessDays"
+  | "accessType"
+  | "lastVerifiedAt"
+  | "nextReviewAt"
+  | "licenseNotes"
+  | "allowedUses"
+  | "status"
+>;
+
+const TRUSTED_SOURCE_SEEDS: TrustedSourceSeed[] = [
   {
     id: "src-eia-electricity",
     categoryKey: "commercial-electricity-supply",
@@ -87,6 +105,72 @@ export const TRUSTED_SOURCES_REGISTRY: TrustedSource[] = [
     jurisdiction: "Global",
     updateFrequency: "event_driven",
     restrictionNotes: "Price varies by region, SKU, commitments, support tier, and egress.",
+  },
+  {
+    id: "src-azure-pricing",
+    categoryKey: "cloud-iaas-paas",
+    name: "Microsoft Azure Pricing",
+    url: "https://azure.microsoft.com/pricing/",
+    type: "official_vendor_pricing",
+    authorityLevel: "primary",
+    jurisdiction: "Global",
+    updateFrequency: "event_driven",
+    restrictionNotes: "Price varies by region, SKU, commitment, support plan, and currency.",
+  },
+  {
+    id: "src-google-cloud-pricing",
+    categoryKey: "cloud-iaas-paas",
+    name: "Google Cloud Pricing",
+    url: "https://cloud.google.com/pricing",
+    type: "official_vendor_pricing",
+    authorityLevel: "primary",
+    jurisdiction: "Global",
+    updateFrequency: "event_driven",
+    restrictionNotes: "Price varies by region, SKU, commitment, support plan, and currency.",
+  },
+  {
+    id: "src-openai-api-pricing",
+    categoryKey: "ai-api-consumption",
+    name: "OpenAI API Pricing",
+    url: "https://platform.openai.com/docs/pricing",
+    type: "official_vendor_pricing",
+    authorityLevel: "primary",
+    jurisdiction: "Global",
+    updateFrequency: "event_driven",
+    restrictionNotes: "Use only with model, model version, input/output token type, region, and billing period identified.",
+  },
+  {
+    id: "src-fcc-wireless",
+    categoryKey: "wireless-mobility",
+    name: "Federal Communications Commission Wireless Services",
+    url: "https://www.fcc.gov/wireless-telecommunications",
+    type: "regulator",
+    authorityLevel: "primary",
+    jurisdiction: "US",
+    updateFrequency: "event_driven",
+    restrictionNotes: "Regulatory context only; it is not a business wireless price benchmark.",
+  },
+  {
+    id: "src-saas-vendor-pricing",
+    categoryKey: "saas-subscriptions",
+    name: "Official SaaS Vendor Pricing",
+    url: "https://focus.finops.org/focus-specification/",
+    type: "standards_body",
+    authorityLevel: "contextual",
+    jurisdiction: "Global",
+    updateFrequency: "event_driven",
+    restrictionNotes: "Use a vendor's official price guide only when product edition and billing term match; FOCUS supplies normalization context, not a price quote.",
+  },
+  {
+    id: "src-eia-diesel",
+    categoryKey: "solid-waste-recycling",
+    name: "U.S. EIA Weekly Retail Diesel Prices",
+    url: "https://www.eia.gov/petroleum/gasdiesel/",
+    type: "government_dataset",
+    authorityLevel: "primary",
+    jurisdiction: "US",
+    updateFrequency: "weekly",
+    restrictionNotes: "Market context only; verify any hauler fuel surcharge against that hauler's agreement and published schedule.",
   },
   {
     id: "src-serff-insurance",
@@ -199,3 +283,33 @@ export const TRUSTED_SOURCES_REGISTRY: TrustedSource[] = [
     restrictionNotes: "Policy benchmark for travel/lodging by locality and fiscal year.",
   },
 ];
+
+function defaultFreshnessDays(
+  frequency: TrustedSource["updateFrequency"],
+): number {
+  switch (frequency) {
+    case "weekly":
+      return 10;
+    case "monthly":
+      return 45;
+    case "quarterly":
+      return 120;
+    case "annual":
+      return 400;
+    case "event_driven":
+      return 30;
+  }
+}
+
+export const TRUSTED_SOURCES_REGISTRY: TrustedSource[] = TRUSTED_SOURCE_SEEDS.map(
+  (source) => ({
+    ...source,
+    freshnessDays: defaultFreshnessDays(source.updateFrequency),
+    accessType: "public_web",
+    lastVerifiedAt: "2026-08-05",
+    nextReviewAt: "2026-11-05",
+    licenseNotes: "Use subject to the source's published terms and only for the stated restricted purpose.",
+    allowedUses: ["research", "context"],
+    status: "active",
+  }),
+);
