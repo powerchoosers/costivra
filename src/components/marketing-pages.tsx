@@ -171,7 +171,6 @@ const verticalCopy: Record<string, [string, string]> = {
   education: ["Give every budget line a source and an owner.", "Protect renewal dates and recurring budgets across private schools and educational organizations."],
   nonprofits: ["Make every recurring dollar accountable.", "Help churches and nonprofits review ongoing costs with plain-language evidence and approval control."],
   "property-management": ["See recurring cost exposure across the portfolio.", "Normalize property, meter, account, vendor, and contract data without losing location-level evidence."],
-  retail: ["One command center for every location's recurring spend.", "Find price changes, service duplication, contract risk, and inconsistent buying across retail sites."],
 };
 
 const solutionSpecs: Record<string, PageSpec> = {
@@ -199,6 +198,72 @@ const solutionSpecs: Record<string, PageSpec> = {
     operating: { eyebrow: "Energy review", title: "Separate preparation from advice and consent from referral.", copy: "Energy decisions are consequential. Costivra’s role is to make the source material and questions clearer, then preserve customer choice about who gives specialized advice.", steps: [{ label: "Prepare", copy: "Structure invoices and agreement facts, identify gaps, and preserve the evidence package." }, { label: "Choose", copy: "The customer can retain the package, export it, assign their advisor, or explicitly request a disclosed referral." }, { label: "Record", copy: "Keep consent, disclosure version, sharing scope, and later outcome separate from the initial analysis." }] },
     close: { title: "Start with an evidence package, not a sales call.", copy: "Upload a small, authorized set of energy documents to see what can be organized and which questions remain unanswered.", action: "Start an energy review", href: "/scan" },
   },
+  insurance: {
+    kind: "controls",
+    title: "Forensic audit for commercial property, liability, and employee benefits.",
+    lede: "Costivra analyzes policy declarations, payroll classifications, experience modifications, SERFF state rate filings, and PBM spread economics to spot quiet premium creep and coverage gaps.",
+    blocks: [
+      { icon: ShieldCheck, title: "Property & liability rate audit", copy: "Audit rate per $100 TIV, coinsurance risk, schedule debits, and surplus lines tax calculations against filed SERFF baselines." },
+      { icon: FileSearch, title: "Workers comp payroll class code audit", copy: "Verify clerical/sales payroll split rules, experience mod accuracy, and governing class codes before audit bill shocks." },
+      { icon: Users, title: "Group health & PBM economics", copy: "Audit enrollment tier changes, terminated employee lag, stop-loss laser clauses, and opaque pharmacy rebate spread." },
+      { icon: ReceiptText, title: "Broker fee disclosure & compliance", copy: "Ensure state-mandated broker fee disclosures, commission transparency, and policy endorsement integrity." },
+    ],
+    operating: {
+      eyebrow: "Insurance & benefits intelligence",
+      title: "Rate filings and payroll rules define the truth.",
+      copy: "Insurance costs cannot be evaluated by premium total alone. Costivra evaluates TIV, class codes, payroll basis, and state filings to ensure every dollar is earned and compliant.",
+      steps: [
+        { label: "Classify", copy: "Extract policy declarations, payroll splits, experience mods, and tier rosters." },
+        { label: "Audit", copy: "Cross-reference state SERFF filings, NCCI rules, and contract endorsement language." },
+        { label: "Optimize", copy: "Adjust deductibles, reclassify misassigned payroll, and negotiate terms backed by evidence." },
+      ],
+    },
+    close: { title: "Audit your active commercial policies.", copy: "Upload policy declaration pages or renewal packets to run a forensic insurance audit.", action: "Start an insurance audit", href: "/scan" },
+  },
+  facilities: {
+    kind: "registry",
+    title: "Eliminate phantom fees in waste, janitorial, and HVAC services.",
+    lede: "Facilities expenses drift line by line through unperformed waste hauls, inflated fuel surcharges, phantom uniform wearers, and unverified HVAC PM dispatches across sites.",
+    blocks: [
+      { icon: Warehouse, title: "Solid waste & recycling haul audit", copy: "Track container count, pickup frequency, franchise municipal rules, and fuel surcharge index compliance." },
+      { icon: Building2, title: "Janitorial square-foot benchmarks", copy: "Compare cleanable area rates, day porter staffing, supply markups, and quality SLAs across portfolio sites." },
+      { icon: FileCheck2, title: "Uniform & mat inventory audit", copy: "Detect phantom wearer lines, unreturned item loss fees, auto-quantity creep, and energy fee stacking." },
+      { icon: Zap, title: "HVAC & mechanical PM verification", copy: "Reconcile dispatch logs, technician labor rates, parts warranties, and EPA refrigerant manifests." },
+    ],
+    operating: {
+      eyebrow: "Facilities cost intelligence",
+      title: "Physical location data creates accountability.",
+      copy: "Costivra maps every facilities contract and bill line item back to the exact physical building, square footage, and container count it serves.",
+      steps: [
+        { label: "Map", copy: "Link vendor invoices to physical site addresses, square footage, and container inventory." },
+        { label: "Detect", copy: "Flag off-contract fee escalations, missing service credits, and unexpected maintenance spikes." },
+        { label: "Enforce", copy: "Route verified dispute credits to vendor account managers prior to invoice approval." },
+      ],
+    },
+    close: { title: "Review facilities spend across your locations.", copy: "Upload waste, janitorial, or maintenance invoices to identify recurring fee creep.", action: "Start a facilities scan", href: "/scan" },
+  },
+  merchant: {
+    kind: "timeline",
+    title: "Uncover hidden processor markups and card downgrade penalties.",
+    lede: "Costivra analyzes merchant processing statements, interchange schedules, card-present vs e-commerce qualification, Regulation II caps, and gateway fees to protect margin.",
+    blocks: [
+      { icon: CircleDollarSign, title: "Interchange vs processor markup", copy: "Separate hard pass-through interchange rates from processor basis point markups and per-transaction fees." },
+      { icon: ShieldAlert, title: "Transaction downgrade detection", copy: "Flag AVS, CVC, or non-qualified card downgrades that inflate effective processing rates." },
+      { icon: FileCheck2, title: "Regulation II debit cap verification", copy: "Verify that covered debit transactions receive federal statutory cap treatment." },
+      { icon: ReceiptText, title: "PCI & monthly fee elimination", copy: "Identify non-compliance penalties, monthly minimum fees, and batch charges for negotiation or credit." },
+    ],
+    operating: {
+      eyebrow: "Merchant processing intelligence",
+      title: "Interchange schedules are public. Markups are negotiable.",
+      copy: "Costivra reconciles transaction volumes, card tier mix, and interchange rates to show the exact processor margin charged on every batch.",
+      steps: [
+        { label: "Parse", copy: "Extract gross volume, refund count, card tier mix, interchange, and processor markup." },
+        { label: "Reconcile", copy: "Verify interchange rates against official Visa/Mastercard schedules and Reg II caps." },
+        { label: "Recover", copy: "Provide CFO evidence to renegotiate processor markups or eliminate non-qualified penalties." },
+      ],
+    },
+    close: { title: "Audit your monthly merchant processing statement.", copy: "Upload your latest credit card processing statement for a complete interchange analysis.", action: "Audit processing statement", href: "/scan" },
+  },
 };
 
 export function MarketingPage({ path }: { path: string }) {
@@ -217,8 +282,9 @@ export function MarketingPage({ path }: { path: string }) {
     const copy = verticalCopy[vertical];
     return copy ? <IndustryPage title={copy[0]} lede={copy[1]} /> : <NotFoundPage />;
   }
-  if (path.startsWith("solutions/")) {
-    const solution = solutionSpecs[path.split("/")[1]];
+  if (path.startsWith("solutions/") || path.startsWith("services/")) {
+    const key = path.split("/")[1].replace("-monitoring", "");
+    const solution = solutionSpecs[key];
     return solution ? <SpecPage spec={solution} /> : <SpecPage spec={specs.solutions} />;
   }
   const spec = specs[path];
@@ -255,7 +321,7 @@ function SignatureScene({ kind }: { kind: NonNullable<PageSpec["kind"]> }) {
 function SpecPage({ spec }: { spec: PageSpec }) {
   const operating = spec.operating ?? { eyebrow: "A practical operating model", title: "Make the next decision clearer.", copy: "Costivra connects source evidence, the question that needs an answer, the person responsible, and the record of what changed. The point is clarity—not another dashboard to maintain.", steps: spec.blocks.slice(0, 3).map((block) => ({ label: block.title, copy: block.copy })) };
   const close = spec.close ?? { title: "Start with a contained, evidence-backed review.", copy: "Choose one recurring-cost category and a small group of documents. You can evaluate the workflow before asking your team to change how it works.", action: "Scan three bills free", href: "/scan" };
-  return <PageFrame><div className={`spec-page spec-page--${spec.kind ?? "category"}`}><Reveal><header className="content-hero"><h1>{spec.title}</h1><p>{spec.lede}</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/app">View customer workspace</Link></div></header></Reveal><Reveal><SignatureScene kind={spec.kind ?? "category"} /></Reveal><Reveal><div className="content-grid">{spec.blocks.map(({ icon: Icon, title, copy }) => <article className="content-block" key={title}><Icon aria-hidden="true" size={25} style={{ color: "var(--blue)" }} /><h2>{title}</h2><p>{copy}</p></article>)}</div></Reveal><Reveal><section className="spec-operating"><div className="spec-operating-intro"><span className="eyebrow">{operating.eyebrow}</span><h2>{operating.title}</h2><p>{operating.copy}</p></div><ol className="spec-steps">{operating.steps.map((step, index) => <li key={step.label}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{step.label}</h3><p>{step.copy}</p></div></li>)}</ol></section></Reveal><Reveal><section className="spec-closure"><div><span className="eyebrow">A deliberate first step</span><h2>{close.title}</h2><p>{close.copy}</p></div><Link className="button button-primary" href={close.href}>{close.action} <ArrowRight aria-hidden="true" size={17} /></Link></section></Reveal></div></PageFrame>;
+  return <PageFrame><div className={`spec-page spec-page--${spec.kind ?? "category"}`}><Reveal><header className="content-hero"><h1>{spec.title}</h1><p>{spec.lede}</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/app">View customer workspace</Link></div></header></Reveal><Reveal><SignatureScene kind={spec.kind ?? "category"} /></Reveal><Reveal><div className="content-grid">{spec.blocks.map(({ icon: Icon, title, copy }) => <article className="content-block" key={title}><div className="content-block-heading"><Icon aria-hidden="true" size={25} style={{ color: "var(--blue)" }} /><h2>{title}</h2></div><p>{copy}</p></article>)}</div></Reveal><Reveal><section className="spec-operating"><div className="spec-operating-intro"><span className="eyebrow">{operating.eyebrow}</span><h2>{operating.title}</h2><p>{operating.copy}</p></div><ol className="spec-steps">{operating.steps.map((step, index) => <li key={step.label}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{step.label}</h3><p>{step.copy}</p></div></li>)}</ol></section></Reveal><Reveal><section className="spec-closure"><div><span className="eyebrow">A deliberate first step</span><h2>{close.title}</h2><p>{close.copy}</p></div><Link className="button button-primary" href={close.href}>{close.action} <ArrowRight aria-hidden="true" size={17} /></Link></section></Reveal></div></PageFrame>;
 }
 
 function PricingPage() {
@@ -378,7 +444,7 @@ function ContactPage() {
   return <PageFrame><header className="content-hero"><h1>Bring us the cost you cannot explain.</h1><p>Tell us what you are reviewing, how many locations are involved, and where the source documents live. We will respond with a practical next step.</p></header><div className="detail-layout"><section className="panel"><div className="panel-header"><h2>Contact Costivra</h2></div><form className="panel-body" onSubmit={submitContact}><div className="form-grid"><Input label="Name" name="name" required/><Input label="Work email" name="email" type="email" required/><Input label="Company" name="company" required/><Input label="Locations" name="locations" /></div><div className="field" style={{ marginTop: 18 }}><label htmlFor="message">What recurring cost are you reviewing?</label><textarea id="message" name="message" required /></div><label className="marketing-consent-field"><input type="checkbox" name="marketingConsent"/><span><strong>Email me Costivra updates</strong><small>I agree to receive occasional Costivra product updates and marketing emails. I can unsubscribe at any time.</small></span></label>{(sent||error)&&<p role="status" className="account-message">{sent?"Your inquiry is saved. Check your email for confirmation.":error}</p>}<button className="button button-primary" disabled={busy} style={{ marginTop: 18 }}>{busy?"Sending…":"Send inquiry"} <ArrowRight aria-hidden="true" size={16} /></button></form></section><section className="panel"><div className="panel-header"><h2>Direct contacts</h2></div><div className="panel-body"><p><strong>General</strong><br /><a href="mailto:hello@costivra.ai" style={{ color: "var(--blue)" }}>hello@costivra.ai</a></p><p><strong>Privacy</strong><br /><a href="mailto:privacy@costivra.ai" style={{ color: "var(--blue)" }}>privacy@costivra.ai</a></p><p><strong>Security</strong><br /><a href="mailto:security@costivra.ai" style={{ color: "var(--blue)" }}>security@costivra.ai</a></p><p className="muted" style={{ marginTop: 30, lineHeight: 1.6 }}>Do not email sensitive bills or contracts. Use the secure workspace for source files.</p></div></section></div></PageFrame>;
 }
 
-function CaseStudies() { return <PageFrame><header className="content-hero"><h1>See how Costivra proves value.</h1><p>We are building case studies from real customer work, not invented savings claims. Each story will show the source, the finding, the approved action, and the evidence that supports the outcome.</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/contact">Join the pilot conversation <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/how-it-works">See how the process works</Link></div></header><section className="panel"><div className="panel-header"><h2>What every Costivra case study will show</h2><span className="eyebrow">No fabricated claims</span></div><div className="content-grid" style={{ borderTop: 0 }}>{[{ icon: FileSearch, title: "Source", copy: "The original invoice, agreement, or account record supporting the finding." }, { icon: ScanSearch, title: "Finding", copy: "The rule, assumptions, confidence, and reason the opportunity warranted review." }, { icon: Users, title: "Decision", copy: "Who approved the action, what was authorized, and what remained out of scope." }, { icon: CircleDollarSign, title: "Outcome", copy: "The future invoice, credit, or other source that proved one-time or recurring value." }].map(({ icon: Icon, title, copy }) => <div className="content-block" key={title}><Icon aria-hidden="true" size={24} style={{ color: "var(--blue)" }} /><h2>{title}</h2><p>{copy}</p></div>)}</div></section></PageFrame>; }
+function CaseStudies() { return <PageFrame><header className="content-hero"><h1>See how Costivra proves value.</h1><p>We are building case studies from real customer work, not invented savings claims. Each story will show the source, the finding, the approved action, and the evidence that supports the outcome.</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/contact">Join the pilot conversation <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/how-it-works">See how the process works</Link></div></header><section className="panel"><div className="panel-header"><h2>What every Costivra case study will show</h2><span className="eyebrow">No fabricated claims</span></div><div className="content-grid" style={{ borderTop: 0 }}>{[{ icon: FileSearch, title: "Source", copy: "The original invoice, agreement, or account record supporting the finding." }, { icon: ScanSearch, title: "Finding", copy: "The rule, assumptions, confidence, and reason the opportunity warranted review." }, { icon: Users, title: "Decision", copy: "Who approved the action, what was authorized, and what remained out of scope." }, { icon: CircleDollarSign, title: "Outcome", copy: "The future invoice, credit, or other source that proved one-time or recurring value." }].map(({ icon: Icon, title, copy }) => <div className="content-block" key={title}><div className="content-block-heading"><Icon aria-hidden="true" size={24} style={{ color: "var(--blue)" }} /><h2>{title}</h2></div><p>{copy}</p></div>)}</div></section></PageFrame>; }
 
 function HelpPage() { const guides = [{ title: "Uploading bills and contracts", copy: "Use an authorized PDF, PNG, or JPG. Start with the current invoice and agreement when one exists; do not send sensitive files through ordinary email." }, { title: "Reviewing extracted fields", copy: "Open the source alongside the extracted record. Correct a field when it is wrong or incomplete—the correction should retain the reason and source reference." }, { title: "Understanding confidence", copy: "Confidence shows how certain the system is about a field, not whether a business decision is correct. Low-confidence records need review before they influence an action." }, { title: "Approving an action", copy: "Read the requested scope, the supporting evidence, and the external effect. Approve only the specific step you want taken; you can leave a case pending or decline it." }, { title: "Exporting an energy review", copy: "Use the package to inform the advisor you select. Referral sharing requires a separate disclosure and explicit consent; Costivra does not choose a supplier for you." }, { title: "Verifying savings", copy: "Potential value becomes verified only after an agreed baseline and later source evidence—such as a future bill or credit—support the result." }]; return <PageFrame><header className="content-hero"><h1>Help for the decision in front of you.</h1><p>Understand uploads, evidence, confidence, approvals, referrals, and savings verification without learning AI terminology first.</p></header><div className="content-grid">{guides.map(({ title, copy }, index) => <div className="content-block" key={title}><span className="step-number" style={{ position: "static" }}>{index + 1}</span><h2>{title}</h2><p>{copy}</p></div>)}</div><section className="spec-closure"><div><span className="eyebrow">Need a specific answer?</span><h2>Tell us which decision is blocked.</h2><p>Include the category, the document or account involved, and what you are trying to determine. We will point you to the right product path or explain the current limitation.</p></div><Link className="button button-primary" href="/contact">Contact support <ArrowRight aria-hidden="true" size={17} /></Link></section></PageFrame>; }
 

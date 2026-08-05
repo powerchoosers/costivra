@@ -53,6 +53,7 @@ import {
   RefreshCw,
   Reply,
   Redo2,
+
   RemoveFormatting,
   Search,
   Send,
@@ -83,16 +84,21 @@ import type {
 import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/toast-provider";
+import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
+import { EditableFieldRow } from "@/components/records/editable-field-row";
+import { EditRecordSheet } from "@/components/records/edit-record-sheet";
+import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
+import { RecordChangeHistory, AuditHistoryItem } from "@/components/records/record-change-history";
 import { CostivraMark } from "@/components/brand";
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
-import { ManageLiveNotifications } from "@/components/manage-live-notifications";
-import { CostivraSelect } from "@/components/ui/costivra-select";
-import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { ManageInvoiceReview } from "@/components/manage-invoice-review";
 import { ManageIntakeOperations } from "@/components/manage-intake-operations";
 import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
+import { ManageLiveNotifications } from "@/components/manage-live-notifications";
+import { CostivraSelect } from "@/components/ui/costivra-select";
+import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
 import type { SystemReadiness } from "@/lib/manage/system-readiness";
@@ -1994,70 +2000,31 @@ function InlineAccountText({ account, field, value, display, placeholder, type =
 function InlineAccountWebsite({ account }: { account: ManageAccount }) {
   const router = useRouter();
   const toast = useToast();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(account.website ?? "");
-  const [busy, setBusy] = useState(false);
 
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    try {
-      await api(`/api/manage/accounts/${account.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ website: draft }),
-      });
-      toast.success(draft.trim() ? "Account website updated." : "Account website removed.");
-      setEditing(false);
-      router.refresh();
-    } catch (error) {
-      toast.error("Couldn’t update the website", error instanceof Error ? error.message : "Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyWebsite() {
-    if (!account.website) return;
-    try {
-      await navigator.clipboard.writeText(account.website);
-      toast.success("Website copied.");
-    } catch {
-      toast.error("Couldn’t copy the website", "Your browser blocked clipboard access.");
-    }
-  }
-
-  if (editing) {
-    return (
-      <form className="manage-record-inline-form" onSubmit={save}>
-        <input
-          aria-label="Account website"
-          autoFocus
-          disabled={busy}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="https://example.com"
-          type="url"
-          value={draft}
-        />
-        <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save"}</button>
-        <button type="button" disabled={busy} onClick={() => { setDraft(account.website ?? ""); setEditing(false); }}>Cancel</button>
-      </form>
-    );
-  }
+  const handleSaveWebsite = async (newValue: unknown) => {
+    const websiteStr = String(newValue ?? "");
+    await api(`/api/manage/accounts/${account.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ website: websiteStr }),
+    });
+    toast.success(websiteStr.trim() ? "Account website updated." : "Account website removed.");
+    router.refresh();
+  };
 
   return (
-    <span className="manage-record-inline-field">
-      {account.website ? (
-        <a href={account.website} target="_blank" rel="noreferrer">
-          {account.website.replace(/^https?:\/\//, "")}
-        </a>
-      ) : (
-        <span>Add before enrichment</span>
-      )}
-      <span className="manage-record-inline-actions">
-        <button type="button" onClick={() => { setDraft(account.website ?? ""); setEditing(true); }} aria-label="Edit account website" title="Edit website"><Pencil size={12} /></button>
-        {account.website && <button type="button" onClick={() => void copyWebsite()} aria-label="Copy account website" title="Copy website"><Copy size={12} /></button>}
-      </span>
-    </span>
+    <EditableFieldRow
+      label="Website"
+      value={account.website}
+      displayValue={
+        account.website ? (
+          <a href={account.website} target="_blank" rel="noreferrer" style={{ color: "var(--assistant-accent, #002FA7)", textDecoration: "none" }}>
+            {account.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+          </a>
+        ) : null
+      }
+      input={{ kind: "url" }}
+      onSave={handleSaveWebsite}
+    />
   );
 }
 
@@ -2636,11 +2603,58 @@ function AccountOverview({
   </div>;
 }
 
-function AccountDetailPage({ data, accountId, run, onCompose }: { data: ManageData; accountId: string; run: (work: () => Promise<unknown>, success: string) => Promise<void>; onCompose: (contact: ManageContact) => void }) {
+function AccountDetailPage({
+  data,
+  accountId,
+  run,
+  onCompose,
+}: {
+  data: ManageData;
+  accountId: string;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  onCompose: (contact: ManageContact) => void;
+}) {
+  const router = useRouter();
+  const toast = useToast();
   const account = data.accounts.find((item) => item.id === accountId);
+
   const [active, setActive] = useState("overview");
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
-  if (!account) return <Empty icon={Building2} title="Account not found" copy="This account may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/accounts"><ArrowLeft size={15} /> Back to accounts</Link>} />;
+
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
+  const [dangerMode, setDangerMode] = useState<"archive" | "permanent-delete">("archive");
+  const [deletionPreview, setDeletionPreview] = useState<DependencyPreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Edit form state
+  const [name, setName] = useState(account?.name ?? "");
+  const [legalName, setLegalName] = useState(account?.legalName ?? "");
+  const [industry, setIndustry] = useState(account?.industry ?? "");
+  const [currency, setCurrency] = useState(account?.currency ?? "USD");
+  const [website, setWebsite] = useState(account?.website ?? "");
+  const [stage, setStage] = useState(account?.stage ?? "onboarding");
+  const [primaryContact, setPrimaryContact] = useState(account?.primaryContact ?? "");
+  const [nextFollowUpAt, setNextFollowUpAt] = useState(account?.nextFollowUpAt ?? "");
+  const [nextStep, setNextStep] = useState(account?.nextStep ?? "");
+  const [privateNotes, setPrivateNotes] = useState(account?.privateNotes ?? "");
+
+  if (!account)
+    return (
+      <Empty
+        icon={Building2}
+        title="Account not found"
+        copy="This account may have been removed or is not visible to this internal operator."
+        action={
+          <Link className="manage-button manage-button--quiet" href="/manage/accounts">
+            <ArrowLeft size={15} /> Back to accounts
+          </Link>
+        }
+      />
+    );
+
   const contacts = data.contacts.filter((item) => item.organizationId === account.id);
   const activities = data.activities.filter((item) => item.organizationId === account.id);
   const tasks = data.tasks.filter((item) => item.organizationId === account.id);
@@ -2651,46 +2665,1174 @@ function AccountDetailPage({ data, accountId, run, onCompose }: { data: ManageDa
   const profile = account.enrichment;
   const companyPhone = profile?.phone;
   const companyPhoneHref = companyPhone?.replace(/[^+\d]/g, "");
-  const profileSummary = profile?.shortDescription || (account.industry ? `${account.name} is recorded in the ${account.industry} industry.` : "Add the account website or a short internal note to make this record easier to recognize at a glance.");
-  const accountTabs = [{ id: "overview", label: "Overview" }, { id: "vendors", label: "Vendors", count: vendors.length }, { id: "files", label: "Files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Work", count: tasks.length }];
-  return <div className="manage-detail-page manage-record-page motion-page">
-    <Link href="/manage/accounts" className="manage-back-link"><ArrowLeft size={15} /> Accounts</Link>
-    <header className="manage-record-heading"><div className="manage-record-identity"><CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" /><div><h2>{account.name} <RecordHeaderLinks website={profile?.website || account.website} linkedinUrl={profile?.linkedinUrl} entityName={account.name} /></h2><span>{account.legalName || account.industry || "Account profile"}</span><AccountHeaderMeta account={account} profile={profile} /></div></div>{companyPhone && companyPhoneHref && <div className="manage-record-actions"><a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${companyPhoneHref}`} aria-label={`Call ${account.name}`} title={`Call ${companyPhone}`}><Phone size={17} /></a></div>}</header>
-    <section className="manage-record-highlights" aria-label="Account highlights"><div><span>Lifecycle</span><Status value={account.stage || "unclassified"} /></div><div><span>Next step</span><strong>{account.nextStep || "Not set"}</strong></div><div><span>Follow-up</span><strong>{account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled"}</strong></div><div><span>Vendors</span><strong>{vendors.length}</strong></div><div><span>Open work</span><strong>{account.openTaskCount}</strong></div><div><span>Evidence files</span><strong>{documents.length}</strong></div></section>
-    <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
-    {active === "overview" && <AccountOverview account={account} profile={profile} profileSummary={profileSummary} vendors={vendors} expenses={expenses} documents={documents} contacts={contacts} allAccounts={data.accounts} locations={data.locations} setSelectedVendorId={setSelectedVendorId} setActive={setActive} onCompose={onCompose} run={run} />}
-    {active === "vendors" && <VendorWorkspace vendors={vendors} expenses={expenses} contracts={vendorContracts} documents={documents} currency={account.currency} selectedId={selectedVendorId} onSelect={setSelectedVendorId} />}
-    {active === "files" && <RecordFilesWorkspace title="Account files" description="A clean, searchable view of this client’s private source documents. Collections never change the immutable storage record." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: account.name, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} />}
-    {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Relationship activity</h3><p>Internal notes, outreach, and client touches for this account.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
-    {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Follow-up work</h3><p>Open and completed outreach tasks.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />}</section>}
-  </div>;
+  const profileSummary =
+    profile?.shortDescription ||
+    (account.industry
+      ? `${account.name} is recorded in the ${account.industry} industry.`
+      : "Add the account website or a short internal note to make this record easier to recognize at a glance.");
+
+  const isOwner = data.operator.role === "owner";
+
+  const handleOpenEditSheet = () => {
+    setName(account.name);
+    setLegalName(account.legalName ?? "");
+    setIndustry(account.industry ?? "");
+    setCurrency(account.currency ?? "USD");
+    setWebsite(account.website ?? "");
+    setStage(account.stage ?? "onboarding");
+    setPrimaryContact(account.primaryContact ?? "");
+    setNextFollowUpAt(account.nextFollowUpAt ?? "");
+    setNextStep(account.nextStep ?? "");
+    setPrivateNotes(account.privateNotes ?? "");
+    setEditError(null);
+    setEditSheetOpen(true);
+  };
+
+  const handleSaveEditSheet = async () => {
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/manage/accounts/${account.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          legalName,
+          industry,
+          currency,
+          website,
+          stage,
+          primaryContact,
+          nextFollowUpAt,
+          nextStep,
+          privateNotes,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update account details.");
+      }
+      toast.success("Account updated successfully.");
+      setEditSheetOpen(false);
+      router.refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save account changes");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleOpenDangerDialog = async (mode: "archive" | "permanent-delete") => {
+    setDangerMode(mode);
+    setDangerDialogOpen(true);
+    if (mode === "permanent-delete") {
+      setLoadingPreview(true);
+      try {
+        const res = await fetch(`/api/manage/accounts/${account.id}/deletion-preview`);
+        if (res.ok) {
+          const preview = await res.json();
+          setDeletionPreview(preview);
+        }
+      } catch {
+        setDeletionPreview({
+          blocked: true,
+          blockReason: "Failed to load deletion preview.",
+          counts: [],
+        });
+      } finally {
+        setLoadingPreview(false);
+      }
+    } else {
+      setDeletionPreview(null);
+    }
+  };
+
+  const handleConfirmDangerAction = async (reason?: string) => {
+    if (dangerMode === "archive") {
+      const res = await fetch(`/api/manage/accounts/${account.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to archive account.");
+      }
+      toast.success("Account archived.");
+      router.push("/manage/accounts");
+    } else {
+      const res = await fetch(`/api/manage/accounts/${account.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete account.");
+      }
+      toast.success("Account deleted.");
+      router.push("/manage/accounts");
+    }
+  };
+
+  const menuItems = [
+    {
+      id: "edit",
+      label: "Edit account",
+      icon: <Pencil size={15} />,
+      onSelect: handleOpenEditSheet,
+    },
+    {
+      id: "copy",
+      label: "Copy account details",
+      icon: <Copy size={15} />,
+      onSelect: async () => {
+        const info = `${account.name}\nStage: ${account.stage}\nWebsite: ${account.website || "N/A"}\nFollow-up: ${account.nextFollowUpAt || "N/A"}`;
+        await navigator.clipboard.writeText(info);
+        toast.success("Account details copied to clipboard.");
+      },
+    },
+    {
+      id: "export",
+      label: "Export account data",
+      icon: <Download size={15} />,
+      onSelect: () => {
+        downloadCsv(`account-${account.id}.csv`, [
+          {
+            ID: account.id,
+            Name: account.name,
+            LegalName: account.legalName,
+            Industry: account.industry,
+            Stage: account.stage,
+            Website: account.website,
+            CreatedAt: account.createdAt,
+          },
+        ]);
+        toast.success("Account data exported.");
+      },
+    },
+    {
+      id: "archive",
+      label: "Archive account",
+      icon: <Archive size={15} />,
+      onSelect: () => handleOpenDangerDialog("archive"),
+    },
+    {
+      id: "delete",
+      label: "Delete account…",
+      icon: <Trash2 size={15} />,
+      destructive: true,
+      separatorBefore: true,
+      disabled: !isOwner,
+      onSelect: () => handleOpenDangerDialog("permanent-delete"),
+    },
+  ];
+
+  const auditHistory: AuditHistoryItem[] = activities.map((act) => ({
+    id: act.id,
+    action: act.kind,
+    actorName: act.actorName || "Internal Operator",
+    timestamp: act.createdAt || act.occurredAt || new Date().toISOString(),
+    summary: act.subject || act.summary || "Account activity recorded",
+    source: "internal",
+  }));
+
+  const accountTabs = [
+    { id: "overview", label: "Overview" },
+    { id: "vendors", label: "Vendors", count: vendors.length },
+    { id: "files", label: "Files", count: documents.length },
+    { id: "activity", label: "Activity", count: activities.length },
+    { id: "work", label: "Work", count: tasks.length },
+    { id: "history", label: "History", count: auditHistory.length },
+  ];
+
+  return (
+    <div className="manage-detail-page manage-record-page motion-page">
+      <Link href="/manage/accounts" className="manage-back-link">
+        <ArrowLeft size={15} /> Accounts
+      </Link>
+      <header className="manage-record-heading" style={{ position: "relative" }}>
+        <div className="manage-record-identity">
+          <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" />
+          <div>
+            <h2>
+              {account.name}{" "}
+              <RecordHeaderLinks
+                website={profile?.website || account.website}
+                linkedinUrl={profile?.linkedinUrl}
+                entityName={account.name}
+              />
+            </h2>
+            <span>{account.legalName || account.industry || "Account profile"}</span>
+            <AccountHeaderMeta account={account} profile={profile} />
+          </div>
+        </div>
+        <div className="manage-record-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {companyPhone && companyPhoneHref && (
+            <a
+              className="manage-record-action-icon manage-record-action-icon--phone"
+              href={`tel:${companyPhoneHref}`}
+              aria-label={`Call ${account.name}`}
+              title={`Call ${companyPhone}`}
+            >
+              <Phone size={17} />
+            </a>
+          )}
+          <RecordOverflowMenu items={menuItems} ariaLabel={`More actions for ${account.name}`} />
+        </div>
+      </header>
+
+      <section className="manage-record-highlights" aria-label="Account highlights">
+        <div>
+          <span>Lifecycle</span>
+          <Status value={account.stage || "unclassified"} />
+        </div>
+        <div>
+          <span>Next step</span>
+          <strong>{account.nextStep || "Not set"}</strong>
+        </div>
+        <div>
+          <span>Follow-up</span>
+          <strong>{account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled"}</strong>
+        </div>
+        <div>
+          <span>Vendors</span>
+          <strong>{vendors.length}</strong>
+        </div>
+        <div>
+          <span>Open work</span>
+          <strong>{account.openTaskCount}</strong>
+        </div>
+        <div>
+          <span>Evidence files</span>
+          <strong>{documents.length}</strong>
+        </div>
+      </section>
+
+      <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
+
+      {active === "overview" && (
+        <AccountOverview
+          account={account}
+          profile={profile}
+          profileSummary={profileSummary}
+          vendors={vendors}
+          expenses={expenses}
+          documents={documents}
+          contacts={contacts}
+          allAccounts={data.accounts}
+          locations={data.locations}
+          setSelectedVendorId={setSelectedVendorId}
+          setActive={setActive}
+          onCompose={onCompose}
+          run={run}
+        />
+      )}
+      {active === "vendors" && (
+        <VendorWorkspace
+          vendors={vendors}
+          expenses={expenses}
+          contracts={vendorContracts}
+          documents={documents}
+          currency={account.currency}
+          selectedId={selectedVendorId}
+          onSelect={setSelectedVendorId}
+        />
+      )}
+      {active === "files" && (
+        <RecordFilesWorkspace
+          title="Account files"
+          description="A clean, searchable view of this client’s private source documents. Collections never change the immutable storage record."
+          files={documents.map((item) => ({
+            id: item.id,
+            name: item.originalFilename,
+            documentType: item.documentType,
+            mimeType: item.mimeType,
+            status: item.status,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            byteSize: item.byteSize,
+            pageCount: item.pageCount,
+            summary: item.summary,
+            confidence: item.confidence,
+            extractionStatus: item.extractionStatus,
+            extractionInputMode: item.extractionInputMode,
+            extractionFailureCode: item.extractionFailureCode,
+            contextLabel: account.name,
+            href: `/api/manage/documents/${item.id}/download`,
+            retryHref:
+              item.extractionStatus === "failed" && !item.sourcePurgedAt
+                ? `/api/manage/documents/${item.id}/retry-extraction`
+                : null,
+            sourceAvailable: !item.sourcePurgedAt,
+          }))}
+        />
+      )}
+      {active === "activity" && (
+        <section className="manage-panel manage-record-tab-panel">
+          <header>
+            <div>
+              <h3>Relationship activity</h3>
+              <p>Internal notes, outreach, and client touches for this account.</p>
+            </div>
+          </header>
+          {activities.length ? (
+            <ActivityList activities={activities} />
+          ) : (
+            <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />
+          )}
+        </section>
+      )}
+      {active === "work" && (
+        <section className="manage-panel manage-record-tab-panel">
+          <header>
+            <div>
+              <h3>Follow-up work</h3>
+              <p>Open and completed outreach tasks.</p>
+            </div>
+          </header>
+          {tasks.length ? (
+            <TaskList tasks={tasks} />
+          ) : (
+            <Empty icon={CalendarClock} title="No follow-up work" copy="Create a task when this account needs an internal next step." />
+          )}
+        </section>
+      )}
+      {active === "history" && (
+        <section className="manage-panel manage-record-tab-panel">
+          <header>
+            <div>
+              <h3>Account change history</h3>
+              <p>Internal audit events and lifecycle activity logs.</p>
+            </div>
+          </header>
+          <RecordChangeHistory history={auditHistory} />
+        </section>
+      )}
+
+      {/* Edit Record Sheet */}
+      <EditRecordSheet
+        title={`Edit ${account.name}`}
+        subtitle="Update core CRM organization fields and operating profile."
+        isOpen={editSheetOpen}
+        onClose={() => setEditSheetOpen(false)}
+        onSave={handleSaveEditSheet}
+        isDirty={true}
+        saving={savingEdit}
+        error={editError}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Organization Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Legal Name
+            </label>
+            <input
+              type="text"
+              value={legalName}
+              onChange={(e) => setLegalName(e.target.value)}
+              placeholder="e.g. Acme Corporation Inc."
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+                Industry
+              </label>
+              <input
+                type="text"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+                Lifecycle Stage
+              </label>
+              <select
+                value={stage}
+                onChange={(e) => setStage(e.target.value)}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              >
+                <option value="lead">Lead</option>
+                <option value="onboarding">Onboarding</option>
+                <option value="active">Active</option>
+                <option value="at_risk">At Risk</option>
+                <option value="inactive">Inactive</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Website URL
+            </label>
+            <input
+              type="url"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://..."
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Primary Contact
+            </label>
+            <select
+              value={primaryContact}
+              onChange={(e) => setPrimaryContact(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            >
+              <option value="">-- None Selected --</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.fullName} ({c.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Next Step
+            </label>
+            <input
+              type="text"
+              value={nextStep}
+              onChange={(e) => setNextStep(e.target.value)}
+              placeholder="e.g. Schedule baseline invoice review call"
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Private Operator Notes
+            </label>
+            <textarea
+              value={privateNotes}
+              onChange={(e) => setPrivateNotes(e.target.value)}
+              rows={4}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)", fontFamily: "inherit" }}
+            />
+          </div>
+        </div>
+      </EditRecordSheet>
+
+      {/* Danger Dialog */}
+      <RecordDangerDialog
+        isOpen={dangerDialogOpen}
+        mode={dangerMode}
+        recordTitle={account.name}
+        onClose={() => setDangerDialogOpen(false)}
+        onConfirm={handleConfirmDangerAction}
+        dependencyPreview={deletionPreview}
+        loadingPreview={loadingPreview}
+        requiredConfirmationText={dangerMode === "permanent-delete" ? account.name : undefined}
+      />
+    </div>
+  );
 }
 
-function ContactContextRail({ contact, account, accounts, contacts, locations, onCompose, run }: { contact: ManageContact; account: ManageAccount | undefined; accounts: ManageAccount[]; contacts: ManageContact[]; locations: ManageLocation[]; onCompose: (contact: ManageContact) => void; run: (work: () => Promise<unknown>, success: string) => Promise<void> }) {
+function ContactContextRail({
+  contact,
+  account,
+  accounts,
+  contacts,
+  locations,
+  onCompose,
+  run,
+}: {
+  contact: ManageContact;
+  account: ManageAccount | undefined;
+  accounts: ManageAccount[];
+  contacts: ManageContact[];
+  locations: ManageLocation[];
+  onCompose: (contact: ManageContact) => void;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+}) {
   const accountLocations = account ? locations.filter((location) => location.organizationId === account.id) : [];
   const accountContacts = account ? contacts.filter((item) => item.organizationId === account.id) : [];
-  return <aside className="manage-record-rail manage-record-right-rail" aria-label="Contact context">
-    <section className="manage-context-card"><div className="manage-context-card__heading"><div><span>Contact details</span><h3>At a glance</h3></div></div><dl><div><dt>Account</dt><dd>{account ? <Link href={`/manage/accounts/${account.id}`}>{account.name}</Link> : contact.organizationName}</dd></div><div><dt>Email</dt><dd><button type="button" className="manage-contact-email" onClick={() => onCompose(contact)}>{contact.email}</button></dd></div><div><dt>Phone</dt><dd>{contact.phone ? <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="manage-contact-phone">{contact.phone}</a> : "Not recorded"}</dd></div><div><dt>Source</dt><dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd></div></dl></section>
-    {account && <><AccountPeopleRail contacts={accountContacts} onCompose={onCompose} /><AccountHierarchyCard account={account} accounts={accounts} run={run} /><LocationMapCard locations={accountLocations} fallback={account.enrichment?.location} /></>}
-    <section className="manage-context-card"><div className="manage-context-card__heading"><div><span>Relationship status</span><h3>Ready for outreach</h3></div></div><p className="manage-context-copy">{contact.isPrimary ? "Primary contact for this account." : "Client contact linked to this account."} {contact.marketingStatus ? `Marketing status: ${pretty(contact.marketingStatus)}.` : "Marketing consent is not recorded."}</p></section>
-  </aside>;
+
+  return (
+    <aside className="manage-record-rail manage-record-right-rail" aria-label="Contact context">
+      <section className="manage-context-card">
+        <div className="manage-context-card__heading">
+          <div>
+            <span>Contact details</span>
+            <h3>At a glance</h3>
+          </div>
+        </div>
+        <dl>
+          <div>
+            <dt>Account</dt>
+            <dd>{account ? <Link href={`/manage/accounts/${account.id}`}>{account.name}</Link> : contact.organizationName}</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>
+              <button type="button" className="manage-contact-email" onClick={() => onCompose(contact)}>
+                {contact.email}
+              </button>
+            </dd>
+          </div>
+          <div>
+            <dt>Phone</dt>
+            <dd>
+              {contact.phone ? (
+                <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} className="manage-contact-phone">
+                  {contact.phone}
+                </a>
+              ) : (
+                "Not recorded"
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Source</dt>
+            <dd>{contact.source === "workspace" ? "Workspace member" : "CRM contact"}</dd>
+          </div>
+        </dl>
+      </section>
+      {account && (
+        <>
+          <AccountPeopleRail contacts={accountContacts} onCompose={onCompose} />
+          <AccountHierarchyCard account={account} accounts={accounts} run={run} />
+          <LocationMapCard locations={accountLocations} fallback={account.enrichment?.location} />
+        </>
+      )}
+      <section className="manage-context-card">
+        <div className="manage-context-card__heading">
+          <div>
+            <span>Relationship status</span>
+            <h3>Ready for outreach</h3>
+          </div>
+        </div>
+        <p className="manage-context-copy">
+          {contact.isPrimary ? "Primary contact for this account." : "Client contact linked to this account."}{" "}
+          {contact.marketingStatus ? `Marketing status: ${pretty(contact.marketingStatus)}.` : "Marketing consent is not recorded."}
+        </p>
+      </section>
+    </aside>
+  );
 }
 
-function ContactDetailPage({ data, contactId, run, onCompose }: { data: ManageData; contactId: string; run: (work: () => Promise<unknown>, success: string) => Promise<void>; onCompose: (contact: ManageContact) => void }) {
+function ContactDetailPage({
+  data,
+  contactId,
+  run,
+  onCompose,
+}: {
+  data: ManageData;
+  contactId: string;
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  onCompose: (contact: ManageContact) => void;
+}) {
+  const router = useRouter();
+  const toast = useToast();
   const contact = data.contacts.find((item) => item.id === contactId);
+
   const [active, setActive] = useState("overview");
-  if (!contact) return <Empty icon={Users} title="Contact not found" copy="This contact may have been removed or is not visible to this internal operator." action={<Link className="manage-button manage-button--quiet" href="/manage/contacts"><ArrowLeft size={15} /> Back to contacts</Link>} />;
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
+  const [dangerMode, setDangerMode] = useState<"deactivate" | "remove">("deactivate");
+  const [deletionPreview, setDeletionPreview] = useState<DependencyPreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Form state
+  const [fullName, setFullName] = useState(contact?.fullName ?? "");
+  const [email, setEmail] = useState(contact?.email ?? "");
+  const [phone, setPhone] = useState(contact?.phone ?? "");
+  const [title, setTitle] = useState(contact?.title ?? "");
+  const [isPrimary, setIsPrimary] = useState(contact?.isPrimary ?? false);
+  const [status, setStatus] = useState(contact?.status ?? "active");
+
+  if (!contact)
+    return (
+      <Empty
+        icon={Users}
+        title="Contact not found"
+        copy="This contact may have been removed or is not visible to this internal operator."
+        action={
+          <Link className="manage-button manage-button--quiet" href="/manage/contacts">
+            <ArrowLeft size={15} /> Back to contacts
+          </Link>
+        }
+      />
+    );
+
   const contactAccount = data.accounts.find((account) => account.id === contact.organizationId);
-  const activities = data.activities.filter((item) => item.organizationId === contact.organizationId);
-  const tasks = data.tasks.filter((item) => item.organizationId === contact.organizationId && item.contactId === contact.id);
+  const allAccountActivities = data.activities.filter((item) => item.organizationId === contact.organizationId);
+  const contactSpecificActivities = allAccountActivities.filter((item) => item.contactId === contact.id);
+  const generalAccountActivities = allAccountActivities.filter((item) => !item.contactId || item.contactId !== contact.id);
+
+  const tasks = data.tasks.filter(
+    (item) => item.organizationId === contact.organizationId && item.contactId === contact.id,
+  );
   const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
-  const tabs = [{ id: "overview", label: "Overview" }, { id: "files", label: "Shared files", count: documents.length }, { id: "activity", label: "Activity", count: activities.length }, { id: "work", label: "Tasks", count: tasks.length }];
-  return <div className="manage-detail-page manage-record-page motion-page"><Link href="/manage/contacts" className="manage-back-link"><ArrowLeft size={15} /> Contacts</Link><header className="manage-record-heading"><div className="manage-record-identity"><span className="manage-record-person-avatar">{initials(contact.fullName)}</span><div><h2>{contact.fullName} <RecordHeaderLinks website={contactAccount?.enrichment?.website || contactAccount?.website} linkedinUrl={contactAccount?.enrichment?.linkedinUrl} entityName={contact.fullName} /></h2><span>{contact.title || "Role not set"} · {contact.organizationName}</span></div></div><div className="manage-record-actions"><button className="manage-record-action-icon manage-record-action-icon--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={17} /></button>{contact.phone && <a className="manage-record-action-icon manage-record-action-icon--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={17} /></a>}</div></header><section className="manage-record-highlights manage-record-highlights--contact"><div><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-record-account-link" title={`Open ${contact.organizationName}`}><CompanyLogo entity="organization" id={contact.organizationId} name={contact.organizationName} className="manage-record-account-logo" /><span><small>Account</small><strong>{contact.organizationName}</strong></span></Link></div><div><span>Relationship</span><strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong></div><div><span>Marketing consent</span><strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong></div><div><span>Shared files</span><strong>{documents.length}</strong></div></section><RecordTabs tabs={tabs} active={active} onChange={setActive} />
-    {active === "overview" && <div className="manage-record-layout manage-record-layout--right-rail"><main className="manage-record-main"><section className="manage-record-profile"><div><span>Relationship context</span><h3>Contact record</h3><p>The structured CRM fields above remain the source of truth. External profile enrichment is not enabled until Costivra has a purpose-specific data-sharing consent flow.</p></div></section><section className="manage-panel manage-record-overview-panel"><header><div><h3>Relationship readiness</h3><p>See the information an operator needs before reaching out.</p></div></header><dl className="manage-detail-list"><div><dt>Access status</dt><dd><Status value={contact.status} /></dd></div><div><dt>Marketing consent</dt><dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd></div><div><dt>Account activity</dt><dd>{activities.length} recorded event{activities.length === 1 ? "" : "s"}</dd></div></dl></section></main><ContactContextRail contact={contact} account={contactAccount} accounts={data.accounts} contacts={data.contacts} locations={data.locations} onCompose={onCompose} run={run} /></div>}
-    {active === "files" && <RecordFilesWorkspace title="Account source files" description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, extractionStatus: item.extractionStatus, extractionInputMode: item.extractionInputMode, extractionFailureCode: item.extractionFailureCode, contextLabel: contact.organizationName, href: `/api/manage/documents/${item.id}/download`, retryHref: item.extractionStatus === "failed" && !item.sourcePurgedAt ? `/api/manage/documents/${item.id}/retry-extraction` : null, sourceAvailable: !item.sourcePurgedAt }))} emptyCopy="No account source files are available to this internal record yet." />}
-    {active === "activity" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Account activity</h3><p>Recent account-level activity provides relationship context.</p></div></header>{activities.length ? <ActivityList activities={activities} /> : <Empty icon={Activity} title="No activity yet" copy="Internal notes and client interactions will appear here." />}</section>}
-    {active === "work" && <section className="manage-panel manage-record-tab-panel"><header><div><h3>Tasks for {contact.fullName}</h3><p>Only work explicitly linked to this CRM contact is shown.</p></div></header>{tasks.length ? <TaskList tasks={tasks} /> : <Empty icon={CalendarClock} title="No contact tasks" copy="Assign a task to this contact when there is a clear next step." />}</section>}
-  </div>;
+
+  const handleOpenEditSheet = () => {
+    setFullName(contact.fullName);
+    setEmail(contact.email);
+    setPhone(contact.phone ?? "");
+    setTitle(contact.title ?? "");
+    setIsPrimary(contact.isPrimary);
+    setStatus(contact.status);
+    setEditError(null);
+    setEditSheetOpen(true);
+  };
+
+  const handleSaveEditSheet = async () => {
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/manage/contacts/${contact.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName,
+          email,
+          phone,
+          title,
+          isPrimary,
+          status,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update contact.");
+      }
+      toast.success("Contact record updated.");
+      setEditSheetOpen(false);
+      router.refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save contact changes");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleOpenDangerDialog = async (mode: "deactivate" | "remove") => {
+    setDangerMode(mode);
+    setDangerDialogOpen(true);
+    if (mode === "remove") {
+      setLoadingPreview(true);
+      try {
+        const res = await fetch(`/api/manage/contacts/${contact.id}/deletion-preview`);
+        if (res.ok) {
+          const preview = await res.json();
+          setDeletionPreview(preview);
+        }
+      } catch {
+        setDeletionPreview({
+          blocked: true,
+          blockReason: "Failed to load deletion preview.",
+          counts: [],
+        });
+      } finally {
+        setLoadingPreview(false);
+      }
+    } else {
+      setDeletionPreview(null);
+    }
+  };
+
+  const handleConfirmDangerAction = async (reason?: string) => {
+    if (dangerMode === "deactivate") {
+      const res = await fetch(`/api/manage/contacts/${contact.id}/deactivate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to change contact status.");
+      }
+      toast.success(contact.status === "inactive" ? "Contact reactivated." : "Contact deactivated.");
+      router.refresh();
+    } else {
+      const res = await fetch(`/api/manage/contacts/${contact.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to remove contact from CRM.");
+      }
+      toast.success("Contact removed from CRM.");
+      router.push("/manage/contacts");
+    }
+  };
+
+  const handleMakePrimary = async () => {
+    try {
+      const res = await fetch(`/api/manage/contacts/${contact.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPrimary: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to promote to primary contact.");
+      }
+      toast.success(`${contact.fullName} is now the primary contact.`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to promote contact.");
+    }
+  };
+
+  const menuItems = [
+    {
+      id: "edit",
+      label: "Edit contact",
+      icon: <Pencil size={15} />,
+      onSelect: handleOpenEditSheet,
+    },
+    {
+      id: "email",
+      label: "Send email",
+      icon: <Mail size={15} />,
+      onSelect: () => onCompose(contact),
+    },
+    {
+      id: "primary",
+      label: "Make primary contact",
+      icon: <CheckCircle2 size={15} />,
+      disabled: contact.isPrimary,
+      onSelect: handleMakePrimary,
+    },
+    {
+      id: "copy",
+      label: "Copy contact details",
+      icon: <Copy size={15} />,
+      onSelect: async () => {
+        const info = `${contact.fullName}\nEmail: ${contact.email}\nPhone: ${contact.phone || "N/A"}\nTitle: ${contact.title || "N/A"}`;
+        await navigator.clipboard.writeText(info);
+        toast.success("Contact details copied to clipboard.");
+      },
+    },
+    {
+      id: "deactivate",
+      label: contact.status === "inactive" ? "Reactivate contact" : "Deactivate contact",
+      icon: <Archive size={15} />,
+      onSelect: () => handleOpenDangerDialog("deactivate"),
+    },
+    {
+      id: "remove",
+      label: "Remove contact from CRM…",
+      icon: <Trash2 size={15} />,
+      destructive: true,
+      separatorBefore: true,
+      onSelect: () => handleOpenDangerDialog("remove"),
+    },
+  ];
+
+  const auditHistory: AuditHistoryItem[] = contactSpecificActivities.map((act) => ({
+    id: act.id,
+    action: act.kind,
+    actorName: act.actorName || "Internal Operator",
+    timestamp: act.createdAt || act.occurredAt || new Date().toISOString(),
+    summary: act.subject || act.summary || "Contact activity recorded",
+    source: "internal",
+  }));
+
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "files", label: "Account files", count: documents.length },
+    { id: "activity", label: "Activity", count: allAccountActivities.length },
+    { id: "work", label: "Tasks", count: tasks.length },
+    { id: "history", label: "History", count: auditHistory.length },
+  ];
+
+  return (
+    <div className="manage-detail-page manage-record-page motion-page">
+      <Link href="/manage/contacts" className="manage-back-link">
+        <ArrowLeft size={15} /> Contacts
+      </Link>
+      <header className="manage-record-heading" style={{ position: "relative" }}>
+        <div className="manage-record-identity">
+          <span className="manage-record-person-avatar">{initials(contact.fullName)}</span>
+          <div>
+            <h2>
+              {contact.fullName}{" "}
+              <RecordHeaderLinks
+                website={contactAccount?.enrichment?.website || contactAccount?.website}
+                linkedinUrl={contactAccount?.enrichment?.linkedinUrl}
+                entityName={contact.fullName}
+              />
+            </h2>
+            <span>
+              {contact.title || "Role not set"} · {contact.organizationName}
+            </span>
+          </div>
+        </div>
+        <div className="manage-record-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            className="manage-record-action-icon manage-record-action-icon--email"
+            onClick={() => onCompose(contact)}
+            aria-label={`Compose email to ${contact.fullName}`}
+            title={`Compose email to ${contact.fullName}`}
+          >
+            <Mail size={17} />
+          </button>
+          {contact.phone && (
+            <a
+              className="manage-record-action-icon manage-record-action-icon--phone"
+              href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`}
+              aria-label={`Call ${contact.fullName}`}
+              title={`Call ${contact.phone}`}
+            >
+              <Phone size={17} />
+            </a>
+          )}
+          <RecordOverflowMenu items={menuItems} ariaLabel={`More actions for ${contact.fullName}`} />
+        </div>
+      </header>
+
+      <section className="manage-record-highlights manage-record-highlights--contact">
+        <div>
+          <Link
+            href={`/manage/accounts/${contact.organizationId}`}
+            className="manage-record-account-link"
+            title={`Open ${contact.organizationName}`}
+          >
+            <CompanyLogo
+              entity="organization"
+              id={contact.organizationId}
+              name={contact.organizationName}
+              className="manage-record-account-logo"
+            />
+            <span>
+              <small>Account</small>
+              <strong>{contact.organizationName}</strong>
+            </span>
+          </Link>
+        </div>
+        <div>
+          <span>Relationship</span>
+          <strong>{contact.isPrimary ? "Primary contact" : "Client contact"}</strong>
+        </div>
+        <div>
+          <span>Marketing consent</span>
+          <strong>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</strong>
+        </div>
+        <div>
+          <span>Account files</span>
+          <strong>{documents.length}</strong>
+        </div>
+      </section>
+
+      <RecordTabs tabs={tabs} active={active} onChange={setActive} />
+
+      {active === "overview" && (
+        <div className="manage-record-layout manage-record-layout--right-rail">
+          <main className="manage-record-main">
+            <section className="manage-record-profile">
+              <div>
+                <span>Relationship context</span>
+                <h3>Contact record</h3>
+                <p>
+                  The structured CRM fields below remain the source of truth. External profile enrichment is not enabled
+                  until Costivra has a purpose-specific data-sharing consent flow.
+                </p>
+              </div>
+
+              {/* Editable Field Rows with zero layout shift */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+                <EditableFieldRow
+                  label="Full Name"
+                  value={contact.fullName}
+                  input={{ kind: "text" }}
+                  onSave={async (v) => {
+                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ fullName: String(v) }),
+                    });
+                    toast.success("Name updated.");
+                    router.refresh();
+                  }}
+                />
+                <EditableFieldRow
+                  label="Email"
+                  value={contact.email}
+                  input={{ kind: "text" }}
+                  onSave={async (v) => {
+                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ email: String(v) }),
+                    });
+                    toast.success("Email updated.");
+                    router.refresh();
+                  }}
+                />
+                <EditableFieldRow
+                  label="Phone"
+                  value={contact.phone}
+                  input={{ kind: "phone" }}
+                  onSave={async (v) => {
+                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ phone: String(v) }),
+                    });
+                    toast.success("Phone updated.");
+                    router.refresh();
+                  }}
+                />
+                <EditableFieldRow
+                  label="Job Title"
+                  value={contact.title}
+                  input={{ kind: "text" }}
+                  onSave={async (v) => {
+                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ title: String(v) }),
+                    });
+                    toast.success("Job title updated.");
+                    router.refresh();
+                  }}
+                />
+              </div>
+            </section>
+
+            <section className="manage-panel manage-record-overview-panel">
+              <header>
+                <div>
+                  <h3>Relationship readiness</h3>
+                  <p>See the information an operator needs before reaching out.</p>
+                </div>
+              </header>
+              <dl className="manage-detail-list">
+                <div>
+                  <dt>Access status</dt>
+                  <dd>
+                    <Status value={contact.status} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>Marketing consent</dt>
+                  <dd>{contact.marketingStatus ? pretty(contact.marketingStatus) : "Not recorded"}</dd>
+                </div>
+                <div>
+                  <dt>Account activity</dt>
+                  <dd>
+                    {allAccountActivities.length} recorded event{allAccountActivities.length === 1 ? "" : "s"}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          </main>
+          <ContactContextRail
+            contact={contact}
+            account={contactAccount}
+            accounts={data.accounts}
+            contacts={data.contacts}
+            locations={data.locations}
+            onCompose={onCompose}
+            run={run}
+          />
+        </div>
+      )}
+
+      {active === "files" && (
+        <RecordFilesWorkspace
+          title="Account source files"
+          description="These files belong to the client account. Contact-specific email attachments stay in the mail workspace so their mailbox permissions remain intact."
+          files={documents.map((item) => ({
+            id: item.id,
+            name: item.originalFilename,
+            documentType: item.documentType,
+            mimeType: item.mimeType,
+            status: item.status,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            byteSize: item.byteSize,
+            pageCount: item.pageCount,
+            summary: item.summary,
+            confidence: item.confidence,
+            extractionStatus: item.extractionStatus,
+            extractionInputMode: item.extractionInputMode,
+            extractionFailureCode: item.extractionFailureCode,
+            contextLabel: contact.organizationName,
+            href: `/api/manage/documents/${item.id}/download`,
+            retryHref:
+              item.extractionStatus === "failed" && !item.sourcePurgedAt
+                ? `/api/manage/documents/${item.id}/retry-extraction`
+                : null,
+            sourceAvailable: !item.sourcePurgedAt,
+          }))}
+          emptyCopy="No account source files are available to this internal record yet."
+        />
+      )}
+
+      {active === "activity" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <section className="manage-panel manage-record-tab-panel">
+            <header>
+              <div>
+                <h3>Direct contact activity</h3>
+                <p>Activity specifically linked to {contact.fullName}.</p>
+              </div>
+            </header>
+            {contactSpecificActivities.length ? (
+              <ActivityList activities={contactSpecificActivities} />
+            ) : (
+              <Empty icon={Activity} title="No direct contact activity" copy="Direct outreach and notes for this contact will appear here." />
+            )}
+          </section>
+
+          <section className="manage-panel manage-record-tab-panel">
+            <header>
+              <div>
+                <h3>Broader account context</h3>
+                <p>Other activity recorded for {contact.organizationName}.</p>
+              </div>
+            </header>
+            {generalAccountActivities.length ? (
+              <ActivityList activities={generalAccountActivities} />
+            ) : (
+              <Empty icon={Activity} title="No general account activity" copy="Other account activities will appear here." />
+            )}
+          </section>
+        </div>
+      )}
+
+      {active === "work" && (
+        <section className="manage-panel manage-record-tab-panel">
+          <header>
+            <div>
+              <h3>Tasks for {contact.fullName}</h3>
+              <p>Only work explicitly linked to this CRM contact is shown.</p>
+            </div>
+          </header>
+          {tasks.length ? (
+            <TaskList tasks={tasks} />
+          ) : (
+            <Empty icon={CalendarClock} title="No contact tasks" copy="Assign a task to this contact when there is a clear next step." />
+          )}
+        </section>
+      )}
+
+      {active === "history" && (
+        <section className="manage-panel manage-record-tab-panel">
+          <header>
+            <div>
+              <h3>Contact change history</h3>
+              <p>Internal audit log of changes made to this CRM contact record.</p>
+            </div>
+          </header>
+          <RecordChangeHistory history={auditHistory} />
+        </section>
+      )}
+
+      {/* Edit Record Sheet */}
+      <EditRecordSheet
+        title={`Edit ${contact.fullName}`}
+        subtitle="Update contact details and relationship role."
+        isOpen={editSheetOpen}
+        onClose={() => setEditSheetOpen(false)}
+        onSave={handleSaveEditSheet}
+        isDirty={true}
+        saving={savingEdit}
+        error={editError}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 (555) 000-0000"
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Job Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Chief Financial Officer"
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+            <input
+              type="checkbox"
+              id="isPrimaryCheck"
+              checked={isPrimary}
+              onChange={(e) => setIsPrimary(e.target.checked)}
+            />
+            <label htmlFor="isPrimaryCheck" style={{ fontSize: "0.85rem", fontWeight: 500 }}>
+              Primary contact for {contact.organizationName}
+            </label>
+          </div>
+        </div>
+      </EditRecordSheet>
+
+      {/* Danger Dialog */}
+      <RecordDangerDialog
+        isOpen={dangerDialogOpen}
+        mode={dangerMode}
+        recordTitle={contact.fullName}
+        onClose={() => setDangerDialogOpen(false)}
+        onConfirm={handleConfirmDangerAction}
+        dependencyPreview={deletionPreview}
+        loadingPreview={loadingPreview}
+      />
+    </div>
+  );
 }
 
 function Outreach({

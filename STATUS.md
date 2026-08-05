@@ -1,5 +1,44 @@
 # Costivra Status
 
+## August 5, 2026 — Marketing Shell Scroll and Layout Refinement
+
+- Added a shared Lenis scroll controller to make page-level wheel and anchor scrolling consistently smooth across marketing, customer (`/app`), and internal (`/manage`) routes. It retains native nested-panel scrolling and honors `prefers-reduced-motion`.
+- Refined the marketing footer into a rounded-top closing panel with an explicit next-step message and a clear scan action.
+- Corrected homepage category rows so their icons sit inline to the left of their labels, converted trust items to a compact icon-left layout, rounded the workflow stage badges, and used the same icon-left heading treatment for public content cards.
+- Validation: `npm run typecheck`, `npm run lint`, and `npm run build` all passed. Browser QA passed on the homepage at desktop, `/how-it-works` at 390×844, and the authenticated local customer-workspace preview; the only console item was a pre-existing Costivra brand-image aspect-ratio warning.
+
+## August 5, 2026 — Record Operating System & Pages Completion
+
+- **Database Migrations (`supabase/migrations/20260805020000_record_pages_completion.sql`)**:
+  - Added `display_name_override`, `category_override`, `website_override`, `ended_at`, `ended_by` to `organization_vendors`.
+  - Added `archived_at`, `archived_by` to `crm_contacts`.
+  - Added partial unique index `crm_contacts_one_primary_per_org` to enforce single active primary contact per organization.
+- **Shared Component Foundation (`src/components/records/`)**:
+  - `record-overflow-menu.tsx`: Accessible 3-dot menu with quiet resting state (42px hit target, zero layout shift, keyboard navigation Up/Down/Escape/Home/End).
+  - `editable-field-row.tsx`: Editable field row with ZERO layout shift on hover/focus (`position: absolute; right: 2px; transform: translateY(-50%) translateX(4px); visibility: hidden; opacity: 0; pointer-events: none`).
+  - `edit-record-sheet.tsx`: Right-side drawer sheet (480-560px desktop, full screen mobile) with grouped fields, dirty state detection, unsaved changes confirmation, sticky header & footer.
+  - `record-danger-dialog.tsx`: Modal dialog for `archive`, `deactivate`, `end`, `remove`, and `permanent-delete` modes with dependency preview loading, block warnings, typed confirmation, and reason logging.
+  - `record-change-history.tsx`: Audit history log viewer displaying actor, action, timestamp, summary, and source badge.
+- **API Route Endpoints (`src/app/api/`)**:
+  - `src/app/api/portal/vendors/[id]/route.ts`: `PATCH` handler for tenant vendor overrides & status; `DELETE` handler with dependency checks (returns 409 Conflict if linked invoices/expenses exist).
+  - `src/app/api/portal/vendors/[id]/deletion-preview/route.ts`: `GET` handler returning linked dependency counts.
+  - `src/app/api/manage/accounts/[id]/route.ts`: Extended `PATCH` handler to atomically update `organizations`, `crm_account_profiles`, and `crm_contacts` (primary contact transactional swap); added `DELETE` handler for owner-only safe deletion of empty accounts.
+  - `src/app/api/manage/accounts/[id]/deletion-preview/route.ts`: `GET` handler returning dependency preview for accounts.
+  - `src/app/api/manage/accounts/[id]/archive/route.ts`: `POST` handler setting `visible_in_crm = false` and `lifecycle_stage = "inactive"`.
+  - `src/app/api/manage/contacts/[id]/route.ts`: `PATCH` handler for contact fields with primary contact transactional swap; `DELETE` handler for CRM contact removal (preserving auth profiles & workspace memberships).
+  - `src/app/api/manage/contacts/[id]/deletion-preview/route.ts`: `GET` handler returning contact deletion dependency preview.
+  - `src/app/api/manage/contacts/[id]/deactivate/route.ts`: `POST` handler for deactivating contact (`archived_at = now()`, `status = "inactive"`).
+- **Record Pages Integration**:
+  - Integrated Customer Vendor Detail Page (`/app/vendors/[vendorId]`) in `src/components/portal-pages.tsx`.
+  - Integrated Manage Account Detail Page (`/manage/accounts/[accountId]`) in `src/components/manage-portal.tsx`.
+  - Integrated Manage Contact Detail Page (`/manage/contacts/[contactId]`) in `src/components/manage-portal.tsx`.
+- **Verification Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (82 test files passed, 289 unit tests passed)
+  - `npm run build`: ✅ PASS (40 static & dynamic routes compiled cleanly in Next.js Turbopack)
+
+
 ## August 4, 2026 — Ask Costivra Visual Cards, Layout, & Motion Polish
 
 - **Deterministic Response Planner (`src/lib/client-assistant/presentation-planner.ts`)**: Built server-side deterministic block selection to map common financial queries (spend overview, latest bill, bill comparison, contract calendar, attached file intake, opportunities) to authoritative response blocks.

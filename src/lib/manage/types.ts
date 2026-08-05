@@ -183,11 +183,14 @@ export type ManageActivity = {
   id: string;
   organizationId: string;
   organizationName: string;
+  contactId?: string | null;
   kind: string;
   direction: string | null;
   subject: string;
   summary: string | null;
   occurredAt: string;
+  createdAt?: string;
+  actorName?: string | null;
 };
 
 export type ManageMailbox = {

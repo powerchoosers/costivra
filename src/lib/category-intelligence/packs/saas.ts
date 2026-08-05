@@ -1,0 +1,121 @@
+import { CategoryExpertPackV1 } from "../types";
+
+export const saasPack: CategoryExpertPackV1 = {
+  schemaVersion: "category-expert-pack-v1",
+  categoryKey: "saas-subscriptions",
+  displayName: "SaaS & Software Subscriptions",
+  parentKey: "technology",
+  version: "2026.08.1",
+  status: "verified",
+  jurisdictions: ["US", "Global"],
+  effectiveFrom: "2026-01-01",
+  effectiveTo: null,
+  defaultFreshnessDays: 60,
+
+  scope: {
+    includes: ["SaaS user licenses", "Platform subscription fees", "Add-on software modules", "API consumption tiers"],
+    excludes: ["Cloud infrastructure IaaS", "Hardware leasing", "Custom IT consulting"],
+    adjacentCategories: ["cloud-iaas-paas", "cybersecurity"],
+  },
+
+  documentTypes: [
+    {
+      type: "saas_invoice",
+      indicators: ["User Licenses", "Subscription Term", "Active Seats", "Per User / Month"],
+      requiredFields: ["subscription_period", "seat_count", "unit_price", "total_amount"],
+    },
+  ],
+
+  billAnatomy: {
+    identityFields: ["tenant_id", "account_id", "invoice_number"],
+    periodFields: ["subscription_start", "subscription_end", "renewal_date"],
+    quantityFields: ["contracted_seats", "active_seats", "provisioned_licenses"],
+    pricingFields: ["rate_per_seat", "platform_fee", "discount_percentage"],
+    taxFeeFields: ["state_software_tax", "vat"],
+    contractFields: ["auto_renew_flag", "cancellation_notice_days", "payment_terms"],
+  },
+
+  lineItems: [
+    {
+      canonicalCode: "SAAS-SEAT-01",
+      label: "User License Subscription Seat",
+      aliases: ["User Seat", "Named License", "Active User Tier", "Monthly License Fee"],
+      meaning: "Recurring license charge per active or provisioned user seat.",
+      chargeClass: "fixed",
+      units: ["seats", "users"],
+      calculation: "seat_count * rate_per_seat",
+      expectedContext: ["enterprise_agreement", "monthly_recurring"],
+      benchmarkable: true,
+      regulatory: false,
+      commonContractTreatment: ["annual_upfront", "monthly_recurring"],
+      anomalyRules: ["check_shelfware_inactive_seats", "check_unannounced_renewal_hike"],
+    },
+    {
+      canonicalCode: "SAAS-PLT-01",
+      label: "Platform / Base Account Fee",
+      aliases: ["Platform Fee", "Base Subscription", "Tenant Fee", "Core Module"],
+      meaning: "Fixed base fee required for tenant account access regardless of user count.",
+      chargeClass: "fixed",
+      units: ["flat"],
+      expectedContext: ["tier_access"],
+      benchmarkable: true,
+      regulatory: false,
+      commonContractTreatment: ["fixed_annual"],
+      anomalyRules: ["check_duplicate_base_charge"],
+    },
+  ],
+
+  pricingModels: [
+    {
+      key: "per_seat_tiered",
+      explanation: "Per-user pricing with volume band discounts.",
+      fixedComponents: ["platform_fee"],
+      variableComponents: ["user_seats"],
+      passThroughComponents: ["sales_tax"],
+      formulas: ["total = platform_fee + (seats * tiered_rate) + tax"],
+      requiredDimensions: ["seat_band", "edition", "contract_term"],
+    },
+  ],
+
+  billQuality: {
+    goodSignals: [],
+    anomalyRules: [],
+    contractChecks: [],
+    arithmeticChecks: [],
+  },
+
+  benchmarkPolicy: {
+    supportedMetrics: ["effective_price_per_user_month", "discount_off_list"],
+    requiredDimensions: ["active_user_seat_count", "software_edition_tier", "contract_term_months"],
+    minimumComparableCount: 5,
+    sourceRequirements: ["Official Vendor List Pricing", "FOCUS Specification"],
+    quoteRequiredWhen: ["enterprise_custom_negotiated_tier"],
+    prohibitedClaims: ["Comparing public list price as proof of negotiated enterprise pricing."],
+  },
+
+  optimizationLevers: [
+    {
+      key: "shelfware_cleanup",
+      description: "Deprovision unassigned or inactive user licenses identified via SSO/IdP audit logs.",
+      prerequisites: ["idp_integration"],
+      risks: ["user_access_interruption"],
+      needsAuthorization: true,
+    },
+  ],
+
+  currentResearchPolicy: {
+    mandatoryTriggers: ["vendor_price_list_update"],
+    preferredSources: ["https://focus.finops.org/"],
+    allowedDomains: ["finops.org"],
+    freshnessDays: 60,
+    cacheKeyDimensions: ["edition", "seat_band"],
+  },
+
+  outputPolicy: {
+    requiredCaveats: ["SaaS pricing benchmarks require exact edition, seat volume band, and contract term alignment."],
+    confidenceThresholds: { extraction: 0.92, classification: 0.95 },
+    humanReviewTriggers: ["auto_renewal_price_increase"],
+  },
+
+  evalCaseIds: ["eval-saas-001"],
+};

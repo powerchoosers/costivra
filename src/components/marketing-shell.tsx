@@ -43,7 +43,7 @@ export function MarketingHeader() {
 }
 
 const columns = [
-  { title: "Product", links: [["How it works", "/how-it-works"], ["Solutions", "/solutions"], ["Integrations", "/integrations"], ["Pricing", "/pricing"]] },
+  { title: "Product", links: [["How it works", "/how-it-works"], ["Solutions", "/solutions"], ["Software", "/solutions/software"], ["Telecom", "/solutions/telecom"], ["Energy", "/solutions/energy"], ["Insurance & Benefits", "/solutions/insurance"], ["Facilities", "/solutions/facilities"], ["Pricing", "/pricing"]] },
   { title: "Company", links: [["About", "/about"], ["Case studies", "/case-studies"], ["Partners", "/partners"], ["Contact", "/contact"]] },
   { title: "Resources", links: [["Cost leak scan", "/scan"], ["Help center", "/help"], ["Security", "/security"], ["System status", "/status"]] },
   { title: "Legal", links: [["Privacy", "/privacy"], ["Terms", "/terms"], ["Security", "/security"], ["UCEP disclosure", "/ucep-disclosure"]] },
@@ -53,6 +53,10 @@ export function MarketingFooter() {
   return (
     <footer className="marketing-footer">
       <div className="container">
+        <div className="footer-intro">
+          <div><span className="eyebrow">A clearer next step</span><h2>Put recurring costs under command.</h2><p>Start with three current bills. Costivra keeps the evidence, decision, and next action together.</p></div>
+          <Link className="button footer-cta" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link>
+        </div>
         <div className="footer-grid">
           <div className="footer-brand">
             <Brand light />

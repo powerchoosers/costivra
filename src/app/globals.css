@@ -170,6 +170,8 @@ textarea:focus-visible {
 .evidence-layout { display: grid; grid-template-columns: .64fr 1.36fr; gap: 60px; align-items: start; }
 .category-list { margin-top: 38px; border-top: 1px solid var(--line); }
 .category-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 22px 0; transition: color 160ms ease, padding 160ms ease; }
+.category-row-label { display: inline-flex; align-items: center; gap: 12px; }
+.category-row-label svg { flex: 0 0 auto; }
 .category-row:hover, .category-row.active { padding-left: 8px; color: var(--blue); }
 .evidence-viewer { overflow: hidden; border: 1px solid var(--line); background: var(--white); box-shadow: var(--shadow); }
 .viewer-label { border-bottom: 1px solid var(--line); padding: 12px 18px; font: 700 .68rem "Courier New", monospace; letter-spacing: .1em; }
@@ -191,9 +193,9 @@ textarea:focus-visible {
 .doctrine-words span:nth-child(2), .doctrine-words span:nth-child(5) { color: var(--mint); }
 .doctrine-words span:nth-child(3) { color: #ffc077; }
 .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; padding-top: 28px; }
-.trust-item { border-right: 1px solid #52615d; padding-right: 20px; }
+.trust-item { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 12px; border-right: 1px solid #52615d; padding-right: 20px; }
 .trust-item:last-child { border: 0; }
-.trust-item strong { display: block; margin: 14px 0 7px; }
+.trust-item strong { display: block; margin: 0 0 7px; }
 .trust-item p { margin: 0; color: #aeb8b4; font-size: .86rem; line-height: 1.55; }
 
 .pricing { padding: 100px 0; }
@@ -213,7 +215,13 @@ textarea:focus-visible {
 .faq-question { display: flex; width: 100%; align-items: center; justify-content: space-between; border: 0; background: transparent; padding: 20px 0; text-align: left; font-weight: 700; cursor: pointer; }
 .faq-answer { max-width: 720px; padding: 0 40px 20px 0; color: var(--muted); line-height: 1.6; }
 
-.marketing-footer { color: var(--paper); background: var(--ink); padding: 66px 0 28px; }
+.marketing-footer { position: relative; z-index: 1; margin-top: 42px; border-radius: 28px 28px 0 0; color: var(--paper); background: var(--ink); padding: 54px 0 28px; overflow: hidden; }
+.footer-intro { display: flex; align-items: end; justify-content: space-between; gap: 32px; border-bottom: 1px solid #394542; padding: 0 0 44px; }
+.footer-intro .eyebrow { color: var(--mint); }
+.footer-intro h2 { max-width: 680px; margin: 12px 0; font-size: clamp(2rem, 3.3vw, 3.3rem); font-weight: 550; letter-spacing: -.055em; line-height: 1; }
+.footer-intro p { max-width: 570px; margin: 0; color: #aab4c5; line-height: 1.6; }
+.footer-cta { flex: 0 0 auto; color: var(--ink); background: var(--mint); box-shadow: none; }
+.footer-cta:hover { background: #b2ef9c; }
 .footer-grid { display: grid; grid-template-columns: 1.5fr repeat(4, 1fr); gap: 45px; }
 .footer-brand p { color: #aeb8b4; line-height: 1.55; }
 .footer-column strong { display: block; margin-bottom: 16px; font: 700 .68rem "Courier New", monospace; letter-spacing: .12em; text-transform: uppercase; }
@@ -227,7 +235,10 @@ textarea:focus-visible {
 .content-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
 .content-block { min-height: 260px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 30px; }
 .content-block:nth-child(3n) { border-right: 0; }
-.content-block h2 { margin: 18px 0 12px; font-size: 1.4rem; }
+.content-block-heading { display: flex; align-items: center; gap: 13px; }
+.content-block-heading svg { flex: 0 0 auto; }
+.content-block h2 { margin: 0; font-size: 1.4rem; }
+.content-block-heading + p { margin-top: 18px; }
 .content-block p { color: var(--muted); line-height: 1.6; }
 .article { display: grid; grid-template-columns: 260px minmax(0, 760px); gap: 80px; }
 .article aside { position: sticky; top: 110px; align-self: start; }
@@ -353,6 +364,7 @@ textarea:focus-visible {
   .step-number { top: 13px; left: 0; }
   .evidence-layout { gap: 35px; }
   .trust-grid, .pricing-layout, .footer-grid, .faq-layout { grid-template-columns: 1fr; }
+  .footer-intro { align-items: flex-start; flex-direction: column; }
   .plan { border-top: 1px solid var(--line); border-left: 0; }
   .footer-bottom { flex-direction: column; gap: 10px; }
   .content-grid { grid-template-columns: 1fr; }
@@ -779,7 +791,7 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
 .workflow-reveal.is-visible .step:nth-child(3) { animation-delay: .16s; }
 .workflow-reveal.is-visible .step:nth-child(4) { animation-delay: .24s; }
 .workflow-reveal.is-visible .step:nth-child(5) { animation-delay: .32s; }
-.steps { margin-top: 72px; }.step { border-color: #344057; }.step-number { border-radius: 0; color: var(--ink); background: var(--mint); }.step:last-child .step-number { color: white; background: var(--blue); }.step h3 { color: #f4f6fa; }.step p { color: #9ca7b9; }.doctrine-line { border-color: #344057; color: #cfd6e3; }
+.steps { margin-top: 72px; }.step { border-color: #344057; }.step-number { border-radius: 10px; color: var(--ink); background: var(--mint); }.step:last-child .step-number { color: white; background: var(--blue); }.step h3 { color: #f4f6fa; }.step p { color: #9ca7b9; }.doctrine-line { border-color: #344057; color: #cfd6e3; }
 .evidence-section { color: var(--paper); border: 0; background: #080b14; padding: 132px 0; }
 .evidence-layout { grid-template-columns: .55fr 1.45fr; gap: 92px; }
 .evidence-layout > div:first-child { position: sticky; top: 118px; align-self: start; }

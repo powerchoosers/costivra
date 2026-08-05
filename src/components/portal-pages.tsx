@@ -54,6 +54,9 @@ import { approvalActionLabel } from "@/lib/portal/approval-policies";
 import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState } from "@/lib/vendors/monitoring";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { useBillInspector } from "@/components/bill-inspector-provider";
+import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
+import { EditRecordSheet } from "@/components/records/edit-record-sheet";
+import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
 
 type ApiOptions = {
   method?: string;
@@ -1206,7 +1209,42 @@ export function VendorDetail({
   vendorId: string;
   onAdd: (kind: Exclude<ModalState, null>, relationshipId: string) => void;
 }) {
+  const router = useRouter();
+  const toast = useToast();
   const vendor = data.vendors.find((item) => item.id === vendorId);
+
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("tab") || "overview";
+    }
+    return "overview";
+  });
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
+  const [dangerMode, setDangerMode] = useState<"end" | "remove">("end");
+  const [deletionPreview, setDeletionPreview] = useState<DependencyPreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Edit form state
+  const [displayNameOverride, setDisplayNameOverride] = useState(vendor?.name ?? "");
+  const [categoryOverride, setCategoryOverride] = useState(vendor?.category ?? "");
+  const [websiteOverride, setWebsiteOverride] = useState(vendor?.website ?? "");
+  const [relationshipStatus, setRelationshipStatus] = useState(vendor?.relationshipStatus ?? "active");
+  const [annualizedSpend, setAnnualizedSpend] = useState(vendor?.annualizedSpend?.toString() ?? "0");
+  const [spendCadence, setSpendCadence] = useState(vendor?.spendCadence ?? "monthly");
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", tab);
+      window.history.pushState({}, "", url.toString());
+    }
+  };
+
   if (!vendor)
     return (
       <div className="vendor-not-found">
@@ -1219,6 +1257,7 @@ export function VendorDetail({
         />
       </div>
     );
+
   const canWrite = data.currentUser.role !== "viewer";
   const expenses = data.expenses
     .filter((item) => item.vendorId === vendorId)
@@ -1248,12 +1287,163 @@ export function VendorDetail({
     hasPendingAction,
   });
 
+  const handleOpenEditSheet = () => {
+    setDisplayNameOverride(vendor.name);
+    setCategoryOverride(vendor.category);
+    setWebsiteOverride(vendor.website ?? "");
+    setRelationshipStatus(vendor.relationshipStatus);
+    setAnnualizedSpend(vendor.annualizedSpend?.toString() ?? "0");
+    setSpendCadence(vendor.spendCadence ?? "monthly");
+    setEditError(null);
+    setEditSheetOpen(true);
+  };
+
+  const handleSaveEditSheet = async () => {
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayNameOverride,
+          categoryOverride,
+          websiteOverride,
+          relationshipStatus,
+          annualizedSpend: Number(annualizedSpend) || 0,
+          spendCadence,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to save relationship changes.");
+      }
+      toast.success("Vendor relationship updated.");
+      setEditSheetOpen(false);
+      router.refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save changes");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleOpenDangerDialog = async (mode: "end" | "remove") => {
+    setDangerMode(mode);
+    setDangerDialogOpen(true);
+    if (mode === "remove") {
+      setLoadingPreview(true);
+      try {
+        const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}/deletion-preview`);
+        if (res.ok) {
+          const preview = await res.json();
+          setDeletionPreview(preview);
+        }
+      } catch {
+        setDeletionPreview({
+          blocked: true,
+          blockReason: "Failed to load deletion preview.",
+          counts: [],
+        });
+      } finally {
+        setLoadingPreview(false);
+      }
+    } else {
+      setDeletionPreview(null);
+    }
+  };
+
+  const handleConfirmDangerAction = async (reason?: string) => {
+    if (dangerMode === "end") {
+      const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relationshipStatus: "ended", reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to end vendor relationship.");
+      }
+      toast.success("Vendor relationship ended.");
+      router.refresh();
+    } else {
+      const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to remove vendor relationship.");
+      }
+      toast.success("Vendor relationship removed from workspace.");
+      router.push("/app/vendors");
+    }
+  };
+
+  const menuItems = [
+    {
+      id: "edit",
+      label: "Edit vendor relationship",
+      icon: <Pencil size={15} />,
+      disabled: !canWrite,
+      onSelect: handleOpenEditSheet,
+    },
+    {
+      id: "monitor",
+      label: "Configure monitoring",
+      icon: <Mail size={15} />,
+      disabled: !canWrite,
+      onSelect: () => onAdd("monitor", vendor.relationshipId),
+    },
+    {
+      id: "upload",
+      label: "Add bill or contract",
+      icon: <Plus size={15} />,
+      disabled: !canWrite,
+      onSelect: () => onAdd("upload", vendor.relationshipId),
+    },
+    {
+      id: "copy",
+      label: "Copy vendor information",
+      icon: <Copy size={15} />,
+      onSelect: async () => {
+        const info = `${vendor.name}\nCategory: ${vendor.category}\nWebsite: ${vendor.website || "N/A"}\nAnnualized Spend: $${vendor.annualizedSpend}`;
+        await navigator.clipboard.writeText(info);
+        toast.success("Vendor details copied to clipboard.");
+      },
+    },
+    {
+      id: "end",
+      label: vendor.relationshipStatus === "ended" ? "Reactivate relationship" : "End vendor relationship",
+      icon: <Pause size={15} />,
+      disabled: !canWrite,
+      onSelect: () => handleOpenDangerDialog("end"),
+    },
+    {
+      id: "remove",
+      label: "Remove vendor from workspace…",
+      icon: <Trash2 size={15} />,
+      destructive: true,
+      separatorBefore: true,
+      disabled: !canWrite || (data.currentUser.role !== "owner" && data.currentUser.role !== "admin"),
+      onSelect: () => handleOpenDangerDialog("remove"),
+    },
+  ];
+
+  const vendorTabs = [
+    { id: "overview", label: "Overview" },
+    { id: "bills", label: "Bills", count: expenses.length },
+    { id: "contracts", label: "Contracts", count: contracts.length },
+    { id: "findings", label: "Findings", count: opportunities.length },
+    { id: "actions", label: "Actions", count: actions.length },
+    { id: "files", label: "Files", count: documents.length },
+  ];
+
   return (
     <div className="vendor-detail">
       <Link className="vendor-back" href="/app/vendors">
         <ArrowLeft size={15} /> Back to vendors
       </Link>
-      <header className="vendor-detail-header">
+      <header className="vendor-detail-header" style={{ position: "relative" }}>
         <div>
           <div className="vendor-detail-title">
             <CompanyLogo entity="vendor" id={vendor.id} name={vendor.name} className="vendor-monogram large" />
@@ -1276,7 +1466,7 @@ export function VendorDetail({
           </div>
           <Status value={vendor.relationshipStatus} />
         </div>
-        <div className="vendor-detail-actions">
+        <div className="vendor-detail-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {canWrite && (
             primaryAction.actionKind === "upload" ? (
               <button className="button button-primary" onClick={() => onAdd("upload", vendor.relationshipId)}>
@@ -1306,43 +1496,190 @@ export function VendorDetail({
               </button>
             </>
           )}
+          <RecordOverflowMenu items={menuItems} ariaLabel={`More actions for ${vendor.name}`} />
         </div>
       </header>
-      <section className="vendor-summary-band">
-        <div className="vendor-spend-stat">
-          <span>Annualized spend</span>
-          <strong>{money(vendor.annualizedSpend)}</strong>
-          <small>Current relationship record</small>
+
+      {/* URL-Persisted Tabs Header */}
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid rgba(30, 41, 59, 0.10)", margin: "16px 0 20px" }}>
+        {vendorTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => handleTabChange(tab.id)}
+            style={{
+              padding: "8px 14px",
+              fontSize: "0.85rem",
+              fontWeight: activeTab === tab.id ? 600 : 500,
+              color: activeTab === tab.id ? "var(--assistant-accent, #002FA7)" : "var(--assistant-muted, #64748b)",
+              borderBottom: activeTab === tab.id ? "2px solid var(--assistant-accent, #002FA7)" : "2px solid transparent",
+              background: "transparent",
+              borderTop: 0, borderLeft: 0, borderRight: 0,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            {tab.label}
+            {tab.count != null && (
+              <span style={{ fontSize: "0.74rem", padding: "1px 6px", borderRadius: 10, background: "rgba(30, 41, 59, 0.06)" }}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" && (
+        <>
+          <section className="vendor-summary-band">
+            <div className="vendor-spend-stat">
+              <span>Annualized spend</span>
+              <strong>{money(vendor.annualizedSpend)}</strong>
+              <small>Current relationship record</small>
+            </div>
+            <div className="vendor-spend-stat">
+              <span>Latest expense</span>
+              <strong>{latest ? money(latest.amount) : "Not recorded"}</strong>
+              <small>
+                {latest
+                  ? `Period ending ${date(latest.periodEnd)}`
+                  : "Add an expense or source document"}
+              </small>
+            </div>
+            <SpendSparkline expenses={expenses} />
+            <VendorCount label="Documents" value={documents.length} />
+            <VendorCount label="Expenses" value={expenses.length} />
+            <VendorCount
+              label="Open findings"
+              value={opportunities.filter((item) => !["closed", "declined"].includes(item.status)).length}
+            />
+            <VendorCount label="Actions" value={actions.length} />
+          </section>
+          <VendorMonitoringCard
+            vendor={vendor}
+            organizationId={data.organization.id}
+            canWrite={canWrite}
+            onMonitor={() => onAdd("monitor", vendor.relationshipId)}
+          />
+          <DataCompletenessChecklist
+            documentsCount={documents.length}
+            expensesCount={expenses.length}
+            contract={contract}
+            monitoringActive={rawMonitoringState === "active"}
+          />
+        </>
+      )}
+
+      {/* Edit Record Sheet */}
+      <EditRecordSheet
+        title={`Edit ${vendor.name}`}
+        subtitle="These changes affect only your Costivra workspace."
+        isOpen={editSheetOpen}
+        onClose={() => setEditSheetOpen(false)}
+        onSave={handleSaveEditSheet}
+        isDirty={true}
+        saving={savingEdit}
+        error={editError}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Workspace Display Name
+            </label>
+            <input
+              type="text"
+              value={displayNameOverride}
+              onChange={(e) => setDisplayNameOverride(e.target.value)}
+              placeholder={vendor.name}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Category
+            </label>
+            <input
+              type="text"
+              value={categoryOverride}
+              onChange={(e) => setCategoryOverride(e.target.value)}
+              placeholder={vendor.category}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Website URL
+            </label>
+            <input
+              type="url"
+              value={websiteOverride}
+              onChange={(e) => setWebsiteOverride(e.target.value)}
+              placeholder="https://..."
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+              Relationship Status
+            </label>
+            <select
+              value={relationshipStatus}
+              onChange={(e) => setRelationshipStatus(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+            >
+              <option value="active">Active</option>
+              <option value="under_review">Under Review</option>
+              <option value="paused">Paused</option>
+              <option value="ended">Ended</option>
+            </select>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+                Annualized Spend ($)
+              </label>
+              <input
+                type="number"
+                value={annualizedSpend}
+                onChange={(e) => setAnnualizedSpend(e.target.value)}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+                Spend Cadence
+              </label>
+              <select
+                value={spendCadence}
+                onChange={(e) => setSpendCadence(e.target.value)}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              >
+                <option value="monthly">Monthly</option>
+                <option value="annual">Annual</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="usage_based">Usage Based</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <div className="vendor-spend-stat">
-          <span>Latest expense</span>
-          <strong>{latest ? money(latest.amount) : "Not recorded"}</strong>
-          <small>
-            {latest
-              ? `Period ending ${date(latest.periodEnd)}`
-              : "Add an expense or source document"}
-          </small>
-        </div>
-        <SpendSparkline expenses={expenses} />
-        <VendorCount label="Documents" value={documents.length} />
-        <VendorCount label="Expenses" value={expenses.length} />
-        <VendorCount
-          label="Open findings"
-          value={opportunities.filter((item) => !["closed", "declined"].includes(item.status)).length}
-        />
-        <VendorCount label="Actions" value={actions.length} />
-      </section>
-      <VendorMonitoringCard
-        vendor={vendor}
-        organizationId={data.organization.id}
-        canWrite={canWrite}
-        onMonitor={() => onAdd("monitor", vendor.relationshipId)}
-      />
-      <DataCompletenessChecklist
-        documentsCount={documents.length}
-        expensesCount={expenses.length}
-        contract={contract}
-        monitoringActive={rawMonitoringState === "active"}
+      </EditRecordSheet>
+
+      {/* Danger Dialog */}
+      <RecordDangerDialog
+        isOpen={dangerDialogOpen}
+        mode={dangerMode}
+        recordTitle={vendor.name}
+        onClose={() => setDangerDialogOpen(false)}
+        onConfirm={handleConfirmDangerAction}
+        dependencyPreview={deletionPreview}
+        loadingPreview={loadingPreview}
+        requiredConfirmationText={dangerMode === "remove" ? vendor.name : undefined}
       />
       <div className="vendor-detail-grid">
         <section className="portal-panel vendor-contract-summary">

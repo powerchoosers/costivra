@@ -1,0 +1,155 @@
+import { CategoryExpertPackV1 } from "../types";
+
+export const energyElectricityPack: CategoryExpertPackV1 = {
+  schemaVersion: "category-expert-pack-v1",
+  categoryKey: "commercial-electricity-supply",
+  displayName: "Commercial Electricity Supply & Delivery",
+  parentKey: "energy-utilities",
+  version: "2026.08.1",
+  status: "verified",
+  jurisdictions: ["US"],
+  effectiveFrom: "2026-01-01",
+  effectiveTo: null,
+  defaultFreshnessDays: 30,
+
+  scope: {
+    includes: ["Retail electric supply", "Utility delivery", "Peak demand charges", "Transmission & distribution", "Capacity charges"],
+    excludes: ["Natural gas", "Water & sewer", "Solar PPA financing"],
+    adjacentCategories: ["commercial-natural-gas", "distributed-energy-efficiency"],
+  },
+
+  documentTypes: [
+    {
+      type: "electric_utility_bill",
+      indicators: ["kWh", "kW Demand", "Meter Number", "ESI ID", "TDSP"],
+      requiredFields: ["service_period", "kwh_usage", "kw_demand", "total_amount"],
+    },
+  ],
+
+  billAnatomy: {
+    identityFields: ["esi_id", "meter_number", "account_number", "service_address"],
+    periodFields: ["read_date_start", "read_date_end", "billing_days"],
+    quantityFields: ["total_kwh", "peak_kw_demand", "power_factor"],
+    pricingFields: ["generation_rate_per_kwh", "demand_rate_per_kw", "meter_charge"],
+    taxFeeFields: ["gross_receipts_tax", "state_sales_tax", "puc_assessment"],
+    contractFields: ["supplier_name", "contract_end_date", "product_structure"],
+  },
+
+  lineItems: [
+    {
+      canonicalCode: "ELEC-GEN-01",
+      label: "Energy Supply / Generation Charge",
+      aliases: ["Energy Charge", "Generation Charge", "kWh Charge", "Electricity Supply"],
+      meaning: "Volumetric energy charge for wholesale or retail power generation.",
+      chargeClass: "usage",
+      units: ["kWh", "MWh"],
+      calculation: "kwh_usage * generation_rate",
+      expectedContext: ["retail_choice", "bundled_utility"],
+      benchmarkable: true,
+      regulatory: false,
+      commonContractTreatment: ["fixed_rate", "index_plus_margin"],
+      anomalyRules: ["check_contract_rate_mismatch", "check_unexplained_rate_spike"],
+    },
+    {
+      canonicalCode: "ELEC-DEM-01",
+      label: "Peak Demand Charge",
+      aliases: ["Demand Charge", "kW Demand", "Capacity Demand", "Distribution Demand"],
+      meaning: "Capacity reservation charge based on highest 15-min or 30-min peak kW during billing window.",
+      chargeClass: "demand",
+      units: ["kW", "kVA"],
+      calculation: "peak_kw * demand_rate",
+      expectedContext: ["commercial_rate_class"],
+      benchmarkable: true,
+      regulatory: true,
+      commonContractTreatment: ["pass_through", "utility_tariff"],
+      anomalyRules: ["check_ratchet_demand", "check_demand_spike_vs_load_factor"],
+    },
+    {
+      canonicalCode: "ELEC-TDSP-01",
+      label: "Utility Delivery & Distribution Fee",
+      aliases: ["TDSP Delivery Charge", "Distribution Charge", "Utility Delivery", "Transmission Fee"],
+      meaning: "Regulated utility charge for maintaining local poles, wires, and transmission infrastructure.",
+      chargeClass: "pass_through",
+      units: ["kWh", "kW", "flat"],
+      expectedContext: ["regulated_tdsp"],
+      benchmarkable: false,
+      regulatory: true,
+      commonContractTreatment: ["pass_through_at_cost"],
+      anomalyRules: ["verify_tariff_schedule"],
+    },
+  ],
+
+  pricingModels: [
+    {
+      key: "fixed_kwh",
+      explanation: "All-in fixed rate per kWh covering generation, capacity, and transmission.",
+      fixedComponents: ["meter_charge"],
+      variableComponents: ["kwh_usage"],
+      passThroughComponents: ["taxes"],
+      formulas: ["total = (kwh * fixed_rate) + meter_charge + taxes"],
+      requiredDimensions: ["state", "utility", "kwh_volume", "contract_term"],
+    },
+  ],
+
+  billQuality: {
+    goodSignals: [
+      {
+        ruleId: "signal-kwh-reconciled",
+        description: "kWh usage matches meter read start and end delta.",
+        severity: "info",
+        deterministic: true,
+        requiredFields: ["meter_read_start", "meter_read_end", "total_kwh"],
+        evidenceRequired: true,
+        currentResearchRequired: false,
+      },
+    ],
+    anomalyRules: [
+      {
+        ruleId: "rule-demand-ratchet",
+        description: "Demand charge exceeds current peak kW due to 12-month historical ratchet clause.",
+        severity: "medium",
+        deterministic: true,
+        requiredFields: ["peak_kw", "billed_kw"],
+        evidenceRequired: true,
+        currentResearchRequired: false,
+      },
+    ],
+    contractChecks: [],
+    arithmeticChecks: [],
+  },
+
+  benchmarkPolicy: {
+    supportedMetrics: ["effective_kwh_rate", "generation_rate_per_kwh"],
+    requiredDimensions: ["state", "utility_territory", "load_factor", "kwh_annual_volume"],
+    minimumComparableCount: 5,
+    sourceRequirements: ["EIA Retail Electricity Data", "ERCOT Market Data"],
+    quoteRequiredWhen: ["annual_spend_over_50k", "custom_index_product"],
+    prohibitedClaims: ["Applying national average kWh rate to specific local utility bill."],
+  },
+
+  optimizationLevers: [
+    {
+      key: "demand_response",
+      description: "Curtail non-essential load during peak 4CP grid windows to reduce next year's capacity obligation.",
+      prerequisites: ["interval_meter", "curtailable_load"],
+      risks: ["operational_interruption"],
+      needsAuthorization: true,
+    },
+  ],
+
+  currentResearchPolicy: {
+    mandatoryTriggers: ["EIA monthly update", "PUCT tariff revision"],
+    preferredSources: ["https://www.eia.gov/electricity/data.php"],
+    allowedDomains: ["eia.gov", "ercot.com", "puc.texas.gov"],
+    freshnessDays: 30,
+    cacheKeyDimensions: ["state", "utility"],
+  },
+
+  outputPolicy: {
+    requiredCaveats: ["Electricity rates vary by state, utility territory, load factor, and settlement zone."],
+    confidenceThresholds: { extraction: 0.90, classification: 0.95 },
+    humanReviewTriggers: ["unexplained_rate_increase_over_20_percent"],
+  },
+
+  evalCaseIds: ["eval-elec-001", "eval-elec-002"],
+};

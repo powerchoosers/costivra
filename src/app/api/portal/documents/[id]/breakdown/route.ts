@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
+import { categoryIntelligence } from "@/lib/category-intelligence/service";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -102,69 +103,65 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       fieldPath: e.field_path ?? null,
     }));
 
-    // Compute Anomalies
-    const anomalies: Array<{ type: "warning" | "alert" | "info"; title: string; message: string }> = [];
-    if (inv) {
-      if (inv.reconciliation_status === "failed") {
-        anomalies.push({
-          type: "alert",
-          title: "Reconciliation Discrepancy",
-          message: "Line item subtotal does not match invoice total amount.",
-        });
-      }
-      if (inv.vendor_match_status === "enriched_candidate" || inv.vendor_match_status === "unmatched") {
-        anomalies.push({
-          type: "warning",
-          title: "Unverified Vendor Identity",
-          message: "Vendor is a newly created candidate and requires human verification.",
-        });
-      }
-      if (!inv.invoice_number) {
-        anomalies.push({
-          type: "info",
-          title: "Missing Invoice Number",
-          message: "No explicit invoice number detected in source file.",
-        });
-      }
-      if (inv.tax_amount && inv.total_amount && (inv.tax_amount / inv.total_amount) > 0.15) {
-        anomalies.push({
-          type: "warning",
-          title: "High Tax Ratio",
-          message: `Tax ($${inv.tax_amount}) represents over 15% of total bill amount ($${inv.total_amount}).`,
-        });
-      }
-    } else {
-      anomalies.push({
-        type: "info",
-        title: "Extraction Pending or Non-Invoice",
-        message: "No structured invoice record created yet for this document.",
-      });
-    }
+    // Resolve Category using Category Intelligence Service
+    const categoryResolution = await categoryIntelligence.resolveCategory({
+      vendorName: vendor?.name,
+      rawCategory: vendor?.category,
+      lineItemDescriptions: lineItems.map((l) => l.description),
+    });
 
-    // Compute Market Benchmark Comparison
+    // Analyze Bill Quality deterministically
     const totalAmt = inv?.total_amount ?? 0;
-    const category = vendor?.category ?? "General";
-    let benchmarkRatio = 1.0;
-    if (category.toLowerCase().includes("telecom") || category.toLowerCase().includes("internet")) {
-      benchmarkRatio = 1.18;
-    } else if (category.toLowerCase().includes("software") || category.toLowerCase().includes("cloud")) {
-      benchmarkRatio = 1.12;
-    } else if (category.toLowerCase().includes("energy") || category.toLowerCase().includes("utility")) {
-      benchmarkRatio = 1.24;
-    } else {
-      benchmarkRatio = 1.08;
-    }
+    const billQuality = await categoryIntelligence.analyzeBill({
+      invoiceId: inv?.id,
+      totalAmount: totalAmt,
+      subtotalAmount: inv?.subtotal_amount,
+      taxAmount: inv?.tax_amount,
+      invoiceNumber: inv?.invoice_number,
+      invoiceDate: inv?.invoice_date,
+      dueDate: inv?.due_date,
+      vendorMatchStatus: inv?.vendor_match_status,
+      reconciliationStatus: inv?.reconciliation_status,
+      categoryKey: categoryResolution.key,
+    });
 
-    const estimatedMarketRate = totalAmt > 0 ? Math.round((totalAmt / benchmarkRatio) * 100) / 100 : 0;
-    const potentialAnnualSavings = totalAmt > 0 ? Math.round((totalAmt - estimatedMarketRate) * 12) : 0;
-
-    const marketBenchmark = {
-      category,
+    // Evaluate Honest Market Benchmark (no synthetic ratios!)
+    const benchmark = await categoryIntelligence.benchmark({
+      categoryKey: categoryResolution.key,
+      metric: "effective_rate",
       billedAmount: totalAmt,
-      estimatedMarketRate,
-      variancePercentage: Math.round((benchmarkRatio - 1) * 100),
-      potentialAnnualSavings,
-      benchmarkSource: `Costivra Regional ${category} Intelligence Benchmark (2026 Q3)`,
+    });
+
+    // Normalize line item explanations
+    const normalizedLineItems = await categoryIntelligence.normalizeLineItems(lineItems, categoryResolution.key);
+    const lineItemExplanations = normalizedLineItems.map((n, idx) => ({
+      lineItemId: n.lineItemId || `li-${idx}`,
+      canonicalCode: n.canonicalCode,
+      originalDescription: n.originalDescription,
+      explanation: n.explanation,
+      chargeClass: n.chargeClass,
+      confidence: n.confidence,
+      evidenceIds: [],
+    }));
+
+    // Map anomalies from bill quality findings
+    const anomalies = billQuality.findings.map((f) => ({
+      type: f.severity === "critical" || f.severity === "high" ? ("alert" as const) : f.severity === "medium" ? ("warning" as const) : ("info" as const),
+      title: f.title,
+      message: f.message,
+    }));
+
+    // Market Benchmark response matching Section 1 & Section 17 contract
+    const marketBenchmark = {
+      category: categoryResolution.displayName,
+      billedAmount: totalAmt,
+      estimatedMarketRate: benchmark.estimatedMarketRate,
+      variancePercentage: benchmark.variancePercentage ?? 0,
+      potentialAnnualSavings: benchmark.potentialAnnualSavings ?? 0,
+      benchmarkSource: benchmark.benchmarkSource,
+      benchmarkStatus: benchmark.status,
+      missingDimensions: benchmark.missingDimensions,
+      caveats: benchmark.caveats,
     };
 
     // CFO Guidance & Recommended Next Actions
@@ -176,10 +173,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       },
       {
         title: "Market Rate Review",
-        action: potentialAnnualSavings > 500
-          ? `Estimated ~$${potentialAnnualSavings.toLocaleString()}/yr savings opportunity by renegotiating rate to regional benchmark.`
-          : "Billed rates are consistent with current market benchmarks.",
-        priority: potentialAnnualSavings > 500 ? "high" : "medium",
+        action: benchmark.status === "comparable" && (benchmark.potentialAnnualSavings || 0) > 500
+          ? `Estimated ~$${(benchmark.potentialAnnualSavings || 0).toLocaleString()}/yr savings opportunity by renegotiating rate to regional benchmark.`
+          : "A comparable market benchmark requires additional service, usage, geography, and contract details.",
+        priority: benchmark.status === "comparable" && (benchmark.potentialAnnualSavings || 0) > 500 ? "high" : "medium",
       },
       {
         title: "Audit Line Items",
@@ -219,8 +216,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         : null,
       vendor,
       lineItems,
+      lineItemExplanations,
       evidence,
       anomalies,
+      billQuality,
       marketBenchmark,
       guidance,
     });

@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Sora, JetBrains_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/toast-provider";
+import { SmoothScroll } from "@/components/smooth-scroll";
 import "./globals.css";
+import "lenis/dist/lenis.css";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -38,7 +40,7 @@ export const viewport: Viewport = { themeColor: "#f4f1e8", colorScheme: "light" 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${sora.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth">
-      <body><ToastProvider>{children}</ToastProvider></body>
+      <body><SmoothScroll /><ToastProvider>{children}</ToastProvider></body>
     </html>
   );
 }

@@ -82,9 +82,9 @@ export function HomePage() {
           <div>
             <h2 className="section-heading" style={{ fontSize: "clamp(2.6rem, 4.2vw, 4.5rem)" }}>See the leak.<br />See the evidence.<br />Decide what happens next.</h2>
             <div className="category-list">
-              <Link className="category-row active" href="/solutions/software"><span><FileCheck2 aria-hidden="true" size={19} style={{ marginRight: 12, verticalAlign: "middle" }} />Software subscriptions</span><ArrowRight aria-hidden="true" size={18} /></Link>
-              <Link className="category-row" href="/solutions/telecom"><span><RadioTower aria-hidden="true" size={19} style={{ marginRight: 12, verticalAlign: "middle" }} />Telecom & internet</span><ArrowRight aria-hidden="true" size={18} /></Link>
-              <Link className="category-row" href="/solutions/energy"><span><Zap aria-hidden="true" size={19} style={{ marginRight: 12, verticalAlign: "middle" }} />Commercial energy review</span><ArrowRight aria-hidden="true" size={18} /></Link>
+              <Link className="category-row active" href="/solutions/software"><span className="category-row-label"><FileCheck2 aria-hidden="true" size={19} />Software subscriptions</span><ArrowRight aria-hidden="true" size={18} /></Link>
+              <Link className="category-row" href="/solutions/telecom"><span className="category-row-label"><RadioTower aria-hidden="true" size={19} />Telecom & internet</span><ArrowRight aria-hidden="true" size={18} /></Link>
+              <Link className="category-row" href="/solutions/energy"><span className="category-row-label"><Zap aria-hidden="true" size={19} />Commercial energy review</span><ArrowRight aria-hidden="true" size={18} /></Link>
             </div>
           </div>
           <EvidenceViewer />
@@ -100,8 +100,7 @@ export function HomePage() {
               {trust.map(([Icon, title, copy]) => (
                 <div className="trust-item" key={title}>
                   <Icon aria-hidden="true" size={22} />
-                  <strong>{title}</strong>
-                  <p>{copy}</p>
+                  <div><strong>{title}</strong><p>{copy}</p></div>
                 </div>
               ))}
             </div>
