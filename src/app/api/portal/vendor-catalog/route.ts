@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 
+/**
+ * GET /api/portal/vendor-catalog
+ * Returns paginated vendor catalog entries.
+ * Uses vendors.canonical_name — no vendors.name column exists.
+ */
 export async function GET(request: Request) {
   try {
     const { db } = await requirePortalContext();
@@ -12,14 +17,15 @@ export async function GET(request: Request) {
 
     let query = db
       .from("vendors")
-      .select("id, name, category, website, logo_url, catalog_status, search_aliases")
+      .select("id, canonical_name, category, website, logo_url, catalog_status, search_aliases")
       .in("catalog_status", ["verified", "candidate"])
-      .order("catalog_status", { ascending: true }) // 'candidate' comes after 'verified'
-      .order("name", { ascending: true })
+      .order("catalog_status", { ascending: true }) // verified sorts before candidate
+      .order("canonical_name", { ascending: true })
       .limit(limit);
 
     if (q) {
-      query = query.or(`name.ilike.%${q}%,normalized_name.ilike.%${q}%`);
+      // Search canonical_name and normalized_name — no name column
+      query = query.or(`canonical_name.ilike.%${q}%,normalized_name.ilike.%${q}%`);
     }
 
     if (category) {
@@ -31,10 +37,10 @@ export async function GET(request: Request) {
 
     const entries = (rows ?? []).map((row) => ({
       id: row.id,
-      name: row.name,
+      name: row.canonical_name,            // map canonical_name -> name for UI consumption
       category: row.category ?? "General",
-      website: row.website,
-      logoUrl: row.logo_url,
+      website: row.website ?? null,
+      logoUrl: row.logo_url ?? null,
       catalogStatus: row.catalog_status,
       isSuggested: row.catalog_status === "candidate",
       aliases: row.search_aliases ?? [],

@@ -38,10 +38,10 @@ describe("Client Assistant V2 Integration Suite", () => {
     const mockContext: AssistantBoundedContext = {
       organizationName: "Acme Logistics",
       currentViewContext: "Viewing Vendor: AT&T Business",
-      attachedDocuments: [{ id: "doc-1", filename: "att-july.pdf", summary: "July bill" }],
+      attachedDocuments: [{ id: "doc-1", filename: "att-july.pdf", extractionSummary: "July bill" }],
       recentVendors: [{ id: "v-1", name: "AT&T", category: "Telecom", spend: 12000 }],
       recentInvoices: [{ id: "i-1", vendorName: "AT&T", amount: 1000, date: "2026-07-31", status: "ready" }],
-      openOpportunities: [{ id: "o-1", title: "Unused Fiber Line", estimatedSavings: 2400, status: "open" }],
+      openOpportunities: [{ id: "o-1", title: "Unused Fiber Line", estimatedAnnualValue: 2400, status: "open" }],
     };
 
     const prompt = buildClientAssistantSystemPrompt(mockContext);

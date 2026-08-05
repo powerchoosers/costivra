@@ -19,7 +19,14 @@ export type VendorResolutionInput = {
 export type VendorResolutionResult = {
   vendorId: string | null;
   organizationVendorId: string | null;
-  matchStatus: "provided" | "exact" | "catalog_exact" | "domain" | "enriched_candidate" | "ambiguous" | "unmatched";
+  matchStatus:
+    | "provided"
+    | "exact"
+    | "catalog_exact"
+    | "domain"
+    | "enriched_candidate"
+    | "ambiguous"
+    | "unmatched";
   confidence: number;
   resolutionMethod: string;
   categoryName: string | null;
@@ -28,20 +35,39 @@ export type VendorResolutionResult = {
   needsReview: boolean;
 };
 
-function getVendorDisplayName(v: { name?: string | null; canonical_name?: string | null } | null | undefined): string {
-  return v?.canonical_name || v?.name || "";
+/** Expanded blocked vendor name set — never create global candidates from these. */
+const BLOCKED_VENDOR_NAMES = new Set([
+  "unknown",
+  "unknown vendor",
+  "not available",
+  "n/a",
+  "na",
+  "none",
+  "unidentified",
+  "unrecognized vendor",
+  "invoice vendor",
+  "vendor",
+  "invoice",
+  "statement",
+]);
+
+function isBlockedVendorName(normalized: string): boolean {
+  return BLOCKED_VENDOR_NAMES.has(normalized.toLowerCase().trim());
 }
 
 /**
- * Shared 8-step vendor and category discovery & resolution pipeline:
- * 1. Provided relationship hint
- * 2. Exact organization relationship match
- * 3. Exact global catalog name or alias match
- * 4. Document domain match
- * 5. Bounded public enrichment
- * 6. Idempotent candidate creation
- * 7. Organization relationship linking
- * 8. Review routing
+ * Shared 8-step vendor and category discovery & resolution pipeline.
+ * Uses vendors.canonical_name throughout — no vendors.name column exists.
+ *
+ * Resolution order:
+ *   1. Provided relationship hint
+ *   2. Exact organization relationship match (canonical_name / normalized_name / aliases)
+ *   3. Exact global catalog match (canonical_name / normalized_name / aliases)
+ *   4. Domain match via vendor_domains
+ *   5. Bounded public enrichment (only public-safe identity hints sent)
+ *   6. Candidate policy check
+ *   7. Atomic candidate / category / domain creation
+ *   8. Organization relationship creation or reuse
  */
 export async function resolveVendorAndCategory(
   input: VendorResolutionInput,
@@ -58,26 +84,47 @@ export async function resolveVendorAndCategory(
   } = input;
 
   const normalizedExtractedName = normalizeVendorName(extractedName);
-  const normalizedDomains = domainHints.map(normalizeDomain).filter(Boolean);
+  const normalizedDomains = domainHints
+    .map(normalizeDomain)
+    .filter((d): d is string => Boolean(d));
+
+  // Early exit: blocked or missing vendor name
+  if (!normalizedExtractedName || isBlockedVendorName(normalizedExtractedName)) {
+    return {
+      vendorId: null,
+      organizationVendorId: null,
+      matchStatus: "unmatched",
+      confidence: 0,
+      resolutionMethod: "blocked_or_missing_vendor_name",
+      categoryName: categoryHint ?? null,
+      categoryId: null,
+      isCandidate: false,
+      needsReview: true,
+    };
+  }
 
   // 1. Provided relationship hint
   if (providedRelationshipId) {
     const { data: rel } = await db
       .from("organization_vendors")
-      .select("id, vendor_id, vendors(id, name, canonical_name, category)")
+      .select("id, vendor_id, vendors(id, canonical_name, category)")
       .eq("id", providedRelationshipId)
       .eq("organization_id", organizationId)
       .maybeSingle();
 
     if (rel && rel.vendor_id) {
-      const vendorData = rel.vendors as unknown as { id?: string; name?: string; canonical_name?: string; category?: string } | null;
+      const vData = rel.vendors as unknown as {
+        id?: string;
+        canonical_name?: string;
+        category?: string | null;
+      } | null;
       return {
         vendorId: rel.vendor_id,
         organizationVendorId: rel.id,
         matchStatus: "provided",
         confidence: 1.0,
         resolutionMethod: "provided_relationship_hint",
-        categoryName: vendorData?.category ?? categoryHint ?? null,
+        categoryName: vData?.category ?? categoryHint ?? null,
         categoryId: null,
         isCandidate: false,
         needsReview: false,
@@ -86,17 +133,34 @@ export async function resolveVendorAndCategory(
   }
 
   // 2. Exact organization relationship match
-  if (normalizedExtractedName) {
+  {
     const { data: orgVendors } = await db
       .from("organization_vendors")
-      .select("id, vendor_id, vendors(id, name, canonical_name, normalized_name, category)")
+      .select("id, vendor_id, vendors(id, canonical_name, normalized_name, category, search_aliases)")
       .eq("organization_id", organizationId);
 
     if (orgVendors && orgVendors.length > 0) {
       for (const ov of orgVendors) {
-        const v = ov.vendors as unknown as { id: string; name?: string; canonical_name?: string; normalized_name?: string; category?: string } | null;
-        const dispName = getVendorDisplayName(v);
-        if (v && (normalizeVendorName(dispName) === normalizedExtractedName || (v.normalized_name && normalizeVendorName(v.normalized_name) === normalizedExtractedName))) {
+        const v = ov.vendors as unknown as {
+          id: string;
+          canonical_name?: string;
+          normalized_name?: string;
+          category?: string | null;
+          search_aliases?: string[] | null;
+        } | null;
+        if (!v) continue;
+
+        const normalizedCanonical = normalizeVendorName(v.canonical_name ?? "");
+        const normalizedNorm = v.normalized_name ? normalizeVendorName(v.normalized_name) : null;
+        const aliasMatch = (v.search_aliases ?? []).some(
+          (a) => normalizeVendorName(a) === normalizedExtractedName,
+        );
+
+        if (
+          normalizedCanonical === normalizedExtractedName ||
+          (normalizedNorm && normalizedNorm === normalizedExtractedName) ||
+          aliasMatch
+        ) {
           return {
             vendorId: v.id,
             organizationVendorId: ov.id,
@@ -113,16 +177,28 @@ export async function resolveVendorAndCategory(
     }
   }
 
-  // 3. Exact global catalog name or alias match
-  if (normalizedExtractedName) {
+  // 3. Exact global catalog match — select only canonical_name (no name column)
+  {
     const { data: catalogVendors } = await db
       .from("vendors")
-      .select("id, name, canonical_name, normalized_name, category, catalog_status")
-      .or(`name.ilike.${extractedName},canonical_name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName}`)
+      .select("id, canonical_name, normalized_name, category, catalog_status, search_aliases")
+      .or(
+        `canonical_name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName}`,
+      )
       .limit(5);
 
-    if (catalogVendors && catalogVendors.length === 1) {
-      const v = catalogVendors[0];
+    // Also check alias array for the catalog
+    const catalogMatch = (catalogVendors ?? []).find(
+      (v) =>
+        normalizeVendorName(v.canonical_name) === normalizedExtractedName ||
+        (v.normalized_name && normalizeVendorName(v.normalized_name) === normalizedExtractedName) ||
+        ((v.search_aliases as string[] | null) ?? []).some(
+          (a) => normalizeVendorName(a) === normalizedExtractedName,
+        ),
+    );
+
+    if (catalogMatch && catalogVendors && catalogVendors.length <= 2) {
+      const v = catalogMatch;
       const orgRelId = await ensureOrganizationRelationship(db, organizationId, v.id);
       return {
         vendorId: v.id,
@@ -142,19 +218,30 @@ export async function resolveVendorAndCategory(
   if (normalizedDomains.length > 0) {
     const { data: domainMatches } = await db
       .from("vendor_domains")
-      .select("vendor_id, domain, vendors(id, name, canonical_name, category, catalog_status)")
+      .select(
+        "vendor_id, domain, vendors(id, canonical_name, category, catalog_status)",
+      )
       .in("normalized_domain", normalizedDomains)
       .limit(5);
 
     if (domainMatches && domainMatches.length === 1) {
-      const v = (domainMatches[0] as unknown as { vendors: { id: string; name?: string; canonical_name?: string; category?: string; catalog_status: string } }).vendors;
+      const v = (
+        domainMatches[0] as unknown as {
+          vendors: {
+            id: string;
+            canonical_name?: string;
+            category?: string | null;
+            catalog_status: string;
+          };
+        }
+      ).vendors;
       if (v) {
         const orgRelId = await ensureOrganizationRelationship(db, organizationId, v.id);
         return {
           vendorId: v.id,
           organizationVendorId: orgRelId,
           matchStatus: "domain",
-          confidence: 0.90,
+          confidence: 0.9,
           resolutionMethod: "domain_exact_match",
           categoryName: v.category ?? categoryHint ?? null,
           categoryId: null,
@@ -165,9 +252,9 @@ export async function resolveVendorAndCategory(
     }
   }
 
-  // 5. Bounded public enrichment
+  // 5. Bounded public enrichment (only public-safe identity hints sent — no financials)
   let enrichmentCandidate: VendorEnrichmentCandidate | null = null;
-  if (normalizedExtractedName) {
+  {
     const provider = new OpenRouterVendorEnrichmentProvider();
     const candidates = await provider.search({
       extractedName,
@@ -175,11 +262,11 @@ export async function resolveVendorAndCategory(
       categoryHint,
     });
     if (candidates.length > 0) {
-      enrichmentCandidate = candidates[0];
+      enrichmentCandidate = candidates[0] ?? null;
     }
   }
 
-  // 6. Candidate policy check & creation
+  // 6. Candidate policy check
   const policy = validateVendorCandidatePolicy(extractedName);
   if (!policy.allowed) {
     return {
@@ -195,18 +282,58 @@ export async function resolveVendorAndCategory(
     };
   }
 
-  const targetName = enrichmentCandidate?.canonicalName || policy.cleanName;
-  const targetCategory = enrichmentCandidate?.categoryName || categoryHint || "Other";
-  const targetDomains = enrichmentCandidate?.domains || normalizedDomains;
+  // Apply confidence threshold — only create global candidate if enrichment confidence >= 0.85
+  // with at least one real source URL
+  const enrichmentConfidence = enrichmentCandidate?.confidence ?? 0;
+  const hasRealSources = (enrichmentCandidate?.sources ?? []).some(
+    (s) => s.url && !s.url.includes("google.com") && s.url.startsWith("https://"),
+  );
+
+  if (enrichmentConfidence < 0.70 || !enrichmentCandidate) {
+    // No enrichment or below threshold — remain unmatched
+    return {
+      vendorId: null,
+      organizationVendorId: null,
+      matchStatus: "unmatched",
+      confidence: enrichmentConfidence,
+      resolutionMethod: "enrichment_below_threshold",
+      categoryName: categoryHint ?? null,
+      categoryId: null,
+      isCandidate: false,
+      needsReview: true,
+    };
+  }
+
+  // 7. Atomic candidate creation
+  const targetName = enrichmentCandidate.canonicalName || policy.cleanName;
+  const targetCategory = enrichmentCandidate.categoryName || categoryHint || "Other";
+  const targetNormalized = normalizeVendorName(targetName);
+  const targetDomains = enrichmentCandidate.domains.length > 0
+    ? enrichmentCandidate.domains
+    : normalizedDomains;
+
+  if (isBlockedVendorName(targetNormalized)) {
+    return {
+      vendorId: null,
+      organizationVendorId: null,
+      matchStatus: "unmatched",
+      confidence: 0,
+      resolutionMethod: "enrichment_resolved_to_blocked_name",
+      categoryName: categoryHint ?? null,
+      categoryId: null,
+      isCandidate: false,
+      needsReview: true,
+    };
+  }
 
   // Insert or fetch category candidate
   const categoryId = await ensureCategoryCandidate(db, targetCategory);
 
-  // Insert or fetch vendor candidate
+  // Insert or fetch vendor — use canonical_name only, no name column
   const { data: existingVendor } = await db
     .from("vendors")
     .select("id, catalog_status")
-    .or(`name.eq.${targetName},canonical_name.eq.${targetName}`)
+    .or(`canonical_name.eq.${targetName},normalized_name.eq.${targetNormalized}`)
     .maybeSingle();
 
   let vendorId: string;
@@ -219,19 +346,21 @@ export async function resolveVendorAndCategory(
     const { data: newVendor, error: vError } = await db
       .from("vendors")
       .insert({
-        name: targetName,
-        canonical_name: targetName,
-        normalized_name: normalizeVendorName(targetName),
+        canonical_name: targetName,           // correct field, no "name" column
+        normalized_name: targetNormalized,
         category: targetCategory,
         category_id: categoryId,
         catalog_status: "candidate",
-        created_source: enrichmentCandidate ? "internet_enrichment" : "document",
-        source_confidence: enrichmentCandidate?.confidence ?? 0.7,
+        created_source: enrichmentConfidence >= 0.85 && hasRealSources
+          ? "internet_enrichment"
+          : "document",
+        source_confidence: enrichmentConfidence,
       })
       .select("id")
       .single();
 
     if (vError || !newVendor) {
+      console.error("[resolve] Vendor candidate creation failed:", vError);
       return {
         vendorId: null,
         organizationVendorId: null,
@@ -246,51 +375,60 @@ export async function resolveVendorAndCategory(
     }
     vendorId = newVendor.id;
 
-    // Save domain mapping
+    // Save validated domain mappings — only domains that appeared in enrichment evidence
     if (targetDomains.length > 0) {
       await db.from("vendor_domains").insert(
-        targetDomains.map((dom, idx) => ({
+        targetDomains.slice(0, 3).map((dom, idx) => ({
           vendor_id: vendorId,
           domain: dom,
           normalized_domain: dom,
           is_primary: idx === 0,
           status: "candidate",
           source: "enrichment",
+          confidence: enrichmentConfidence,
         })),
       );
     }
   }
 
-  // 7. Ensure Organization Relationship
+  // 8. Ensure organization relationship
   const orgRelId = await ensureOrganizationRelationship(db, organizationId, vendorId);
 
-  // Record enrichment run provenance if available
-  if (enrichmentCandidate) {
-    await db.from("vendor_enrichment_runs").insert({
-      organization_id: organizationId,
-      document_id: documentId,
-      invoice_id: invoiceId,
-      extracted_vendor_name: extractedName,
-      query_fingerprint: `${normalizeVendorName(extractedName)}:${normalizedDomains[0] || ""}`,
-      provider: "openrouter_search",
-      status: "completed",
-      candidate_vendor_id: vendorId,
-      candidate_category_id: categoryId,
-      confidence: enrichmentCandidate.confidence,
-      public_evidence: enrichmentCandidate.sources,
-    });
-  }
+  // Record enrichment run provenance — public_evidence contains real retrieved sources
+  await db.from("vendor_enrichment_runs").insert({
+    organization_id: organizationId,
+    document_id: documentId ?? null,
+    invoice_id: invoiceId ?? null,
+    extracted_vendor_name: extractedName,
+    query_fingerprint: `${targetNormalized}:${normalizedDomains[0] ?? ""}`,
+    provider: "openrouter_search",
+    status: "completed",
+    candidate_vendor_id: vendorId,
+    candidate_category_id: categoryId,
+    confidence: enrichmentConfidence,
+    public_evidence: enrichmentCandidate.sources.map((s) => ({
+      url: s.url,
+      title: s.title,
+      snippet: s.snippet,
+      retrievedAt: new Date().toISOString(),
+      engine: "openrouter_search",
+    })),
+    completed_at: new Date().toISOString(),
+  });
 
   return {
     vendorId,
     organizationVendorId: orgRelId,
     matchStatus: "enriched_candidate",
-    confidence: enrichmentCandidate?.confidence ?? 0.75,
-    resolutionMethod: enrichmentCandidate ? "public_enrichment_candidate" : "document_extracted_candidate",
+    confidence: enrichmentConfidence,
+    resolutionMethod:
+      enrichmentConfidence >= 0.85 && hasRealSources
+        ? "public_enrichment_candidate"
+        : "document_extracted_candidate",
     categoryName: targetCategory,
     categoryId,
     isCandidate,
-    needsReview: true, // Candidates always require review
+    needsReview: true, // Candidates always require human review
   };
 }
 
