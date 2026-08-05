@@ -1,93 +1,127 @@
-import { BenchmarkInput, BenchmarkResult } from "./types";
+import type { BenchmarkInput, BenchmarkResult } from "./types";
+import { getExpertPack, hasDedicatedExpertPack } from "./packs";
+
+function hasDimension(input: BenchmarkInput, dimension: string): boolean {
+  const normalized = dimension.toLowerCase();
+
+  if (normalized.includes("state") || normalized.includes("jurisdiction")) {
+    return Boolean(input.geography?.state || input.geography?.zip);
+  }
+  if (
+    normalized.includes("address") ||
+    normalized.includes("zip") ||
+    normalized.includes("location") ||
+    normalized.includes("territory")
+  ) {
+    return Boolean(
+      input.geography?.zip || input.geography?.city || input.geography?.state,
+    );
+  }
+  if (
+    normalized.includes("volume") ||
+    normalized.includes("usage") ||
+    normalized.includes("seat") ||
+    normalized.includes("transaction")
+  ) {
+    return Boolean(input.volume && input.volume > 0);
+  }
+  if (
+    normalized.includes("term") ||
+    normalized.includes("contract")
+  ) {
+    return Boolean(input.contractTermMonths && input.contractTermMonths > 0);
+  }
+  if (
+    normalized.includes("tier") ||
+    normalized.includes("speed") ||
+    normalized.includes("bandwidth") ||
+    normalized.includes("class") ||
+    normalized.includes("mix") ||
+    normalized.includes("container") ||
+    normalized.includes("frequency") ||
+    normalized.includes("value") ||
+    normalized.includes("limit") ||
+    normalized.includes("deductible")
+  ) {
+    if (input.serviceTier) return true;
+    const specification = input.specification ?? {};
+    return Object.keys(specification).some((key) =>
+      normalized.includes(key.toLowerCase()),
+    );
+  }
+  if (normalized.includes("unit")) return Boolean(input.unit);
+  if (normalized.includes("date") || normalized.includes("period")) {
+    return Boolean(input.serviceDate);
+  }
+
+  const specification = input.specification ?? {};
+  const usageShape = input.usageShape ?? {};
+  return [...Object.keys(specification), ...Object.keys(usageShape)].some(
+    (key) => normalized.includes(key.toLowerCase()),
+  );
+}
 
 /**
- * Honest Market Benchmark Engine
- * Enforces dimensional comparability and returns insufficient_data when required dimensions are absent.
- * Never invents hardcoded ratio multipliers.
+ * Honest market benchmark gate.
+ *
+ * Costivra does not currently persist a verified comparable-price cohort in
+ * this service, so this function never manufactures a range, percentile, or
+ * savings value from the customer's billed amount. It reports what is missing
+ * and requires a current quote or verified external comparable set.
  */
 export function evaluateMarketBenchmark(input: BenchmarkInput): BenchmarkResult {
-  const categoryKey = (input.categoryKey || "general").toLowerCase();
-  const billedAmt = Number(input.billedAmount || 0);
+  const pack = getExpertPack(input.categoryKey || "general-operating-expenses");
+  const billedAmount = Number(input.billedAmount || 0);
+  const supported = hasDedicatedExpertPack(pack.categoryKey);
+  const requiredDimensions = pack.benchmarkPolicy.requiredDimensions;
+  const missingDimensions = requiredDimensions.filter(
+    (dimension) => !hasDimension(input, dimension),
+  );
 
-  const missingDimensions: string[] = [];
-
-  // Check required dimensions based on category
-  if (categoryKey.includes("electricity") || categoryKey.includes("energy")) {
-    if (!input.geography?.state) missingDimensions.push("state_utility_territory");
-    if (!input.volume) missingDimensions.push("kwh_volume_and_load_factor");
-  } else if (categoryKey.includes("broadband") || categoryKey.includes("telecom")) {
-    if (!input.geography?.state && !input.geography?.zip) missingDimensions.push("service_address_jurisdiction");
-    if (!input.specification?.speedMbps) missingDimensions.push("symmetrical_bandwidth_speed");
-  } else if (categoryKey.includes("saas") || categoryKey.includes("software")) {
-    if (!input.volume) missingDimensions.push("active_user_seat_count");
-    if (!input.specification?.edition) missingDimensions.push("software_edition_tier");
-  } else if (categoryKey.includes("property") || categoryKey.includes("insurance")) {
-    if (!input.geography?.state) missingDimensions.push("state_jurisdiction");
-    if (!input.specification?.propertyValue) missingDimensions.push("insured_property_total_value");
-  } else if (categoryKey.includes("waste")) {
-    if (!input.geography?.city && !input.geography?.zip) missingDimensions.push("municipal_franchise_location");
-    if (!input.specification?.containerYardSize) missingDimensions.push("container_size_and_pickup_frequency");
+  let status: BenchmarkResult["status"];
+  if (!supported) {
+    status = "unsupported";
+  } else if (missingDimensions.length > 0) {
+    status = "insufficient_data";
+  } else {
+    status = "quote_required";
   }
 
-  // If required dimensions are missing, return honest insufficient_data
-  if (missingDimensions.length > 0) {
-    return {
-      status: "insufficient_data",
-      metric: input.metric || "effective_rate",
-      currentValue: billedAmt > 0 ? billedAmt : null,
-      comparisonRange: null,
-      percentile: null,
-      estimatedMarketRate: null,
-      variancePercentage: null,
-      potentialAnnualSavings: null,
-      unit: input.unit || "USD",
-      comparableDimensions: {
-        categoryKey,
-        serviceDate: input.serviceDate || new Date().toISOString().split("T")[0],
-      },
-      missingDimensions,
-      sourceIds: [],
-      benchmarkSource: "Costivra Category Intelligence Engine (Dimensional Verification)",
-      asOf: new Date().toISOString().split("T")[0],
-      confidence: 1.0,
-      caveats: [
-        `A comparable market rate benchmark requires additional dimensions: ${missingDimensions.join(", ")}.`,
-        "Costivra does not apply synthetic percentage multipliers to unverified invoices.",
-      ],
-    };
-  }
-
-  // When dimensions exist, return a directional benchmark calculation
-  const estimatedMarketRate = Math.round(billedAmt * 0.90 * 100) / 100;
-  const potentialAnnualSavings = Math.max(0, Math.round((billedAmt - estimatedMarketRate) * 12));
+  const statusMessage =
+    status === "unsupported"
+      ? `Costivra does not yet have a reviewed benchmark method for ${pack.displayName}.`
+      : status === "insufficient_data"
+        ? `A comparable benchmark requires additional dimensions: ${missingDimensions.join(", ")}.`
+        : "The comparison dimensions are present, but a current verified quote or comparable dataset is still required.";
 
   return {
-    status: "comparable",
+    status,
     metric: input.metric || "effective_rate",
-    currentValue: billedAmt,
-    comparisonRange: {
-      low: Math.round(billedAmt * 0.82 * 100) / 100,
-      median: estimatedMarketRate,
-      high: Math.round(billedAmt * 1.05 * 100) / 100,
-    },
-    percentile: 78,
-    estimatedMarketRate,
-    variancePercentage: 10,
-    potentialAnnualSavings,
+    currentValue: billedAmount > 0 ? billedAmount : null,
+    comparisonRange: null,
+    percentile: null,
+    estimatedMarketRate: null,
+    variancePercentage: null,
+    potentialAnnualSavings: null,
     unit: input.unit || "USD",
     comparableDimensions: {
-      categoryKey,
-      geography: input.geography,
-      volume: input.volume,
-      specification: input.specification,
+      categoryKey: pack.categoryKey,
+      geography: input.geography ?? null,
+      volume: input.volume ?? null,
+      serviceTier: input.serviceTier ?? null,
+      contractTermMonths: input.contractTermMonths ?? null,
+      specification: input.specification ?? null,
     },
-    missingDimensions: [],
-    sourceIds: ["src-eia-electricity"],
-    benchmarkSource: `Verified Costivra ${categoryKey} Dimensional Market Cohort (2026 Q3)`,
-    asOf: new Date().toISOString().split("T")[0],
-    confidence: 0.92,
+    missingDimensions,
+    sourceIds: [],
+    benchmarkSource: "No verified comparable dataset loaded",
+    asOf: null,
+    confidence: 1,
     caveats: [
-      "Benchmark is calculated against a peer cohort sharing identical geography, volume band, and service tier.",
+      statusMessage,
+      "Costivra does not apply a fixed percentage discount or synthetic peer range to an invoice total.",
+      "Estimated market pricing and savings remain unavailable until supported by dated, source-backed comparables.",
+      ...pack.benchmarkPolicy.prohibitedClaims,
     ],
   };
 }
