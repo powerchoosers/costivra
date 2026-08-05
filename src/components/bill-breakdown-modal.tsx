@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  Building2,
   CheckCircle2,
   CircleHelp,
   Download,
@@ -142,13 +141,19 @@ export function BillBreakdownModal({
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [prevDocumentId, setPrevDocumentId] = useState<string | null>(documentId);
   const { openDrawer, setContext } = useClientAssistant();
+
+  if (documentId !== prevDocumentId) {
+    setPrevDocumentId(documentId);
+    setLoading(true);
+    setError(null);
+    setData(null);
+  }
 
   useEffect(() => {
     if (!documentId) return;
     let active = true;
-    setLoading(true);
-    setError(null);
 
     fetch(`/api/portal/documents/${documentId}/breakdown`)
       .then(async (response) => {

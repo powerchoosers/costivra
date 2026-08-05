@@ -5,14 +5,15 @@ import type { AssistantBoundedContext } from "./context-builder";
 const mockContext: AssistantBoundedContext = {
   organizationName: "Test Org",
   currentViewContext: null,
+  currentContextCategory: null,
   attachedDocuments: [],
   recentVendors: [
     { id: "v1", name: "AT&T Business", category: "Telecom", spend: 18420 },
     { id: "v2", name: "AWS", category: "Cloud", spend: 38420 },
   ],
   recentInvoices: [
-    { id: "inv-2", vendorName: "AT&T Business", amount: 1535.42, date: "2026-07-31", status: "ready" },
-    { id: "inv-1", vendorName: "AT&T Business", amount: 1410.10, date: "2026-06-30", status: "ready" },
+    { id: "inv-2", vendorName: "AT&T Business", category: "Telecom", amount: 1535.42, date: "2026-07-31", status: "ready" },
+    { id: "inv-1", vendorName: "AT&T Business", category: "Telecom", amount: 1410.10, date: "2026-06-30", status: "ready" },
   ],
   openOpportunities: [
     { id: "opp-1", title: "Unused mobility lines", estimatedAnnualValue: 4800, status: "under_review" },

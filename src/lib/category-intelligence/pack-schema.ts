@@ -46,7 +46,7 @@ export const RuleDefinitionSchema = z.object({
 
 export const CategoryExpertPackV1Schema = z.object({
   schemaVersion: z.literal("category-expert-pack-v1"),
-  categoryKey: z.string(),
+  categoryKey: z.string().min(1),
   displayName: z.string(),
   parentKey: z.string(),
   version: z.string(),
@@ -54,7 +54,7 @@ export const CategoryExpertPackV1Schema = z.object({
   jurisdictions: z.array(z.string()),
   effectiveFrom: z.string().nullable(),
   effectiveTo: z.string().nullable(),
-  defaultFreshnessDays: z.number(),
+  defaultFreshnessDays: z.number().min(0),
 
   scope: z.object({
     includes: z.array(z.string()),
@@ -123,7 +123,7 @@ export const CategoryExpertPackV1Schema = z.object({
     mandatoryTriggers: z.array(z.string()),
     preferredSources: z.array(z.string()),
     allowedDomains: z.array(z.string()),
-    freshnessDays: z.number(),
+    freshnessDays: z.number().min(0),
     cacheKeyDimensions: z.array(z.string()),
   }),
 
@@ -135,3 +135,149 @@ export const CategoryExpertPackV1Schema = z.object({
 
   evalCaseIds: z.array(z.string()),
 });
+
+export const CategoryResolutionSchema = z.object({
+  id: z.string().nullable(),
+  key: z.string(),
+  displayName: z.string(),
+  parentKey: z.string(),
+  confidence: z.number(),
+  source: z.enum(["verified_vendor", "catalog", "line_item_evidence", "extracted_text", "fallback"]),
+  expertPackVersion: z.string().nullable(),
+});
+
+export const NormalizedLineItemSchema = z.object({
+  lineItemId: z.string().optional(),
+  originalDescription: z.string(),
+  canonicalCode: z.string().nullable(),
+  label: z.string(),
+  chargeClass: ChargeClassSchema,
+  explanation: z.string(),
+  confidence: z.number(),
+  unit: z.string().optional(),
+  amount: z.number(),
+  quantity: z.number().optional(),
+  unitPrice: z.number().optional(),
+  evidenceIds: z.array(z.string()),
+  reviewRequired: z.boolean(),
+  matchedAlias: z.string().nullable(),
+});
+
+export const CategoryFindingSchema = z.object({
+  findingId: z.string(),
+  code: z.enum([
+    "missing_information",
+    "arithmetic_mismatch",
+    "contract_mismatch",
+    "duplicate_charge",
+    "usage_anomaly",
+    "inactive_asset",
+    "rate_variance",
+    "tax_or_fee_question",
+    "classification_question",
+    "unverified_vendor",
+    "market_quote_required",
+    "human_review_required",
+  ]),
+  severity: z.enum(["info", "low", "medium", "high", "critical"]),
+  title: z.string(),
+  message: z.string(),
+  evidence: z.array(z.string()),
+  confidence: z.number(),
+  financialImpact: z.number().nullable(),
+  nextAction: z.string(),
+  currentResearchPerformed: z.boolean(),
+});
+
+export const CategoryBillAnalysisSchema = z.object({
+  status: z.enum(["good", "review", "bad", "insufficient_data"]),
+  score: z.number().nullable(),
+  scoreVersion: z.string(),
+  findings: z.array(CategoryFindingSchema),
+  missingFields: z.array(z.string()),
+  benchmarkStatus: z.enum(["comparable", "directional", "quote_required", "insufficient_data", "unsupported"]),
+  packVersion: z.string(),
+});
+
+export const BenchmarkResultSchema = z.object({
+  status: z.enum(["comparable", "directional", "quote_required", "insufficient_data", "unsupported"]),
+  metric: z.string(),
+  currentValue: z.number().nullable(),
+  comparisonRange: z.object({ low: z.number(), median: z.number(), high: z.number() }).nullable(),
+  percentile: z.number().nullable(),
+  estimatedMarketRate: z.number().nullable(),
+  variancePercentage: z.number().nullable(),
+  potentialAnnualSavings: z.number().nullable(),
+  unit: z.string().nullable(),
+  comparableDimensions: z.record(z.string(), z.unknown()),
+  missingDimensions: z.array(z.string()),
+  sourceIds: z.array(z.string()),
+  benchmarkSource: z.string(),
+  asOf: z.string().nullable(),
+  confidence: z.number(),
+  caveats: z.array(z.string()),
+});
+
+export const MarketResearchFactSchema = z.object({
+  fact: z.string(),
+  unit: z.string().nullable(),
+  sourceTitle: z.string(),
+  sourceUrl: z.string(),
+  publisher: z.string(),
+  asOf: z.string(),
+  retrievedAt: z.string(),
+  excerpt: z.string(),
+  confidence: z.number(),
+  comparable: z.boolean(),
+});
+
+export const MarketResearchResultSchema = z.object({
+  facts: z.array(MarketResearchFactSchema),
+  freshness: z.enum(["fresh", "stale", "unverified"]),
+  searchPerformed: z.boolean(),
+});
+
+export const CategoryAiContextSchema = z.object({
+  category: z.object({
+    key: z.string(),
+    displayName: z.string(),
+    parentKey: z.string(),
+    confidence: z.number(),
+    expertPackVersion: z.string(),
+    packStatus: z.enum(["draft", "verified", "deprecated"]),
+  }),
+  relevantLineItemDefinitions: z.array(CategoryLineItemDefinitionSchema),
+  billQualityRules: z.array(RuleDefinitionSchema),
+  benchmarkRequirements: z.array(z.string()),
+  currentMarketFacts: z.array(MarketResearchFactSchema),
+  requiredCaveats: z.array(z.string()),
+  systemInstruction: z.string(),
+});
+
+export function validateCategoryExpertPack(data: unknown) {
+  return CategoryExpertPackV1Schema.parse(data);
+}
+
+export function validateCategoryResolution(data: unknown) {
+  return CategoryResolutionSchema.parse(data);
+}
+
+export function validateNormalizedLineItem(data: unknown) {
+  return NormalizedLineItemSchema.parse(data);
+}
+
+export function validateCategoryBillAnalysis(data: unknown) {
+  return CategoryBillAnalysisSchema.parse(data);
+}
+
+export function validateBenchmarkResult(data: unknown) {
+  return BenchmarkResultSchema.parse(data);
+}
+
+export function validateMarketResearchResult(data: unknown) {
+  return MarketResearchResultSchema.parse(data);
+}
+
+export function validateCategoryAiContext(data: unknown) {
+  return CategoryAiContextSchema.parse(data);
+}

@@ -1,5 +1,20 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Packet 01: Core Contracts
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Module Inventory & Core Contracts**:
+  - Confirmed all 10 required category intelligence modules exist and are committed (`types.ts`, `pack-schema.ts`, `service.ts`, `category-resolver.ts`, `context-builder.ts`, `line-item-normalizer.ts`, `bill-quality.ts`, `benchmark-engine.ts`, `current-market-research.ts`, `packs/index.ts`).
+  - Implemented runtime Zod schemas and validators (`validateCategoryExpertPack`, `validateCategoryResolution`, `validateNormalizedLineItem`, `validateCategoryBillAnalysis`, `validateBenchmarkResult`, `validateMarketResearchResult`, `validateCategoryAiContext`) in `src/lib/category-intelligence/pack-schema.ts`.
+  - Updated `CategoryIntelligenceService` in `src/lib/category-intelligence/service.ts` with required `getExpertPack` contract and flexible input signatures for `normalizeLineItems` and `buildAiContext`.
+  - Created `src/lib/category-intelligence/module-integrity.test.ts` covering export integrity and Zod pack-schema boundary rules (draft validation, missing schema version, invalid status, unsupported charge class, negative freshness, empty category key).
+- **Import Audit & Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (87 test files passed, 310 unit tests passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
 ## August 5, 2026 — ID Pages Final Remediation
 
 - **Branch**: `goal/id-pages-final-remediation`
