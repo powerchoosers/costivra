@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -65,6 +65,7 @@ export function ManageAiDrawer({
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conversationRevision, setConversationRevision] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -243,9 +244,9 @@ export function ManageAiDrawer({
             </section>
           )}
 
-          <div className="manage-assistant-messages" aria-live="polite">
-            {messages.map((message) => (
-              <article className={`manage-assistant-message is-${message.role}`} key={message.id}>
+          <div className="manage-assistant-messages" aria-live="polite" key={conversationRevision}>
+            {messages.map((message, index) => (
+              <article className={`manage-assistant-message is-${message.role}`} key={message.id} style={{ "--message-index": index } as CSSProperties}>
                 <header>
                   {message.role === "assistant" && (
                     <span aria-hidden="true"><CostivraMark size={22} /></span>
@@ -287,7 +288,7 @@ export function ManageAiDrawer({
             <button
               type="button"
               className="manage-assistant-new-chat"
-              onClick={() => { setMessages([]); setError(null); }}
+              onClick={() => { setMessages([]); setError(null); setConversationRevision((current) => current + 1); inputRef.current?.focus(); }}
             >
               New conversation
             </button>

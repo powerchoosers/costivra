@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { Search, Pin, MessageSquare } from "lucide-react";
 import { useClientAssistant } from "./client-assistant-provider";
 
@@ -14,32 +14,34 @@ export function ConversationRail() {
 
   return (
     <aside className="assistant-rail">
-      <div style={{ position: "relative", marginBottom: 12 }}>
+      <div className="assistant-rail-heading">
+        <div>
+          <span>Conversations</span>
+          <small>Previous Costivra reviews</small>
+        </div>
+        <span>{filtered.length}</span>
+      </div>
+      <div className="assistant-history-search">
         <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--assistant-muted)" }} />
         <input
           type="text"
           placeholder="Search history..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "6px 10px 6px 30px",
-            fontSize: "0.82rem",
-            borderRadius: 8,
-            border: "1px solid var(--assistant-border)",
-            background: "#ffffff",
-          }}
+          className="assistant-history-search-input"
         />
       </div>
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-        {filtered.map((s) => {
+      <div className="assistant-session-list">
+        {filtered.map((s, index) => {
           const isActive = s.id === state.activeSessionId;
           return (
             <button
               key={s.id}
               type="button"
+              className="assistant-session-row"
               onClick={() => selectSession(s.id)}
               style={{
+                "--session-index": index,
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
@@ -52,7 +54,7 @@ export function ConversationRail() {
                 fontSize: "0.84rem",
                 textAlign: "left",
                 cursor: "pointer",
-              }}
+              } as CSSProperties}
             >
               <MessageSquare size={14} style={{ flexShrink: 0 }} />
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

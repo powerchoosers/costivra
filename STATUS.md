@@ -1,5 +1,14 @@
 # Costivra Status
 
+## August 4, 2026 — Ask Costivra animation pass
+
+- Added a shared, restrained motion system to both Ask Costivra chat surfaces: the customer `/app` drawer/fullscreen experience and the internal `/manage` assistant rail.
+- Customer chat now animates opening panels, history rows, welcome prompts, optimistic sent messages, incoming responses, structured response cards, attached-document chips, and the record-review thinking state. Selecting history or starting a new conversation deliberately replays the relevant entrance state.
+- Internal chat now animates its fresh conversation/suggestion state, sent and received messages, evidence-source links, and thinking state. Starting a new conversation returns focus to the composer.
+- Motion respects `prefers-reduced-motion`; animations and transition-driven movement are removed when the user requests reduced motion.
+- Validation: `npm run typecheck` passed before local browser QA and `git diff --check` passed. Browser QA passed at customer desktop and 390×844 mobile and on the internal Manage rail, with no relevant browser console errors or horizontal overflow. `npm run lint` remains blocked by the pre-existing `require()` lint error in `src/lib/security/malware-scanner.ts`. After previewing the app, Next.js left a malformed generated `.next/dev/types/routes.d.ts` cache file; a subsequent typecheck is blocked by that local cache artifact, not the edited source.
+- Follow-up layout correction: in compact drawer mode, conversation history now replaces the entire chat canvas rather than sharing its narrow width. The fullscreen conversation rail remains visible permanently, so its redundant history button is removed. The no-message screen now uses an evidence-and-records review frame with quiet, medium-weight prompts. Browser QA confirmed the new compact-history view at desktop and 390×844 mobile with no horizontal overflow; the only console item was an existing Costivra mark image-aspect-ratio warning.
+
 ## August 4, 2026 — Pilot Release Repair and Completion (Final Green Gate)
 
 - **Release Sprint Execution**: Executed `costivra-pilot-release.md` across all 10 Workstreams (A through J).

@@ -36,10 +36,11 @@ export function AssistantComposer() {
     <div className="assistant-composer-wrap">
       {/* Pending Attachments Tray */}
       {state.pendingAttachments.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <div className="assistant-attachment-tray">
           {state.pendingAttachments.map((a) => (
             <div
               key={a.clientUploadId}
+              className="assistant-attachment-chip"
               style={{
                 display: "inline-flex",
                 alignItems: "center",

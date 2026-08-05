@@ -4,22 +4,29 @@ import { CostivraMark } from "@/components/brand";
 import { ResponseBlockRenderer } from "./response-block-renderer";
 import { useClientAssistant } from "./client-assistant-provider";
 import { FileText, ArrowRight } from "lucide-react";
+import { useEffect, useRef, type CSSProperties } from "react";
 
 export function MessageThread() {
   const { state, sendMessage } = useClientAssistant();
   const messages = state.messages;
+  const threadEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length, state.sending]);
 
   if (messages.length === 0) {
     return (
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "24px 20px", textAlign: "center" }}>
-        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#ffffff", border: "1px solid #e2e8f0", display: "grid", placeItems: "center", boxShadow: "0 4px 12px rgba(15,23,42,0.04)", marginBottom: 12 }}>
+      <div className="assistant-welcome" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "24px 20px", textAlign: "center" }}>
+        <div className="assistant-welcome-mark">
           <CostivraMark size={28} />
         </div>
-        <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 6px", color: "var(--assistant-text)" }}>Ask Costivra</h3>
-        <p className="muted" style={{ fontSize: "0.82rem", maxWidth: 320, margin: 0, lineHeight: 1.5 }}>
-          Ask questions about your business bills, contracts, and spend, or attach an invoice for an instant review.
+        <span className="assistant-welcome-eyebrow">Your records, in context</span>
+        <h3>What would you like to review?</h3>
+        <p>
+          Search your Costivra records, understand what changed, or open the evidence behind a finding.
         </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20, width: "100%", maxWidth: 320 }}>
+        <div className="assistant-welcome-prompts">
           {[
             "Summarize our latest recurring expenses.",
             "Which contracts have notice deadlines approaching?",
@@ -28,8 +35,8 @@ export function MessageThread() {
             <button
               key={prompt}
               type="button"
-              className="button button-quiet"
-              style={{ fontSize: "0.8rem", textAlign: "left", justifyContent: "flex-start", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#ffffff" }}
+              className="button button-quiet assistant-welcome-prompt"
+              style={{ fontSize: "0.8rem", fontWeight: 500, textAlign: "left", justifyContent: "flex-start" }}
               onClick={() => sendMessage(prompt)}
             >
               {prompt}
@@ -41,9 +48,9 @@ export function MessageThread() {
   }
 
   return (
-    <div className="assistant-thread">
-      {messages.map((m) => (
-        <div key={m.id} style={{ display: "flex", flexDirection: "column" }}>
+      <div className="assistant-thread" aria-live="polite">
+      {messages.map((m, index) => (
+        <div key={m.id} className={`assistant-message assistant-message--${m.role}`} style={{ "--message-index": index } as CSSProperties}>
           {m.role === "user" ? (
             <div className="user-bubble">{m.content}</div>
           ) : (
@@ -114,6 +121,14 @@ export function MessageThread() {
           )}
         </div>
       ))}
+      {state.sending && (
+        <div className="assistant-thinking" role="status">
+          <span className="assistant-thinking-mark"><CostivraMark size={16} /></span>
+          <div className="assistant-thinking-copy"><strong>Costivra is reviewing your records</strong><span><i /><i /><i /></span></div>
+          <span className="sr-only">Costivra is preparing a response.</span>
+        </div>
+      )}
+      <div ref={threadEndRef} />
     </div>
   );
 }

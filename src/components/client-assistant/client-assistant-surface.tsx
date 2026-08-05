@@ -13,16 +13,19 @@ export function ClientAssistantSurface() {
   if (state.mode === "closed") return null;
 
   const isFullscreen = state.mode === "fullscreen";
+  const showHistoryOnly = !isFullscreen && state.historyOpen;
 
   return (
     <div className={isFullscreen ? "assistant-fullscreen-surface" : "assistant-drawer-surface"}>
       <AssistantHeader />
-      <div className="assistant-main-container">
+      <div className={`assistant-main-container${showHistoryOnly ? " assistant-main-container--history" : ""}`}>
         {(isFullscreen || state.historyOpen) && <ConversationRail />}
-        <div className="assistant-canvas">
-          <MessageThread />
-          <AssistantComposer />
-        </div>
+        {!showHistoryOnly && (
+          <div className="assistant-canvas">
+            <MessageThread key={`${state.activeSessionId ?? "new"}-${state.viewRevision}`} />
+            <AssistantComposer />
+          </div>
+        )}
       </div>
     </div>
   );

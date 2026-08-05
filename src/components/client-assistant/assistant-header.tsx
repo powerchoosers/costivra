@@ -31,15 +31,17 @@ export function AssistantHeader() {
         >
           <Plus size={16} />
         </button>
-        <button
-          type="button"
-          className="assistant-icon-btn"
-          onClick={toggleHistory}
-          title="Conversation history"
-          aria-label="Conversation history"
-        >
-          <History size={16} />
-        </button>
+        {!isFullscreen && (
+          <button
+            type="button"
+            className="assistant-icon-btn"
+            onClick={toggleHistory}
+            title="Conversation history"
+            aria-label="Conversation history"
+          >
+            <History size={16} />
+          </button>
+        )}
         <button
           type="button"
           className="assistant-icon-btn"

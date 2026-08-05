@@ -13,6 +13,7 @@ type AssistantState = {
   pendingAttachments: ClientAssistantAttachment[];
   sending: boolean;
   error: string | null;
+  viewRevision: number;
 };
 
 type AssistantAction =
@@ -28,7 +29,8 @@ type AssistantAction =
   | { type: "REMOVE_ATTACHMENT"; clientUploadId: string }
   | { type: "CLEAR_ATTACHMENTS" }
   | { type: "SET_SENDING"; sending: boolean }
-  | { type: "SET_ERROR"; error: string | null };
+  | { type: "SET_ERROR"; error: string | null }
+  | { type: "ADVANCE_VIEW" };
 
 const initialState: AssistantState = {
   mode: "closed",
@@ -40,6 +42,7 @@ const initialState: AssistantState = {
   pendingAttachments: [],
   sending: false,
   error: null,
+  viewRevision: 0,
 };
 
 function assistantReducer(state: AssistantState, action: AssistantAction): AssistantState {
@@ -83,6 +86,8 @@ function assistantReducer(state: AssistantState, action: AssistantAction): Assis
       return { ...state, sending: action.sending };
     case "SET_ERROR":
       return { ...state, error: action.error };
+    case "ADVANCE_VIEW":
+      return { ...state, viewRevision: state.viewRevision + 1 };
     default:
       return state;
   }
@@ -120,6 +125,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const selectSession = useCallback(async (sessionId: string | null) => {
+    dispatch({ type: "ADVANCE_VIEW" });
     dispatch({ type: "SET_ACTIVE_SESSION", sessionId });
     if (!sessionId) {
       dispatch({ type: "SET_MESSAGES", messages: [] });
@@ -138,6 +144,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
 
   // Plus button creates a local blank state without immediately writing a DB row
   const createSession = useCallback(() => {
+    dispatch({ type: "ADVANCE_VIEW" });
     dispatch({ type: "SET_ACTIVE_SESSION", sessionId: null });
     dispatch({ type: "SET_MESSAGES", messages: [] });
     dispatch({ type: "CLEAR_ATTACHMENTS" });
