@@ -4,6 +4,7 @@
 
 - Added a shared Lenis scroll controller to make page-level wheel and anchor scrolling consistently smooth across marketing, customer (`/app`), and internal (`/manage`) routes. It retains native nested-panel scrolling and honors `prefers-reduced-motion`.
 - Refined the marketing footer into a rounded-top closing panel with an explicit next-step message and a clear scan action.
+- Refined the footer again after visual review: the dark footer is now an inset panel with a visible 32px curved top inside a quiet light frame, a 52px breathing gap before navigation, and a simplified brand statement.
 - Corrected homepage category rows so their icons sit inline to the left of their labels, converted trust items to a compact icon-left layout, rounded the workflow stage badges, and used the same icon-left heading treatment for public content cards.
 - Validation: `npm run typecheck`, `npm run lint`, and `npm run build` all passed. Browser QA passed on the homepage at desktop, `/how-it-works` at 390×844, and the authenticated local customer-workspace preview; the only console item was a pre-existing Costivra brand-image aspect-ratio warning.
 

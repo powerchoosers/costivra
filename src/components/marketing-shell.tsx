@@ -60,7 +60,7 @@ export function MarketingFooter() {
         <div className="footer-grid">
           <div className="footer-brand">
             <Brand light />
-            <p>Find the leak.<br />Prove the value.<br />Recover with confidence.</p>
+            <p>Evidence-led cost control for the decisions that matter.</p>
           </div>
           {columns.map((column) => (
             <div className="footer-column" key={column.title}>
