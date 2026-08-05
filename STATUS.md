@@ -1,5 +1,20 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Packet 02: Pack Registry and Unknown-Category Safety
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Pack Registry & Safety Improvements**:
+  - Eliminated cross-market pack cloning (`electric-delivery-demand` and `general-liability-bop` object spread entries removed from `EXPERT_PACKS_REGISTRY`). Only exact, materially valid packs are registered.
+  - Implemented `getExpertPackWithResolution(categoryKey)` returning exact resolution metadata (`exactMatch: boolean`, `status: CategoryExpertPackV1["status"]`).
+  - Implemented `createNeutralDraftPack` returning neutral draft packs with `status: "draft"`, zero line items, zero pricing models, zero benchmark metrics, required human review caveats, and prohibited market claim assertions for unverified/unknown categories.
+  - Created `src/lib/category-intelligence/pack-safety.test.ts` with 10 unit tests proving wireless/workers comp/group health/hazardous waste safety boundaries, draft pack protection, invoice and document attachment context priority, and neutral unknown pack guarantees.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (88 test files passed, 320 unit tests passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
 ## August 5, 2026 — Category Intelligence Packet 01: Core Contracts
 
 - **Branch**: `agent/category-intelligence-hardening`

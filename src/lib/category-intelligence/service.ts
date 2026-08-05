@@ -17,7 +17,7 @@ import { analyzeBillQuality } from "./bill-quality";
 import { evaluateMarketBenchmark } from "./benchmark-engine";
 import { performMarketResearch } from "./current-market-research";
 import { buildCategoryAiContext } from "./context-builder";
-import { getExpertPack } from "./packs";
+import { getExpertPack, getExpertPackWithResolution, type ExpertPackResolution } from "./packs";
 
 type BuildAiContextOptions = {
   includeCurrentResearch?: boolean;
@@ -33,6 +33,10 @@ export class CategoryIntelligenceService {
 
   async getExpertPack(categoryKey: string): Promise<CategoryExpertPackV1> {
     return getExpertPack(categoryKey);
+  }
+
+  async getExpertPackWithResolution(categoryKey: string): Promise<ExpertPackResolution> {
+    return getExpertPackWithResolution(categoryKey);
   }
 
   async loadExpertPack(categoryKey: string): Promise<CategoryExpertPackV1> {

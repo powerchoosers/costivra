@@ -33,25 +33,16 @@ function asDraft(
 }
 
 /**
- * Only register packs whose scope actually covers the category.
- *
+ * Only register exact, materially valid expert packs.
  * Deliberately absent until dedicated packs exist:
  * cloud, AI APIs, cybersecurity, workers compensation, group health,
- * wireless, voice/UCaaS, WAN/SD-WAN, hazardous waste, and shredding.
+ * wireless, voice/UCaaS, WAN/SD-WAN, hazardous waste, shredding, electric delivery.
  * Those categories receive a neutral draft pack rather than borrowed rules.
  */
 export const EXPERT_PACKS_REGISTRY: Record<string, CategoryExpertPackV1> = {
   "commercial-electricity-supply": asDraft(energyElectricityPack),
-  "electric-delivery-demand": asDraft(energyElectricityPack, {
-    categoryKey: "electric-delivery-demand",
-    displayName: "Electric Delivery, Demand & Utility Charges",
-  }),
   "saas-subscriptions": asDraft(saasPack),
   "commercial-property": asDraft(insurancePropertyLiabilityPack),
-  "general-liability-bop": asDraft(insurancePropertyLiabilityPack, {
-    categoryKey: "general-liability-bop",
-    displayName: "General Liability & Business Owners Policies",
-  }),
   "business-broadband-dia": asDraft(telecomBroadbandPack),
   "merchant-processing": asDraft(merchantProcessingPack),
   "solid-waste-recycling": asDraft(solidWastePack),
@@ -225,9 +216,32 @@ function createNeutralDraftPack(key: string): CategoryExpertPackV1 {
   };
 }
 
-export function getExpertPack(categoryKey: string): CategoryExpertPackV1 {
+export type ExpertPackResolution = {
+  pack: CategoryExpertPackV1;
+  exactMatch: boolean;
+  status: CategoryExpertPackV1["status"];
+};
+
+export function getExpertPackWithResolution(categoryKey: string): ExpertPackResolution {
   const key = normalizeCategoryKey(categoryKey);
-  return EXPERT_PACKS_REGISTRY[key] ?? createNeutralDraftPack(key);
+  const exact = EXPERT_PACKS_REGISTRY[key];
+  if (exact) {
+    return {
+      pack: exact,
+      exactMatch: true,
+      status: exact.status,
+    };
+  }
+  const neutral = createNeutralDraftPack(key);
+  return {
+    pack: neutral,
+    exactMatch: false,
+    status: neutral.status,
+  };
+}
+
+export function getExpertPack(categoryKey: string): CategoryExpertPackV1 {
+  return getExpertPackWithResolution(categoryKey).pack;
 }
 
 export function hasDedicatedExpertPack(categoryKey: string): boolean {
