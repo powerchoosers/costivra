@@ -22,11 +22,18 @@ export type ManageAccount = {
   name: string;
   legalName: string | null;
   industry: string | null;
+  employeeCountRange?: string | null;
+  annualRevenueRange?: string | null;
+  timezone?: string | null;
   currency: string;
   website: string | null;
   stage: string | null;
   primaryContact: string | null;
   primaryEmail: string | null;
+  primaryContactId?: string | null;
+  assignedTo?: string | null;
+  assignedToName?: string | null;
+  visibleInCrm?: boolean;
   memberCount: number;
   documentCount: number;
   opportunityCount: number;
@@ -38,6 +45,7 @@ export type ManageAccount = {
   nextStep: string | null;
   privateNotes: string | null;
   createdAt: string;
+  updatedAt?: string;
   logoUrl: string | null;
   parentAccountId: string | null;
   enrichment: ManageAccountEnrichment | null;
@@ -99,6 +107,9 @@ export type ManageContact = {
   source: "crm" | "workspace";
   marketingStatus: "opted_in" | "opted_out" | null;
   marketingConsentAt: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  updatedAt?: string | null;
 };
 
 export type ManageDocument = {
@@ -138,6 +149,11 @@ export type ManageVendorRelationship = {
   contractCount: number;
   nextContractEnd: string | null;
   updatedAt: string;
+  displayNameOverride?: string | null;
+  categoryOverride?: string | null;
+  websiteOverride?: string | null;
+  endedAt?: string | null;
+  endedBy?: string | null;
 };
 
 export type ManageExpense = {

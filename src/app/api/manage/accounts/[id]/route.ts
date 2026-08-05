@@ -66,12 +66,27 @@ export async function PATCH(
       return NextResponse.json({ error: "Enter a public http or https account website." }, { status: 400 });
     }
 
-    // 1. Update organizations table if name, legal_name, or parent_organization_id supplied
-    if (name !== undefined || legalName !== undefined || parentAccountId !== undefined) {
+    // 1. Update organizations table if org-level fields supplied
+    if (
+      name !== undefined ||
+      legalName !== undefined ||
+      parentAccountId !== undefined ||
+      industry !== undefined ||
+      employeeCountRange !== undefined ||
+      annualRevenueRange !== undefined ||
+      timezone !== undefined ||
+      currency !== undefined
+    ) {
       const orgUpdate: Record<string, unknown> = {
         ...(name !== undefined ? { name } : {}),
         ...(legalName !== undefined ? { legal_name: legalName } : {}),
         ...(parentAccountId !== undefined ? { parent_organization_id: parentAccountId } : {}),
+        ...(industry !== undefined ? { industry } : {}),
+        ...(employeeCountRange !== undefined ? { employee_count_range: employeeCountRange } : {}),
+        ...(annualRevenueRange !== undefined ? { annual_revenue_range: annualRevenueRange } : {}),
+        ...(timezone !== undefined ? { timezone } : {}),
+        ...(currency !== undefined ? { currency } : {}),
+        updated_at: new Date().toISOString(),
       };
       const { error: orgErr } = await db.from("organizations").update(orgUpdate).eq("id", organizationId);
       if (orgErr) throw orgErr;
@@ -106,12 +121,7 @@ export async function PATCH(
     const profileRecord = {
       organization_id: organizationId,
       ...("stage" in body ? { lifecycle_stage: stage || "onboarding" } : {}),
-      ...(industry !== undefined ? { industry } : {}),
-      ...(employeeCountRange !== undefined ? { employee_count_range: employeeCountRange } : {}),
-      ...(annualRevenueRange !== undefined ? { annual_revenue_range: annualRevenueRange } : {}),
-      ...(timezone !== undefined ? { timezone } : {}),
-      ...(currency !== undefined ? { currency } : {}),
-      ...(assignedTo !== undefined ? { assigned_owner_id: assignedTo } : {}),
+      ...(assignedTo !== undefined ? { assigned_to: assignedTo } : {}),
       ...(visibleInCrm !== undefined ? { visible_in_crm: visibleInCrm } : {}),
       ...("nextFollowUpAt" in body ? { next_follow_up_at: nextFollowUpAt } : {}),
       ...("nextStep" in body ? { next_step: cleanText(body.nextStep, 500) || null } : {}),

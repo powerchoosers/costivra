@@ -134,7 +134,7 @@ export async function getManageData(input?: {
       ? db.from("vendors").select("id,canonical_name,category,website,logo_url")
       : Promise.resolve({ data: [], error: null }),
     scopedAccountId
-      ? db.from("organization_vendors").select("id,organization_id,vendor_id,relationship_status,annualized_spend,spend_cadence,updated_at").eq("organization_id", scopedAccountId)
+      ? db.from("organization_vendors").select("id,organization_id,vendor_id,relationship_status,annualized_spend,spend_cadence,updated_at,display_name_override,category_override,website_override,ended_at,ended_by").eq("organization_id", scopedAccountId)
       : Promise.resolve({ data: [], error: null }),
     scopedAccountId
       ? db.from("expenses").select("id,organization_id,organization_vendor_id,category,period_start,period_end,amount,currency,status").eq("organization_id", scopedAccountId).order("period_end", { ascending: false })
@@ -313,13 +313,16 @@ export async function getManageData(input?: {
         .map((contract) => contract.endDate)
         .filter((endDate): endDate is string => Boolean(endDate))
         .sort()[0] ?? null;
+      const displayNameOverride = nullable(relationship.display_name_override);
+      const categoryOverride = nullable(relationship.category_override);
+      const websiteOverride = nullable(relationship.website_override);
       return {
         id,
         organizationId: text(relationship.organization_id),
         vendorId: text(relationship.vendor_id),
-        name: text(vendor?.canonical_name, "Unknown vendor"),
-        category: text(vendor?.category, "Other"),
-        website: nullable(vendor?.website),
+        name: displayNameOverride || text(vendor?.canonical_name, "Unknown vendor"),
+        category: categoryOverride || text(vendor?.category, "Other"),
+        website: websiteOverride ?? nullable(vendor?.website),
         logoUrl: nullable(vendor?.logo_url),
         relationshipStatus: text(relationship.relationship_status, "unknown"),
         spendCadence: text(relationship.spend_cadence, "not set"),
@@ -329,6 +332,11 @@ export async function getManageData(input?: {
         contractCount: relationshipContracts.length,
         nextContractEnd,
         updatedAt: text(relationship.updated_at),
+        displayNameOverride,
+        categoryOverride,
+        websiteOverride,
+        endedAt: nullable(relationship.ended_at),
+        endedBy: nullable(relationship.ended_by),
       };
     })
     .sort((a, b) => b.recordedSpend - a.recordedSpend || a.name.localeCompare(b.name));
@@ -450,6 +458,9 @@ export async function getManageData(input?: {
       isPrimary: Boolean(contact.is_primary),
       status: text(contact.status, "active"),
       source: "crm" as const,
+      archivedAt: nullable(contact.archived_at),
+      archivedBy: nullable(contact.archived_by),
+      updatedAt: nullable(contact.updated_at),
     }));
   const explicitEmails = new Set(
     contacts.map(
@@ -493,17 +504,28 @@ export async function getManageData(input?: {
     const primary = primaryContactByOrganization.get(id);
     const marketing = optedInByOrganization.get(id);
     const enrichment = accountEnrichmentsByOrganization.get(id);
+    const assignedTo = nullable(overlay?.assigned_to);
+    const staffMember = assignedTo ? profilesById.get(assignedTo) : null;
+    const assignedToName = staffMember ? text(staffMember.full_name, text(staffMember.email)) : null;
+
     return {
       id,
       name: text(organization.name),
       legalName: nullable(organization.legal_name),
       industry: nullable(organization.industry),
+      employeeCountRange: nullable(organization.employee_count_range),
+      annualRevenueRange: nullable(organization.annual_revenue_range),
+      timezone: nullable(organization.timezone),
       currency: text(organization.currency, "USD"),
       website: nullable(overlay?.website),
       stage: nullable(overlay?.lifecycle_stage),
       primaryContact:
         primary?.fullName ?? nullable(organization.primary_contact_name),
       primaryEmail: primary?.email ?? null,
+      primaryContactId: primary?.id ?? null,
+      assignedTo,
+      assignedToName,
+      visibleInCrm: overlay?.visible_in_crm !== false,
       memberCount: memberCount.get(id) ?? 0,
       documentCount: documentCount.get(id) ?? 0,
       opportunityCount: opportunityCount.get(id) ?? 0,
@@ -515,6 +537,7 @@ export async function getManageData(input?: {
       nextStep: nullable(overlay?.next_step),
       privateNotes: nullable(overlay?.private_notes),
       createdAt: text(organization.created_at),
+      updatedAt: text(organization.updated_at),
       logoUrl: nullable(organization.logo_url),
       parentAccountId: parentOrganizationById.get(id) ?? null,
       enrichment: enrichment

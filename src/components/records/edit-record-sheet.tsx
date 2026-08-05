@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ReactNode, FormEvent } from "react";
+import { useState, useEffect, useId, ReactNode, FormEvent } from "react";
 import { X, LoaderCircle, AlertTriangle } from "lucide-react";
 
 export type EditRecordSheetProps = {
@@ -27,6 +27,28 @@ export function EditRecordSheet({
   children,
 }: EditRecordSheetProps) {
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const formId = useId();
+
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    setShowConfirmClose(false);
+  }
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (isDirty) {
+          setShowConfirmClose(true);
+        } else {
+          onClose();
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isDirty, onClose]);
 
   if (!isOpen) return null;
 
@@ -107,7 +129,7 @@ export function EditRecordSheet({
         </div>
 
         {/* Scrollable Body */}
-        <form id="record-sheet-form" onSubmit={handleFormSubmit} style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+        <form id={formId} onSubmit={handleFormSubmit} style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
           {error && (
             <div
               style={{
@@ -217,7 +239,7 @@ export function EditRecordSheet({
             </button>
             <button
               type="submit"
-              form="record-sheet-form"
+              form={formId}
               disabled={saving || !isDirty}
               style={{
                 padding: "8px 20px",

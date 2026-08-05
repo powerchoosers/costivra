@@ -27,10 +27,10 @@ export async function GET(
     const vendorName = rel.display_name_override || (rel.vendors as unknown as { canonical_name: string })?.canonical_name || "Vendor";
 
     const [expRes, conRes, invRes, docRes] = await Promise.all([
-      db.from("expenses").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("vendor_id", rel.vendor_id),
-      db.from("contracts").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("vendor_id", rel.vendor_id),
-      db.from("invoices").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("vendor_id", rel.vendor_id),
-      db.from("documents").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("vendor_id", rel.vendor_id),
+      db.from("expenses").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
+      db.from("contracts").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
+      db.from("invoices").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
+      db.from("documents").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
     ]);
 
     const expenses = expRes.count ?? 0;

@@ -10,16 +10,21 @@ function failOnConsoleErrors(page: Page) {
 }
 
 test("Ask Costivra top-bar trigger exists and operates assistant surface", async ({ page }) => {
+  if (process.env.RUN_AUTHENTICATED_E2E !== "1") {
+    test.skip(true, "Requires authenticated E2E environment (RUN_AUTHENTICATED_E2E=1)");
+    return;
+  }
+
   const failures = failOnConsoleErrors(page);
   await page.goto("/app");
   
   // Verify trigger exists in topbar
-  const trigger = page.getByRole("button", { name: "Ask Costivra" });
+  const trigger = page.getByRole("button", { name: /Ask Costivra/i });
   await expect(trigger).toBeVisible();
 
   // Open drawer
   await trigger.click();
-  await expect(page.getByRole("complementary", { name: "Ask Costivra assistant" }).or(page.getByText("Ask Costivra"))).toBeVisible();
+  await expect(page.getByRole("region", { name: "Ask Costivra" }).or(page.getByText("Ask Costivra"))).toBeVisible();
 
   expect(failures).toEqual([]);
 });

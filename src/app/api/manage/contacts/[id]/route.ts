@@ -29,7 +29,7 @@ export async function PATCH(
     const fullName = "fullName" in body ? cleanText(body.fullName, 120) || null : undefined;
     const email = "email" in body ? cleanText(body.email, 255) || null : undefined;
     const phone = "phone" in body ? cleanText(body.phone, 50) || null : undefined;
-    const jobTitle = "jobTitle" in body ? cleanText(body.jobTitle, 100) || null : undefined;
+    const title = "title" in body ? cleanText(body.title, 100) || null : undefined;
     const targetOrganizationId = "organizationId" in body ? cleanUuid(body.organizationId) || null : undefined;
     const isPrimary = "isPrimary" in body ? Boolean(body.isPrimary) : undefined;
     const status = "status" in body ? cleanText(body.status, 30) || "active" : undefined;
@@ -45,7 +45,7 @@ export async function PATCH(
       ...(fullName !== undefined ? { full_name: fullName } : {}),
       ...(email !== undefined ? { email } : {}),
       ...(phone !== undefined ? { phone } : {}),
-      ...(jobTitle !== undefined ? { job_title: jobTitle } : {}),
+      ...(title !== undefined ? { title } : {}),
       ...(targetOrganizationId !== undefined ? { organization_id: targetOrganizationId } : {}),
       ...(isPrimary !== undefined ? { is_primary: isPrimary } : {}),
       ...(status !== undefined ? { status } : {}),

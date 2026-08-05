@@ -98,6 +98,29 @@ textarea:focus-visible {
 .button-quiet { min-height: 40px; padding-inline: 12px; background: transparent; border-color: var(--line); }
 .button-dark { color: var(--paper); background: var(--ink); }
 
+/* --- Record Components CSS --- */
+.record-overflow-trigger:hover,
+.record-overflow-trigger:focus-visible,
+.record-overflow-trigger[aria-expanded="true"] {
+  background: rgba(30, 41, 59, 0.05) !important;
+  border-color: rgba(30, 41, 59, 0.14) !important;
+}
+
+.editable-field-row:hover,
+.editable-field-row:focus-within,
+.editable-field-row[data-actions-open="true"] {
+  background: rgba(30, 41, 59, 0.035);
+}
+
+.editable-field-row:hover .editable-field-row__actions,
+.editable-field-row:focus-within .editable-field-row__actions,
+.editable-field-row[data-actions-open="true"] .editable-field-row__actions {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+
 .marketing-header {
   position: sticky;
   z-index: 40;

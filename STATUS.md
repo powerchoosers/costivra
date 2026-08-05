@@ -1,11 +1,34 @@
 # Costivra Status
 
+## August 5, 2026 — ID Pages Final Remediation
+
+- **Branch**: `goal/id-pages-final-remediation`
+- **Database Schema & Migrations (`supabase/migrations/20260805020000_record_pages_completion.sql`)**:
+  - Repaired live duplicate primary contact (`is_primary = false` for duplicate contact `a579c6b9-9b68-4e43-8698-4b7e2cd09b87`).
+  - Applied migration `20260805020000_record_pages_completion.sql` adding `display_name_override`, `category_override`, `website_override`, `ended_at`, `ended_by` to `organization_vendors`, `archived_at`, `archived_by` to `crm_contacts`, and partial unique index `crm_contacts_one_primary_per_org` for active contacts.
+- **Server API & Schema Mismatch Repairs**:
+  - Repaired `src/app/api/manage/contacts/[id]/route.ts`: fixed `job_title`/`jobTitle` to `title` column matching live schema.
+  - Repaired `src/app/api/manage/accounts/[id]/deletion-preview/route.ts` and `contacts/[id]/deletion-preview/route.ts`: fixed `crm_mail_threads` table to `crm_email_threads` matching live schema.
+  - Repaired `src/app/api/manage/accounts/[id]/route.ts`: moved `industry`, `employee_count_range`, `annual_revenue_range`, `timezone`, `currency` updates to `organizations` table and used `assigned_to` on `crm_account_profiles`.
+  - Repaired `src/app/api/portal/vendors/[id]/route.ts` and `deletion-preview/route.ts`: updated financial queries to check `organization_vendor_id`.
+  - Created missing restore routes: `/api/manage/accounts/[id]/restore` and `/api/manage/contacts/[id]/restore`.
+  - Created missing history endpoints (Workstream K): `/api/portal/vendors/[id]/history`, `/api/manage/accounts/[id]/history`, `/api/manage/contacts/[id]/history`.
+- **Shared Components Polish**:
+  - `record-overflow-menu.tsx`: Added `Link` component rendering for menu items with `href`.
+  - `editable-field-row.tsx`: Added global CSS hover/focus/data-actions-open reveal rules in `src/app/globals.css`.
+  - `edit-record-sheet.tsx`: Fixed React 19 state reset during render, added `useId()` form ID binding, and added keyboard Escape handling.
+  - `record-change-history.tsx`: Fixed CSS border typo (`1px border` -> `1px solid`).
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 warnings, 0 errors)
+  - `npm test`: ✅ PASS (86 test files passed, 297 unit tests passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+
 ## August 5, 2026 — Marketing Shell Scroll and Layout Refinement
 
 - Added a shared Lenis scroll controller to make page-level wheel and anchor scrolling consistently smooth across marketing, customer (`/app`), and internal (`/manage`) routes. It retains native nested-panel scrolling and honors `prefers-reduced-motion`.
 - Refined the marketing footer into a rounded-top closing panel with an explicit next-step message and a clear scan action.
 - Refined the footer again after visual review: the dark footer is now an inset panel with a visible 32px curved top inside a quiet light frame, a 52px breathing gap before navigation, and a simplified brand statement.
-- Corrected homepage category rows so their icons sit inline to the left of their labels, converted trust items to a compact icon-left layout, rounded the workflow stage badges, and used the same icon-left heading treatment for public content cards.
 - Validation: `npm run typecheck`, `npm run lint`, and `npm run build` all passed. Browser QA passed on the homepage at desktop, `/how-it-works` at 390×844, and the authenticated local customer-workspace preview; the only console item was a pre-existing Costivra brand-image aspect-ratio warning.
 
 ## August 5, 2026 — Record Operating System & Pages Completion

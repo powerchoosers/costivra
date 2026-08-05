@@ -28,7 +28,7 @@ export function RecordChangeHistory({
           textAlign: "center",
           background: "var(--assistant-bg, #f8fafc)",
           borderRadius: 12,
-          border: "1px border rgba(30, 41, 59, 0.08)",
+          border: "1px solid rgba(30, 41, 59, 0.08)",
           color: "var(--assistant-muted, #64748b)",
           fontSize: "0.86rem",
         }}

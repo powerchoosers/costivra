@@ -100,9 +100,9 @@ export async function DELETE(
     }
 
     const [expensesRes, contractsRes, invoicesRes] = await Promise.all([
-      db.from("expenses").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("vendor_id", rel.vendor_id),
-      db.from("contracts").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("vendor_id", rel.vendor_id),
-      db.from("invoices").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("vendor_id", rel.vendor_id),
+      db.from("expenses").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
+      db.from("contracts").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
+      db.from("invoices").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
     ]);
 
     const expenseCount = expensesRes.count ?? 0;

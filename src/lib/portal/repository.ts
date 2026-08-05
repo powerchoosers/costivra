@@ -155,7 +155,26 @@ export async function getPortalData(): Promise<PortalData> {
     })),
     vendors: rows(relationshipsResult.data).map((relationship) => {
       const vendor = vendorById.get(stringValue(relationship.vendor_id));
-      return { id: stringValue(vendor?.id), relationshipId: stringValue(relationship.id), name: stringValue(vendor?.canonical_name), category: stringValue(vendor?.category, "Other"), website: nullableString(vendor?.website), annualizedSpend: numberValue(relationship.annualized_spend), relationshipStatus: stringValue(relationship.relationship_status), spendCadence: stringValue(relationship.spend_cadence, "monthly"), updatedAt: stringValue(relationship.updated_at), logoUrl: nullableString(vendor?.logo_url) };
+      const displayNameOverride = nullableString(relationship.display_name_override);
+      const categoryOverride = nullableString(relationship.category_override);
+      const websiteOverride = nullableString(relationship.website_override);
+      return {
+        id: stringValue(vendor?.id),
+        relationshipId: stringValue(relationship.id),
+        name: displayNameOverride || stringValue(vendor?.canonical_name),
+        category: categoryOverride || stringValue(vendor?.category, "Other"),
+        website: websiteOverride ?? nullableString(vendor?.website),
+        annualizedSpend: numberValue(relationship.annualized_spend),
+        relationshipStatus: stringValue(relationship.relationship_status),
+        spendCadence: stringValue(relationship.spend_cadence, "monthly"),
+        updatedAt: stringValue(relationship.updated_at),
+        logoUrl: nullableString(vendor?.logo_url),
+        displayNameOverride,
+        categoryOverride,
+        websiteOverride,
+        endedAt: nullableString(relationship.ended_at),
+        endedBy: nullableString(relationship.ended_by),
+      };
     }),
     vendorCatalog: rows(vendorsResult.data).map((vendor) => ({
       id: stringValue(vendor.id),

@@ -34,7 +34,7 @@ export async function GET(
       db.from("action_plans").select("id", { count: "exact" }).eq("organization_id", organizationId),
       db.from("savings_outcomes").select("id", { count: "exact" }).eq("organization_id", organizationId),
       db.from("organization_vendors").select("id", { count: "exact" }).eq("organization_id", organizationId),
-      db.from("crm_mail_threads").select("id", { count: "exact" }).eq("organization_id", organizationId),
+      db.from("crm_email_threads").select("id", { count: "exact" }).eq("organization_id", organizationId),
       db.from("crm_tasks").select("id", { count: "exact" }).eq("organization_id", organizationId),
     ]);
 

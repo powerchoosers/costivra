@@ -26,7 +26,7 @@ export async function GET(
     const [actRes, taskRes, mailRes] = await Promise.all([
       db.from("crm_activities").select("id", { count: "exact" }).eq("contact_id", contactId),
       db.from("crm_tasks").select("id", { count: "exact" }).eq("contact_id", contactId),
-      db.from("crm_mail_threads").select("id", { count: "exact" }).eq("contact_id", contactId),
+      db.from("crm_email_threads").select("id", { count: "exact" }).eq("contact_id", contactId),
     ]);
 
     const activities = actRes.count ?? 0;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, KeyboardEvent, ReactNode } from "react";
+import Link from "next/link";
 import { MoreVertical } from "lucide-react";
 
 export type RecordMenuItem = {
@@ -166,54 +167,105 @@ export function RecordOverflowMenu({
                   }}
                 />
               )}
-              <button
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                tabIndex={idx === activeIndex ? 0 : -1}
-                onClick={() => handleSelect(item)}
-                onMouseEnter={() => setActiveIndex(idx)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "8px 14px",
-                  border: "none",
-                  background:
-                    idx === activeIndex
-                      ? item.destructive
-                        ? "rgba(196, 75, 75, 0.08)"
-                        : "rgba(0, 47, 167, 0.06)"
-                      : "transparent",
-                  color: item.disabled
-                    ? "var(--assistant-muted, #94a3b8)"
-                    : item.destructive
-                    ? "var(--assistant-danger, #c44b4b)"
-                    : "var(--assistant-text, #0f172a)",
-                  fontSize: "0.85rem",
-                  fontWeight: 500,
-                  textAlign: "left",
-                  cursor: item.disabled ? "not-allowed" : "pointer",
-                  transition: "background 100ms ease",
-                }}
-              >
-                {item.icon && (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      opacity: item.disabled ? 0.5 : 0.85,
-                    }}
-                  >
-                    {item.icon}
+              {item.href ? (
+                <Link
+                  href={item.href}
+                  role="menuitem"
+                  tabIndex={idx === activeIndex ? 0 : -1}
+                  onClick={() => handleSelect(item)}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 14px",
+                    border: "none",
+                    background:
+                      idx === activeIndex
+                        ? item.destructive
+                          ? "rgba(196, 75, 75, 0.08)"
+                          : "rgba(0, 47, 167, 0.06)"
+                        : "transparent",
+                    color: item.disabled
+                      ? "var(--assistant-muted, #94a3b8)"
+                      : item.destructive
+                      ? "var(--assistant-danger, #c44b4b)"
+                      : "var(--assistant-text, #0f172a)",
+                    fontSize: "0.85rem",
+                    fontWeight: 500,
+                    textAlign: "left",
+                    textDecoration: "none",
+                    cursor: item.disabled ? "not-allowed" : "pointer",
+                    transition: "background 100ms ease",
+                  }}
+                >
+                  {item.icon && (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: item.disabled ? 0.5 : 0.85,
+                      }}
+                    >
+                      {item.icon}
+                    </span>
+                  )}
+                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {item.label}
                   </span>
-                )}
-                <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {item.label}
-                </span>
-              </button>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={item.disabled}
+                  tabIndex={idx === activeIndex ? 0 : -1}
+                  onClick={() => handleSelect(item)}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 14px",
+                    border: "none",
+                    background:
+                      idx === activeIndex
+                        ? item.destructive
+                          ? "rgba(196, 75, 75, 0.08)"
+                          : "rgba(0, 47, 167, 0.06)"
+                        : "transparent",
+                    color: item.disabled
+                      ? "var(--assistant-muted, #94a3b8)"
+                      : item.destructive
+                      ? "var(--assistant-danger, #c44b4b)"
+                      : "var(--assistant-text, #0f172a)",
+                    fontSize: "0.85rem",
+                    fontWeight: 500,
+                    textAlign: "left",
+                    cursor: item.disabled ? "not-allowed" : "pointer",
+                    transition: "background 100ms ease",
+                  }}
+                >
+                  {item.icon && (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: item.disabled ? 0.5 : 0.85,
+                      }}
+                    >
+                      {item.icon}
+                    </span>
+                  )}
+                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {item.label}
+                  </span>
+                </button>
+              )}
             </div>
           ))}
         </div>

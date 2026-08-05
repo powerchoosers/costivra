@@ -29,6 +29,11 @@ export type PortalVendor = {
   spendCadence: string;
   updatedAt: string;
   logoUrl: string | null;
+  displayNameOverride?: string | null;
+  categoryOverride?: string | null;
+  websiteOverride?: string | null;
+  endedAt?: string | null;
+  endedBy?: string | null;
   approvedForwardingEmail?: string | null;
   monitoringState?: string;
 };
