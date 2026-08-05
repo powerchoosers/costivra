@@ -1,8 +1,28 @@
 import type { BenchmarkInput, BenchmarkResult } from "./types";
 import { getExpertPack, hasDedicatedExpertPack } from "./packs";
 
+function comparableKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function recordContainsDimension(
+  record: Record<string, unknown> | null | undefined,
+  dimension: string,
+): boolean {
+  if (!record) return false;
+  const normalizedDimension = comparableKey(dimension);
+  return Object.entries(record).some(([key, value]) => {
+    if (value == null || value === "" || value === false) return false;
+    const normalizedKey = comparableKey(key);
+    return (
+      normalizedDimension.includes(normalizedKey) ||
+      normalizedKey.includes(normalizedDimension)
+    );
+  });
+}
+
 function hasDimension(input: BenchmarkInput, dimension: string): boolean {
-  const normalized = dimension.toLowerCase();
+  const normalized = comparableKey(dimension);
 
   if (normalized.includes("state") || normalized.includes("jurisdiction")) {
     return Boolean(input.geography?.state || input.geography?.zip);
@@ -25,10 +45,7 @@ function hasDimension(input: BenchmarkInput, dimension: string): boolean {
   ) {
     return Boolean(input.volume && input.volume > 0);
   }
-  if (
-    normalized.includes("term") ||
-    normalized.includes("contract")
-  ) {
+  if (normalized.includes("term") || normalized.includes("contract")) {
     return Boolean(input.contractTermMonths && input.contractTermMonths > 0);
   }
   if (
@@ -43,10 +60,10 @@ function hasDimension(input: BenchmarkInput, dimension: string): boolean {
     normalized.includes("limit") ||
     normalized.includes("deductible")
   ) {
-    if (input.serviceTier) return true;
-    const specification = input.specification ?? {};
-    return Object.keys(specification).some((key) =>
-      normalized.includes(key.toLowerCase()),
+    return Boolean(
+      input.serviceTier ||
+        recordContainsDimension(input.specification, dimension) ||
+        recordContainsDimension(input.usageShape, dimension),
     );
   }
   if (normalized.includes("unit")) return Boolean(input.unit);
@@ -54,10 +71,9 @@ function hasDimension(input: BenchmarkInput, dimension: string): boolean {
     return Boolean(input.serviceDate);
   }
 
-  const specification = input.specification ?? {};
-  const usageShape = input.usageShape ?? {};
-  return [...Object.keys(specification), ...Object.keys(usageShape)].some(
-    (key) => normalized.includes(key.toLowerCase()),
+  return (
+    recordContainsDimension(input.specification, dimension) ||
+    recordContainsDimension(input.usageShape, dimension)
   );
 }
 
