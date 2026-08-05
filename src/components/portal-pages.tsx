@@ -359,7 +359,7 @@ export function PortalPage({
     integrations: <Settings data={data} run={run} onInvite={() => openModal("invite")} initialTab="integrations" />,
     reports: <Reports data={data} />,
     team: <Settings data={data} run={run} onInvite={() => openModal("invite")} initialTab="team" />,
-    ask: <Ask data={data} />,
+    ask: <Ask />,
     settings: <Settings data={data} run={run} onInvite={() => openModal("invite")} />,
   };
   return (
@@ -2206,7 +2206,7 @@ function Team({ data, onInvite, run, embedded = false }: {
   );
 }
 
-function Ask(_props?: { data?: PortalData }) {
+function Ask() {
   const { openFullscreen } = useClientAssistant();
   useEffect(() => {
     openFullscreen();
