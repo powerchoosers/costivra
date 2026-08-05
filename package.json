@@ -17,7 +17,9 @@
     "eval:invoices": "tsx --env-file-if-exists=.env.local scripts/evaluate-invoice-extraction.ts",
     "ops:readiness": "tsx --env-file-if-exists=.env.local scripts/ops-readiness.ts",
     "ops:smoke": "tsx --env-file-if-exists=.env.local scripts/ops-smoke.ts",
-    "ops:verify": "npm run ops:readiness && npm run ops:smoke"
+    "ops:verify": "npm run ops:readiness && npm run ops:smoke",
+    "ops:cloudmersive": "tsx --env-file-if-exists=.env.local scripts/verify-cloudmersive.ts",
+    "ops:cloudmersive:eicar": "tsx --env-file-if-exists=.env.local scripts/verify-cloudmersive.ts --eicar"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
