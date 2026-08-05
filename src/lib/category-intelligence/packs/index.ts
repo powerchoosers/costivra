@@ -5,6 +5,9 @@ import { insurancePropertyLiabilityPack } from "./insurance-property-liability";
 import { telecomBroadbandPack } from "./telecom-broadband";
 import { merchantProcessingPack } from "./merchant-processing";
 import { solidWastePack } from "./solid-waste";
+import { wirelessMobilityPack } from "./wireless-mobility";
+import { cloudIaasPaasPack } from "./cloud-iaas-paas";
+import { aiApiConsumptionPack } from "./ai-api-consumption";
 
 const DRAFT_CAVEAT =
   "This category pack is in draft review. Use it to explain bill structure and identify questions, not to certify market pricing or verified savings.";
@@ -46,6 +49,9 @@ export const EXPERT_PACKS_REGISTRY: Record<string, CategoryExpertPackV1> = {
   "business-broadband-dia": asDraft(telecomBroadbandPack),
   "merchant-processing": asDraft(merchantProcessingPack),
   "solid-waste-recycling": asDraft(solidWastePack),
+  "wireless-mobility": asDraft(wirelessMobilityPack),
+  "cloud-iaas-paas": asDraft(cloudIaasPaasPack),
+  "ai-api-consumption": asDraft(aiApiConsumptionPack),
 };
 
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -66,15 +72,33 @@ const CATEGORY_ALIASES: Record<string, string> = {
   "business broadband": "business-broadband-dia",
   dia: "business-broadband-dia",
   internet: "business-broadband-dia",
-
+  // Wireless
+  wireless: "wireless-mobility",
+  "wireless mobility": "wireless-mobility",
+  cellular: "wireless-mobility",
+  mobile: "wireless-mobility",
+  // Cloud IaaS/PaaS
+  cloud: "cloud-iaas-paas",
+  "cloud infrastructure": "cloud-iaas-paas",
+  iaas: "cloud-iaas-paas",
+  paas: "cloud-iaas-paas",
+  aws: "cloud-iaas-paas",
+  azure: "cloud-iaas-paas",
+  gcp: "cloud-iaas-paas",
+  // AI API
+  "ai api": "ai-api-consumption",
+  "ai apis": "ai-api-consumption",
+  "openai": "ai-api-consumption",
+  "anthropic": "ai-api-consumption",
+  "llm api": "ai-api-consumption",
+  "model api": "ai-api-consumption",
+  "ai model": "ai-api-consumption",
   // Broad or materially distinct categories intentionally resolve to neutral packs.
   telecom: "telecom-connectivity",
   "telecom & internet": "telecom-connectivity",
   insurance: "insurance-benefits",
   "insurance & employee benefits": "insurance-benefits",
-  cloud: "cloud-iaas-paas",
   cybersecurity: "cybersecurity",
-  wireless: "wireless-mobility",
   "workers comp": "workers-compensation",
   "workers compensation": "workers-compensation",
   "group health": "group-health",

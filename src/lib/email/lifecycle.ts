@@ -91,16 +91,24 @@ export async function sendLifecycleEmail(
     .update(`${organizationId}:${kind}:${recipientEmail}:${payload.vendorName ?? ""}:${payload.documentName ?? ""}`)
     .digest("hex");
 
+  const requestHash = createHash("sha256")
+    .update(`${content.subject}:${content.text}`)
+    .digest("hex");
+
   // Check side-effects ledger
   const { data: existing } = await db
     .from("external_side_effects")
-    .select("id, status, external_reference_id")
+    .select("id, status, provider_reference")
     .eq("organization_id", organizationId)
     .eq("idempotency_key", idempotencyKey)
     .maybeSingle();
 
-  if (existing && existing.status === "completed") {
-    return { sent: false, messageId: existing.external_reference_id || undefined, reason: "Already sent (idempotent duplicate)" };
+  if (existing) {
+    return {
+      sent: false,
+      messageId: existing.provider_reference || undefined,
+      reason: "Already attempted (idempotent duplicate)",
+    };
   }
 
   const resend = getResendClient();
@@ -115,28 +123,40 @@ export async function sendLifecycleEmail(
     const messageId = response.data?.id ?? "mock-resend-id";
 
     // Persist in side-effects ledger
-    await db.from("external_side_effects").upsert({
-      organization_id: organizationId,
-      idempotency_key: idempotencyKey,
-      effect_type: "email_sent",
-      provider: "resend",
-      external_reference_id: messageId,
-      status: "completed",
-      payload: { kind, recipientEmail, subject: content.subject },
-    });
+    await db.from("external_side_effects").upsert(
+      {
+        organization_id: organizationId,
+        type: "email_sent",
+        destination: recipientEmail,
+        idempotency_key: idempotencyKey,
+        request_hash: requestHash,
+        status: "sent",
+        provider: "resend",
+        provider_reference: messageId,
+        sanitized_request_metadata: { kind, recipientEmail, subject: content.subject },
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "idempotency_key" },
+    );
 
     return { sent: true, messageId };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Email delivery failed";
-    await db.from("external_side_effects").upsert({
-      organization_id: organizationId,
-      idempotency_key: idempotencyKey,
-      effect_type: "email_sent",
-      provider: "resend",
-      status: "failed",
-      error_message: errorMessage,
-      payload: { kind, recipientEmail },
-    });
+    try {
+      await db.from("external_side_effects").insert({
+        organization_id: organizationId,
+        type: "email_sent",
+        destination: recipientEmail,
+        idempotency_key: idempotencyKey,
+        request_hash: requestHash,
+        status: "failed",
+        provider: "resend",
+        last_error: errorMessage,
+        sanitized_request_metadata: { kind, recipientEmail, subject: content.subject },
+      });
+    } catch {
+      // best-effort; ignore insert errors on failure path
+    }
 
     return { sent: false, reason: errorMessage };
   }
