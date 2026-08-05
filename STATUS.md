@@ -1,5 +1,17 @@
 # Costivra Status
 
+## August 4, 2026 — Bill Breakdown Inspector Modal & Supervised Pilot Readiness
+
+- **Bill Breakdown Inspector Modal**: Created interactive PDF & Image viewer with full extraction breakdown, line items table, detected anomalies/flags, regional market benchmark comparisons (% variance and annual savings), CFO guidance deck, and one-click integration into Ask Costivra AI preloaded with document context.
+- **Interactive Upload Analysis Flow**: Updated document upload workflow to show "Analyzing bill..." toast followed by "Bill Processed — View Analysis" toast with a direct action button triggering the global inspector modal.
+- **Malware Scanner Architecture**: Refactored `malware-scanner-core.ts` to eliminate `require("server-only")` workaround, fixing the ESLint `no-require-imports` error and ensuring static server boundary.
+- **Verification Gates**:
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm test -- --run`: ✅ PASS (81 test files passed, 283 unit tests passed, 0 failures)
+  - Git Commit: `79b7edd` -> `main`
+
+
 ## August 4, 2026 — Costivra AI chat icon concepts
 
 - Generated three custom, transparent-background Costivra AI chat icon concepts under `public/brand/ai-chat-concepts/`: Evidence Signal (record-linked conversation), Forensic Lens (record inspection), and Decision Circuit (evidence-to-action flow).
