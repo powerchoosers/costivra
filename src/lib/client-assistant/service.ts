@@ -6,8 +6,8 @@ import { hydrateAssistantBlocks } from "./block-hydrator";
 import { buildAssistantContext } from "./context-builder";
 import { describeNextContractExpiration, isNextContractExpirationQuestion } from "./contract-renewal";
 import type { AssistantBlockRequest, AssistantBlockV1, AssistantContextRef } from "./types";
-
 import { planDeterministicBlocks, mergeAndDedupeBlockRequests } from "./presentation-planner";
+import { categoryIntelligence } from "@/lib/category-intelligence/service";
 
 export interface ExecuteTurnInput {
   db: SupabaseClient;
@@ -118,7 +118,7 @@ export async function executeAssistantTurn(input: ExecuteTurnInput): Promise<Exe
     .limit(12);
   const priorMessages = [...(priorRaw ?? [])].reverse();
 
-  // 6. Build system prompt with bounded tenant context
+  // 6. Build system prompt with bounded tenant context and category expert intelligence
   const vendorSummary = boundedContext.recentVendors
     .map((v) => `${v.name}${v.category ? ` (${v.category})` : ""}: $${v.spend.toLocaleString()} annualized [id: ${v.id}]`)
     .join("\n");
@@ -132,6 +132,46 @@ export async function executeAssistantTurn(input: ExecuteTurnInput): Promise<Exe
     .map((contract) => `${contract.id}: ${contract.vendorName ? `${contract.vendorName} — ` : ""}${contract.title}; ends ${contract.endDate}${contract.noticeDeadline ? `; notice deadline ${contract.noticeDeadline}` : ""}${contract.autoRenews ? "; auto-renews" : ""}`)
     .join("\n");
 
+  // Resolve category expert context from the most prominent vendor/category in context
+  let categoryExpertSection = "";
+  try {
+    const primaryCategory = boundedContext.recentVendors.find((v) => v.category)?.category;
+    if (primaryCategory) {
+      const resolution = await categoryIntelligence.resolveCategory({ rawCategory: primaryCategory });
+      if (resolution.key !== "general-operating-expenses") {
+        const aiCtx = await categoryIntelligence.buildAiContext(resolution.key);
+        const lineItemNames = aiCtx.relevantLineItemDefinitions
+          .slice(0, 8)
+          .map((li) => `  - ${li.label} (${li.chargeClass}): ${li.meaning}`)
+          .join("\n");
+        const anomalyNames = aiCtx.billQualityRules
+          .filter((r) => r.severity !== "info")
+          .slice(0, 5)
+          .map((r) => `  - [${r.severity.toUpperCase()}] ${r.description}`)
+          .join("\n");
+        const caveats = aiCtx.requiredCaveats.map((c) => `  - ${c}`).join("\n");
+        categoryExpertSection = `
+CATEGORY EXPERT CONTEXT — ${aiCtx.category.displayName} (Pack v${aiCtx.category.expertPackVersion}):
+${aiCtx.systemInstruction}
+
+Known Line Item Types for This Category:
+${lineItemNames || "  - No line item definitions loaded."}
+
+Key Anomaly Rules:
+${anomalyNames || "  - No specific anomaly rules loaded."}
+
+Benchmark Requirements (required before citing any market rate):
+  - ${aiCtx.benchmarkRequirements.join(", ") || "Dimensions not specified"}
+
+Required Caveats (always include when discussing pricing or benchmarks):
+${caveats || "  - Apply general evidence-based caveats."}`;
+      }
+    }
+  } catch {
+    // Category intelligence failure must not break the assistant turn
+    categoryExpertSection = "";
+  }
+
   const systemPrompt = `You are Ask Costivra, a calm and precise AI financial-operations assistant for ${boundedContext.organizationName}.
 
 Doctrine (non-negotiable):
@@ -140,6 +180,10 @@ Doctrine (non-negotiable):
 - Return "I don't have enough information to answer that" when context is insufficient.
 - Never invent citations, record IDs, amounts, or dates not present in the context below.
 - The model cannot calculate authoritative amounts — request a block type instead.
+- AI interprets. Code calculates. Policies control. Humans authorize. Evidence proves.
+- "Verified" is a protected term. Do not label estimated savings as verified.
+- Unknown means unknown. State missing data plainly rather than approximating.
+${categoryExpertSection}
 
 ${boundedContext.currentViewContext ? `Current Context: ${boundedContext.currentViewContext}` : ""}
 ${attachmentIds.length > 0 ? `Attached Documents (${attachmentIds.length}): ${boundedContext.attachedDocuments.map((d) => d.filename).join(", ")}` : ""}
