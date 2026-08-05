@@ -78,6 +78,8 @@ export function RecordDangerDialog({
   requiredConfirmationText,
   customMessage,
 }: RecordDangerDialogProps) {
+  const resetKey = `${isOpen ? "open" : "closed"}:${mode}:${recordTitle}`;
+  const [previousResetKey, setPreviousResetKey] = useState(resetKey);
   const [typedInput, setTypedInput] = useState("");
   const [reason, setReason] = useState("");
   const [executing, setExecuting] = useState(false);
@@ -91,6 +93,14 @@ export function RecordDangerDialog({
   const descriptionId = useId();
   const confirmationId = useId();
   const reasonId = useId();
+
+  if (resetKey !== previousResetKey) {
+    setPreviousResetKey(resetKey);
+    setTypedInput("");
+    setReason("");
+    setError(null);
+    setExecuting(false);
+  }
 
   const previewIsRequired =
     requiresPreview ?? (mode === "remove" || mode === "permanent-delete");
@@ -133,10 +143,6 @@ export function RecordDangerDialog({
   useEffect(() => {
     if (!isOpen) return;
 
-    setTypedInput("");
-    setReason("");
-    setError(null);
-    setExecuting(false);
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
@@ -189,7 +195,7 @@ export function RecordDangerDialog({
       previousFocusRef.current?.focus();
       previousFocusRef.current = null;
     };
-  }, [isOpen, mode, recordTitle]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
