@@ -460,11 +460,18 @@ export function BillBreakdownModal({
                     <CircleHelp size={20} />
                     <div>
                       <strong>
-                        {titleCase(data.marketBenchmark.benchmarkStatus)}
+                        {data.marketBenchmark.benchmarkStatus === "insufficient_data"
+                          ? "Market comparison needs more detail"
+                          : data.marketBenchmark.benchmarkStatus === "quote_required"
+                          ? "Live quote required"
+                          : titleCase(data.marketBenchmark.benchmarkStatus)}
                       </strong>
                       <p>
-                        Costivra did not manufacture a market average or savings
-                        estimate from this invoice total.
+                        {data.marketBenchmark.benchmarkStatus === "insufficient_data"
+                          ? "Costivra needs the service specification, location, usage, contract term, and current comparable offers before estimating a market range."
+                          : data.marketBenchmark.benchmarkStatus === "quote_required"
+                          ? "Public benchmarks are not comparable enough for this service. Obtain current quotes using the same scope and commercial terms."
+                          : "Costivra did not manufacture a market average or savings estimate from this invoice total."}
                       </p>
                       {data.marketBenchmark.missingDimensions.length > 0 && (
                         <ul>

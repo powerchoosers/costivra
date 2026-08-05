@@ -1,5 +1,21 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Packet 03: Remove Fabricated Benchmarks & Add Honest Benchmark Contract
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Honest Benchmark & UI Improvements**:
+  - Confirmed all synthetic category multiplier ratios (e.g. 1.18, 1.12, 1.24, 1.08) and fake regional benchmark labels are absent from `benchmark-engine.ts`, breakdown route, and UI modal.
+  - Enforced single shared `BenchmarkResult` contract returning `status: "insufficient_data"`, `"quote_required"`, or `"unsupported"` with explicit `missingDimensions`, zero synthetic percentiles, and `null` annual savings when unsupported by dated, source-backed comparables.
+  - Updated `src/components/bill-breakdown-modal.tsx` to render explicit, honest status titles ("Market comparison needs more detail", "Live quote required") and explanation copy.
+  - Created `src/lib/category-intelligence/benchmark-honest.test.ts` with 6 unit tests proving non-synthetic variance protection across telecom, energy, and unknown categories.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (89 test files passed, 326 unit tests passed)
+  - `npm run test:integration`: ✅ PASS (3 integration test files passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
 ## August 5, 2026 — Category Intelligence Packet 02: Pack Registry and Unknown-Category Safety
 
 - **Branch**: `agent/category-intelligence-hardening`
