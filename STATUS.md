@@ -15,7 +15,9 @@
   - `npm run build`: ✅ PASS (41 routes)
 - **Not yet release-verified**:
   - Applied and verified the `category_research_runs` migration in the live Supabase project. The table has RLS enabled and intentionally has no browser policy; it is accessed only by trusted server code using the service role.
-  - Required live-source, authenticated E2E, production-smoke, persistent-evaluation-record, and release-threshold proof from Packets 09–10 is still outstanding. Treat the system as a supervised, draft foundation—not as fully verified production intelligence.
+  - Production smoke passed. Live Supabase integration passed (13 tests). Public browser E2E passed (10 tests; 6 intentional skips).
+  - The authenticated browser E2E currently fails after a successful password sign-in: the session reaches the customer route then redirects back to login during the access handoff. A speculative navigation change was tested and reverted because it stalled the flow. This is a release blocker for authenticated workflow proof.
+  - Persistent evaluation-record and release-threshold proof from Packets 09–10 is still outstanding. Treat the system as a supervised, draft foundation—not as fully verified production intelligence.
 
 ## August 5, 2026 — Category Intelligence Packets 06–07: Research Cache Foundation and Core Pack Hardening (In Progress)
 
