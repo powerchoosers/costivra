@@ -30,6 +30,23 @@ const GENERIC_ALIASES = new Set([
   "adjustment",
 ]);
 
+const NON_DISTINCTIVE_TOKENS = new Set([
+  "a",
+  "an",
+  "and",
+  "base",
+  "charge",
+  "charges",
+  "fee",
+  "fees",
+  "monthly",
+  "of",
+  "per",
+  "service",
+  "services",
+  "the",
+]);
+
 function normalizePhrase(value: string): string {
   return (value || "")
     .toLowerCase()
@@ -39,6 +56,15 @@ function normalizePhrase(value: string): string {
     .trim();
 }
 
+function significantTokens(value: string): string[] {
+  return normalizePhrase(value)
+    .split(" ")
+    .filter(
+      (token) =>
+        token.length >= 2 && !NON_DISTINCTIVE_TOKENS.has(token),
+    );
+}
+
 function scoreAlias(description: string, alias: string): number {
   if (!alias || GENERIC_ALIASES.has(alias)) return 0;
   if (description === alias) return 0.99;
@@ -46,6 +72,16 @@ function scoreAlias(description: string, alias: string): number {
     return 0.95;
   }
   if (alias.length >= 5 && description.includes(alias)) return 0.9;
+
+  const descriptionTokens = new Set(significantTokens(description));
+  const aliasTokens = significantTokens(alias);
+  if (
+    aliasTokens.length >= 2 &&
+    aliasTokens.every((token) => descriptionTokens.has(token))
+  ) {
+    return 0.88;
+  }
+
   return 0;
 }
 
