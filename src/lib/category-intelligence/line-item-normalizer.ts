@@ -1,4 +1,9 @@
-import { ChargeClass, NormalizedLineItem } from "./types";
+import type {
+  CategoryLineItemDefinition,
+  ChargeClass,
+  NormalizedLineItem,
+} from "./types";
+import { getExpertPack, hasDedicatedExpertPack } from "./packs";
 
 export type RawLineItem = {
   id?: string;
@@ -8,108 +13,229 @@ export type RawLineItem = {
   unitPrice?: number;
 };
 
+type DefinitionMatch = {
+  definition: CategoryLineItemDefinition;
+  alias: string;
+  score: number;
+};
+
+const GENERIC_ALIASES = new Set([
+  "charge",
+  "fee",
+  "service",
+  "monthly charge",
+  "monthly fee",
+  "tax",
+  "credit",
+  "adjustment",
+]);
+
+const NON_DISTINCTIVE_TOKENS = new Set([
+  "a",
+  "an",
+  "and",
+  "base",
+  "charge",
+  "charges",
+  "fee",
+  "fees",
+  "monthly",
+  "of",
+  "per",
+  "service",
+  "services",
+  "the",
+]);
+
+function normalizePhrase(value: string): string {
+  return (value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9%+./\s-]/g, " ")
+    .replace(/[_/\s-]+/g, " ")
+    .trim();
+}
+
+function significantTokens(value: string): string[] {
+  return normalizePhrase(value)
+    .split(" ")
+    .filter(
+      (token) =>
+        token.length >= 2 && !NON_DISTINCTIVE_TOKENS.has(token),
+    );
+}
+
+function scoreAlias(description: string, alias: string): number {
+  if (!alias || GENERIC_ALIASES.has(alias)) return 0;
+  if (description === alias) return 0.99;
+  if (description.startsWith(`${alias} `) || description.endsWith(` ${alias}`)) {
+    return 0.95;
+  }
+  if (alias.length >= 5 && description.includes(alias)) return 0.9;
+
+  const descriptionTokens = new Set(significantTokens(description));
+  const aliasTokens = significantTokens(alias);
+  if (
+    aliasTokens.length >= 2 &&
+    aliasTokens.every((token) => descriptionTokens.has(token))
+  ) {
+    return 0.88;
+  }
+
+  return 0;
+}
+
+function findPackMatch(
+  description: string,
+  definitions: CategoryLineItemDefinition[],
+): DefinitionMatch | null {
+  const normalizedDescription = normalizePhrase(description);
+  if (!normalizedDescription) return null;
+
+  const matches: DefinitionMatch[] = [];
+  for (const definition of definitions) {
+    const candidates = [definition.label, ...definition.aliases];
+    for (const candidate of candidates) {
+      const normalizedAlias = normalizePhrase(candidate);
+      const score = scoreAlias(normalizedDescription, normalizedAlias);
+      if (score > 0) {
+        matches.push({ definition, alias: candidate, score });
+      }
+    }
+  }
+
+  matches.sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score;
+    return normalizePhrase(right.alias).length - normalizePhrase(left.alias).length;
+  });
+
+  return matches[0] ?? null;
+}
+
+function explicitGeneralClassification(item: RawLineItem): {
+  canonicalCode: string;
+  label: string;
+  chargeClass: ChargeClass;
+  explanation: string;
+  confidence: number;
+  matchedAlias: string;
+} | null {
+  const description = normalizePhrase(item.description);
+
+  if (
+    /\b(sales tax|state tax|local tax|vat|gst)\b/.test(description) ||
+    description === "tax"
+  ) {
+    return {
+      canonicalCode: "GEN-TAX-01",
+      label: "Tax",
+      chargeClass: "tax",
+      explanation:
+        "A tax line explicitly identified on the source document. The applicable tax base and exemption still require jurisdiction and contract review.",
+      confidence: 0.96,
+      matchedAlias: "explicit tax label",
+    };
+  }
+
+  if (
+    item.amount < 0 ||
+    /\b(refund|bill credit|service credit|promotional credit|rebate)\b/.test(
+      description,
+    )
+  ) {
+    return {
+      canonicalCode: "GEN-CREDIT-01",
+      label: "Credit or Refund",
+      chargeClass: "credit",
+      explanation:
+        "A negative amount or explicitly labeled credit. Confirm the covered period and whether the credit fully resolves the underlying issue.",
+      confidence: item.amount < 0 ? 0.98 : 0.92,
+      matchedAlias: item.amount < 0 ? "negative amount" : "explicit credit label",
+    };
+  }
+
+  return null;
+}
+
 /**
- * Normalizes raw invoice line items into structured ontology mappings.
- * @param items Raw line items from invoice extraction
- * @param categoryKey Optional resolved category key for category-specific classification
+ * Normalizes invoice line items using only the selected category pack.
+ *
+ * Cross-market keyword rules are intentionally prohibited. An "access fee" is
+ * not automatically telecom, and a "class code" is not automatically workers
+ * compensation unless the selected, supported category pack defines it.
  */
 export function normalizeLineItems(
   items: RawLineItem[],
-  categoryKey?: string
+  categoryKey?: string,
 ): NormalizedLineItem[] {
-  // categoryKey is available for future category-specific classification logic
-  void categoryKey;
+  const pack = getExpertPack(categoryKey || "general-operating-expenses");
+  const hasDedicatedPack = hasDedicatedExpertPack(pack.categoryKey);
 
   return items.map((item) => {
-    const desc = (item.description || "").trim();
-    const lower = desc.toLowerCase();
+    const description = (item.description || "").trim();
+    const general = explicitGeneralClassification(item);
+    const packMatch = hasDedicatedPack
+      ? findPackMatch(description, pack.lineItems)
+      : null;
 
-    let canonicalCode: string | null = null;
-    let label = desc;
-    let chargeClass: ChargeClass = "fixed";
-    let explanation = "Standard fixed line item charge.";
-    let confidence = 0.85;
+    if (packMatch) {
+      const confidence =
+        pack.status === "verified"
+          ? packMatch.score
+          : Math.min(packMatch.score, 0.79);
 
-    if (lower.includes("tax") || lower.includes("sales tax") || lower.includes("vat") || lower.includes("gst")) {
-      canonicalCode = "TAX-ST-01";
-      label = "Sales & Local Tax";
-      chargeClass = "tax";
-      explanation = "Government-mandated sales or local tax pass-through.";
-      confidence = 0.98;
-    } else if (lower.includes("kwh") || lower.includes("energy charge") || lower.includes("generation charge")) {
-      canonicalCode = "ELEC-ENG-01";
-      label = "Electricity Generation / Supply Charge";
-      chargeClass = "usage";
-      explanation = "Volumetric energy supply charge billed per kilowatt-hour (kWh).";
-      confidence = 0.95;
-    } else if (lower.includes("kw demand") || lower.includes("peak demand") || lower.includes("demand charge")) {
-      canonicalCode = "ELEC-DEM-01";
-      label = "Peak Demand Charge";
-      chargeClass = "demand";
-      explanation = "Peak capacity demand fee measured in kilowatts (kW) during billing cycle peak.";
-      confidence = 0.95;
-    } else if (lower.includes("therm") || lower.includes("mcf") || lower.includes("gas supply")) {
-      canonicalCode = "GAS-VOL-01";
-      label = "Natural Gas Volumetric Supply";
-      chargeClass = "usage";
-      explanation = "Volumetric natural gas supply charge billed per Therm or MCF.";
-      confidence = 0.95;
-    } else if (lower.includes("circuit") || lower.includes("local loop") || lower.includes("access fee")) {
-      canonicalCode = "TEL-ACC-01";
-      label = "Broadband / Circuit Access Loop";
-      chargeClass = "fixed";
-      explanation = "Dedicated physical transport access circuit fee from local carrier.";
-      confidence = 0.92;
-    } else if (lower.includes("usf") || lower.includes("universal service") || lower.includes("regulatory recovery")) {
-      canonicalCode = "TEL-REG-01";
-      label = "Universal Service Fund / Regulatory Surcharge";
-      chargeClass = "surcharge";
-      explanation = "Regulatory recovery surcharge assessed on interstate telecom services.";
-      confidence = 0.95;
-    } else if (lower.includes("seat") || lower.includes("user license") || lower.includes("per user")) {
-      canonicalCode = "SAAS-LIC-01";
-      label = "SaaS User License Subscription";
-      chargeClass = "fixed";
-      explanation = "Per-user active software subscription seat tier.";
-      confidence = 0.94;
-    } else if (lower.includes("compute") || lower.includes("ec2") || lower.includes("instance hour")) {
-      canonicalCode = "CLOUD-CMP-01";
-      label = "Cloud Compute Virtual Instance Hours";
-      chargeClass = "usage";
-      explanation = "On-demand or committed cloud compute instance utilization.";
-      confidence = 0.94;
-    } else if (lower.includes("workers comp") || lower.includes("class code")) {
-      canonicalCode = "INS-WC-01";
-      label = "Workers Compensation Payroll Premium";
-      chargeClass = "fixed";
-      explanation = "State-governed payroll premium rate based on assigned class code.";
-      confidence = 0.96;
-    } else if (lower.includes("discount") || lower.includes("credit") || lower.includes("rebate")) {
-      canonicalCode = "ADJ-CRD-01";
-      label = "Contract Discount / Promotional Credit";
-      chargeClass = "credit";
-      explanation = "Contractual rate adjustment or promotional bill credit.";
-      confidence = 0.95;
-    } else if (item.amount < 0) {
-      canonicalCode = "ADJ-CRD-01";
-      label = "Bill Adjustment Credit";
-      chargeClass = "credit";
-      explanation = "Negative adjustment or account balance credit.";
-      confidence = 0.90;
+      return {
+        lineItemId: item.id,
+        originalDescription: description,
+        canonicalCode: packMatch.definition.canonicalCode,
+        label: packMatch.definition.label,
+        chargeClass: packMatch.definition.chargeClass,
+        explanation: packMatch.definition.meaning,
+        confidence,
+        unit: packMatch.definition.units[0],
+        amount: item.amount,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        evidenceIds: [],
+        reviewRequired: pack.status !== "verified" || confidence < 0.9,
+        matchedAlias: packMatch.alias,
+      };
+    }
+
+    if (general) {
+      return {
+        lineItemId: item.id,
+        originalDescription: description,
+        canonicalCode: general.canonicalCode,
+        label: general.label,
+        chargeClass: general.chargeClass,
+        explanation: general.explanation,
+        confidence: general.confidence,
+        amount: item.amount,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        evidenceIds: [],
+        reviewRequired: general.chargeClass === "tax",
+        matchedAlias: general.matchedAlias,
+      };
     }
 
     return {
       lineItemId: item.id,
-      originalDescription: desc,
-      canonicalCode,
-      label,
-      chargeClass,
-      explanation,
-      confidence,
+      originalDescription: description,
+      canonicalCode: null,
+      label: description || "Unclassified line item",
+      chargeClass: "unknown",
+      explanation: hasDedicatedPack
+        ? `This line item did not match the ${pack.displayName} ontology with enough confidence.`
+        : `Costivra does not yet have a reviewed ontology for ${pack.displayName}.`,
+      confidence: 0,
       amount: item.amount,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       evidenceIds: [],
+      reviewRequired: true,
+      matchedAlias: null,
     };
   });
 }

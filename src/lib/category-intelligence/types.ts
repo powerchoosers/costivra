@@ -166,6 +166,8 @@ export type NormalizedLineItem = {
   quantity?: number;
   unitPrice?: number;
   evidenceIds: string[];
+  reviewRequired: boolean;
+  matchedAlias: string | null;
 };
 
 export type CategoryFinding = {
@@ -293,6 +295,7 @@ export type CategoryAiContext = {
     parentKey: string;
     confidence: number;
     expertPackVersion: string;
+    packStatus: CategoryExpertPackV1["status"];
   };
   relevantLineItemDefinitions: CategoryLineItemDefinition[];
   billQualityRules: RuleDefinition[];
