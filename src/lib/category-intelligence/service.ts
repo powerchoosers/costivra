@@ -1,4 +1,4 @@
-import {
+import type {
   AnalyzeBillInput,
   BenchmarkInput,
   BenchmarkResult,
@@ -12,12 +12,19 @@ import {
   ResolveCategoryInput,
 } from "./types";
 import { resolveCategory } from "./category-resolver";
-import { normalizeLineItems, RawLineItem } from "./line-item-normalizer";
+import { normalizeLineItems, type RawLineItem } from "./line-item-normalizer";
 import { analyzeBillQuality } from "./bill-quality";
 import { evaluateMarketBenchmark } from "./benchmark-engine";
 import { performMarketResearch } from "./current-market-research";
 import { buildCategoryAiContext } from "./context-builder";
 import { getExpertPack } from "./packs";
+
+type BuildAiContextOptions = {
+  includeCurrentResearch?: boolean;
+  query?: string;
+  jurisdiction?: string;
+  vendorName?: string;
+};
 
 export class CategoryIntelligenceService {
   async resolveCategory(input: ResolveCategoryInput): Promise<CategoryResolution> {
@@ -28,7 +35,10 @@ export class CategoryIntelligenceService {
     return getExpertPack(categoryKey);
   }
 
-  async normalizeLineItems(items: RawLineItem[], categoryKey?: string): Promise<NormalizedLineItem[]> {
+  async normalizeLineItems(
+    items: RawLineItem[],
+    categoryKey?: string,
+  ): Promise<NormalizedLineItem[]> {
     return normalizeLineItems(items, categoryKey);
   }
 
@@ -40,13 +50,30 @@ export class CategoryIntelligenceService {
     return evaluateMarketBenchmark(input);
   }
 
-  async researchCurrentMarket(input: MarketResearchInput): Promise<MarketResearchResult> {
+  async researchCurrentMarket(
+    input: MarketResearchInput,
+  ): Promise<MarketResearchResult> {
     return performMarketResearch(input);
   }
 
-  async buildAiContext(categoryKey: string): Promise<CategoryAiContext> {
+  async buildAiContext(
+    categoryKey: string,
+    options: BuildAiContextOptions = {},
+  ): Promise<CategoryAiContext> {
     const pack = await this.loadExpertPack(categoryKey);
-    const research = await this.researchCurrentMarket({ categoryKey, query: pack.displayName });
+    const research = options.includeCurrentResearch
+      ? await this.researchCurrentMarket({
+          categoryKey: pack.categoryKey,
+          query: options.query?.trim() || pack.displayName,
+          jurisdiction: options.jurisdiction,
+          vendorName: options.vendorName,
+        })
+      : {
+          facts: [],
+          freshness: "unverified" as const,
+          searchPerformed: false,
+        };
+
     return buildCategoryAiContext(pack, research.facts);
   }
 }
