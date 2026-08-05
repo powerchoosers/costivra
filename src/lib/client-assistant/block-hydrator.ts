@@ -56,6 +56,15 @@ type DocRow = {
   extraction_summary: string | null;
 };
 
+type ContractRow = {
+  id: string;
+  title: string | null;
+  end_date: string | null;
+  notice_deadline: string | null;
+  auto_renews: boolean | null;
+  organization_vendors: { vendors: { canonical_name: string } | null } | null;
+};
+
 /**
  * Hydrates block requests into authoritative versioned AssistantBlockV1 payloads.
  * Strictly verifies that all requested record IDs belong to the authenticated organization.
@@ -72,15 +81,44 @@ export async function hydrateAssistantBlocks(
   requests: AssistantBlockRequest[],
 ): Promise<AssistantBlockV1[]> {
   const blocks: AssistantBlockV1[] = [];
-
-  // Enforce maximum blocks to prevent model abuse
   const bounded = requests.slice(0, 5);
 
   for (const req of bounded) {
     try {
       switch (req.type) {
+        case "spend_overview": {
+          const { data } = await db
+            .from("organization_vendors")
+            .select("id, annualized_spend, vendors(canonical_name, category)")
+            .eq("organization_id", organizationId)
+            .order("annualized_spend", { ascending: false })
+            .limit(5);
+
+          const rels = (data ?? []) as unknown as VendorRelRow[];
+          const totalSpend = rels.reduce((acc, r) => acc + (r.annualized_spend ?? 0), 0);
+          const topVendors = rels.map((r) => ({
+            vendorRelationshipId: r.id,
+            name: r.vendors?.canonical_name ?? "Vendor",
+            category: r.vendors?.category ?? "General",
+            annualizedSpend: r.annualized_spend ?? 0,
+            href: `/app/vendors/${r.id}`,
+          }));
+
+          blocks.push({
+            id: `soverview-${organizationId}`,
+            type: "spend_overview",
+            payload: {
+              annualizedSpend: totalSpend,
+              currency: "USD",
+              vendorCount: rels.length,
+              topVendors,
+              href: "/app/vendors",
+            },
+          });
+          break;
+        }
+
         case "invoice_summary": {
-          // Single literal select string required for Supabase TypeScript inference
           const { data } = await db
             .from("invoices")
             .select("id, invoice_number, invoice_date, due_date, total_amount, currency, review_status, vendor_match_status, reconciliation_status, document_id, organization_vendor_id, organization_vendors(vendors(canonical_name)), documents(original_filename)")
@@ -90,8 +128,7 @@ export async function hydrateAssistantBlocks(
 
           const inv = data as unknown as InvoiceRow | null;
           if (inv) {
-            const vendorName =
-              inv.organization_vendors?.vendors?.canonical_name ?? null;
+            const vendorName = inv.organization_vendors?.vendors?.canonical_name ?? null;
 
             blocks.push({
               id: `inv-${inv.id}`,
@@ -148,8 +185,7 @@ export async function hydrateAssistantBlocks(
                 }
               }
 
-              const vendorName =
-                first.organization_vendors?.vendors?.canonical_name ?? null;
+              const vendorName = first.organization_vendors?.vendors?.canonical_name ?? null;
 
               blocks.push({
                 id: `comp-${first.id}-${second.id}`,
@@ -170,6 +206,7 @@ export async function hydrateAssistantBlocks(
                   differenceAmount: diffCents != null ? diffCents / 100 : null,
                   percentageChange: pctChange != null ? Math.round(pctChange * 10) / 10 : null,
                   vendorName,
+                  href: `/app/documents/${second.id}`,
                 },
               });
             }
@@ -178,7 +215,6 @@ export async function hydrateAssistantBlocks(
         }
 
         case "vendor_summary": {
-          // vendors has canonical_name, not name
           const { data } = await db
             .from("organization_vendors")
             .select("id, relationship_status, annualized_spend, vendors(id, canonical_name, category, website, catalog_status, logo_url)")
@@ -209,8 +245,98 @@ export async function hydrateAssistantBlocks(
           break;
         }
 
+        case "spend_trend": {
+          const { data } = await db
+            .from("invoices")
+            .select("id, total_amount, invoice_date, organization_vendors(vendors(canonical_name))")
+            .eq("organization_id", organizationId)
+            .order("invoice_date", { ascending: false })
+            .limit(6);
+
+          const invoices = (data ?? []) as unknown as InvoiceRow[];
+          const periods = invoices.map((inv) => ({
+            label: inv.invoice_date ? inv.invoice_date.slice(0, 7) : "Period",
+            amount: inv.total_amount ?? 0,
+          })).reverse();
+
+          const total = periods.reduce((sum, p) => sum + p.amount, 0);
+          const average = periods.length > 0 ? Math.round(total / periods.length) : 0;
+
+          blocks.push({
+            id: `strend-${organizationId}`,
+            type: "spend_trend",
+            payload: {
+              scopeLabel: "Recent Spend Trend",
+              currency: "USD",
+              total,
+              average,
+              changePercent: null,
+              periods,
+              href: "/app/vendors",
+            },
+          });
+          break;
+        }
+
+        case "vendor_candidate": {
+          const { data } = await db
+            .from("organization_vendors")
+            .select("id, relationship_status, vendors(id, canonical_name, category, catalog_status)")
+            .eq("id", req.organizationVendorId)
+            .eq("organization_id", organizationId)
+            .maybeSingle();
+
+          const rel = data as unknown as VendorRelRow | null;
+          if (rel && rel.vendors) {
+            blocks.push({
+              id: `vcand-${rel.id}`,
+              type: "vendor_candidate",
+              payload: {
+                vendorId: rel.vendors.id,
+                organizationVendorId: rel.id,
+                canonicalName: rel.vendors.canonical_name,
+                category: rel.vendors.category ?? "General",
+                domain: null,
+                confidence: 88,
+                reviewRequired: true,
+                href: `/app/vendors/${rel.id}`,
+              },
+            });
+          }
+          break;
+        }
+
+        case "renewal_timeline": {
+          const { data } = await db
+            .from("contracts")
+            .select("id, title, end_date, notice_deadline, auto_renews, organization_vendors(vendors(canonical_name))")
+            .eq("organization_id", organizationId)
+            .order("end_date", { ascending: true })
+            .limit(5);
+
+          const contracts = (data ?? []) as unknown as ContractRow[];
+          const contractList = contracts.map((c) => ({
+            contractId: c.id,
+            vendorName: c.organization_vendors?.vendors?.canonical_name ?? null,
+            contractName: c.title ?? "Contract",
+            endDate: c.end_date ?? "Unknown",
+            noticeDeadline: c.notice_deadline ?? null,
+            autoRenewal: Boolean(c.auto_renews),
+            href: `/app/contracts/${c.id}`,
+          }));
+
+          blocks.push({
+            id: `rtimeline-${organizationId}`,
+            type: "renewal_timeline",
+            payload: {
+              contracts: contractList,
+              href: "/app/contracts",
+            },
+          });
+          break;
+        }
+
         case "opportunity": {
-          // Use estimated_annual_value — no estimated_annual_savings column
           const { data } = await db
             .from("opportunities")
             .select("id, title, status, priority, confidence, estimated_annual_value, estimated_one_time_value, category")
@@ -239,8 +365,68 @@ export async function hydrateAssistantBlocks(
           break;
         }
 
+        case "savings_summary": {
+          const { data } = await db
+            .from("opportunities")
+            .select("id, title, estimated_annual_value, category")
+            .eq("organization_id", organizationId)
+            .eq("status", "implemented")
+            .limit(5);
+
+          const opps = (data ?? []) as unknown as OppRow[];
+          const totalVerified = opps.reduce((sum, o) => sum + (o.estimated_annual_value ?? 0), 0);
+          const outcomes = opps.map((o) => ({
+            savingsId: o.id,
+            title: o.title,
+            category: o.category ?? "General",
+            amount: o.estimated_annual_value ?? 0,
+            href: `/app/opportunities/${o.id}`,
+          }));
+
+          blocks.push({
+            id: `ssummary-${organizationId}`,
+            type: "savings_summary",
+            payload: {
+              totalVerifiedValue: totalVerified,
+              currency: "USD",
+              outcomeCount: outcomes.length,
+              outcomes,
+              href: "/app/opportunities",
+            },
+          });
+          break;
+        }
+
+        case "approval_queue": {
+          const { data } = await db
+            .from("opportunities")
+            .select("id, title, estimated_annual_value, status")
+            .eq("organization_id", organizationId)
+            .eq("status", "pending_review")
+            .limit(5);
+
+          const opps = (data ?? []) as unknown as OppRow[];
+          const actions = opps.map((o) => ({
+            actionId: o.id,
+            title: o.title,
+            actionType: "Review Opportunity",
+            annualValue: o.estimated_annual_value ?? 0,
+            status: o.status,
+            href: `/app/opportunities/${o.id}`,
+          }));
+
+          blocks.push({
+            id: `aqueue-${organizationId}`,
+            type: "approval_queue",
+            payload: {
+              actions,
+              href: "/app/approvals",
+            },
+          });
+          break;
+        }
+
         case "document_ingestion": {
-          // Use extraction_summary — no summary or confidence column on documents
           const { data } = await db
             .from("documents")
             .select("id, original_filename, mime_type, byte_size, status, extraction_summary")
@@ -267,6 +453,35 @@ export async function hydrateAssistantBlocks(
           break;
         }
 
+        case "evidence_list": {
+          const { data } = await db
+            .from("documents")
+            .select("id, original_filename, extraction_summary")
+            .eq("organization_id", organizationId)
+            .not("extraction_summary", "is", null)
+            .limit(5);
+
+          const docs = (data ?? []) as unknown as DocRow[];
+          const items = docs.map((d) => ({
+            evidenceId: d.id,
+            title: d.original_filename,
+            sourceType: "Invoice Document",
+            excerpt: d.extraction_summary ?? "Document excerpt",
+            pageNumber: 1,
+            href: `/app/documents/${d.id}`,
+          }));
+
+          blocks.push({
+            id: `elist-${organizationId}`,
+            type: "evidence_list",
+            payload: {
+              items,
+              href: "/app/documents",
+            },
+          });
+          break;
+        }
+
         case "notice": {
           blocks.push({
             id: `notice-${req.code}`,
@@ -282,7 +497,6 @@ export async function hydrateAssistantBlocks(
         }
       }
     } catch (err) {
-      // Log server-side; do not surface internals to the client
       console.error("[block-hydrator] Failed to hydrate block:", req.type, err);
     }
   }

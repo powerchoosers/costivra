@@ -38,17 +38,19 @@ export type ClientCitation = {
 };
 
 export type AssistantBlockRequest =
+  | { type: "spend_overview"; vendorRelationshipIds?: string[] }
   | { type: "invoice_summary"; invoiceId: string }
   | { type: "invoice_comparison"; invoiceIds: [string, string] }
   | { type: "vendor_summary"; vendorRelationshipId: string }
-  | { type: "spend_trend"; vendorRelationshipId?: string; category?: string }
-  | { type: "renewal_timeline"; contractIds: string[] }
+  | { type: "spend_trend"; vendorRelationshipId?: string; category?: string; periodCount?: number }
+  | { type: "renewal_timeline"; contractIds?: string[] }
   | { type: "opportunity"; opportunityId: string }
-  | { type: "approval_queue"; actionIds: string[] }
+  | { type: "savings_summary"; savingsIds?: string[] }
+  | { type: "approval_queue"; actionIds?: string[] }
   | { type: "document_ingestion"; documentId: string }
-  | { type: "vendor_candidate"; vendorId: string; organizationVendorId: string }
-  | { type: "evidence_list"; evidenceIds: string[] }
-  | { type: "notice"; severity: "info" | "warning" | "error"; code: string; title: string; message: string };
+  | { type: "vendor_candidate"; vendorId?: string; organizationVendorId: string }
+  | { type: "evidence_list"; evidenceIds?: string[] }
+  | { type: "notice"; severity: "info" | "warning" | "error" | "success"; code: string; title: string; message: string };
 
 export type AssistantBlockV1 = {
   id: string;

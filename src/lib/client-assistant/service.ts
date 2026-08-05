@@ -7,6 +7,8 @@ import { buildAssistantContext } from "./context-builder";
 import { describeNextContractExpiration, isNextContractExpirationQuestion } from "./contract-renewal";
 import type { AssistantBlockRequest, AssistantBlockV1, AssistantContextRef } from "./types";
 
+import { planDeterministicBlocks, mergeAndDedupeBlockRequests } from "./presentation-planner";
+
 export interface ExecuteTurnInput {
   db: SupabaseClient;
   organizationId: string;
@@ -107,7 +109,6 @@ export async function executeAssistantTurn(input: ExecuteTurnInput): Promise<Exe
   );
 
   // 5. Fetch bounded prior turns — newest 12, then reverse to chronological order
-  //    Only include complete messages to avoid failed/pending content as truth
   const { data: priorRaw } = await db
     .from("chat_messages")
     .select("role, content, created_at")
@@ -119,13 +120,13 @@ export async function executeAssistantTurn(input: ExecuteTurnInput): Promise<Exe
 
   // 6. Build system prompt with bounded tenant context
   const vendorSummary = boundedContext.recentVendors
-    .map((v) => `${v.name}${v.category ? ` (${v.category})` : ""}: $${v.spend.toLocaleString()} annualized`)
+    .map((v) => `${v.name}${v.category ? ` (${v.category})` : ""}: $${v.spend.toLocaleString()} annualized [id: ${v.id}]`)
     .join("\n");
   const invoiceSummary = boundedContext.recentInvoices
-    .map((i) => `${i.vendorName ?? "Unknown vendor"} — $${i.amount} on ${i.date} [${i.status}]`)
+    .map((i) => `${i.vendorName ?? "Unknown vendor"} — $${i.amount} on ${i.date} [${i.status}] [id: ${i.id}]`)
     .join("\n");
   const oppSummary = boundedContext.openOpportunities
-    .map((o) => `${o.title}: ~$${o.estimatedAnnualValue.toLocaleString()}/yr [${o.status}]`)
+    .map((o) => `${o.title}: ~$${o.estimatedAnnualValue.toLocaleString()}/yr [${o.status}] [id: ${o.id}]`)
     .join("\n");
   const contractSummary = boundedContext.upcomingContracts
     .map((contract) => `${contract.id}: ${contract.vendorName ? `${contract.vendorName} — ` : ""}${contract.title}; ends ${contract.endDate}${contract.noticeDeadline ? `; notice deadline ${contract.noticeDeadline}` : ""}${contract.autoRenews ? "; auto-renews" : ""}`)
@@ -173,10 +174,16 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
     { role: "user" as const, content: prompt },
   ];
 
-  // 7. Answer the most common deadline question with deterministic code. The model may explain
-  // records, but it must not decide which date is next or invent an expiration date.
+  // 7. Deterministically plan blocks and combine with model suggestions
+  const deterministicBlocks = planDeterministicBlocks({
+    prompt,
+    context: boundedContext,
+    contextRef,
+    attachmentIds: authorizedDocIds,
+  });
+
   let responseText = "";
-  let blockRequests: AssistantBlockRequest[] = [];
+  let modelRequestedBlocks: AssistantBlockRequest[] = [];
   let aiError: string | null = null;
   const nextContractAnswer = isNextContractExpirationQuestion(prompt)
     ? describeNextContractExpiration(boundedContext.upcomingContracts)
@@ -200,26 +207,29 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
       responseText = aiJson.answer;
     }
     if (Array.isArray(aiJson?.blockRequests)) {
-      // Enforce maximum and only allow known block types
       const allowedTypes = new Set([
-        "invoice_summary", "invoice_comparison", "vendor_summary",
-        "spend_trend", "renewal_timeline", "opportunity",
+        "spend_overview", "invoice_summary", "invoice_comparison", "vendor_summary",
+        "spend_trend", "renewal_timeline", "opportunity", "savings_summary",
         "approval_queue", "document_ingestion", "vendor_candidate",
         "evidence_list", "notice",
       ]);
-      blockRequests = (aiJson.blockRequests as AssistantBlockRequest[])
-        .filter((r) => allowedTypes.has(r.type))
-        .slice(0, 5);
+      modelRequestedBlocks = (aiJson.blockRequests as AssistantBlockRequest[])
+        .filter((r) => allowedTypes.has(r.type));
     }
   } catch (err) {
-    // Provider failure — do NOT claim analysis occurred
     console.error("[assistant-service] AI provider error:", err);
     aiError = "provider_error";
     responseText = "Ask Costivra could not complete that analysis right now. Your message and attachments are saved. Please try again in a moment.";
   }
 
-  // 7. Hydrate response blocks via code calculation
-  const hydratedBlocks = await hydrateAssistantBlocks(db, organizationId, blockRequests);
+  const finalBlockRequests = mergeAndDedupeBlockRequests(
+    deterministicBlocks,
+    modelRequestedBlocks,
+    5,
+  );
+
+  // Hydrate response blocks via code calculation
+  const hydratedBlocks = await hydrateAssistantBlocks(db, organizationId, finalBlockRequests);
 
   // 8. Save user message in DB
   const { data: userMsg, error: uErr } = await db

@@ -1,12 +1,18 @@
 "use client";
 
-import { createContext, useContext, useReducer, ReactNode, useCallback } from "react";
+import { createContext, useContext, useReducer, ReactNode, useCallback, useEffect } from "react";
 import type { AssistantMode, AssistantContextRef, ChatSessionSummary, ClientChatMessage, ClientAssistantAttachment } from "@/lib/client-assistant/types";
+
+export type AssistantPhase = "closed" | "opening" | "open" | "transitioning" | "closing";
 
 type AssistantState = {
   mode: AssistantMode;
+  phase: AssistantPhase;
   activeSessionId: string | null;
   historyOpen: boolean;
+  fullscreenHistoryCollapsed: boolean;
+  selectedBlockId: string | null;
+  inspectorOpen: boolean;
   sessions: ChatSessionSummary[];
   messages: ClientChatMessage[];
   currentContext: AssistantContextRef | null;
@@ -18,7 +24,12 @@ type AssistantState = {
 
 type AssistantAction =
   | { type: "SET_MODE"; mode: AssistantMode }
+  | { type: "SET_PHASE"; phase: AssistantPhase }
   | { type: "TOGGLE_HISTORY" }
+  | { type: "TOGGLE_FULLSCREEN_HISTORY" }
+  | { type: "SET_FULLSCREEN_HISTORY"; collapsed: boolean }
+  | { type: "OPEN_INSPECTOR"; blockId: string }
+  | { type: "CLOSE_INSPECTOR" }
   | { type: "SET_SESSIONS"; sessions: ChatSessionSummary[] }
   | { type: "SET_ACTIVE_SESSION"; sessionId: string | null }
   | { type: "SET_MESSAGES"; messages: ClientChatMessage[] }
@@ -34,8 +45,12 @@ type AssistantAction =
 
 const initialState: AssistantState = {
   mode: "closed",
+  phase: "closed",
   activeSessionId: null,
   historyOpen: false,
+  fullscreenHistoryCollapsed: false,
+  selectedBlockId: null,
+  inspectorOpen: false,
   sessions: [],
   messages: [],
   currentContext: null,
@@ -48,9 +63,30 @@ const initialState: AssistantState = {
 function assistantReducer(state: AssistantState, action: AssistantAction): AssistantState {
   switch (action.type) {
     case "SET_MODE":
-      return { ...state, mode: action.mode };
+      return {
+        ...state,
+        mode: action.mode,
+        phase: action.mode === "closed" ? "closed" : "open",
+      };
+    case "SET_PHASE":
+      return { ...state, phase: action.phase };
     case "TOGGLE_HISTORY":
       return { ...state, historyOpen: !state.historyOpen };
+    case "TOGGLE_FULLSCREEN_HISTORY": {
+      const next = !state.fullscreenHistoryCollapsed;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("costivra.chat.fullscreenHistoryCollapsed", String(next));
+        } catch {}
+      }
+      return { ...state, fullscreenHistoryCollapsed: next };
+    }
+    case "SET_FULLSCREEN_HISTORY":
+      return { ...state, fullscreenHistoryCollapsed: action.collapsed };
+    case "OPEN_INSPECTOR":
+      return { ...state, selectedBlockId: action.blockId, inspectorOpen: true };
+    case "CLOSE_INSPECTOR":
+      return { ...state, selectedBlockId: null, inspectorOpen: false };
     case "SET_SESSIONS":
       return { ...state, sessions: action.sessions };
     case "SET_ACTIVE_SESSION":
@@ -99,6 +135,9 @@ type ContextValue = {
   openFullscreen: () => void;
   closeAssistant: () => void;
   toggleHistory: () => void;
+  toggleFullscreenHistory: () => void;
+  openInspector: (blockId: string) => void;
+  closeInspector: () => void;
   selectSession: (id: string | null) => Promise<void>;
   createSession: () => void;
   sendMessage: (text: string) => Promise<void>;
@@ -111,6 +150,20 @@ const ClientAssistantContext = createContext<ContextValue | null>(null);
 
 export function ClientAssistantProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(assistantReducer, initialState);
+
+  // Initialize stored collapsed state for fullscreen history rail
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("costivra.chat.fullscreenHistoryCollapsed");
+        if (stored !== null) {
+          dispatch({ type: "SET_FULLSCREEN_HISTORY", collapsed: stored === "true" });
+        } else if (window.innerWidth < 1180) {
+          dispatch({ type: "SET_FULLSCREEN_HISTORY", collapsed: true });
+        }
+      } catch {}
+    }
+  }, []);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -142,7 +195,6 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Plus button creates a local blank state without immediately writing a DB row
   const createSession = useCallback(() => {
     dispatch({ type: "ADVANCE_VIEW" });
     dispatch({ type: "SET_ACTIVE_SESSION", sessionId: null });
@@ -153,7 +205,6 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
   const sendMessage = useCallback(async (text: string) => {
     let sessId = state.activeSessionId;
     if (!sessId) {
-      // Lazy-create session on first turn
       const res = await fetch("/api/portal/chat/sessions", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
@@ -169,7 +220,6 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
 
     const docIds = state.pendingAttachments.map((a) => a.documentId).filter((id): id is string => Boolean(id));
 
-    // Client User Message Optimistic
     const optUserMsg: ClientChatMessage = {
       id: crypto.randomUUID(),
       sessionId: sessId,
@@ -266,21 +316,41 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openDrawer = useCallback(() => {
+    dispatch({ type: "SET_PHASE", phase: "opening" });
     dispatch({ type: "SET_MODE", mode: "drawer" });
     fetchSessions();
+    setTimeout(() => dispatch({ type: "SET_PHASE", phase: "open" }), 20);
   }, [fetchSessions]);
 
   const openFullscreen = useCallback(() => {
+    dispatch({ type: "SET_PHASE", phase: "opening" });
     dispatch({ type: "SET_MODE", mode: "fullscreen" });
     fetchSessions();
+    setTimeout(() => dispatch({ type: "SET_PHASE", phase: "open" }), 20);
   }, [fetchSessions]);
 
   const closeAssistant = useCallback(() => {
-    dispatch({ type: "SET_MODE", mode: "closed" });
+    dispatch({ type: "SET_PHASE", phase: "closing" });
+    setTimeout(() => {
+      dispatch({ type: "SET_MODE", mode: "closed" });
+      dispatch({ type: "SET_PHASE", phase: "closed" });
+    }, 240);
   }, []);
 
   const toggleHistory = useCallback(() => {
     dispatch({ type: "TOGGLE_HISTORY" });
+  }, []);
+
+  const toggleFullscreenHistory = useCallback(() => {
+    dispatch({ type: "TOGGLE_FULLSCREEN_HISTORY" });
+  }, []);
+
+  const openInspector = useCallback((blockId: string) => {
+    dispatch({ type: "OPEN_INSPECTOR", blockId });
+  }, []);
+
+  const closeInspector = useCallback(() => {
+    dispatch({ type: "CLOSE_INSPECTOR" });
   }, []);
 
   const setContext = useCallback((context: AssistantContextRef | null) => {
@@ -295,6 +365,9 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         openFullscreen,
         closeAssistant,
         toggleHistory,
+        toggleFullscreenHistory,
+        openInspector,
+        closeInspector,
         selectSession,
         createSession,
         sendMessage,

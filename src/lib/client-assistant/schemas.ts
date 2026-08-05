@@ -49,6 +49,22 @@ export function parseClientAssistantModelOutput(rawText: string): ClientAssistan
     if (block && typeof block === "object" && typeof block.type === "string") {
       const b = block as Record<string, unknown>;
       switch (b.type) {
+        case "spend_overview":
+          blockRequests.push({
+            type: "spend_overview",
+            vendorRelationshipIds: Array.isArray(b.vendorRelationshipIds)
+              ? b.vendorRelationshipIds.filter((id): id is string => typeof id === "string")
+              : undefined,
+          });
+          break;
+        case "savings_summary":
+          blockRequests.push({
+            type: "savings_summary",
+            savingsIds: Array.isArray(b.savingsIds)
+              ? b.savingsIds.filter((id): id is string => typeof id === "string")
+              : undefined,
+          });
+          break;
         case "invoice_summary":
           if (typeof b.invoiceId === "string") {
             blockRequests.push({ type: "invoice_summary", invoiceId: b.invoiceId });
