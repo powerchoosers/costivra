@@ -212,7 +212,7 @@ create policy "Users can read line item classifications for their org invoices"
     exists (
       select 1 from public.invoice_line_items ili
       join public.invoices inv on inv.id = ili.invoice_id
-      join public.memberships m on m.organization_id = inv.organization_id
+      join public.organization_memberships m on m.organization_id = inv.organization_id
       where ili.id = invoice_line_item_classifications.invoice_line_item_id
         and m.user_id = auth.uid()
     )
@@ -221,7 +221,7 @@ create policy "Users can read line item classifications for their org invoices"
 create policy "Users can read category analysis runs for their org"
   on public.category_analysis_runs for select to authenticated using (
     exists (
-      select 1 from public.memberships m
+      select 1 from public.organization_memberships m
       where m.organization_id = category_analysis_runs.organization_id
         and m.user_id = auth.uid()
     )
@@ -230,7 +230,7 @@ create policy "Users can read category analysis runs for their org"
 create policy "Users can submit category feedback for their org"
   on public.category_feedback for select to authenticated using (
     organization_id is null or exists (
-      select 1 from public.memberships m
+      select 1 from public.organization_memberships m
       where m.organization_id = category_feedback.organization_id
         and m.user_id = auth.uid()
     )
@@ -239,7 +239,7 @@ create policy "Users can submit category feedback for their org"
 create policy "Users can insert category feedback for their org"
   on public.category_feedback for insert to authenticated with check (
     organization_id is null or exists (
-      select 1 from public.memberships m
+      select 1 from public.organization_memberships m
       where m.organization_id = category_feedback.organization_id
         and m.user_id = auth.uid()
     )

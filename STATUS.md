@@ -1,5 +1,22 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Packet 05: Supabase Taxonomy, Legacy Normalization, and Insurance Categories
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Supabase Database & Seed Migrations**:
+  - Applied migration `20260805030000_category_intelligence_taxonomy.sql` creating master taxonomy tables (`category_expert_packs`, `category_line_item_definitions`, `category_benchmark_definitions`, `category_source_registry`, `category_market_snapshots`, `invoice_line_item_classifications`, `category_analysis_runs`, `category_feedback`, `category_eval_cases`) with RLS policies.
+  - Applied migration `20260805040000_seed_canonical_taxonomy_and_insurance.sql` seeding 16 parent markets and 28 leaf categories (44 total categories, including 9 first-class insurance & benefits categories) with `ON CONFLICT (slug)` updates.
+- **Resolver & Test Hardening**:
+  - Added `saas subscriptions` aliases to `category-resolver.ts` ALIAS_MAP.
+  - Created `src/lib/category-intelligence/taxonomy-seed.test.ts` with 5 unit tests verifying parent/leaf taxonomy integrity, legacy label resolution, vendor ambiguity safety, and line-item priority.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (91 test files passed, 338 unit tests passed)
+  - `npm run test:integration`: ✅ PASS (3 integration test files passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
 ## August 5, 2026 — Category Intelligence Packet 04: Pack-Driven Line-Item Normalization
 
 - **Branch**: `agent/category-intelligence-hardening`
