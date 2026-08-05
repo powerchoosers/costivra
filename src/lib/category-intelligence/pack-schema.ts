@@ -161,6 +161,7 @@ export const NormalizedLineItemSchema = z.object({
   evidenceIds: z.array(z.string()),
   reviewRequired: z.boolean(),
   matchedAlias: z.string().nullable(),
+  packVersion: z.string().nullable().optional(),
 });
 
 export const CategoryFindingSchema = z.object({

@@ -11,6 +11,7 @@ export type RawLineItem = {
   amount: number;
   quantity?: number;
   unitPrice?: number;
+  evidenceIds?: string[];
 };
 
 type DefinitionMatch = {
@@ -196,9 +197,10 @@ export function normalizeLineItems(
         amount: item.amount,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        evidenceIds: [],
+        evidenceIds: item.evidenceIds ?? [],
         reviewRequired: pack.status !== "verified" || confidence < 0.9,
         matchedAlias: packMatch.alias,
+        packVersion: pack.version,
       };
     }
 
@@ -214,9 +216,10 @@ export function normalizeLineItems(
         amount: item.amount,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        evidenceIds: [],
+        evidenceIds: item.evidenceIds ?? [],
         reviewRequired: general.chargeClass === "tax",
         matchedAlias: general.matchedAlias,
+        packVersion: pack.version,
       };
     }
 
@@ -233,9 +236,10 @@ export function normalizeLineItems(
       amount: item.amount,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
-      evidenceIds: [],
+      evidenceIds: item.evidenceIds ?? [],
       reviewRequired: true,
       matchedAlias: null,
+      packVersion: pack.version,
     };
   });
 }

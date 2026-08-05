@@ -168,6 +168,7 @@ export type NormalizedLineItem = {
   evidenceIds: string[];
   reviewRequired: boolean;
   matchedAlias: string | null;
+  packVersion?: string | null;
 };
 
 export type CategoryFinding = {

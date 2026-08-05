@@ -1,5 +1,22 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Packet 04: Pack-Driven Line-Item Normalization
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Pack-Driven Normalization & Safety**:
+  - Eliminated global domain-specific substring matching. Line-item normalization is driven strictly by the active expert pack's ontology and explicit cross-category shared items (`GEN-TAX-01`, `GEN-CREDIT-01`).
+  - Added `packVersion` property to `NormalizedLineItem` and `NormalizedLineItemSchema`, ensuring every item records the exact pack version used.
+  - Carried extraction `evidenceIds` into line item classification.
+  - Unclassified lines return `chargeClass: "unknown"`, `confidence: 0`, `canonicalCode: null`, and `reviewRequired: true`.
+  - Created `src/lib/category-intelligence/line-item-pack-driven.test.ts` with 7 unit tests proving pack-driven matching (SaaS seat, broadband access fee), cross-category isolation (access fee in insurance, seat in vehicle lease remain unknown), negative amount generic credit mapping, and pack version retention.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (90 test files passed, 333 unit tests passed)
+  - `npm run test:integration`: ✅ PASS (3 integration test files passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
 ## August 5, 2026 — Category Intelligence Packet 03: Remove Fabricated Benchmarks & Add Honest Benchmark Contract
 
 - **Branch**: `agent/category-intelligence-hardening`
