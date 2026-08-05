@@ -122,14 +122,6 @@ export function RecordOverflowMenu({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const firstEnabled = edgeEnabledIndex(visibleItems, "first");
-    if (activeIndex === -1 || visibleItems[activeIndex]?.disabled) {
-      setActiveIndex(firstEnabled);
-    }
-  }, [activeIndex, open, visibleItems]);
-
   const handleTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
