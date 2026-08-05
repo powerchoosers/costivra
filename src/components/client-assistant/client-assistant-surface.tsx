@@ -17,9 +17,11 @@ export function ClientAssistantSurface() {
   const showHistoryOnly = !isFullscreen && state.historyOpen;
   const showHistoryRail = isFullscreen && !state.fullscreenHistoryCollapsed;
 
+  const containerClass = isFullscreen ? "assistant-fullscreen-surface" : "assistant-drawer-surface";
+
   return (
     <section
-      className="assistant-surface"
+      className={`assistant-surface ${containerClass}`}
       data-mode={state.mode}
       data-phase={state.phase}
       data-history={showHistoryRail ? "open" : "collapsed"}
