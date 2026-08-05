@@ -45,9 +45,9 @@
 }
 
 .assistant-trigger-btn-circle { overflow: hidden; }
-.assistant-trigger-btn-circle .costivra-mark { transition: transform 220ms var(--assistant-ease); }
-.assistant-trigger-btn-circle:hover .costivra-mark { transform: scale(1.06); }
-.assistant-trigger-btn-circle.active .costivra-mark { animation: assistantMarkSettle 380ms var(--assistant-ease) both; }
+.assistant-trigger-btn-circle .assistant-icon-image { transition: transform 220ms var(--assistant-ease); }
+.assistant-trigger-btn-circle:hover .assistant-icon-image { transform: scale(1.06); }
+.assistant-trigger-btn-circle.active .assistant-icon-image { animation: assistantMarkSettle 380ms var(--assistant-ease) both; }
 
 /* Right Slide-Out Drawer Surface (Pushes CRM Content) */
 .assistant-drawer-surface {
@@ -306,7 +306,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistant-drawer-surface, .assistant-fullscreen-surface, .assistant-header-bar > *, .assistant-session-row, .assistant-welcome, .assistant-welcome-mark, .assistant-welcome-prompt, .assistant-message, .assistant-message--assistant .assistant-card-block, .assistant-thinking, .assistant-attachment-chip, .assistant-trigger-btn-circle.active .costivra-mark { animation: none !important; }
+  .assistant-drawer-surface, .assistant-fullscreen-surface, .assistant-header-bar > *, .assistant-session-row, .assistant-welcome, .assistant-welcome-mark, .assistant-welcome-prompt, .assistant-message, .assistant-message--assistant .assistant-card-block, .assistant-thinking, .assistant-attachment-chip, .assistant-trigger-btn-circle.active .assistant-icon-image { animation: none !important; }
   .assistant-trigger-btn, .assistant-icon-btn, .assistant-session-row, .assistant-prose a, .assistant-prose button, .assistant-attachment-chip { transition: none !important; }
   .assistant-thinking-copy i { animation: none; opacity: .75; }
 }

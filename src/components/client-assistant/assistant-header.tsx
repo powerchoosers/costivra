@@ -1,6 +1,6 @@
 "use client";
 
-import { CostivraMark } from "@/components/brand";
+import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import { Plus, History, Maximize2, Minimize2, X } from "lucide-react";
 import { useClientAssistant } from "./client-assistant-provider";
 
@@ -11,7 +11,7 @@ export function AssistantHeader() {
   return (
     <div className="assistant-header-bar">
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <CostivraMark size={20} />
+        <CostivraAssistantIcon size={20} />
         <div>
           <strong style={{ fontSize: "0.92rem", display: "block" }}>Ask Costivra</strong>
           {state.currentContext && (

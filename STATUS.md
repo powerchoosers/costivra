@@ -1,5 +1,13 @@
 # Costivra Status
 
+## August 4, 2026 — Costivra AI chat icon concepts
+
+- Generated three custom, transparent-background Costivra AI chat icon concepts under `public/brand/ai-chat-concepts/`: Evidence Signal (record-linked conversation), Forensic Lens (record inspection), and Decision Circuit (evidence-to-action flow).
+- Each production PNG is 1254×1254 RGBA with transparent corners and no text, robot, sparkle, wand, or generic AI glyph.
+- Added a white-background-safe Evidence Signal revision, `evidence-signal-white-safe.png`, with cobalt-blue connection paths and deep-navy separation rather than white paths.
+- Promoted the selected white-safe Evidence Signal into the shared Ask Costivra icon component. It now marks customer chat (`/app`) and the internal Manage assistant, including their launch controls, assistant headers, responses, and thinking states; the primary Costivra brand mark remains unchanged.
+- Fixed Ask Costivra’s missing contract-renewal context. Upcoming tenant-scoped contracts now enter the bounded context in chronological order, and “next contract expiration” questions are answered by deterministic code from the earliest recorded end date instead of model inference. Focused client-assistant tests pass (7 tests); a local `.next/dev/types/validator.ts` cache artifact still blocks TypeScript after local preview runs.
+
 ## August 4, 2026 — Ask Costivra animation pass
 
 - Added a shared, restrained motion system to both Ask Costivra chat surfaces: the customer `/app` drawer/fullscreen experience and the internal `/manage` assistant rail.

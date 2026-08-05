@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateJson } from "@/lib/ai/openrouter";
 import { hydrateAssistantBlocks } from "./block-hydrator";
 import { buildAssistantContext } from "./context-builder";
+import { describeNextContractExpiration, isNextContractExpirationQuestion } from "./contract-renewal";
 import type { AssistantBlockRequest, AssistantBlockV1, AssistantContextRef } from "./types";
 
 export interface ExecuteTurnInput {
@@ -126,6 +127,9 @@ export async function executeAssistantTurn(input: ExecuteTurnInput): Promise<Exe
   const oppSummary = boundedContext.openOpportunities
     .map((o) => `${o.title}: ~$${o.estimatedAnnualValue.toLocaleString()}/yr [${o.status}]`)
     .join("\n");
+  const contractSummary = boundedContext.upcomingContracts
+    .map((contract) => `${contract.id}: ${contract.vendorName ? `${contract.vendorName} — ` : ""}${contract.title}; ends ${contract.endDate}${contract.noticeDeadline ? `; notice deadline ${contract.noticeDeadline}` : ""}${contract.autoRenews ? "; auto-renews" : ""}`)
+    .join("\n");
 
   const systemPrompt = `You are Ask Costivra, a calm and precise AI financial-operations assistant for ${boundedContext.organizationName}.
 
@@ -148,6 +152,9 @@ ${invoiceSummary || "No recent invoices."}
 Open Opportunities:
 ${oppSummary || "No open opportunities."}
 
+Upcoming Contract Dates (ordered by deterministic code):
+${contractSummary || "No upcoming contract dates on record."}
+
 Respond with valid JSON matching this schema exactly:
 {
   "answer": "<your response>",
@@ -166,12 +173,18 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
     { role: "user" as const, content: prompt },
   ];
 
-  // 7. Invoke OpenRouter AI completion
+  // 7. Answer the most common deadline question with deterministic code. The model may explain
+  // records, but it must not decide which date is next or invent an expiration date.
   let responseText = "";
   let blockRequests: AssistantBlockRequest[] = [];
   let aiError: string | null = null;
+  const nextContractAnswer = isNextContractExpirationQuestion(prompt)
+    ? describeNextContractExpiration(boundedContext.upcomingContracts)
+    : null;
 
-  try {
+  if (nextContractAnswer) {
+    responseText = nextContractAnswer;
+  } else try {
     const aiJson = (await generateJson({
       messages: conversation,
       maxTokens: 1400,

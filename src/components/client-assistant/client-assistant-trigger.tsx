@@ -1,6 +1,6 @@
 "use client";
 
-import { CostivraMark } from "@/components/brand";
+import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import { useClientAssistant } from "./client-assistant-provider";
 
 export function ClientAssistantTrigger() {
@@ -30,7 +30,7 @@ export function ClientAssistantTrigger() {
         transition: "all 180ms ease",
       }}
     >
-      <CostivraMark size={20} />
+      <CostivraAssistantIcon size={20} />
     </button>
   );
 }

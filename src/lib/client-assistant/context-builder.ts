@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UpcomingContract } from "./contract-renewal";
 import type { AssistantContextRef } from "./types";
 
 export type AssistantBoundedContext = {
@@ -25,6 +26,7 @@ export type AssistantBoundedContext = {
     estimatedAnnualValue: number;
     status: string;
   }>;
+  upcomingContracts: UpcomingContract[];
 };
 
 /**
@@ -184,6 +186,34 @@ export async function buildAssistantContext(
     status: o.status,
   }));
 
+  // Upcoming contract dates are tenant-scoped and sorted by code before they reach the model.
+  // They power deterministic answers to deadline questions and provide bounded context for related follow-ups.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: contracts } = await db
+    .from("contracts")
+    .select("id, title, end_date, notice_deadline, auto_renews, organization_vendors(vendors(canonical_name))")
+    .eq("organization_id", organizationId)
+    .gte("end_date", today)
+    .order("end_date", { ascending: true })
+    .limit(10);
+
+  const upcomingContracts = (contracts ?? []).flatMap((contract) => {
+    if (!contract.end_date) return [];
+    const vendorName = (
+      contract.organization_vendors as unknown as {
+        vendors?: { canonical_name?: string };
+      } | null
+    )?.vendors?.canonical_name ?? null;
+    return [{
+      id: contract.id,
+      title: contract.title ?? "Untitled contract",
+      vendorName,
+      endDate: contract.end_date,
+      noticeDeadline: contract.notice_deadline ?? null,
+      autoRenews: Boolean(contract.auto_renews),
+    }];
+  });
+
   return {
     organizationName,
     currentViewContext,
@@ -191,5 +221,6 @@ export async function buildAssistantContext(
     recentVendors,
     recentInvoices,
     openOpportunities,
+    upcomingContracts,
   };
 }

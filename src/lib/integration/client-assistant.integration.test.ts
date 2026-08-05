@@ -42,6 +42,7 @@ describe("Client Assistant V2 Integration Suite", () => {
       recentVendors: [{ id: "v-1", name: "AT&T", category: "Telecom", spend: 12000 }],
       recentInvoices: [{ id: "i-1", vendorName: "AT&T", amount: 1000, date: "2026-07-31", status: "ready" }],
       openOpportunities: [{ id: "o-1", title: "Unused Fiber Line", estimatedAnnualValue: 2400, status: "open" }],
+      upcomingContracts: [{ id: "c-1", title: "Fiber agreement", vendorName: "AT&T", endDate: "2026-11-15", noticeDeadline: "2026-08-17", autoRenews: true }],
     };
 
     const prompt = buildClientAssistantSystemPrompt(mockContext);
