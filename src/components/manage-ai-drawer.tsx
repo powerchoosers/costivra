@@ -187,7 +187,7 @@ export function ManageAiDrawer({
       >
         <header className="manage-assistant-header">
           <span className="manage-assistant-brand" aria-hidden="true">
-            <CostivraAssistantIcon size={34} />
+            <CostivraAssistantIcon size={42} />
           </span>
           <div>
             <h2>Ask Costivra</h2>
@@ -249,7 +249,7 @@ export function ManageAiDrawer({
               <article className={`manage-assistant-message is-${message.role}`} key={message.id} style={{ "--message-index": index } as CSSProperties}>
                 <header>
                   {message.role === "assistant" && (
-                    <span aria-hidden="true"><CostivraAssistantIcon size={22} /></span>
+                    <span aria-hidden="true"><CostivraAssistantIcon size={28} /></span>
                   )}
                   <strong>{message.role === "user" ? "You" : "Costivra"}</strong>
                 </header>
@@ -273,7 +273,7 @@ export function ManageAiDrawer({
             ))}
             {sending && (
               <div className="manage-assistant-thinking" role="status">
-                <span aria-hidden="true"><CostivraAssistantIcon size={22} /></span>
+                <span aria-hidden="true"><CostivraAssistantIcon size={28} /></span>
                 <div><i /><i /><i /></div>
                 <span className="sr-only">Costivra is reviewing live records.</span>
               </div>

@@ -11,7 +11,7 @@ export function AssistantHeader() {
   return (
     <div className="assistant-header-bar">
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <CostivraAssistantIcon size={20} />
+        <CostivraAssistantIcon size={24} />
         <div>
           <strong style={{ fontSize: "0.92rem", display: "block" }}>Ask Costivra</strong>
           {state.currentContext && (

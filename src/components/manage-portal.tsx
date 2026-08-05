@@ -1137,7 +1137,7 @@ export function ManagePortal({
           </div>
           <div className="manage-top-actions">
             <div className="manage-topbar-utilities" aria-label="Workspace utilities">
-              <button type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={18} /></button>
+              <button type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></button>
             </div>
             {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" ? null : section === "activity" ? (
               <button

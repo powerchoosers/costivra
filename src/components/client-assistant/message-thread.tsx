@@ -19,7 +19,7 @@ export function MessageThread() {
     return (
       <div className="assistant-welcome" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "24px 20px", textAlign: "center" }}>
         <div className="assistant-welcome-mark">
-          <CostivraAssistantIcon size={28} />
+          <CostivraAssistantIcon size={36} />
         </div>
         <span className="assistant-welcome-eyebrow">Your records, in context</span>
         <h3>What would you like to review?</h3>
@@ -56,7 +56,7 @@ export function MessageThread() {
           ) : (
             <div className="assistant-prose">
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <CostivraAssistantIcon size={16} />
+                <CostivraAssistantIcon size={20} />
                 <strong style={{ fontSize: "0.85rem" }}>Costivra</strong>
               </div>
               <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{m.content}</p>
@@ -123,7 +123,7 @@ export function MessageThread() {
       ))}
       {state.sending && (
         <div className="assistant-thinking" role="status">
-          <span className="assistant-thinking-mark"><CostivraAssistantIcon size={16} /></span>
+          <span className="assistant-thinking-mark"><CostivraAssistantIcon size={20} /></span>
           <div className="assistant-thinking-copy"><strong>Costivra is reviewing your records</strong><span><i /><i /><i /></span></div>
           <span className="sr-only">Costivra is preparing a response.</span>
         </div>

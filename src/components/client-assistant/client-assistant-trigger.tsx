@@ -30,7 +30,7 @@ export function ClientAssistantTrigger() {
         transition: "all 180ms ease",
       }}
     >
-      <CostivraAssistantIcon size={20} />
+      <CostivraAssistantIcon size={26} />
     </button>
   );
 }
