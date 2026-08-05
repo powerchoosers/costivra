@@ -1,5 +1,22 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Foundation Merged to Main
+
+- **Main commit**: `af6ff21` (`feat(category-intelligence): merge source-backed expertise foundation`)
+- **Delivered**:
+  - Merged Packets 01–08 foundation work: safe pack registry, honest benchmark gate, pack-driven normalization, taxonomy migrations/seeds, cited market-research cache, eight core packs, and five distinct insurance/benefits packs.
+  - Every supported pack remains `draft`. No pricing comparison, coverage decision, or savings claim is promoted to verified without the Packet 10 evidence and review gates.
+  - Current-market facts require an allowlisted, cited source and retain source ID and scope. The cache stores only public-safe dimensions and never customer documents, service addresses, private usage, or financial amounts.
+- **Validation on merged main**:
+  - `npm test -- --run`: ✅ PASS (93 files / 414 tests; 4 files / 6 tests explicitly skipped for unavailable live environment dependencies)
+  - `npm run test:integration`: ✅ PASS (3 files / 7 tests; 4 files / 6 tests explicitly skipped for unavailable live environment dependencies)
+  - `npm run typecheck`: ✅ PASS
+  - `npm run lint`: ✅ PASS
+  - `npm run build`: ✅ PASS (41 routes)
+- **Not yet release-verified**:
+  - Applied and verified the `category_research_runs` migration in the live Supabase project. The table has RLS enabled and intentionally has no browser policy; it is accessed only by trusted server code using the service role.
+  - Required live-source, authenticated E2E, production-smoke, persistent-evaluation-record, and release-threshold proof from Packets 09–10 is still outstanding. Treat the system as a supervised, draft foundation—not as fully verified production intelligence.
+
 ## August 5, 2026 — Category Intelligence Packets 06–07: Research Cache Foundation and Core Pack Hardening (In Progress)
 
 - **Branch**: `agent/category-intelligence-hardening`

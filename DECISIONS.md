@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-05 — Keep category market research cited, bounded, and draft-only
+
+### Context
+
+Costivra needs changing market context without allowing public search to receive customer data or allowing a model to invent a market comparison. Category packs also need useful industry-specific structure without being treated as verified professional advice.
+
+### Decision
+
+Route category research through a server-only adapter that first strips common identifiers, accepts only public-safe category/jurisdiction/vendor descriptors, and returns facts only when they cite an allowlisted registry source. Cache results using a hash of those public-safe dimensions and an expiry; never cache customer documents, account identifiers, service addresses, private usage, or financial amounts. Keep every category pack in `draft` until source freshness, evaluation thresholds, and human review required by Packet 10 are proven. Benchmark code returns `unsupported`, `insufficient_data`, or `quote_required` rather than creating a price range, savings figure, or verified claim from an invoice.
+
+### Consequences
+
+The product can explain supported bill structure and source-backed current context while safely asking for a quote or professional review where evidence is incomplete. A deployment still requires the reviewed research-cache migration, live-source verification, authenticated end-to-end testing, and the Packet 10 release gates before any pack can be promoted to verified.
+
 ## 2026-08-04 — Durable vendor monitoring storage, state machine, and lifecycle email triggers
 
 ### Context
