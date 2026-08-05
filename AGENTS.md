@@ -248,6 +248,7 @@ Do not implement commercial UCEP data sharing until the founder has written clar
 - Use private storage, encryption in transit, and provider-supported encryption at rest.
 - Validate environment variables at startup and fail clearly when required values are absent.
 - Never commit secrets, tokens, private keys, customer documents, production data, or copied environment files.
+- **NEVER hardcode real API keys, credentials, or high-entropy secrets in test files, fixtures, scripts, or comments.** Unit tests and mock stubs MUST always use explicit dummy strings (e.g., `dummy-cloudmersive-api-key-for-unit-tests`). Real credentials belong exclusively in `.env.local` or secret managers, never committed to git.
 - Redact secrets and sensitive customer data from logs and error reports.
 - Rate-limit authentication, upload, AI, export, and external-action endpoints.
 - Validate file names, MIME types, sizes, paths, URLs, webhook signatures, redirects, and all integration payloads.
