@@ -20,7 +20,10 @@ export function sanitizeSearchQuery(query: string): string {
       /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
       "[EMAIL-REDACTED]",
     )
-    .replace(/\b(?:account|invoice|policy|claim|member)\s*#?\s*[A-Za-z0-9-]+/gi, "$1 [REDACTED]")
+    .replace(
+      /\b(account|invoice|policy|claim|member)\s*#?\s*[A-Za-z0-9-]+/gi,
+      "$1 [REDACTED]",
+    )
     .replace(/\b\d{8,}\b/g, "[IDENTIFIER-REDACTED]")
     .slice(0, 500);
 }
@@ -201,8 +204,8 @@ export async function performMarketResearch(
     };
 
     const message = payload.choices?.[0]?.message;
-    const citations: UrlCitation[] = (message?.annotations ?? [])
-      .flatMap((annotation) => {
+    const citations: UrlCitation[] = (message?.annotations ?? []).flatMap(
+      (annotation) => {
         const citation = annotation.url_citation;
         const url = citation?.url ? normalizeUrl(citation.url) : null;
         const hostname = url ? safeHostname(url) : null;
@@ -221,7 +224,8 @@ export async function performMarketResearch(
             content: citation?.content?.trim().slice(0, 500) || "",
           },
         ];
-      });
+      },
+    );
 
     if (!message?.content || citations.length === 0) {
       return {
@@ -251,7 +255,9 @@ export async function performMarketResearch(
           const row = value as Record<string, unknown>;
           const fact = typeof row.fact === "string" ? row.fact.trim() : "";
           const sourceUrl =
-            typeof row.sourceUrl === "string" ? normalizeUrl(row.sourceUrl) : null;
+            typeof row.sourceUrl === "string"
+              ? normalizeUrl(row.sourceUrl)
+              : null;
           const citation = sourceUrl
             ? citations.find((candidate) =>
                 urlsReferToSameSource(candidate.url, sourceUrl),
