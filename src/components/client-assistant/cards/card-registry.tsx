@@ -1,19 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import {
   ReceiptText,
   Building2,
   TrendingUp,
   AlertTriangle,
-  FileText,
   CalendarClock,
   Target,
   ShieldCheck,
   CheckCircle2,
   ListOrdered,
   Layers,
-  ArrowRight,
   ExternalLink,
 } from "lucide-react";
 import type { AssistantBlockV1 } from "@/lib/client-assistant/types";
@@ -343,7 +340,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
                 <span className="card-evidence-num">{i + 1}</span>
                 <div className="card-evidence-content">
                   <strong>{String(ev.title)} {ev.pageNumber ? `(p. ${ev.pageNumber})` : ""}</strong>
-                  <p>"{String(ev.excerpt)}"</p>
+                  <p>&quot;{String(ev.excerpt)}&quot;</p>
                 </div>
               </div>
             ))}

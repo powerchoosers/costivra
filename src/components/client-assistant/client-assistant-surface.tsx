@@ -5,7 +5,7 @@ import { AssistantHeader } from "./assistant-header";
 import { ConversationRail } from "./conversation-rail";
 import { MessageThread } from "./message-thread";
 import { AssistantComposer } from "./assistant-composer";
-import { X, ExternalLink } from "lucide-react";
+import { X } from "lucide-react";
 import "./client-assistant.css";
 
 export function ClientAssistantSurface() {
