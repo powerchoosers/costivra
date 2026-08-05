@@ -45,7 +45,7 @@ create policy "Users can view vendor monitoring configs for their organization"
     auth.uid() is not null
     and organization_id in (
       select organization_id
-      from public.memberships
+      from public.organization_memberships
       where user_id = auth.uid()
     )
   );
@@ -57,7 +57,7 @@ create policy "Admins and owners can insert vendor monitoring configs"
     auth.uid() is not null
     and organization_id in (
       select organization_id
-      from public.memberships
+      from public.organization_memberships
       where user_id = auth.uid()
         and role in ('owner', 'admin')
     )
@@ -70,7 +70,7 @@ create policy "Admins and owners can update vendor monitoring configs"
     auth.uid() is not null
     and organization_id in (
       select organization_id
-      from public.memberships
+      from public.organization_memberships
       where user_id = auth.uid()
         and role in ('owner', 'admin')
     )
@@ -83,7 +83,7 @@ create policy "Admins and owners can delete vendor monitoring configs"
     auth.uid() is not null
     and organization_id in (
       select organization_id
-      from public.memberships
+      from public.organization_memberships
       where user_id = auth.uid()
         and role in ('owner', 'admin')
     )

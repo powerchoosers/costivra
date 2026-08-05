@@ -55,7 +55,7 @@ CREATE POLICY chat_message_documents_select_member ON public.chat_message_docume
     EXISTS (
       SELECT 1 FROM public.chat_messages cm
       JOIN public.chat_sessions cs ON cs.id = cm.session_id
-      JOIN public.memberships om ON om.organization_id = cs.organization_id
+      JOIN public.organization_memberships om ON om.organization_id = cs.organization_id
       WHERE cm.id = chat_message_documents.message_id
         AND om.user_id = auth.uid()
         AND cs.user_id = auth.uid()
