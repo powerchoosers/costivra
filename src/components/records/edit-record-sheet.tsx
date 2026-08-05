@@ -43,6 +43,7 @@ export function EditRecordSheet({
   children,
 }: EditRecordSheetProps) {
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [previousOpen, setPreviousOpen] = useState(isOpen);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -54,6 +55,11 @@ export function EditRecordSheet({
   const titleId = useId();
   const subtitleId = useId();
   const errorId = useId();
+
+  if (isOpen !== previousOpen) {
+    setPreviousOpen(isOpen);
+    setShowConfirmClose(false);
+  }
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -74,7 +80,6 @@ export function EditRecordSheet({
   useEffect(() => {
     if (!isOpen) return;
 
-    setShowConfirmClose(false);
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
@@ -161,6 +166,10 @@ export function EditRecordSheet({
     onClose();
   };
 
+  const describedBy = [subtitle ? subtitleId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(" ") || undefined;
+
   return (
     <div
       className="record-sheet-overlay"
@@ -183,8 +192,7 @@ export function EditRecordSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={subtitle ? subtitleId : undefined}
-        aria-errormessage={error ? errorId : undefined}
+        aria-describedby={describedBy}
         tabIndex={-1}
         className="record-sheet-container"
         style={{
