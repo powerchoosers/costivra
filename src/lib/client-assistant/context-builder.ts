@@ -46,6 +46,10 @@ type OrganizationVendorJoin = {
   vendors?: VendorJoin | null;
 };
 
+function catalogVendor(value: unknown): VendorJoin | null {
+  return (value as VendorJoin | null) ?? null;
+}
+
 function joinedVendor(
   value: unknown,
 ): { name: string | null; category: string | null } {
@@ -84,13 +88,11 @@ export async function buildAssistantContext(
       .eq("id", contextRef.id)
       .eq("organization_id", organizationId)
       .maybeSingle();
-    const vendor = joinedVendor(
-      (relationship as unknown as { vendors?: unknown } | null)?.vendors
-        ? { vendors: (relationship as unknown as { vendors?: unknown }).vendors }
-        : null,
-    );
-    if (vendor.name) currentViewContext = `Viewing Vendor: ${vendor.name}`;
-    currentContextCategory = vendor.category;
+    const vendor = catalogVendor(relationship?.vendors);
+    if (vendor?.canonical_name) {
+      currentViewContext = `Viewing Vendor: ${vendor.canonical_name}`;
+    }
+    currentContextCategory = vendor?.category ?? null;
   } else if (contextRef?.kind === "invoice") {
     const { data: invoice } = await db
       .from("invoices")
@@ -128,15 +130,13 @@ export async function buildAssistantContext(
   } else if (contextRef?.kind === "opportunity") {
     const { data: opportunity } = await db
       .from("opportunities")
-      .select("title, organization_vendor_id, organization_vendors(vendors(category))")
+      .select("title, category")
       .eq("id", contextRef.id)
       .eq("organization_id", organizationId)
       .maybeSingle();
     if (opportunity) {
       currentViewContext = `Opportunity: ${opportunity.title}`;
-      currentContextCategory = joinedVendor(
-        opportunity.organization_vendors,
-      ).category;
+      currentContextCategory = opportunity.category ?? null;
     }
   } else if (contextRef?.kind === "contract") {
     const { data: contract } = await db
@@ -154,15 +154,20 @@ export async function buildAssistantContext(
   } else if (contextRef?.kind === "expense") {
     const { data: expense } = await db
       .from("expenses")
-      .select("description, organization_vendors(vendors(category))")
+      .select(
+        "amount, currency, period_start, period_end, category, organization_vendors(vendors(category))",
+      )
       .eq("id", contextRef.id)
       .eq("organization_id", organizationId)
       .maybeSingle();
     if (expense) {
-      currentViewContext = `Expense Review: ${expense.description ?? "Expense"}`;
-      currentContextCategory = joinedVendor(
-        expense.organization_vendors,
-      ).category;
+      const period =
+        expense.period_start || expense.period_end
+          ? ` · ${expense.period_start ?? "?"} to ${expense.period_end ?? "?"}`
+          : "";
+      currentViewContext = `Expense Review: ${expense.currency ?? "USD"} ${expense.amount ?? 0}${period}`;
+      currentContextCategory =
+        expense.category ?? joinedVendor(expense.organization_vendors).category;
     }
   }
 
@@ -177,9 +182,7 @@ export async function buildAssistantContext(
         .eq("organization_id", organizationId),
       db
         .from("invoices")
-        .select(
-          "document_id, organization_vendors(vendors(category))",
-        )
+        .select("document_id, organization_vendors(vendors(category))")
         .in("document_id", uniqueDocumentIds)
         .eq("organization_id", organizationId),
     ]);
@@ -208,7 +211,7 @@ export async function buildAssistantContext(
     .limit(10);
 
   const recentVendors = (vendorRows ?? []).map((row) => {
-    const vendor = row.vendors as unknown as VendorJoin | null;
+    const vendor = catalogVendor(row.vendors);
     return {
       id: row.id,
       name: vendor?.canonical_name ?? "Unknown",
