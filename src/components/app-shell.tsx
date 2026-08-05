@@ -364,10 +364,14 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   );
 }
 
+import { BillInspectorProvider } from "@/components/bill-inspector-provider";
+
 export function AppShell({ children, data }: { children: ReactNode; data: PortalData }) {
   return (
     <ClientAssistantProvider>
-      <AppShellContent data={data}>{children}</AppShellContent>
+      <BillInspectorProvider>
+        <AppShellContent data={data}>{children}</AppShellContent>
+      </BillInspectorProvider>
     </ClientAssistantProvider>
   );
 }

@@ -53,6 +53,7 @@ import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
 import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState } from "@/lib/vendors/monitoring";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
+import { useBillInspector } from "@/components/bill-inspector-provider";
 
 type ApiOptions = {
   method?: string;
@@ -2205,7 +2206,7 @@ function Team({ data, onInvite, run, embedded = false }: {
   );
 }
 
-function Ask({ data: _data }: { data?: PortalData }) {
+function Ask() {
   const { openFullscreen } = useClientAssistant();
   useEffect(() => {
     openFullscreen();
@@ -3076,6 +3077,44 @@ function CreateModals({
         setBusy(false);
       }
     };
+
+  const toast = useToast();
+  const { openInspector } = useBillInspector();
+
+  async function handleDocumentUpload(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true);
+    const form = new FormData(e.currentTarget);
+    const toastId = toast.info("Analyzing bill...", "Running security scan and extraction...");
+    try {
+      const res = (await api("/api/portal/documents", { body: form })) as {
+        ok?: boolean;
+        documentId?: string;
+      };
+      setKind(null);
+      toast.dismiss(toastId);
+      if (res?.documentId) {
+        const docId = res.documentId;
+        toast.show({
+          tone: "success",
+          title: "Bill Processed",
+          message: "Extraction & security scan complete.",
+          actionLabel: "View Analysis",
+          onActionClick: () => openInspector(docId),
+        });
+        openInspector(docId);
+        await run(() => Promise.resolve(res), "Document received. Check its security and extraction status.");
+      } else {
+        toast.success("Document received.", "Check its security and extraction status.");
+      }
+    } catch (err) {
+      toast.dismiss(toastId);
+      toast.error("Upload failed", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <PortalModal
@@ -3162,13 +3201,7 @@ function CreateModals({
         description="PDF, DOCX, or text up to 20 MB. Every file passes a security scan before extraction."
         onClose={close}
       >
-        <form
-          onSubmit={submit(
-            "/api/portal/documents",
-            "Document received. Check its security and extraction status.",
-            (form) => form,
-          )}
-        >
+        <form onSubmit={handleDocumentUpload}>
           <SelectField
             label="Vendor (optional)"
             name="organizationVendorId"
