@@ -24,19 +24,23 @@ suite("Disposable Pilot Journey Integration Test", () => {
     expect(orgErr).toBeNull();
     expect(org?.id).toBeDefined();
     const orgId = org!.id;
+    let authUserId: string | null = null;
 
     try {
       // 2. Create disposable profile & membership
-      const { data: profile, error: profErr } = await db
-        .from("profiles")
-        .insert({ email: userEmail, full_name: `Test Admin ${testId}` })
-        .select("id")
-        .single();
-      expect(profErr).toBeNull();
+      const { data: authUser, error: authErr } = await db.auth.admin.createUser({
+        email: userEmail,
+        password: "TestPassword123!",
+        email_confirm: true,
+        user_metadata: { full_name: `Test Admin ${testId}` },
+      });
+      expect(authErr).toBeNull();
+      expect(authUser.user?.id).toBeDefined();
+      authUserId = authUser.user!.id;
 
-      const { error: memErr } = await db.from("memberships").insert({
+      const { error: memErr } = await db.from("organization_memberships").insert({
         organization_id: orgId,
-        user_id: profile!.id,
+        user_id: authUserId,
         role: "owner",
       });
       expect(memErr).toBeNull();
@@ -47,10 +51,12 @@ suite("Disposable Pilot Journey Integration Test", () => {
         .insert({
           organization_id: orgId,
           name: "Main HQ",
-          address_line1: "100 Main St",
-          city: "Austin",
-          state: "TX",
-          postal_code: "78701",
+          address: {
+            address_line1: "100 Main St",
+            city: "Austin",
+            state: "TX",
+            postal_code: "78701",
+          },
         })
         .select("id")
         .single();
@@ -59,7 +65,7 @@ suite("Disposable Pilot Journey Integration Test", () => {
       // 4. Create disposable vendor & relationship
       const { data: vendor, error: venErr } = await db
         .from("vendors")
-        .insert({ name: `Acme Telecom ${testId}`, domain: `acme-${testId}.com` })
+        .insert({ canonical_name: `Acme Telecom ${testId}`, website: `https://acme-${testId}.com` })
         .select("id")
         .single();
       expect(venErr).toBeNull();
@@ -70,7 +76,7 @@ suite("Disposable Pilot Journey Integration Test", () => {
           organization_id: orgId,
           vendor_id: vendor!.id,
           relationship_status: "active",
-          category: "Telecom & Internet",
+          category_override: "Telecom & Internet",
         })
         .select("id")
         .single();
@@ -80,7 +86,7 @@ suite("Disposable Pilot Journey Integration Test", () => {
       // 5. Configure durable monitoring
       const config = await saveDurableMonitoringConfig(db, {
         organizationId: orgId,
-        actorId: profile!.id,
+        actorId: authUserId!,
         organizationVendorId: relId,
         sourceMethod: "email_forwarding",
         approvedSenderAddress: `billing@acme-${testId}.com`,
@@ -141,8 +147,11 @@ suite("Disposable Pilot Journey Integration Test", () => {
       await db.from("vendor_monitoring_configs").delete().eq("organization_id", orgId);
       await db.from("organization_vendors").delete().eq("organization_id", orgId);
       await db.from("locations").delete().eq("organization_id", orgId);
-      await db.from("memberships").delete().eq("organization_id", orgId);
+      await db.from("organization_memberships").delete().eq("organization_id", orgId);
       await db.from("organizations").delete().eq("id", orgId);
+      if (authUserId) {
+        await db.auth.admin.deleteUser(authUserId);
+      }
     }
   });
 });

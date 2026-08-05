@@ -17,7 +17,7 @@ import { analyzeBillQuality } from "./bill-quality";
 import { evaluateMarketBenchmark } from "./benchmark-engine";
 import { performMarketResearch } from "./current-market-research";
 import { buildCategoryAiContext } from "./context-builder";
-import { getExpertPack } from "./packs";
+import { getExpertPack, getExpertPackWithResolution, type ExpertPackResolution } from "./packs";
 
 type BuildAiContextOptions = {
   includeCurrentResearch?: boolean;
@@ -31,15 +31,26 @@ export class CategoryIntelligenceService {
     return resolveCategory(input);
   }
 
-  async loadExpertPack(categoryKey: string): Promise<CategoryExpertPackV1> {
+  async getExpertPack(categoryKey: string): Promise<CategoryExpertPackV1> {
     return getExpertPack(categoryKey);
   }
 
+  async getExpertPackWithResolution(categoryKey: string): Promise<ExpertPackResolution> {
+    return getExpertPackWithResolution(categoryKey);
+  }
+
+  async loadExpertPack(categoryKey: string): Promise<CategoryExpertPackV1> {
+    return this.getExpertPack(categoryKey);
+  }
+
   async normalizeLineItems(
-    items: RawLineItem[],
+    input: RawLineItem[] | { items: RawLineItem[]; categoryKey?: string },
     categoryKey?: string,
   ): Promise<NormalizedLineItem[]> {
-    return normalizeLineItems(items, categoryKey);
+    if (Array.isArray(input)) {
+      return normalizeLineItems(input, categoryKey);
+    }
+    return normalizeLineItems(input.items, input.categoryKey ?? categoryKey);
   }
 
   async analyzeBill(input: AnalyzeBillInput): Promise<BillQualityResult> {
@@ -57,16 +68,18 @@ export class CategoryIntelligenceService {
   }
 
   async buildAiContext(
-    categoryKey: string,
+    input: string | { categoryKey: string; query?: string; jurisdiction?: string; vendorName?: string; includeCurrentResearch?: boolean },
     options: BuildAiContextOptions = {},
   ): Promise<CategoryAiContext> {
-    const pack = await this.loadExpertPack(categoryKey);
-    const research = options.includeCurrentResearch
+    const categoryKey = typeof input === "string" ? input : input.categoryKey;
+    const opts = typeof input === "string" ? options : { ...input, ...options };
+    const pack = await this.getExpertPack(categoryKey);
+    const research = opts.includeCurrentResearch
       ? await this.researchCurrentMarket({
           categoryKey: pack.categoryKey,
-          query: options.query?.trim() || pack.displayName,
-          jurisdiction: options.jurisdiction,
-          vendorName: options.vendorName,
+          query: opts.query?.trim() || pack.displayName,
+          jurisdiction: opts.jurisdiction,
+          vendorName: opts.vendorName,
         })
       : {
           facts: [],

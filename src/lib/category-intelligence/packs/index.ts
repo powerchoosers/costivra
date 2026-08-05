@@ -1,10 +1,19 @@
 import type { CategoryExpertPackV1 } from "../types";
 import { energyElectricityPack } from "./energy-electricity";
 import { saasPack } from "./saas";
-import { insurancePropertyLiabilityPack } from "./insurance-property-liability";
+import {
+  commercialPropertyPack,
+  generalLiabilityBopPack,
+  groupHealthPack,
+  stopLossPbmBenefitsAdminPack,
+  workersCompensationPack,
+} from "./insurance-benefits";
 import { telecomBroadbandPack } from "./telecom-broadband";
 import { merchantProcessingPack } from "./merchant-processing";
 import { solidWastePack } from "./solid-waste";
+import { wirelessMobilityPack } from "./wireless-mobility";
+import { cloudIaasPaasPack } from "./cloud-iaas-paas";
+import { aiApiConsumptionPack } from "./ai-api-consumption";
 
 const DRAFT_CAVEAT =
   "This category pack is in draft review. Use it to explain bill structure and identify questions, not to certify market pricing or verified savings.";
@@ -33,28 +42,26 @@ function asDraft(
 }
 
 /**
- * Only register packs whose scope actually covers the category.
- *
+ * Only register exact, materially valid expert packs.
  * Deliberately absent until dedicated packs exist:
  * cloud, AI APIs, cybersecurity, workers compensation, group health,
- * wireless, voice/UCaaS, WAN/SD-WAN, hazardous waste, and shredding.
+ * wireless, voice/UCaaS, WAN/SD-WAN, hazardous waste, shredding, electric delivery.
  * Those categories receive a neutral draft pack rather than borrowed rules.
  */
 export const EXPERT_PACKS_REGISTRY: Record<string, CategoryExpertPackV1> = {
   "commercial-electricity-supply": asDraft(energyElectricityPack),
-  "electric-delivery-demand": asDraft(energyElectricityPack, {
-    categoryKey: "electric-delivery-demand",
-    displayName: "Electric Delivery, Demand & Utility Charges",
-  }),
   "saas-subscriptions": asDraft(saasPack),
-  "commercial-property": asDraft(insurancePropertyLiabilityPack),
-  "general-liability-bop": asDraft(insurancePropertyLiabilityPack, {
-    categoryKey: "general-liability-bop",
-    displayName: "General Liability & Business Owners Policies",
-  }),
+  "commercial-property": asDraft(commercialPropertyPack),
+  "general-liability-bop": asDraft(generalLiabilityBopPack),
+  "workers-compensation": asDraft(workersCompensationPack),
+  "group-health": asDraft(groupHealthPack),
+  "stop-loss-pbm-benefits-admin": asDraft(stopLossPbmBenefitsAdminPack),
   "business-broadband-dia": asDraft(telecomBroadbandPack),
   "merchant-processing": asDraft(merchantProcessingPack),
   "solid-waste-recycling": asDraft(solidWastePack),
+  "wireless-mobility": asDraft(wirelessMobilityPack),
+  "cloud-iaas-paas": asDraft(cloudIaasPaasPack),
+  "ai-api-consumption": asDraft(aiApiConsumptionPack),
 };
 
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -75,15 +82,33 @@ const CATEGORY_ALIASES: Record<string, string> = {
   "business broadband": "business-broadband-dia",
   dia: "business-broadband-dia",
   internet: "business-broadband-dia",
-
+  // Wireless
+  wireless: "wireless-mobility",
+  "wireless mobility": "wireless-mobility",
+  cellular: "wireless-mobility",
+  mobile: "wireless-mobility",
+  // Cloud IaaS/PaaS
+  cloud: "cloud-iaas-paas",
+  "cloud infrastructure": "cloud-iaas-paas",
+  iaas: "cloud-iaas-paas",
+  paas: "cloud-iaas-paas",
+  aws: "cloud-iaas-paas",
+  azure: "cloud-iaas-paas",
+  gcp: "cloud-iaas-paas",
+  // AI API
+  "ai api": "ai-api-consumption",
+  "ai apis": "ai-api-consumption",
+  "openai": "ai-api-consumption",
+  "anthropic": "ai-api-consumption",
+  "llm api": "ai-api-consumption",
+  "model api": "ai-api-consumption",
+  "ai model": "ai-api-consumption",
   // Broad or materially distinct categories intentionally resolve to neutral packs.
   telecom: "telecom-connectivity",
   "telecom & internet": "telecom-connectivity",
   insurance: "insurance-benefits",
   "insurance & employee benefits": "insurance-benefits",
-  cloud: "cloud-iaas-paas",
   cybersecurity: "cybersecurity",
-  wireless: "wireless-mobility",
   "workers comp": "workers-compensation",
   "workers compensation": "workers-compensation",
   "group health": "group-health",
@@ -225,9 +250,32 @@ function createNeutralDraftPack(key: string): CategoryExpertPackV1 {
   };
 }
 
-export function getExpertPack(categoryKey: string): CategoryExpertPackV1 {
+export type ExpertPackResolution = {
+  pack: CategoryExpertPackV1;
+  exactMatch: boolean;
+  status: CategoryExpertPackV1["status"];
+};
+
+export function getExpertPackWithResolution(categoryKey: string): ExpertPackResolution {
   const key = normalizeCategoryKey(categoryKey);
-  return EXPERT_PACKS_REGISTRY[key] ?? createNeutralDraftPack(key);
+  const exact = EXPERT_PACKS_REGISTRY[key];
+  if (exact) {
+    return {
+      pack: exact,
+      exactMatch: true,
+      status: exact.status,
+    };
+  }
+  const neutral = createNeutralDraftPack(key);
+  return {
+    pack: neutral,
+    exactMatch: false,
+    status: neutral.status,
+  };
+}
+
+export function getExpertPack(categoryKey: string): CategoryExpertPackV1 {
+  return getExpertPackWithResolution(categoryKey).pack;
 }
 
 export function hasDedicatedExpertPack(categoryKey: string): boolean {

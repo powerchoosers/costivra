@@ -168,6 +168,7 @@ export type NormalizedLineItem = {
   evidenceIds: string[];
   reviewRequired: boolean;
   matchedAlias: string | null;
+  packVersion?: string | null;
 };
 
 export type CategoryFinding = {
@@ -272,6 +273,8 @@ export type MarketResearchInput = {
 export type MarketResearchFact = {
   fact: string;
   unit: string | null;
+  scope: Record<string, string>;
+  sourceId: string;
   sourceTitle: string;
   sourceUrl: string;
   publisher: string;

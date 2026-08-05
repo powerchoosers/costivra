@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  Building2,
   CheckCircle2,
   CircleHelp,
   Download,
@@ -142,13 +141,19 @@ export function BillBreakdownModal({
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [prevDocumentId, setPrevDocumentId] = useState<string | null>(documentId);
   const { openDrawer, setContext } = useClientAssistant();
+
+  if (documentId !== prevDocumentId) {
+    setPrevDocumentId(documentId);
+    setLoading(true);
+    setError(null);
+    setData(null);
+  }
 
   useEffect(() => {
     if (!documentId) return;
     let active = true;
-    setLoading(true);
-    setError(null);
 
     fetch(`/api/portal/documents/${documentId}/breakdown`)
       .then(async (response) => {
@@ -455,11 +460,18 @@ export function BillBreakdownModal({
                     <CircleHelp size={20} />
                     <div>
                       <strong>
-                        {titleCase(data.marketBenchmark.benchmarkStatus)}
+                        {data.marketBenchmark.benchmarkStatus === "insufficient_data"
+                          ? "Market comparison needs more detail"
+                          : data.marketBenchmark.benchmarkStatus === "quote_required"
+                          ? "Live quote required"
+                          : titleCase(data.marketBenchmark.benchmarkStatus)}
                       </strong>
                       <p>
-                        Costivra did not manufacture a market average or savings
-                        estimate from this invoice total.
+                        {data.marketBenchmark.benchmarkStatus === "insufficient_data"
+                          ? "Costivra needs the service specification, location, usage, contract term, and current comparable offers before estimating a market range."
+                          : data.marketBenchmark.benchmarkStatus === "quote_required"
+                          ? "Public benchmarks are not comparable enough for this service. Obtain current quotes using the same scope and commercial terms."
+                          : "Costivra did not manufacture a market average or savings estimate from this invoice total."}
                       </p>
                       {data.marketBenchmark.missingDimensions.length > 0 && (
                         <ul>

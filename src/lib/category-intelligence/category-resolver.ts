@@ -116,6 +116,18 @@ const ALIAS_MAP: Record<string, CategoryCandidate> = {
     parentKey: "technology",
     confidence: 0.9,
   },
+  "saas subscriptions": {
+    key: "saas-subscriptions",
+    name: "SaaS Subscriptions",
+    parentKey: "technology",
+    confidence: 0.98,
+  },
+  saas_subscriptions: {
+    key: "saas-subscriptions",
+    name: "SaaS Subscriptions",
+    parentKey: "technology",
+    confidence: 0.98,
+  },
   cloud: {
     key: "cloud-iaas-paas",
     name: "Cloud Infrastructure (IaaS/PaaS)",

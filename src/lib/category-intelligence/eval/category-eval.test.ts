@@ -22,7 +22,7 @@ describe("Category Intelligence Layer Verification", () => {
     });
     expect(insurance.key).toBe("workers-compensation");
     expect(insurance.parentKey).toBe("insurance-benefits");
-    expect(insurance.expertPackVersion).toBeNull();
+    expect(insurance.expertPackVersion).toBe("2026.08.2-draft");
   });
 
   it("keeps broad categories broad instead of forcing a leaf market", async () => {
@@ -132,13 +132,17 @@ describe("Category Intelligence Layer Verification", () => {
     expect(lineItem.reviewRequired).toBe(true);
   });
 
-  it("uses a neutral draft pack for unsupported markets", () => {
-    expect(hasDedicatedExpertPack("workers-compensation")).toBe(false);
+  it("uses a dedicated draft pack for workers compensation and a neutral one for unsupported markets", () => {
+    expect(hasDedicatedExpertPack("workers-compensation")).toBe(true);
     const pack = getExpertPack("workers-compensation");
 
     expect(pack.categoryKey).toBe("workers-compensation");
     expect(pack.status).toBe("draft");
-    expect(pack.lineItems).toEqual([]);
+    expect(pack.lineItems.length).toBeGreaterThan(0);
     expect(pack.benchmarkPolicy.supportedMetrics).toEqual([]);
+
+    const unsupported = getExpertPack("unlisted-insurance-market");
+    expect(unsupported.status).toBe("draft");
+    expect(unsupported.lineItems).toEqual([]);
   });
 });

@@ -1,5 +1,104 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Packets 06–07: Research Cache Foundation and Core Pack Hardening (In Progress)
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Research safety and cache**:
+  - Added a server-only market-research cache adapter. Its cache identity hashes only public-safe category, jurisdiction, vendor, and query dimensions; it stores cited results and expiry timestamps, never customer documents, account numbers, service addresses, private usage, or financial amounts.
+  - Added reviewed migration `20260805162000_category_research_cache.sql` for the missing `category_research_runs` table with RLS enabled and no browser policy. It is intentionally **not applied** yet: this branch remains under review and needs the Packet 06 source-registry and live integration proof before deployment.
+  - Research facts now retain a source registry ID and explicit scope alongside the citation. A current-market claim is rejected when it cannot be tied to an allowlisted cited source.
+- **Core market packs**:
+  - Brought electricity, broadband, SaaS, solid waste, and merchant processing to the required eight-or-more distinct line definitions and ten unique evaluation IDs. Strengthened the Packet 07 test so it actually enforces the stated ten-case minimum.
+  - All eight Packet 07 packs are explicitly `draft`; they cannot be represented as verified until Packet 10's evidence, evaluation, and review gates are complete.
+  - Removed unsupported or universal wording from legacy pack definitions, including a fixed waste-fee range and a universal telecom-surcharge negotiability claim.
+- **Focused validation**:
+  - `npm test -- --run src/lib/category-intelligence/market-research.test.ts src/lib/category-intelligence/distinct-market-packs.test.ts src/lib/category-intelligence/eval/category-eval.test.ts`: ✅ PASS (3 files, 85 tests)
+  - `npm run typecheck`: ✅ PASS
+  - `npm run lint`: ✅ PASS
+  - `git diff --check`: ✅ PASS
+- **Known remaining work**:
+  - Packet 06 still needs the full source metadata/seeding and a controlled live-search proof; Packet 07 still needs the actual persisted evaluation-case records, rather than IDs alone. Do not merge this branch to `main` yet.
+
+## August 5, 2026 — Category Intelligence Packet 05: Supabase Taxonomy, Legacy Normalization, and Insurance Categories
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Supabase Database & Seed Migrations**:
+  - Applied migration `20260805030000_category_intelligence_taxonomy.sql` creating master taxonomy tables (`category_expert_packs`, `category_line_item_definitions`, `category_benchmark_definitions`, `category_source_registry`, `category_market_snapshots`, `invoice_line_item_classifications`, `category_analysis_runs`, `category_feedback`, `category_eval_cases`) with RLS policies.
+  - Applied migration `20260805040000_seed_canonical_taxonomy_and_insurance.sql` seeding 16 parent markets and 28 leaf categories (44 total categories, including 9 first-class insurance & benefits categories) with `ON CONFLICT (slug)` updates.
+- **Resolver & Test Hardening**:
+  - Added `saas subscriptions` aliases to `category-resolver.ts` ALIAS_MAP.
+  - Created `src/lib/category-intelligence/taxonomy-seed.test.ts` with 5 unit tests verifying parent/leaf taxonomy integrity, legacy label resolution, vendor ambiguity safety, and line-item priority.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (91 test files passed, 338 unit tests passed)
+  - `npm run test:integration`: ✅ PASS (3 integration test files passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
+## August 5, 2026 — Category Intelligence Packet 04: Pack-Driven Line-Item Normalization
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Pack-Driven Normalization & Safety**:
+  - Eliminated global domain-specific substring matching. Line-item normalization is driven strictly by the active expert pack's ontology and explicit cross-category shared items (`GEN-TAX-01`, `GEN-CREDIT-01`).
+  - Added `packVersion` property to `NormalizedLineItem` and `NormalizedLineItemSchema`, ensuring every item records the exact pack version used.
+  - Carried extraction `evidenceIds` into line item classification.
+  - Unclassified lines return `chargeClass: "unknown"`, `confidence: 0`, `canonicalCode: null`, and `reviewRequired: true`.
+  - Created `src/lib/category-intelligence/line-item-pack-driven.test.ts` with 7 unit tests proving pack-driven matching (SaaS seat, broadband access fee), cross-category isolation (access fee in insurance, seat in vehicle lease remain unknown), negative amount generic credit mapping, and pack version retention.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (90 test files passed, 333 unit tests passed)
+  - `npm run test:integration`: ✅ PASS (3 integration test files passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
+## August 5, 2026 — Category Intelligence Packet 03: Remove Fabricated Benchmarks & Add Honest Benchmark Contract
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Honest Benchmark & UI Improvements**:
+  - Confirmed all synthetic category multiplier ratios (e.g. 1.18, 1.12, 1.24, 1.08) and fake regional benchmark labels are absent from `benchmark-engine.ts`, breakdown route, and UI modal.
+  - Enforced single shared `BenchmarkResult` contract returning `status: "insufficient_data"`, `"quote_required"`, or `"unsupported"` with explicit `missingDimensions`, zero synthetic percentiles, and `null` annual savings when unsupported by dated, source-backed comparables.
+  - Updated `src/components/bill-breakdown-modal.tsx` to render explicit, honest status titles ("Market comparison needs more detail", "Live quote required") and explanation copy.
+  - Created `src/lib/category-intelligence/benchmark-honest.test.ts` with 6 unit tests proving non-synthetic variance protection across telecom, energy, and unknown categories.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (89 test files passed, 326 unit tests passed)
+  - `npm run test:integration`: ✅ PASS (3 integration test files passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
+## August 5, 2026 — Category Intelligence Packet 02: Pack Registry and Unknown-Category Safety
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Pack Registry & Safety Improvements**:
+  - Eliminated cross-market pack cloning (`electric-delivery-demand` and `general-liability-bop` object spread entries removed from `EXPERT_PACKS_REGISTRY`). Only exact, materially valid packs are registered.
+  - Implemented `getExpertPackWithResolution(categoryKey)` returning exact resolution metadata (`exactMatch: boolean`, `status: CategoryExpertPackV1["status"]`).
+  - Implemented `createNeutralDraftPack` returning neutral draft packs with `status: "draft"`, zero line items, zero pricing models, zero benchmark metrics, required human review caveats, and prohibited market claim assertions for unverified/unknown categories.
+  - Created `src/lib/category-intelligence/pack-safety.test.ts` with 10 unit tests proving wireless/workers comp/group health/hazardous waste safety boundaries, draft pack protection, invoice and document attachment context priority, and neutral unknown pack guarantees.
+- **Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (88 test files passed, 320 unit tests passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
+## August 5, 2026 — Category Intelligence Packet 01: Core Contracts
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Module Inventory & Core Contracts**:
+  - Confirmed all 10 required category intelligence modules exist and are committed (`types.ts`, `pack-schema.ts`, `service.ts`, `category-resolver.ts`, `context-builder.ts`, `line-item-normalizer.ts`, `bill-quality.ts`, `benchmark-engine.ts`, `current-market-research.ts`, `packs/index.ts`).
+  - Implemented runtime Zod schemas and validators (`validateCategoryExpertPack`, `validateCategoryResolution`, `validateNormalizedLineItem`, `validateCategoryBillAnalysis`, `validateBenchmarkResult`, `validateMarketResearchResult`, `validateCategoryAiContext`) in `src/lib/category-intelligence/pack-schema.ts`.
+  - Updated `CategoryIntelligenceService` in `src/lib/category-intelligence/service.ts` with required `getExpertPack` contract and flexible input signatures for `normalizeLineItems` and `buildAiContext`.
+  - Created `src/lib/category-intelligence/module-integrity.test.ts` covering export integrity and Zod pack-schema boundary rules (draft validation, missing schema version, invalid status, unsupported charge class, negative freshness, empty category key).
+- **Import Audit & Quality Gates**:
+  - `npm run typecheck`: ✅ PASS (0 errors)
+  - `npm run lint`: ✅ PASS (0 errors, 0 warnings)
+  - `npm test -- --run`: ✅ PASS (87 test files passed, 310 unit tests passed)
+  - `npm run build`: ✅ PASS (41 routes compiled cleanly in Next.js Turbopack)
+  - `git diff --check`: ✅ PASS (0 issues)
+
 ## August 5, 2026 — ID Pages Final Remediation
 
 - **Branch**: `goal/id-pages-final-remediation`
