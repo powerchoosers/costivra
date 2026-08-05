@@ -1,7 +1,13 @@
 import type { CategoryExpertPackV1 } from "../types";
 import { energyElectricityPack } from "./energy-electricity";
 import { saasPack } from "./saas";
-import { insurancePropertyLiabilityPack } from "./insurance-property-liability";
+import {
+  commercialPropertyPack,
+  generalLiabilityBopPack,
+  groupHealthPack,
+  stopLossPbmBenefitsAdminPack,
+  workersCompensationPack,
+} from "./insurance-benefits";
 import { telecomBroadbandPack } from "./telecom-broadband";
 import { merchantProcessingPack } from "./merchant-processing";
 import { solidWastePack } from "./solid-waste";
@@ -45,7 +51,11 @@ function asDraft(
 export const EXPERT_PACKS_REGISTRY: Record<string, CategoryExpertPackV1> = {
   "commercial-electricity-supply": asDraft(energyElectricityPack),
   "saas-subscriptions": asDraft(saasPack),
-  "commercial-property": asDraft(insurancePropertyLiabilityPack),
+  "commercial-property": asDraft(commercialPropertyPack),
+  "general-liability-bop": asDraft(generalLiabilityBopPack),
+  "workers-compensation": asDraft(workersCompensationPack),
+  "group-health": asDraft(groupHealthPack),
+  "stop-loss-pbm-benefits-admin": asDraft(stopLossPbmBenefitsAdminPack),
   "business-broadband-dia": asDraft(telecomBroadbandPack),
   "merchant-processing": asDraft(merchantProcessingPack),
   "solid-waste-recycling": asDraft(solidWastePack),

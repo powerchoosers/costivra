@@ -4,26 +4,28 @@ import { categoryIntelligence } from "./service";
 import type { AssistantBoundedContext } from "@/lib/client-assistant/context-builder";
 
 describe("Packet 02: Pack Registry and Unknown-Category Safety", () => {
-  it("does not give wireless broadband/DIA line-item rules", () => {
+  it("gives wireless its own dedicated rules without broadband/DIA leakage", () => {
     const res = getExpertPackWithResolution("wireless");
-    expect(res.exactMatch).toBe(false);
+    expect(res.exactMatch).toBe(true);
     expect(res.pack.status).toBe("draft");
-    expect(res.pack.lineItems).toEqual([]);
-    expect(res.pack.lineItems.some((item) => item.canonicalCode.includes("bandwidth"))).toBe(false);
+    expect(res.pack.lineItems.length).toBeGreaterThan(0);
+    expect(res.pack.lineItems.some((item) => item.canonicalCode.startsWith("TELE-"))).toBe(false);
   });
 
-  it("does not give workers compensation commercial property deductible rules", () => {
+  it("gives workers compensation its own rules without commercial-property leakage", () => {
     const res = getExpertPackWithResolution("workers-compensation");
-    expect(res.exactMatch).toBe(false);
+    expect(res.exactMatch).toBe(true);
     expect(res.pack.status).toBe("draft");
-    expect(res.pack.lineItems).toEqual([]);
+    expect(res.pack.lineItems.length).toBeGreaterThan(0);
+    expect(res.pack.lineItems.some((item) => item.canonicalCode.startsWith("PROP-"))).toBe(false);
   });
 
-  it("does not give group health commercial property rules", () => {
+  it("gives group health its own rules without commercial-property leakage", () => {
     const res = getExpertPackWithResolution("group-health");
-    expect(res.exactMatch).toBe(false);
+    expect(res.exactMatch).toBe(true);
     expect(res.pack.status).toBe("draft");
-    expect(res.pack.lineItems).toEqual([]);
+    expect(res.pack.lineItems.length).toBeGreaterThan(0);
+    expect(res.pack.lineItems.some((item) => item.canonicalCode.startsWith("PROP-"))).toBe(false);
   });
 
   it("does not give hazardous waste normal dumpster/solid waste rules", () => {
