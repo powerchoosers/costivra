@@ -65,8 +65,10 @@ export function EditableFieldRow({
   onSave,
   source,
 }: EditableFieldRowProps) {
+  const normalizedValue = value == null ? "" : String(value);
   const [isEditing, setIsEditing] = useState(false);
-  const [draftValue, setDraftValue] = useState(String(value ?? ""));
+  const [draftValue, setDraftValue] = useState(normalizedValue);
+  const [lastNormalizedValue, setLastNormalizedValue] = useState(normalizedValue);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +83,11 @@ export function EditableFieldRow({
   const errorId = `${fieldId}-error`;
   const sourceId = `${fieldId}-source`;
 
-  const normalizedValue = value == null ? "" : String(value);
+  if (!isEditing && normalizedValue !== lastNormalizedValue) {
+    setLastNormalizedValue(normalizedValue);
+    setDraftValue(normalizedValue);
+  }
+
   const renderedValue =
     displayValue ??
     (normalizedValue || (
@@ -97,10 +103,6 @@ export function EditableFieldRow({
   const hasActions = (copyable && Boolean(normalizedValue)) || (editable && Boolean(onSave));
   const actionsVisible =
     !isEditing && hasActions && (hovered || focusedWithin || touchActionsOpen);
-
-  useEffect(() => {
-    if (!isEditing) setDraftValue(normalizedValue);
-  }, [isEditing, normalizedValue]);
 
   useEffect(() => {
     if (!isEditing) return;
