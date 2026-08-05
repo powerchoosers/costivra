@@ -28,6 +28,8 @@ export const TrustedSourceSchema = z.object({
 export const MarketResearchFactSchema = z.object({
   fact: z.string(),
   unit: z.string().nullable(),
+  scope: z.record(z.string(), z.string()),
+  sourceId: z.string(),
   sourceTitle: z.string(),
   sourceUrl: z.string().url(),
   publisher: z.string(),

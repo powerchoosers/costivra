@@ -1,5 +1,24 @@
 # Costivra Status
 
+## August 5, 2026 — Category Intelligence Packets 06–07: Research Cache Foundation and Core Pack Hardening (In Progress)
+
+- **Branch**: `agent/category-intelligence-hardening`
+- **Research safety and cache**:
+  - Added a server-only market-research cache adapter. Its cache identity hashes only public-safe category, jurisdiction, vendor, and query dimensions; it stores cited results and expiry timestamps, never customer documents, account numbers, service addresses, private usage, or financial amounts.
+  - Added reviewed migration `20260805162000_category_research_cache.sql` for the missing `category_research_runs` table with RLS enabled and no browser policy. It is intentionally **not applied** yet: this branch remains under review and needs the Packet 06 source-registry and live integration proof before deployment.
+  - Research facts now retain a source registry ID and explicit scope alongside the citation. A current-market claim is rejected when it cannot be tied to an allowlisted cited source.
+- **Core market packs**:
+  - Brought electricity, broadband, SaaS, solid waste, and merchant processing to the required eight-or-more distinct line definitions and ten unique evaluation IDs. Strengthened the Packet 07 test so it actually enforces the stated ten-case minimum.
+  - All eight Packet 07 packs are explicitly `draft`; they cannot be represented as verified until Packet 10's evidence, evaluation, and review gates are complete.
+  - Removed unsupported or universal wording from legacy pack definitions, including a fixed waste-fee range and a universal telecom-surcharge negotiability claim.
+- **Focused validation**:
+  - `npm test -- --run src/lib/category-intelligence/market-research.test.ts src/lib/category-intelligence/distinct-market-packs.test.ts src/lib/category-intelligence/eval/category-eval.test.ts`: ✅ PASS (3 files, 85 tests)
+  - `npm run typecheck`: ✅ PASS
+  - `npm run lint`: ✅ PASS
+  - `git diff --check`: ✅ PASS
+- **Known remaining work**:
+  - Packet 06 still needs the full source metadata/seeding and a controlled live-search proof; Packet 07 still needs the actual persisted evaluation-case records, rather than IDs alone. Do not merge this branch to `main` yet.
+
 ## August 5, 2026 — Category Intelligence Packet 05: Supabase Taxonomy, Legacy Normalization, and Insurance Categories
 
 - **Branch**: `agent/category-intelligence-hardening`

@@ -6,7 +6,7 @@ export const merchantProcessingPack: CategoryExpertPackV1 = {
   displayName: "Merchant Processing & Card Acceptance Fees",
   parentKey: "payments-finance",
   version: "2026.08.1",
-  status: "verified",
+  status: "draft",
   jurisdictions: ["US"],
   effectiveFrom: "2026-01-01",
   effectiveTo: null,
@@ -371,5 +371,5 @@ export const merchantProcessingPack: CategoryExpertPackV1 = {
     ],
   },
 
-  evalCaseIds: ["eval-merch-001", "eval-merch-002", "eval-merch-003"],
+  evalCaseIds: ["eval-merch-001", "eval-merch-002", "eval-merch-003", "eval-merch-004", "eval-merch-005", "eval-merch-006", "eval-merch-007", "eval-merch-008", "eval-merch-009", "eval-merch-010"],
 };

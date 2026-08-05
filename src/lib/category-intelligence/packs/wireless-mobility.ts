@@ -19,7 +19,7 @@ export const wirelessMobilityPack: CategoryExpertPackV1 = {
   displayName: "Wireless & Mobility",
   parentKey: "telecom-connectivity",
   version: "2026.08.1",
-  status: "verified",
+  status: "draft",
   jurisdictions: ["US"],
   effectiveFrom: "2026-01-01",
   effectiveTo: null,

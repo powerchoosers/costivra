@@ -42,7 +42,8 @@ describe("Packet 07 – Distinct Core Market Expert Packs", () => {
 
   it.each(requiredPacks)("pack '%s' has 10 or more eval case IDs", (key) => {
     const { pack } = getExpertPackWithResolution(key);
-    expect(pack.evalCaseIds.length).toBeGreaterThanOrEqual(1);
+    expect(pack.evalCaseIds.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(pack.evalCaseIds).size).toBe(pack.evalCaseIds.length);
   });
 
   it.each(requiredPacks)("pack '%s' has prohibited claims defined", (key) => {

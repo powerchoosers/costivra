@@ -7,6 +7,11 @@ import type {
 } from "./types";
 import { isConfiguredSecret } from "@/lib/env/secrets";
 import { TRUSTED_SOURCES_REGISTRY } from "./source-registry";
+import {
+  readMarketResearchCache,
+  writeMarketResearchCache,
+} from "./market-research-cache";
+import { getExpertPack } from "./packs";
 
 /**
  * Strips common private identifiers prior to any public search. Callers must
@@ -110,6 +115,11 @@ export async function performMarketResearch(
       searchPerformed: false,
     };
   }
+
+  const cached = await readMarketResearchCache(input);
+  if (cached) return cached;
+
+  const freshnessDays = getExpertPack(categoryKey).defaultFreshnessDays;
 
   const publicQuery = sanitizeSearchQuery(
     [
@@ -265,6 +275,11 @@ export async function performMarketResearch(
             : null;
           if (!fact || !sourceUrl || !citation) return [];
 
+          const source = trustedSources.find((candidate) =>
+            urlsReferToSameSource(candidate.url, citation.url),
+          );
+          if (!source) return [];
+
           return [
             {
               fact: fact.slice(0, 500),
@@ -272,6 +287,12 @@ export async function performMarketResearch(
                 typeof row.unit === "string" && row.unit.trim()
                   ? row.unit.trim().slice(0, 50)
                   : null,
+              scope: {
+                categoryKey,
+                jurisdiction: input.jurisdiction?.trim() || "unspecified",
+                vendor: input.vendorName?.trim() || "unspecified",
+              },
+              sourceId: source.id,
               sourceTitle: citation.title,
               sourceUrl: citation.url,
               publisher: safeHostname(citation.url) ?? "Primary source",
@@ -288,11 +309,13 @@ export async function performMarketResearch(
         })
       : [];
 
-    return {
+    const result = {
       facts: facts.slice(0, 6),
       freshness: facts.length > 0 ? "fresh" : "unverified",
       searchPerformed: true,
-    };
+    } as const;
+    await writeMarketResearchCache(input, result, freshnessDays);
+    return result;
   } catch {
     return {
       facts: [],

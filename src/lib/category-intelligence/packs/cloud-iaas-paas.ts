@@ -24,7 +24,7 @@ export const cloudIaasPaasPack: CategoryExpertPackV1 = {
   displayName: "Cloud Infrastructure (IaaS / PaaS)",
   parentKey: "technology",
   version: "2026.08.1",
-  status: "verified",
+  status: "draft",
   jurisdictions: ["US", "Global"],
   effectiveFrom: "2026-01-01",
   effectiveTo: null,

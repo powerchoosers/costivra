@@ -273,6 +273,8 @@ export type MarketResearchInput = {
 export type MarketResearchFact = {
   fact: string;
   unit: string | null;
+  scope: Record<string, string>;
+  sourceId: string;
   sourceTitle: string;
   sourceUrl: string;
   publisher: string;

@@ -26,7 +26,7 @@ export const aiApiConsumptionPack: CategoryExpertPackV1 = {
   displayName: "AI / ML Model API Consumption",
   parentKey: "technology",
   version: "2026.08.1",
-  status: "verified",
+  status: "draft",
   jurisdictions: ["US", "Global"],
   effectiveFrom: "2026-01-01",
   effectiveTo: null,
