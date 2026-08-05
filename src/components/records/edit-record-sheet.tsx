@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useEffect, useId, ReactNode, FormEvent } from "react";
-import { X, LoaderCircle, AlertTriangle } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { AlertTriangle, LoaderCircle, X } from "lucide-react";
 
 export type EditRecordSheetProps = {
   title: string;
@@ -15,6 +22,15 @@ export type EditRecordSheetProps = {
   children: ReactNode;
 };
 
+const focusableSelector = [
+  "button:not([disabled])",
+  "[href]",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
 export function EditRecordSheet({
   title,
   subtitle,
@@ -27,32 +43,111 @@ export function EditRecordSheet({
   children,
 }: EditRecordSheetProps) {
   const [showConfirmClose, setShowConfirmClose] = useState(false);
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [previousOpen, setPreviousOpen] = useState(isOpen);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const dirtyRef = useRef(isDirty);
+  const savingRef = useRef(saving);
+  const confirmRef = useRef(showConfirmClose);
   const formId = useId();
+  const titleId = useId();
+  const subtitleId = useId();
+  const errorId = useId();
 
-  if (isOpen !== prevIsOpen) {
-    setPrevIsOpen(isOpen);
+  if (isOpen !== previousOpen) {
+    setPreviousOpen(isOpen);
     setShowConfirmClose(false);
   }
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    dirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  useEffect(() => {
+    savingRef.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    confirmRef.current = showConfirmClose;
+  }, [showConfirmClose]);
+
+  useEffect(() => {
     if (!isOpen) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        if (isDirty) {
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const initial = dialogRef.current?.querySelector<HTMLElement>(
+        "input:not([disabled]):not([type='hidden']), select:not([disabled]), textarea:not([disabled])",
+      );
+      (initial ?? closeButtonRef.current ?? dialogRef.current)?.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!dialogRef.current) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (savingRef.current) return;
+        if (confirmRef.current) {
+          setShowConfirmClose(false);
+        } else if (dirtyRef.current) {
           setShowConfirmClose(true);
         } else {
-          onClose();
+          onCloseRef.current();
         }
+        return;
       }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isDirty, onClose]);
+
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector),
+      ).filter(
+        (element) =>
+          element.getAttribute("aria-hidden") !== "true" &&
+          element.getClientRects().length > 0,
+      );
+
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+      previousFocusRef.current = null;
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleRequestClose = () => {
+    if (saving) return;
     if (isDirty) {
       setShowConfirmClose(true);
     } else {
@@ -60,10 +155,20 @@ export function EditRecordSheet({
     }
   };
 
-  const handleFormSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleFormSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!isDirty || saving) return;
     await onSave();
   };
+
+  const discardChanges = () => {
+    setShowConfirmClose(false);
+    onClose();
+  };
+
+  const describedBy = [subtitle ? subtitleId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(" ") || undefined;
 
   return (
     <div
@@ -78,16 +183,21 @@ export function EditRecordSheet({
         justifyContent: "flex-end",
         animation: "recordOverlayFadeIn 200ms ease-out both",
       }}
-      onClick={handleRequestClose}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) handleRequestClose();
+      }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
+        aria-describedby={describedBy}
+        tabIndex={-1}
         className="record-sheet-container"
         style={{
           width: "min(540px, 100vw)",
-          height: "100vh",
+          height: "100dvh",
           background: "#ffffff",
           boxShadow: "-20px 0 50px rgba(15, 23, 42, 0.15)",
           display: "flex",
@@ -95,9 +205,8 @@ export function EditRecordSheet({
           overflow: "hidden",
           animation: "recordSheetSlideIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both",
         }}
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        {/* Sticky Header */}
         <div
           style={{
             display: "flex",
@@ -109,29 +218,54 @@ export function EditRecordSheet({
           }}
         >
           <div>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--assistant-text, #0f172a)", margin: 0 }}>
+            <h2
+              id={titleId}
+              style={{
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                color: "var(--assistant-text, #0f172a)",
+                margin: 0,
+              }}
+            >
               {title}
             </h2>
-            {subtitle && (
-              <span style={{ fontSize: "0.8rem", color: "var(--assistant-muted, #64748b)", display: "block", marginTop: 2 }}>
+            {subtitle ? (
+              <span
+                id={subtitleId}
+                style={{
+                  fontSize: "0.8rem",
+                  color: "var(--assistant-muted, #64748b)",
+                  display: "block",
+                  marginTop: 2,
+                }}
+              >
                 {subtitle}
               </span>
-            )}
+            ) : null}
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             className="assistant-icon-btn"
             onClick={handleRequestClose}
+            disabled={saving}
+            aria-label={`Close ${title}`}
             title="Close edit sheet"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Scrollable Body */}
-        <form id={formId} onSubmit={handleFormSubmit} style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-          {error && (
+        <form
+          id={formId}
+          onSubmit={handleFormSubmit}
+          style={{ flex: 1, overflowY: "auto", padding: "24px" }}
+        >
+          {error ? (
             <div
+              id={errorId}
+              role="alert"
+              aria-live="assertive"
               style={{
                 display: "flex",
                 alignItems: "flex-start",
@@ -145,20 +279,20 @@ export function EditRecordSheet({
                 marginBottom: 20,
               }}
             >
-              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+              <AlertTriangle size={18} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
               <div>
-                <strong style={{ display: "block" }}>Update Error</strong>
+                <strong style={{ display: "block" }}>Update error</strong>
                 <span>{error}</span>
               </div>
             </div>
-          )}
+          ) : null}
 
           {children}
         </form>
 
-        {/* Unsaved Changes Warning Banner */}
-        {showConfirmClose && (
+        {showConfirmClose ? (
           <div
+            role="alert"
             style={{
               padding: "12px 20px",
               background: "var(--assistant-warning-soft, #fff8ed)",
@@ -166,12 +300,13 @@ export function EditRecordSheet({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              gap: 12,
               fontSize: "0.84rem",
               color: "var(--assistant-warning, #a96818)",
             }}
           >
             <span>You have unsaved changes. Discard them?</span>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={() => setShowConfirmClose(false)}
@@ -184,11 +319,11 @@ export function EditRecordSheet({
                   cursor: "pointer",
                 }}
               >
-                Keep Editing
+                Keep editing
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={discardChanges}
                 style={{
                   padding: "4px 10px",
                   fontSize: "0.78rem",
@@ -204,21 +339,25 @@ export function EditRecordSheet({
               </button>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Sticky Footer */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 12,
             padding: "14px 24px",
             borderTop: "1px solid rgba(30, 41, 59, 0.10)",
             background: "var(--assistant-surface-subtle, #fbfcfe)",
           }}
         >
-          <span style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)" }}>
-            {isDirty ? "Unsaved changes" : "All changes saved"}
+          <span
+            role="status"
+            aria-live="polite"
+            style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)" }}
+          >
+            {saving ? "Saving changes" : isDirty ? "Unsaved changes" : "All changes saved"}
           </span>
           <div style={{ display: "flex", gap: 10 }}>
             <button
@@ -232,7 +371,7 @@ export function EditRecordSheet({
                 border: "1px solid rgba(30, 41, 59, 0.16)",
                 background: "#ffffff",
                 color: "var(--assistant-text, #0f172a)",
-                cursor: "pointer",
+                cursor: saving ? "not-allowed" : "pointer",
               }}
             >
               Cancel
@@ -247,7 +386,10 @@ export function EditRecordSheet({
                 fontWeight: 600,
                 borderRadius: 8,
                 border: "none",
-                background: saving || !isDirty ? "rgba(0, 47, 167, 0.35)" : "var(--assistant-accent, #002FA7)",
+                background:
+                  saving || !isDirty
+                    ? "rgba(0, 47, 167, 0.35)"
+                    : "var(--assistant-accent, #002FA7)",
                 color: "#ffffff",
                 cursor: saving || !isDirty ? "not-allowed" : "pointer",
                 display: "inline-flex",
@@ -255,7 +397,13 @@ export function EditRecordSheet({
                 gap: 6,
               }}
             >
-              {saving ? <LoaderCircle size={14} className="spin" /> : "Save Changes"}
+              {saving ? (
+                <>
+                  <LoaderCircle size={14} className="spin" aria-hidden="true" /> Saving
+                </>
+              ) : (
+                "Save changes"
+              )}
             </button>
           </div>
         </div>

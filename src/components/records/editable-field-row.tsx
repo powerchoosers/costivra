@@ -1,7 +1,17 @@
 "use client";
 
-import { useState, useRef, ReactNode, KeyboardEvent } from "react";
-import { Copy, Check, Edit2, ClipboardPaste, LoaderCircle } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
+import { Check, ClipboardPaste, Copy, Edit2, LoaderCircle } from "lucide-react";
 
 export type FieldInputConfig =
   | { kind: "text"; maxLength?: number }
@@ -34,6 +44,16 @@ const sourceLabels: Record<NonNullable<EditableFieldRowProps["source"]>, string>
   system: "System derived",
 };
 
+function inputType(input: FieldInputConfig) {
+  if (input.kind === "number") return "number";
+  if (input.kind === "url") return "url";
+  if (input.kind === "email") return "email";
+  if (input.kind === "phone") return "tel";
+  if (input.kind === "date") return "date";
+  if (input.kind === "datetime") return "datetime-local";
+  return "text";
+}
+
 export function EditableFieldRow({
   label,
   value,
@@ -45,54 +65,121 @@ export function EditableFieldRow({
   onSave,
   source,
 }: EditableFieldRowProps) {
+  const normalizedValue = value == null ? "" : String(value);
   const [isEditing, setIsEditing] = useState(false);
-  const [draftValue, setDraftValue] = useState<string>(String(value ?? ""));
+  const [draftValue, setDraftValue] = useState(normalizedValue);
+  const [lastNormalizedValue, setLastNormalizedValue] = useState(normalizedValue);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [hovered, setHovered] = useState(false);
+  const [focusedWithin, setFocusedWithin] = useState(false);
   const [touchActionsOpen, setTouchActionsOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
+  const copiedTimerRef = useRef<number | null>(null);
+  const fieldId = useId();
+  const errorId = `${fieldId}-error`;
+  const sourceId = `${fieldId}-source`;
 
-  const normalizedValue = value != null ? String(value) : "";
-  const renderedValue = displayValue ?? (normalizedValue || <span style={{ color: "var(--assistant-muted, #94a3b8)", fontStyle: "italic" }}>—</span>);
+  if (!isEditing && normalizedValue !== lastNormalizedValue) {
+    setLastNormalizedValue(normalizedValue);
+    setDraftValue(normalizedValue);
+  }
 
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const renderedValue =
+    displayValue ??
+    (normalizedValue || (
+      <span
+        style={{
+          color: "var(--assistant-muted, #94a3b8)",
+          fontStyle: "italic",
+        }}
+      >
+        Not set
+      </span>
+    ));
+  const hasActions = (copyable && Boolean(normalizedValue)) || (editable && Boolean(onSave));
+  const actionsVisible =
+    !isEditing && hasActions && (hovered || focusedWithin || touchActionsOpen);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (!touchActionsOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setTouchActionsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [touchActionsOpen]);
+
+  useEffect(
+    () => () => {
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const handleCopy = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     if (!normalizedValue) return;
     try {
       await navigator.clipboard.writeText(normalizedValue);
+      setError(null);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      setStatusMessage(`${label} copied.`);
+      if (copiedTimerRef.current !== null) {
+        window.clearTimeout(copiedTimerRef.current);
+      }
+      copiedTimerRef.current = window.setTimeout(() => {
+        setCopied(false);
+        copiedTimerRef.current = null;
+      }, 1800);
     } catch {
-      setError("Failed to copy to clipboard");
+      setError(`Could not copy ${label.toLowerCase()}.`);
+      setStatusMessage("");
     }
   };
 
-  const handlePasteToDraft = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handlePasteToDraft = async (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     try {
       const text = await navigator.clipboard.readText();
       setDraftValue(text);
+      setError(null);
+      setStatusMessage(`Pasted into ${label.toLowerCase()} draft. Review before saving.`);
+      setTouchActionsOpen(false);
       setIsEditing(true);
     } catch {
-      setError("Clipboard read permission denied");
+      setError("Clipboard access was blocked. Paste into the editor manually.");
+      setStatusMessage("");
     }
   };
 
-  const handleStartEdit = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (!editable) return;
+  const handleStartEdit = (event?: ReactMouseEvent<HTMLButtonElement>) => {
+    event?.stopPropagation();
+    if (!editable || !onSave) return;
     setDraftValue(normalizedValue);
     setError(null);
+    setStatusMessage("");
+    setTouchActionsOpen(false);
     setIsEditing(true);
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 40);
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setError(null);
+    setStatusMessage("Edit cancelled.");
     setDraftValue(normalizedValue);
   };
 
@@ -100,35 +187,76 @@ export function EditableFieldRow({
     if (!onSave || saving) return;
     setSaving(true);
     setError(null);
+    setStatusMessage("");
     try {
       await onSave(draftValue);
       setIsEditing(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save changes");
+      setTouchActionsOpen(false);
+      setStatusMessage(`${label} saved.`);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "The change could not be saved.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
+  const handleEditorKeyDown = (event: ReactKeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
       handleCancel();
-    } else if (e.key === "Enter" && input.kind !== "textarea") {
-      e.preventDefault();
-      handleSave();
-    } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && input.kind === "textarea") {
-      e.preventDefault();
-      handleSave();
+    } else if (event.key === "Enter" && input.kind !== "textarea") {
+      event.preventDefault();
+      void handleSave();
+    } else if (
+      event.key === "Enter" &&
+      (event.ctrlKey || event.metaKey) &&
+      input.kind === "textarea"
+    ) {
+      event.preventDefault();
+      void handleSave();
     }
   };
 
+  const handleBlurCapture = (event: ReactFocusEvent<HTMLDivElement>) => {
+    if (!rootRef.current?.contains(event.relatedTarget as Node | null)) {
+      setFocusedWithin(false);
+      setTouchActionsOpen(false);
+    }
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+    if (isEditing || !hasActions) return;
+    const target = event.target as Element;
+    if (target.closest("button, a, input, select, textarea")) return;
+    setTouchActionsOpen((current) => !current);
+  };
+
+  const describedBy = [source ? sourceId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(" ") || undefined;
+
   return (
     <div
+      ref={rootRef}
       className="editable-field-row"
-      tabIndex={0}
-      data-actions-open={touchActionsOpen}
-      onClick={() => setTouchActionsOpen((prev) => !prev)}
+      tabIndex={isEditing ? -1 : 0}
+      data-actions-open={touchActionsOpen || undefined}
+      aria-label={`${label}: ${normalizedValue || "Not set"}`}
+      aria-describedby={describedBy}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocusCapture={() => setFocusedWithin(true)}
+      onBlurCapture={handleBlurCapture}
+      onPointerUp={handlePointerUp}
+      onKeyDown={(event) => {
+        if (!isEditing && event.key === "Escape") {
+          setTouchActionsOpen(false);
+          setFocusedWithin(false);
+        }
+      }}
       style={{
         position: "relative",
         display: "flex",
@@ -140,8 +268,16 @@ export function EditableFieldRow({
         transition: "background 140ms ease",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
+        <label
+          htmlFor={isEditing ? fieldId : undefined}
           style={{
             fontSize: "0.74rem",
             fontWeight: 600,
@@ -151,9 +287,10 @@ export function EditableFieldRow({
           }}
         >
           {label}
-        </span>
-        {source && (
+        </label>
+        {source ? (
           <span
+            id={sourceId}
             title={sourceLabels[source]}
             style={{
               fontSize: "0.68rem",
@@ -166,7 +303,7 @@ export function EditableFieldRow({
           >
             {sourceLabels[source]}
           </span>
-        )}
+        ) : null}
       </div>
 
       {isEditing ? (
@@ -174,10 +311,13 @@ export function EditableFieldRow({
           {input.kind === "enum" ? (
             <select
               ref={inputRef as React.RefObject<HTMLSelectElement>}
+              id={fieldId}
               value={draftValue}
-              onChange={(e) => setDraftValue(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onChange={(event) => setDraftValue(event.target.value)}
+              onKeyDown={handleEditorKeyDown}
               disabled={saving}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? errorId : undefined}
               style={{
                 width: "100%",
                 padding: "6px 10px",
@@ -188,21 +328,24 @@ export function EditableFieldRow({
                 background: "#ffffff",
               }}
             >
-              {input.options.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {input.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
           ) : input.kind === "textarea" ? (
             <textarea
               ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+              id={fieldId}
               value={draftValue}
-              onChange={(e) => setDraftValue(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onChange={(event) => setDraftValue(event.target.value)}
+              onKeyDown={handleEditorKeyDown}
               disabled={saving}
               rows={3}
               maxLength={input.maxLength}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? errorId : undefined}
               style={{
                 width: "100%",
                 padding: "6px 10px",
@@ -218,13 +361,17 @@ export function EditableFieldRow({
           ) : (
             <input
               ref={inputRef as React.RefObject<HTMLInputElement>}
-              type={input.kind === "number" ? "number" : input.kind === "url" ? "url" : input.kind === "email" ? "email" : "text"}
+              id={fieldId}
+              type={inputType(input)}
               value={draftValue}
-              onChange={(e) => setDraftValue(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onChange={(event) => setDraftValue(event.target.value)}
+              onKeyDown={handleEditorKeyDown}
               disabled={saving}
               min={input.kind === "number" ? input.min : undefined}
               max={input.kind === "number" ? input.max : undefined}
+              maxLength={input.kind === "text" ? input.maxLength : undefined}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? errorId : undefined}
               style={{
                 width: "100%",
                 padding: "6px 10px",
@@ -237,12 +384,27 @@ export function EditableFieldRow({
             />
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-            {error && (
-              <span style={{ fontSize: "0.75rem", color: "var(--assistant-danger, #c44b4b)", marginRight: "auto" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              justifyContent: "flex-end",
+            }}
+          >
+            {error ? (
+              <span
+                id={errorId}
+                role="alert"
+                style={{
+                  fontSize: "0.75rem",
+                  color: "var(--assistant-danger, #c44b4b)",
+                  marginRight: "auto",
+                }}
+              >
                 {error}
               </span>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={handleCancel}
@@ -261,7 +423,7 @@ export function EditableFieldRow({
             </button>
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={saving}
               style={{
                 padding: "3px 12px",
@@ -299,63 +461,95 @@ export function EditableFieldRow({
 
           <div
             className="editable-field-row__actions"
+            aria-hidden={!actionsVisible}
             style={{
               position: "absolute",
               top: "50%",
               right: 0,
-              transform: "translateY(-50%) translateX(4px)",
+              transform: actionsVisible
+                ? "translateY(-50%) translateX(0)"
+                : "translateY(-50%) translateX(4px)",
               display: "inline-flex",
               alignItems: "center",
               gap: 4,
               paddingLeft: 18,
-              background: "linear-gradient(90deg, transparent 0%, #ffffff 32%)",
-              visibility: "hidden",
-              opacity: 0,
-              pointerEvents: "none",
-              transition: "all 140ms ease",
+              background:
+                "linear-gradient(90deg, transparent 0%, var(--assistant-surface, #ffffff) 32%)",
+              visibility: actionsVisible ? "visible" : "hidden",
+              opacity: actionsVisible ? 1 : 0,
+              pointerEvents: actionsVisible ? "auto" : "none",
+              transition: "opacity 140ms ease, transform 140ms ease",
             }}
           >
-            {copyable && normalizedValue && (
+            {copyable && normalizedValue ? (
               <button
                 type="button"
                 className="assistant-icon-btn"
                 onClick={handleCopy}
                 title={`Copy ${label}`}
                 aria-label={`Copy ${label}`}
+                tabIndex={actionsVisible ? 0 : -1}
                 style={{ width: 28, height: 28 }}
               >
-                {copied ? <Check size={14} style={{ color: "var(--assistant-success, #138a62)" }} /> : <Copy size={14} />}
+                {copied ? (
+                  <Check
+                    size={14}
+                    aria-hidden="true"
+                    style={{ color: "var(--assistant-success, #138a62)" }}
+                  />
+                ) : (
+                  <Copy size={14} aria-hidden="true" />
+                )}
               </button>
-            )}
+            ) : null}
 
-            {editable && pasteable && (
+            {editable && onSave && pasteable ? (
               <button
                 type="button"
                 className="assistant-icon-btn"
                 onClick={handlePasteToDraft}
-                title={`Paste to draft ${label}`}
-                aria-label={`Paste to draft ${label}`}
+                title={`Paste into ${label}`}
+                aria-label={`Paste into ${label}`}
+                tabIndex={actionsVisible ? 0 : -1}
                 style={{ width: 28, height: 28 }}
               >
-                <ClipboardPaste size={14} />
+                <ClipboardPaste size={14} aria-hidden="true" />
               </button>
-            )}
+            ) : null}
 
-            {editable && (
+            {editable && onSave ? (
               <button
                 type="button"
                 className="assistant-icon-btn"
                 onClick={handleStartEdit}
                 title={`Edit ${label}`}
                 aria-label={`Edit ${label}`}
+                tabIndex={actionsVisible ? 0 : -1}
                 style={{ width: 28, height: 28 }}
               >
-                <Edit2 size={14} />
+                <Edit2 size={14} aria-hidden="true" />
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       )}
+
+      {!isEditing && error ? (
+        <span
+          id={errorId}
+          role="alert"
+          style={{
+            marginTop: 4,
+            fontSize: "0.74rem",
+            color: "var(--assistant-danger, #c44b4b)",
+          }}
+        >
+          {error}
+        </span>
+      ) : null}
+      <span className="sr-only" role="status" aria-live="polite">
+        {statusMessage}
+      </span>
     </div>
   );
 }
