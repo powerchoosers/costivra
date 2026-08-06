@@ -12,20 +12,16 @@ import {
 } from "lucide-react";
 import { useBillInspector } from "@/components/bill-inspector-provider";
 import { useToast } from "@/components/toast-provider";
+import {
+  submitDocumentUpload,
+  waitForDocumentBreakdown,
+} from "@/lib/documents/client-upload";
 
 type UploadVendor = {
   relationshipId: string;
   name: string;
 };
 
-type UploadResponse = {
-  ok?: boolean;
-  outcome?: "processed" | "quarantined" | "duplicate" | "rejected";
-  documentId?: string;
-  originalFilename?: string;
-  warning?: string;
-  error?: string;
-};
 
 type UploadStage = "idle" | "uploading" | "analyzing" | "finalizing";
 
@@ -58,24 +54,6 @@ function fileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function delay(milliseconds: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-}
-
-async function breakdownIsReady(documentId: string) {
-  const delays = [250, 500, 800, 1_200, 1_800, 2_500];
-  for (let attempt = 0; attempt < delays.length; attempt += 1) {
-    const response = await fetch(`/api/portal/documents/${documentId}/breakdown`, {
-      cache: "no-store",
-    }).catch(() => null);
-    if (response?.ok) return true;
-    if (response && ![404, 409, 425, 500, 503].includes(response.status)) {
-      return false;
-    }
-    await delay(delays[attempt]);
-  }
-  return false;
-}
 
 export function DocumentUploadExperience({
   vendors,
@@ -139,13 +117,9 @@ export function DocumentUploadExperience({
       form.set("file", selectedFile);
       if (vendorId) form.set("organizationVendorId", vendorId);
 
-      const response = await fetch("/api/portal/documents", {
-        method: "POST",
-        body: form,
-      });
-      const payload = (await response.json().catch(() => ({}))) as UploadResponse;
+      const result = await submitDocumentUpload(form);
 
-      if (response.status === 409 && payload.documentId) {
+      if (result.kind === "duplicate") {
         window.clearTimeout(stageTimer);
         toast.dismiss(analysisToast);
         finishAndClose();
@@ -153,31 +127,27 @@ export function DocumentUploadExperience({
         toast.show({
           tone: "info",
           title: "This bill is already in Costivra",
-          message: payload.error || "Open the existing document instead of uploading a duplicate.",
+          message: result.message,
           actionLabel: "Open existing breakdown",
-          onActionClick: () => openInspector(payload.documentId as string),
+          onActionClick: () => openInspector(result.documentId),
           duration: 12_000,
         });
         return;
       }
 
-      if (!response.ok) {
-        throw new Error(payload.error || "The bill could not be uploaded.");
-      }
-
       window.clearTimeout(stageTimer);
       setStage("finalizing");
       toast.dismiss(analysisToast);
-      const documentId = payload.documentId;
+      const documentId = result.documentId;
 
-      if (payload.outcome === "quarantined") {
+      if (result.kind === "quarantined") {
         finishAndClose();
         router.refresh();
         toast.show({
           tone: "warning",
           title: "Bill safely quarantined",
           message:
-            payload.warning ||
+            result.warning ||
             "The security scan could not finish. The file is private and has not been analyzed.",
           actionHref: documentId ? `/app/documents/${documentId}` : "/app/documents",
           actionLabel: "View document status",
@@ -203,7 +173,7 @@ export function DocumentUploadExperience({
         message: "Costivra is finalizing the document breakdown.",
         duration: 12_000,
       });
-      const ready = await breakdownIsReady(documentId);
+      const ready = await waitForDocumentBreakdown(documentId);
       toast.dismiss(finalizingToast);
       router.refresh();
 
