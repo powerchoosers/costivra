@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   CircleDashed,
@@ -34,6 +34,7 @@ const cardStyle = {
   borderRadius: 12,
   border: "1px solid #e4e4e7",
   background: "#ffffff",
+  color: "#111827",
 } as const;
 
 function StatusBadge({ value }: { value: "draft" | "planned" }) {
@@ -55,6 +56,23 @@ function StatusBadge({ value }: { value: "draft" | "planned" }) {
   );
 }
 
+type CategoryOperations = {
+  generatedAt: string;
+  queues: {
+    unmappedOrReviewRequiredLines: number;
+    pendingCorrections: number;
+    staleResearchRuns: number;
+    persistedAnalysisRuns: number;
+  };
+  evaluations: Array<{
+    suite: string;
+    passed: boolean;
+    data_classification: string;
+    coverage_level: string;
+    evaluated_at: string;
+  }>;
+};
+
 export function ManageCategoryIntelligence() {
   const [selectedTab, setSelectedTab] = useState<
     "taxonomy" | "packs" | "sources"
@@ -64,9 +82,30 @@ export function ManageCategoryIntelligence() {
     () => new Set(expertPacks.map((pack) => pack.parentKey)),
     [expertPacks],
   );
+  const [operations, setOperations] = useState<CategoryOperations | null>(null);
+  const [operationsError, setOperationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/manage/category-intelligence", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as CategoryOperations | { error?: string };
+        if (!response.ok) throw new Error("error" in payload ? payload.error : "Unable to load category operations.");
+        return payload as CategoryOperations;
+      })
+      .then((payload) => {
+        if (active) setOperations(payload);
+      })
+      .catch(() => {
+        if (active) setOperationsError("Live review queues are unavailable right now.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
-    <div className="manage-page-body" style={{ padding: 24 }}>
+    <div className="manage-page-body" style={{ padding: 24, color: "#f8fafc" }}>
       <header style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div
@@ -83,16 +122,16 @@ export function ManageCategoryIntelligence() {
             <h1
               style={{
                 margin: 0,
-                color: "#09090b",
+                color: "#f8fafc",
                 fontSize: 22,
                 fontWeight: 650,
               }}
             >
               Category Intelligence &amp; Market Expertise
             </h1>
-            <p style={{ margin: "3px 0 0", color: "#71717a", fontSize: 14 }}>
-              Honest coverage tracking for taxonomy, draft expert packs, source
-              registries, and benchmark readiness.
+            <p style={{ margin: "3px 0 0", color: "#aab6cf", fontSize: 14 }}>
+              Internal quality controls for category rules, source reviews, and
+              items that need a human check.
             </p>
           </div>
         </div>
@@ -157,6 +196,42 @@ export function ManageCategoryIntelligence() {
           <small style={{ color: "#71717a" }}>Quote or comparable required</small>
         </div>
       </div>
+
+      <section aria-label="Live category operations" style={{ ...cardStyle, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 16 }}>Live review queue</h2>
+            <p style={{ margin: "4px 0 0", color: "#71717a", fontSize: 12 }}>
+              Owner-only operational counts. These are not customer-facing benchmark claims.
+            </p>
+          </div>
+          {operations && <small style={{ color: "#71717a" }}>Updated {new Date(operations.generatedAt).toLocaleString()}</small>}
+        </div>
+        {operationsError ? (
+          <p role="status" style={{ margin: 0, color: "#a16207", fontSize: 13 }}>{operationsError}</p>
+        ) : !operations ? (
+          <p role="status" style={{ margin: 0, color: "#71717a", fontSize: 13 }}>Loading review queues…</p>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>
+              {[
+                ["Unmapped or review-required lines", operations.queues.unmappedOrReviewRequiredLines],
+                ["Pending corrections", operations.queues.pendingCorrections],
+                ["Stale research runs", operations.queues.staleResearchRuns],
+                ["Persisted analysis runs", operations.queues.persistedAnalysisRuns],
+              ].map(([label, value]) => (
+                <div key={String(label)} style={{ padding: 12, border: "1px solid #e4e4e7", borderRadius: 10 }}>
+                  <strong style={{ display: "block", fontSize: 22 }}>{value}</strong>
+                  <span style={{ color: "#71717a", fontSize: 12 }}>{label}</span>
+                </div>
+              ))}
+            </div>
+            <p style={{ margin: "12px 0 0", color: "#71717a", fontSize: 12 }}>
+              Latest evaluation evidence: {operations.evaluations.length === 0 ? "no persisted runs yet" : operations.evaluations.map((run) => `${run.suite} · ${run.passed ? "pass" : "fail"} · ${run.coverage_level}`).join(" | ")}.
+            </p>
+          </>
+        )}
+      </section>
 
       <div
         role="tablist"

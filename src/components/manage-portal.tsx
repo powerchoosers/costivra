@@ -34,6 +34,7 @@ import {
   IndentIncrease,
   Italic,
   LayoutDashboard,
+  Layers,
   LoaderCircle,
   Link2,
   List,
@@ -93,6 +94,7 @@ import { CostivraMark } from "@/components/brand";
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import { ManageInvoiceReview } from "@/components/manage-invoice-review";
 import { ManageIntakeOperations } from "@/components/manage-intake-operations";
+import { ManageCategoryIntelligence } from "@/components/manage-category-intelligence";
 import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
@@ -129,6 +131,7 @@ const navGroups = [
       ["Mail", "/manage/mail", Mail],
       ["Intake", "/manage/intake", ShieldAlert],
       ["Invoice review", "/manage/invoice-review", FileCheck2],
+      ["Category operations", "/manage/category-intelligence", Layers],
       ["Activity", "/manage/activity", Activity],
     ],
   },
@@ -881,6 +884,7 @@ export function ManagePortal({
     ? "Client operations"
     : section === "invoice-review" ? "Invoice review"
       : section === "intake" ? "Intake operations"
+        : section === "category-intelligence" ? "Category operations"
         : pretty(section);
   return (
     <div className={`manage-app${assistantOpen ? " is-assistant-open" : ""}`}>
@@ -1145,7 +1149,7 @@ export function ManagePortal({
             <div className="manage-topbar-utilities" aria-label="Workspace utilities">
               <button type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></button>
             </div>
-            {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" ? null : section === "activity" ? (
+          {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => openDialog("note")}
@@ -1228,6 +1232,7 @@ export function ManagePortal({
           {section === "intake" && intakeOperations && (
             <ManageIntakeOperations data={intakeOperations} />
           )}
+          {section === "category-intelligence" && <ManageCategoryIntelligence />}
           {section === "activity" && (
             <ActivityPage
               data={data}
