@@ -53,6 +53,10 @@ function edgeEnabledIndex(items: RecordMenuItem[], edge: "first" | "last") {
   return edge === "first" ? enabled[0] : enabled[enabled.length - 1];
 }
 
+export function shouldOpenMenuUpward(top: number, bottom: number, viewportHeight: number) {
+  return viewportHeight - bottom < 300 && top > viewportHeight - bottom;
+}
+
 export function RecordOverflowMenu({
   items,
   ariaLabel = "More record actions",
@@ -89,7 +93,7 @@ export function RecordOverflowMenu({
       focus === "last" ? "last" : "first",
     );
     const rect = triggerRef.current?.getBoundingClientRect();
-    setOpensUpward(Boolean(rect && window.innerHeight - rect.bottom < 300 && rect.top > window.innerHeight - rect.bottom));
+    setOpensUpward(Boolean(rect && shouldOpenMenuUpward(rect.top, rect.bottom, window.innerHeight)));
     setOpen(true);
     setActiveIndex(nextIndex);
     if (focus !== "none" && nextIndex >= 0) {

@@ -1955,7 +1955,7 @@ function InlineAccountStage({ account }: { account: ManageAccount }) {
   async function save(nextValue: string) {
     setBusy(true);
     try {
-      await api(`/api/manage/accounts/${account.id}`, { method: "PATCH", body: JSON.stringify({ stage: nextValue }) });
+      await api(`/api/manage/accounts/${account.id}`, { method: "PATCH", body: JSON.stringify({ stage: nextValue, expectedUpdatedAt: account.updatedAt }) });
       setValue(nextValue);
       setEditing(false);
       router.refresh();
@@ -1993,7 +1993,7 @@ function InlineAccountText({ account, field, value, display, placeholder, type =
     if (saving.current) return;
     saving.current = true;
     try {
-      await api(`/api/manage/accounts/${account.id}`, { method: "PATCH", body: JSON.stringify({ [field]: draft }) });
+      await api(`/api/manage/accounts/${account.id}`, { method: "PATCH", body: JSON.stringify({ [field]: draft, expectedUpdatedAt: account.updatedAt }) });
       setEditing(false);
       router.refresh();
     } catch (error) {
@@ -2015,7 +2015,7 @@ function InlineAccountWebsite({ account }: { account: ManageAccount }) {
     const websiteStr = String(newValue ?? "");
     await api(`/api/manage/accounts/${account.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ website: websiteStr }),
+      body: JSON.stringify({ website: websiteStr, expectedUpdatedAt: account.updatedAt }),
     });
     toast.success(websiteStr.trim() ? "Account website updated." : "Account website removed.");
     router.refresh();
@@ -2526,7 +2526,7 @@ function AccountHierarchyCard({ account, accounts, run }: { account: ManageAccou
   const candidates = accounts.filter((item) => item.id !== account.id);
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await run(() => fetch(`/api/manage/accounts/${account.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ parentAccountId: parentId || null }) }).then(async (response) => { if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || "The account relationship could not be saved."); }), "Account relationship updated.");
+    await run(() => api(`/api/manage/accounts/${account.id}`, { method: "PATCH", body: JSON.stringify({ parentAccountId: parentId || null, expectedUpdatedAt: account.updatedAt }) }), "Account relationship updated.");
     setEditing(false);
   };
   return <section className="manage-context-card manage-hierarchy-context">
@@ -3030,6 +3030,8 @@ function AccountDetailPage({
         isDirty={accountDraftDirty}
         saving={savingEdit}
         error={editError}
+        onReloadLatest={() => router.refresh()}
+        onKeepDraft={() => setEditError(null)}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
@@ -3575,10 +3577,10 @@ function ContactDetailPage({
                   value={contact.fullName}
                   input={{ kind: "text" }}
                   onSave={async (v) => {
-                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                    await api(`/api/manage/contacts/${contact.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ fullName: String(v) }),
+                      body: JSON.stringify({ fullName: String(v), expectedUpdatedAt: contact.updatedAt }),
                     });
                     toast.success("Name updated.");
                     router.refresh();
@@ -3589,10 +3591,10 @@ function ContactDetailPage({
                   value={contact.email}
                   input={{ kind: "text" }}
                   onSave={async (v) => {
-                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                    await api(`/api/manage/contacts/${contact.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email: String(v) }),
+                      body: JSON.stringify({ email: String(v), expectedUpdatedAt: contact.updatedAt }),
                     });
                     toast.success("Email updated.");
                     router.refresh();
@@ -3603,10 +3605,10 @@ function ContactDetailPage({
                   value={contact.phone}
                   input={{ kind: "phone" }}
                   onSave={async (v) => {
-                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                    await api(`/api/manage/contacts/${contact.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ phone: String(v) }),
+                      body: JSON.stringify({ phone: String(v), expectedUpdatedAt: contact.updatedAt }),
                     });
                     toast.success("Phone updated.");
                     router.refresh();
@@ -3617,10 +3619,10 @@ function ContactDetailPage({
                   value={contact.title}
                   input={{ kind: "text" }}
                   onSave={async (v) => {
-                    await fetch(`/api/manage/contacts/${contact.id}`, {
+                    await api(`/api/manage/contacts/${contact.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ title: String(v) }),
+                      body: JSON.stringify({ title: String(v), expectedUpdatedAt: contact.updatedAt }),
                     });
                     toast.success("Job title updated.");
                     router.refresh();
@@ -3769,6 +3771,8 @@ function ContactDetailPage({
         isDirty={contactDraftDirty}
         saving={savingEdit}
         error={editError}
+        onReloadLatest={() => router.refresh()}
+        onKeepDraft={() => setEditError(null)}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>

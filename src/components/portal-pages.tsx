@@ -1592,6 +1592,8 @@ export function VendorDetail({
         isDirty={vendorDraftDirty}
         saving={savingEdit}
         error={editError}
+        onReloadLatest={() => router.refresh()}
+        onKeepDraft={() => setEditError(null)}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>

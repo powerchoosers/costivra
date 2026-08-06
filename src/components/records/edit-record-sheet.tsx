@@ -19,6 +19,8 @@ export type EditRecordSheetProps = {
   isDirty?: boolean;
   saving?: boolean;
   error?: string | null;
+  onReloadLatest?: () => void;
+  onKeepDraft?: () => void;
   children: ReactNode;
 };
 
@@ -40,6 +42,8 @@ export function EditRecordSheet({
   isDirty = false,
   saving = false,
   error = null,
+  onReloadLatest,
+  onKeepDraft,
   children,
 }: EditRecordSheetProps) {
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -283,6 +287,12 @@ export function EditRecordSheet({
               <div>
                 <strong style={{ display: "block" }}>Update error</strong>
                 <span>{error}</span>
+                {error.includes("changed in another session") ? (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <button type="button" onClick={onReloadLatest} disabled={!onReloadLatest}>Reload latest</button>
+                    <button type="button" onClick={onKeepDraft}>Keep my draft</button>
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}

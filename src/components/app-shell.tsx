@@ -46,8 +46,123 @@ const navigation = [
   ["Settings", "/app/settings", Settings],
 ] as const;
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Search, X } from "lucide-react";
+
+interface AppSearchResult {
+  id: string;
+  category: "opportunities" | "vendors" | "contracts" | "documents" | "expenses";
+  title: string;
+  detail: string;
+  href: string;
+}
+
+const searchCategoryLabels: Record<AppSearchResult["category"], string> = {
+  opportunities: "Cases & Opportunities",
+  vendors: "Vendors",
+  contracts: "Contracts",
+  documents: "Documents",
+  expenses: "Expenses",
+};
+
+const searchCategoryIcons = {
+  opportunities: Target,
+  vendors: Building2,
+  contracts: FileText,
+  documents: FileStack,
+  expenses: ReceiptText,
+};
+
+function appSearchResults(data: PortalData, query: string) {
+  const term = query.trim().toLowerCase();
+  if (!term) return [] as AppSearchResult[];
+
+  const results: AppSearchResult[] = [];
+
+  // 1. Opportunities
+  for (const opp of data.opportunities) {
+    if (
+      opp.title.toLowerCase().includes(term) ||
+      opp.vendorName.toLowerCase().includes(term) ||
+      (opp.summary && opp.summary.toLowerCase().includes(term))
+    ) {
+      results.push({
+        id: opp.id,
+        category: "opportunities",
+        title: opp.title,
+        detail: `${opp.vendorName} • Case`,
+        href: `/app/opportunities/${opp.id}`,
+      });
+    }
+  }
+
+  // 2. Vendors
+  for (const v of data.vendors) {
+    if (
+      v.name.toLowerCase().includes(term) ||
+      (v.category && v.category.toLowerCase().includes(term))
+    ) {
+      results.push({
+        id: v.id,
+        category: "vendors",
+        title: v.name,
+        detail: `${v.category || "Uncategorized"} • Vendor`,
+        href: `/app/vendors/${v.id}`,
+      });
+    }
+  }
+
+  // 3. Contracts
+  for (const c of data.contracts) {
+    if (
+      c.title.toLowerCase().includes(term) ||
+      c.vendorName.toLowerCase().includes(term) ||
+      (c.category && c.category.toLowerCase().includes(term))
+    ) {
+      results.push({
+        id: c.id,
+        category: "contracts",
+        title: c.title,
+        detail: `${c.vendorName} • Contract`,
+        href: `/app/contracts/${c.id}`,
+      });
+    }
+  }
+
+  // 4. Documents
+  for (const d of data.documents) {
+    if (
+      d.originalFilename.toLowerCase().includes(term) ||
+      d.vendorName.toLowerCase().includes(term)
+    ) {
+      results.push({
+        id: d.id,
+        category: "documents",
+        title: d.originalFilename,
+        detail: `${d.vendorName} • Document`,
+        href: `/app/documents/${d.id}`,
+      });
+    }
+  }
+
+  // 5. Expenses
+  for (const e of data.expenses) {
+    if (
+      e.vendorName.toLowerCase().includes(term) ||
+      (e.category && e.category.toLowerCase().includes(term))
+    ) {
+      results.push({
+        id: e.id,
+        category: "expenses",
+        title: `${e.vendorName} - ${new Intl.NumberFormat("en-US", { style: "currency", currency: data.organization.currency }).format(e.amount)}`,
+        detail: `${e.category || "Uncategorized"} • Expense`,
+        href: `/app/expenses/${e.id}`,
+      });
+    }
+  }
+
+  return results;
+}
 
 function AppShellContent({ children, data }: { children: ReactNode; data: PortalData }) {
   const { state: assistantState } = useClientAssistant();
@@ -55,16 +170,15 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const pathname = usePathname();
   const router = useRouter();
   const toast = useToast();
-  const [commandOpen, setCommandOpen] = useState(false);
-  const [commandLeaving, setCommandLeaving] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [searchClosing, setSearchClosing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const commandDialogRef = useRef<HTMLDivElement>(null);
-  const commandTriggerRef = useRef<HTMLButtonElement>(null);
-  const commandCloseTimerRef = useRef<number | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const sidebarTimerRef = useRef<number | null>(null);
 
   const expandSidebar = (delay = 0) => {
@@ -89,52 +203,73 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     }, 420);
   };
 
-  const closeCommand = useCallback(() => {
-    if (!commandOpen || commandLeaving) return;
-    setCommandLeaving(true);
-    if (commandCloseTimerRef.current) window.clearTimeout(commandCloseTimerRef.current);
-    commandCloseTimerRef.current = window.setTimeout(() => { setCommandOpen(false); setCommandLeaving(false); commandCloseTimerRef.current = null; }, 170);
-  }, [commandLeaving, commandOpen]);
+  const closeSearch = useCallback(() => {
+    setSearchClosing(true);
+    window.setTimeout(() => {
+      setSearchFocused(false);
+      setSearchClosing(false);
+    }, 160);
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        closeSearch();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [closeSearch]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setCommandLeaving(false); setCommandOpen((prev) => !prev);
+        searchInputRef.current?.focus();
+        setSearchFocused(true);
+        setSearchClosing(false);
       } else if (e.key === "Escape") {
-        if (commandOpen) closeCommand();
-        setOrgOpen(false); setNotificationsOpen(false); setProfileOpen(false);
+        closeSearch();
+        searchInputRef.current?.blur();
+        setOrgOpen(false);
+        setNotificationsOpen(false);
+        setProfileOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeCommand, commandOpen]);
-
-  useEffect(() => {
-    if (!commandOpen) return;
-    document.body.classList.add("modal-open");
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const commandTrigger = commandTriggerRef.current;
-    const handleFocusLoop = (event: KeyboardEvent) => {
-      if (event.key !== "Tab" || !commandDialogRef.current) return;
-      const focusable = Array.from(commandDialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex='-1'])"));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    document.addEventListener("keydown", handleFocusLoop);
-    return () => {
-      document.removeEventListener("keydown", handleFocusLoop);
-      document.body.classList.remove("modal-open");
-      (commandTrigger ?? previousFocus)?.focus();
-    };
-  }, [commandOpen]);
+  }, [closeSearch]);
 
   useEffect(() => () => {
     if (sidebarTimerRef.current) window.clearTimeout(sidebarTimerRef.current);
   }, []);
+
+  const results = useMemo(() => appSearchResults(data, searchQuery), [data, searchQuery]);
+  const resultsByCategory = useMemo(() => {
+    const grouped = new Map<AppSearchResult["category"], AppSearchResult[]>();
+    for (const result of results) {
+      const categoryResults = grouped.get(result.category) ?? [];
+      if (categoryResults.length < 5) categoryResults.push(result);
+      grouped.set(result.category, categoryResults);
+    }
+    const categoriesOrder: AppSearchResult["category"][] = [
+      "opportunities",
+      "vendors",
+      "contracts",
+      "documents",
+      "expenses",
+    ];
+    return categoriesOrder
+      .map((category) => ({ category, results: grouped.get(category) ?? [] }))
+      .filter(({ results }) => results.length > 0);
+  }, [results]);
+
+  function openSearchResult(result: AppSearchResult) {
+    setSearchFocused(false);
+    setSearchClosing(false);
+    setSearchQuery("");
+    router.push(result.href);
+  }
 
   const filteredNav = navigation.filter(([label]) =>
     label.toLowerCase().includes(searchQuery.toLowerCase())
@@ -280,18 +415,69 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
             </div>
 
             <div className="top-actions">
-              <button
-                ref={commandTriggerRef}
-                className="button button-quiet global-search"
-                type="button"
-                onClick={() => { setCommandLeaving(false); setCommandOpen(true); }}
-                aria-label="Open search"
-                style={{ borderRadius: 10, background: "#ffffff", border: "1px solid #e2e8f0" }}
-              >
-                <Search aria-hidden="true" size={15} style={{ color: "#64748b" }} />
-                <span className="global-search-label">Search documents, vendors, or evidence</span>
-                <span className="command-shortcut">⌘K</span>
-              </button>
+              <div className="app-global-search-wrap" ref={searchContainerRef}>
+                <label className="global-search">
+                  <Search aria-hidden="true" size={15} style={{ color: "#64748b" }} />
+                  <input
+                    ref={searchInputRef}
+                    aria-label="Search Costivra records"
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => {
+                      setSearchFocused(true);
+                      setSearchClosing(false);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        closeSearch();
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="Search opportunities, vendors, contracts..."
+                  />
+                  <span className="command-shortcut">⌘K</span>
+                </label>
+                {(searchFocused || searchClosing) && searchQuery.trim() && (
+                  <div
+                    className={`app-global-results${searchClosing ? " is-closing" : ""}`}
+                    id="app-global-search-results"
+                    role="listbox"
+                    aria-label="Search results"
+                  >
+                    {resultsByCategory.length ? (
+                      resultsByCategory.map(({ category, results: categoryResults }) => {
+                        const Icon = searchCategoryIcons[category];
+                        return (
+                          <section className="app-global-result-group" key={category}>
+                            <h2>
+                              <Icon aria-hidden="true" size={14} />
+                              {searchCategoryLabels[category]}
+                            </h2>
+                            {categoryResults.map((result) => (
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={false}
+                                key={result.id}
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  openSearchResult(result);
+                                }}
+                              >
+                                <strong>{result.title}</strong>
+                                <small>{result.detail}</small>
+                              </button>
+                            ))}
+                          </section>
+                        );
+                      })
+                    ) : (
+                      <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>
+                    )}
+                  </div>
+                )}
+              </div>
               <ClientAssistantTrigger />
               <Link className="button button-primary" href="/app/documents" style={{ borderRadius: 10, padding: "0 18px", fontSize: ".84rem" }}>
                 <Upload aria-hidden="true" size={16} /> Upload documents
@@ -314,51 +500,6 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
           </nav>
         </main>
       </div>
-
-      {/* Command Palette (`Cmd + K`) Modal */}
-      {commandOpen && (
-        <div className={`command-overlay${commandLeaving ? " is-leaving" : ""}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCommand(); }}>
-          <div ref={commandDialogRef} className="command-box" role="dialog" aria-modal="true" aria-labelledby="command-search-title" onMouseDown={(event) => event.stopPropagation()}>
-            <h2 id="command-search-title" className="sr-only">Search Costivra</h2>
-            <div className="command-header">
-              <Search aria-hidden="true" size={18} style={{ color: "#78859b" }} />
-              <input
-                className="command-input"
-                type="text"
-                aria-label="Search commands"
-                placeholder="Type a command, page name, vendor, or contract..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-              />
-              <button type="button" aria-label="Close search" style={{ background: "transparent", border: 0, color: "#78859b", cursor: "pointer" }} onClick={closeCommand}>
-                <X aria-hidden="true" size={18} />
-              </button>
-            </div>
-            <div className="command-list">
-              <div className="command-group-title">Navigation & Workspaces</div>
-              {filteredNav.map(([label, href, Icon]) => (
-                <Link
-                  className="command-item"
-                  href={href}
-                  key={href}
-                  onClick={closeCommand}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Icon aria-hidden="true" size={16} />
-                    {label}
-                  </span>
-                  <span className="command-shortcut">Jump</span>
-                </Link>
-              ))}
-
-              <div className="command-group-title" style={{ marginTop: 12 }}>Workspace records</div>
-              {data.vendors.filter((vendor) => vendor.name.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,4).map((vendor) => <Link className="command-item" href="/app/vendors" onClick={closeCommand} key={vendor.id}><span>{vendor.name}</span><span className="command-shortcut">{vendor.category}</span></Link>)}
-              {data.documents.filter((document) => document.originalFilename.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,4).map((document) => <Link className="command-item" href="/app/documents" onClick={closeCommand} key={document.id}><span>{document.originalFilename}</span><span className="command-shortcut">Document</span></Link>)}
-            </div>
-          </div>
-        </div>
-      )}
       <ClientAssistantSurface />
     </div>
   );

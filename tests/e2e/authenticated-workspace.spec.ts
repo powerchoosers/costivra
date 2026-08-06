@@ -90,7 +90,12 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       throw created.error ?? new Error("The temporary E2E user was not created.");
     }
     userId = created.data.user.id;
+    const staff = await admin.from("internal_staff_users").upsert({ user_id: userId, role: "owner", status: "active" }, { onConflict: "user_id" });
+    if (staff.error) throw staff.error;
     organizationId = await waitForMembership(admin, userId);
+
+    const profile = await admin.from("crm_account_profiles").upsert({ organization_id: organizationId, lifecycle_stage: "active", visible_in_crm: true }, { onConflict: "organization_id" });
+    if (profile.error) throw profile.error;
 
     const vendor = await admin
       .from("vendors")

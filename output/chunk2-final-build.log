@@ -1,0 +1,119 @@
+
+> costivra@0.1.0 build
+> next build
+
+▲ Next.js 16.2.12 (Turbopack)
+- Environments: .env.production.local, .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 17.7s
+  Running TypeScript ...
+  Finished TypeScript in 44s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/40) ...
+  Generating static pages using 7 workers (10/40) 
+  Generating static pages using 7 workers (20/40) 
+  Generating static pages using 7 workers (30/40) 
+✓ Generating static pages using 7 workers (40/40) in 1574ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /[...slug]
+├ ƒ /access
+├ ƒ /api/auth/set-password
+├ ƒ /api/contact
+├ ƒ /api/cron/inbound-email
+├ ƒ /api/cron/retention
+├ ƒ /api/logos/[entity]/[id]
+├ ƒ /api/manage/accounts
+├ ƒ /api/manage/accounts/[id]
+├ ƒ /api/manage/accounts/[id]/archive
+├ ƒ /api/manage/accounts/[id]/deletion-preview
+├ ƒ /api/manage/accounts/[id]/enrichment
+├ ƒ /api/manage/accounts/[id]/history
+├ ƒ /api/manage/accounts/[id]/restore
+├ ƒ /api/manage/accounts/search
+├ ƒ /api/manage/activities
+├ ƒ /api/manage/assistant
+├ ƒ /api/manage/category-intelligence
+├ ƒ /api/manage/contacts
+├ ƒ /api/manage/contacts/[id]
+├ ƒ /api/manage/contacts/[id]/deactivate
+├ ƒ /api/manage/contacts/[id]/deletion-preview
+├ ƒ /api/manage/contacts/[id]/history
+├ ƒ /api/manage/contacts/[id]/restore
+├ ƒ /api/manage/cron-auth
+├ ƒ /api/manage/documents/[id]/download
+├ ƒ /api/manage/documents/[id]/retry-extraction
+├ ƒ /api/manage/enrichment/apollo
+├ ƒ /api/manage/intake/[id]
+├ ƒ /api/manage/invoices
+├ ƒ /api/manage/invoices/[id]
+├ ƒ /api/manage/invoices/[id]/source
+├ ƒ /api/manage/mail/attachments/[id]
+├ ƒ /api/manage/mail/draft
+├ ƒ /api/manage/mail/messages
+├ ƒ /api/manage/mail/threads/[id]
+├ ƒ /api/manage/mailboxes
+├ ƒ /api/manage/mailboxes/[id]
+├ ƒ /api/manage/notifications
+├ ƒ /api/manage/profile
+├ ƒ /api/manage/profile/avatar
+├ ƒ /api/manage/retention/report
+├ ƒ /api/manage/system-readiness
+├ ƒ /api/manage/tasks
+├ ƒ /api/manage/tasks/[id]
+├ ƒ /api/portal/actions/[id]
+├ ƒ /api/portal/approval-policies
+├ ƒ /api/portal/approval-policies/[id]
+├ ƒ /api/portal/ask
+├ ƒ /api/portal/chat/attachments
+├ ƒ /api/portal/chat/sessions
+├ ƒ /api/portal/chat/sessions/[id]
+├ ƒ /api/portal/chat/sessions/[id]/messages
+├ ƒ /api/portal/contracts
+├ ƒ /api/portal/documents
+├ ƒ /api/portal/documents/[id]
+├ ƒ /api/portal/documents/[id]/breakdown
+├ ƒ /api/portal/documents/[id]/download
+├ ƒ /api/portal/email-intake
+├ ƒ /api/portal/expenses
+├ ƒ /api/portal/export
+├ ƒ /api/portal/integrations/[id]
+├ ƒ /api/portal/locations
+├ ƒ /api/portal/locations/[id]
+├ ƒ /api/portal/notifications
+├ ƒ /api/portal/opportunities/[id]
+├ ƒ /api/portal/records/[resource]/[id]
+├ ƒ /api/portal/reports/[id]
+├ ƒ /api/portal/savings/[id]
+├ ƒ /api/portal/settings
+├ ƒ /api/portal/team
+├ ƒ /api/portal/team/[id]
+├ ƒ /api/portal/vendor-catalog
+├ ƒ /api/portal/vendors
+├ ƒ /api/portal/vendors/[id]
+├ ƒ /api/portal/vendors/[id]/deletion-preview
+├ ƒ /api/portal/vendors/[id]/history
+├ ƒ /api/portal/vendors/[id]/monitoring
+├ ƒ /api/status
+├ ƒ /api/webhooks/resend
+├ ƒ /app/[[...slug]]
+├ ƒ /auth/callback
+├ ƒ /auth/confirm
+├ ƒ /confirm-recovery
+├ ƒ /manage/[[...slug]]
+├ ○ /manifest.webmanifest
+├ ○ /opengraph-image
+├ ○ /robots.txt
+├ ƒ /set-password
+└ ○ /sitemap.xml
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
