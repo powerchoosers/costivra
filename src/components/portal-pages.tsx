@@ -53,7 +53,7 @@ import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
 import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState, type VendorMonitoringRecord } from "@/lib/vendors/monitoring";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
-import { useBillInspector } from "@/components/bill-inspector-provider";
+import { DocumentUploadExperience } from "@/components/document-upload-experience";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditRecordSheet } from "@/components/records/edit-record-sheet";
 import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
@@ -3535,43 +3535,6 @@ function CreateModals({
       }
     };
 
-  const toast = useToast();
-  const { openInspector } = useBillInspector();
-
-  async function handleDocumentUpload(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setBusy(true);
-    const form = new FormData(e.currentTarget);
-    const toastId = toast.info("Analyzing bill...", "Running security scan and extraction...");
-    try {
-      const res = (await api("/api/portal/documents", { body: form })) as {
-        ok?: boolean;
-        documentId?: string;
-      };
-      setKind(null);
-      toast.dismiss(toastId);
-      if (res?.documentId) {
-        const docId = res.documentId;
-        toast.show({
-          tone: "success",
-          title: "Bill Processed",
-          message: "Extraction & security scan complete.",
-          actionLabel: "View Analysis",
-          onActionClick: () => openInspector(docId),
-        });
-        openInspector(docId);
-        await run(() => Promise.resolve(res), "Document received. Check its security and extraction status.");
-      } else {
-        toast.success("Document received.", "Check its security and extraction status.");
-      }
-    } catch (err) {
-      toast.dismiss(toastId);
-      toast.error("Upload failed", err instanceof Error ? err.message : "Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <>
       <PortalModal
@@ -3658,32 +3621,15 @@ function CreateModals({
         description="PDF, DOCX, or text up to 20 MB. Every file passes a security scan before extraction."
         onClose={close}
       >
-        <form onSubmit={handleDocumentUpload}>
-          <SelectField
-            label="Vendor (optional)"
-            name="organizationVendorId"
-            options={[
-              { value: "", label: "Unassigned" },
-              ...data.vendors.map((v) => ({
-                value: v.relationshipId,
-                label: v.name,
-              })),
-            ]}
-            defaultValue={presetVendor}
-            required={false}
-          />
-          <label className="upload-field">
-            <Upload />
-            <strong>Choose a source file</strong>
-            <span>PDF, DOCX, or TXT · 20 MB maximum</span>
-            <input type="file" name="file" accept=".pdf,.docx,.txt" required />
-          </label>
-          <FormActions
-            busy={busy}
-            onCancel={close}
-            label="Upload and security check"
-          />
-        </form>
+        <DocumentUploadExperience
+          vendors={data.vendors.map((vendor) => ({
+            relationshipId: vendor.relationshipId,
+            name: vendor.name,
+          }))}
+          presetVendor={presetVendor}
+          onBusyChange={setBusy}
+          onComplete={() => setKind(null)}
+        />
       </PortalModal>
       <PortalModal
         open={kind === "expense"}
