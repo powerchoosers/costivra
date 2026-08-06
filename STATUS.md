@@ -15,6 +15,30 @@
   - This is not the Packet 10 promotion gate. The required representative, de-identified or consented corpus (including corrected and malformed cases), live source-refresh proof, and human review evidence are still outstanding.
   - All category expert packs remain `draft`; no benchmark, savings estimate, or category result is promoted to verified.
 
+## August 6, 2026 — Category Intelligence Packet 09–10 Completion Audit
+
+- **Verified in the current repository and live database**:
+  - Invoice intake now uses the shared category service and persists a category-analysis run plus pack-driven line-item classifications.
+  - Bill Breakdown and Ask Costivra use the same service; Ask Costivra retains the selected category, pack version, and cited source IDs in assistant-message metadata.
+  - The opportunity helper no longer fabricates a ten-percent savings estimate from spend. Quote-required opportunities now have a null amount and zero confidence until comparable evidence exists.
+  - The `category_evaluation_runs` ledger has RLS enabled, browser roles cannot read it, and aggregate structural evaluation results are stored.
+- **Validation completed on August 6**:
+  - `npm test -- --run`: PASS (94 files / 416 tests; 4 files / 6 tests skipped).
+  - `npm run test:integration`: PASS (3 files / 7 tests; 4 live-only files skipped).
+  - `npm run test:integration:live`: PASS (7 files / 13 tests).
+  - `npm run eval:categories`, `eval:line-items`, `eval:benchmarks`, `eval:market-research`: PASS, but structural synthetic fixtures only.
+  - `npm run lint`, `npm run typecheck`, and `npm run build`: PASS.
+  - `npm run test:e2e`: PASS (10 tests; 6 intentionally skipped); the separately invoked authenticated E2E was skipped in this run, so it is not release evidence.
+  - `npm run ops:readiness` and `npm run ops:smoke`: PASS.
+- **Known incomplete Packet 09 requirements**:
+  - Monitoring, durable opportunity creation, and reports do not yet consume/persist the shared category trace.
+  - `/manage/category-intelligence` is a truthful static coverage screen, but not yet the required operational queue for unknowns, unmapped lines, corrections, refresh work, or unsupported benchmark attempts.
+  - There is no end-to-end test that proves the same category, pack version, canonical codes, sources, and benchmark state from ingestion through chat, monitoring, opportunity, and reporting.
+- **Known incomplete Packet 10 requirements**:
+  - No reviewed representative, de-identified or consented category corpus exists. The invoice evaluator correctly refuses to run without a supplied golden manifest; no artificial corpus was created.
+  - No current-source refresh run with verifiable citations, documented human review, or authenticated customer E2E proof is available for this audit.
+  - **Verdict: CATEGORY INTELLIGENCE INCOMPLETE.** It is a source-safe, draft foundation, not a verified release.
+
 ## August 5, 2026 — Category Intelligence Foundation Merged to Main
 
 - **Main commit**: `af6ff21` (`feat(category-intelligence): merge source-backed expertise foundation`)
