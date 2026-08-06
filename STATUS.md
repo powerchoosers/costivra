@@ -23,6 +23,7 @@
   - The owner-only Manage assistant now uses the shared service when a question has sufficient category evidence. It receives only draft pack metadata, applicable line-item labels, review rules, and caveats; it does not receive customer documents, private invoice text, or live market research. Its safe audit record retains the selected category key and pack version.
   - The Executive Value Report now includes category-trace coverage, draft-pack versions, unknown-category review count, missing benchmark dimensions, current-source-use state, estimated opportunity value, and separately calculated verified savings. It never adds estimates to verified value.
   - Deterministic expense-change opportunities now retain the category key, pack version, pack status, and resolution source inside their calculation inputs. Category resolution is descriptive only and cannot modify the deterministic amount, rule version, or verified-savings workflow.
+  - Forwarded-bill monitoring now records category-specific review guidance in its service audit event: category trace, pack version/status, tracked fields, unit types, review-rule IDs, and freshness. It deliberately preserves the customer-configured cadence rather than inventing a category billing schedule.
   - Corrected an unregistered insurance source pack that was still marked `verified` and contained an unsupported deductible-savings range. It is now explicitly draft and quote/evidence-required, consistent with the release gate.
   - The opportunity helper no longer fabricates a ten-percent savings estimate from spend. Quote-required opportunities now have a null amount and zero confidence until comparable evidence exists.
   - The `category_evaluation_runs` ledger has RLS enabled, browser roles cannot read it, and aggregate structural evaluation results are stored.
@@ -36,7 +37,7 @@
   - `npm run test:e2e`: PASS (10 tests; 6 intentionally skipped); the separately invoked authenticated E2E was skipped in this run, so it is not release evidence.
   - `npm run ops:readiness` and `npm run ops:smoke`: PASS.
 - **Known incomplete Packet 09 requirements**:
-  - Monitoring does not yet consume/persist the shared category trace. Deterministic opportunity creation and Executive Value Reports now do.
+  - Monitoring, deterministic opportunity creation, and Executive Value Reports now consume/persist the shared category trace. A single full journey test still needs to prove that one trace remains identical across all customer-facing surfaces.
   - `/manage/category-intelligence` is now an owner-only page in the standard Manage navigation. It shows protected live counts for unmapped/review-required lines, pending corrections, stale research, persisted analysis, and latest evaluation evidence. It still needs drill-down queues and an explicit unsupported-benchmark-attempt ledger.
   - The invoice-ingestion boundary now has a focused trace-consistency test. There is still no end-to-end test proving the same category, pack version, canonical codes, sources, and benchmark state from ingestion through chat, monitoring, opportunity, and reporting.
 - **Known incomplete Packet 10 requirements**:

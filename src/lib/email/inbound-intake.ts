@@ -15,6 +15,7 @@ import { inboundEmailOutcomeMessage } from "@/lib/email/inbound-outcome";
 import { getResendClient } from "@/lib/email/resend";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCategoryMonitoringGuidance } from "@/lib/vendors/category-monitoring";
 
 type ServerDatabase = ReturnType<typeof createServerSupabaseClient>;
 type ResendClient = ReturnType<typeof getResendClient>;
@@ -388,6 +389,20 @@ export async function reconcileVendorMonitoringIntake(
     const isPendingTest = config.state === "pending_test" || !config.test_completed_at;
 
     if (senderMatches || isPendingTest) {
+      const { data: relationship } = await db
+        .from("organization_vendors")
+        .select("category_override,vendors(category)")
+        .eq("id", config.organization_vendor_id)
+        .eq("organization_id", job.organization_id)
+        .maybeSingle();
+      const vendor = relationship?.vendors as unknown as { category?: unknown } | null;
+      const categoryLabel =
+        typeof relationship?.category_override === "string" && relationship.category_override.trim()
+          ? relationship.category_override
+          : typeof vendor?.category === "string"
+            ? vendor.category
+            : null;
+      const categoryMonitoring = await getCategoryMonitoringGuidance(categoryLabel).catch(() => null);
       const cadenceDays = config.expected_cadence_days || 30;
       const graceDays = config.grace_period_days || 7;
       const nextExpected = new Date(Date.now() + (cadenceDays + graceDays) * 24 * 60 * 60 * 1000).toISOString();
@@ -416,6 +431,7 @@ export async function reconcileVendorMonitoringIntake(
           senderAddress: job.sender_address,
           state: "active",
           nextExpectedAt: nextExpected,
+          categoryMonitoring,
         },
       });
     }
