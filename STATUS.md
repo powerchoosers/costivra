@@ -32,7 +32,7 @@
   - `npm run ops:readiness` and `npm run ops:smoke`: PASS.
 - **Known incomplete Packet 09 requirements**:
   - Monitoring, durable opportunity creation, and reports do not yet consume/persist the shared category trace.
-  - `/manage/category-intelligence` is a truthful static coverage screen, but not yet the required operational queue for unknowns, unmapped lines, corrections, refresh work, or unsupported benchmark attempts.
+  - `/manage/category-intelligence` is now an owner-only page in the standard Manage navigation. It shows protected live counts for unmapped/review-required lines, pending corrections, stale research, persisted analysis, and latest evaluation evidence. It still needs drill-down queues and an explicit unsupported-benchmark-attempt ledger.
   - There is no end-to-end test that proves the same category, pack version, canonical codes, sources, and benchmark state from ingestion through chat, monitoring, opportunity, and reporting.
 - **Known incomplete Packet 10 requirements**:
   - No reviewed representative, de-identified or consented category corpus exists. The invoice evaluator correctly refuses to run without a supplied golden manifest; no artificial corpus was created.
