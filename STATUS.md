@@ -1,5 +1,14 @@
 # Costivra Status
 
+## August 6, 2026 — Live verification completed for bill upload repair
+
+- Applied and verified the five forward migrations required by the bill-upload repair in the Costivra Supabase project `skfocjrykyvsaviyhdea`. The recorded remote migration entries are documented in `08_LIVE_VERIFICATION_REPORT.md`.
+- Verified the live schema, scan trigger, service-role-only scan ledger boundary, invoice semantics, evidence source keys, opportunity trust fields, and post-migration Supabase advisor state. The new scan table is intentionally fail-closed with no browser policy; the existing leaked-password-protection warning and informational index/RLS findings remain.
+- Passed the final local quality gate: typecheck, lint with two existing `app-shell.tsx` warnings, 487 unit tests, production build, and `git diff --check`.
+- Passed the authenticated end-to-end workflow against the connected Supabase project. It created and cleaned a disposable workspace and covered sign-in, stored invoice rendering, breakdown API `200`, approval/action/savings transitions, audit evidence, and unsupported-value trust labeling.
+- Passed a live browser upload using the committed synthetic utility PDF. The upload produced a clean security snapshot, reconciled `$76.00` invoice, one line item, two page-aware evidence references, and correct unresolved identity/location matches. The disposable user, workspace, database records, and storage object were removed; the shared vendor was preserved.
+- Current release verdict remains `INTERNAL_TESTING_ONLY`: production deployment SHA, mobile screenshot evidence, the single actionable completion toast, and the two private TXU paired-balance PDF replays remain unverified. See `08_LIVE_VERIFICATION_REPORT.md` for the evidence and next gates.
+
 ## August 6, 2026 — Chunk 6 release validation
 
 - **Automated validation**: `npm test -- --run` PASS (117 files, 487 tests; 4 files and 6 tests skipped); focused breakdown route tests PASS (5 tests); focused owner trust-route tests PASS (3 tests); focused owner evidence-option data test PASS (1 test); `npm run eval:invoices -- --manifest tests/fixtures/invoices/golden-manifest.smoke.json --predictions tests/fixtures/invoices/golden-predictions.smoke.json` PASS (all 10 smoke metrics 100%, zero extraction errors); `npm run test:integration` PASS (8 tests, 6 credential-gated skips); `npm run typecheck` PASS; `npm run build` PASS; `npm run lint` PASS with the two existing `src/components/app-shell.tsx` warnings; `git diff --check` PASS.
