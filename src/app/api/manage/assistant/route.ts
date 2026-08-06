@@ -8,6 +8,7 @@ import {
 } from "@/lib/manage/assistant";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { getManageData } from "@/lib/manage/repository";
+import { buildManageCategoryIntelligenceContext } from "@/lib/manage/category-intelligence-context";
 
 type ConversationMessage = { role: "user" | "assistant"; content: string };
 
@@ -70,9 +71,10 @@ export async function POST(request: Request) {
           .filter((item): item is ConversationMessage => Boolean(item))
       : [];
 
-    const [data, events] = await Promise.all([
+    const [data, events, categoryIntelligence] = await Promise.all([
       getManageData({ folder: "inbox" }),
       getEmailEvents(),
+      buildManageCategoryIntelligenceContext(question).catch(() => null),
     ]);
     const sources = buildManageAssistantSources(data);
     const sourcesById = new Map(sources.map((source) => [source.id, source]));
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
             currentView: { section, detailId },
             recentConversation: history,
             crmSnapshot: buildManageAssistantSnapshot(data, events),
+            categoryIntelligence,
           }),
         },
       ],
@@ -115,6 +118,14 @@ export async function POST(request: Request) {
         detail_id_present: Boolean(detailId),
         question_length: question.length,
         source_ids: sourceIds,
+        category_intelligence: categoryIntelligence
+          ? {
+              category_key: categoryIntelligence.category.key,
+              pack_version: categoryIntelligence.category.packVersion,
+              pack_status: categoryIntelligence.category.packStatus,
+              resolution_source: categoryIntelligence.category.resolutionSource,
+            }
+          : null,
       },
     });
     if (auditError) throw auditError;

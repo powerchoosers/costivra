@@ -20,6 +20,7 @@
 - **Verified in the current repository and live database**:
   - Invoice intake now uses the shared category service and persists a category-analysis run plus pack-driven line-item classifications.
   - Bill Breakdown and Ask Costivra use the same service; Ask Costivra retains the selected category, pack version, and cited source IDs in assistant-message metadata.
+  - The owner-only Manage assistant now uses the shared service when a question has sufficient category evidence. It receives only draft pack metadata, applicable line-item labels, review rules, and caveats; it does not receive customer documents, private invoice text, or live market research. Its safe audit record retains the selected category key and pack version.
   - The opportunity helper no longer fabricates a ten-percent savings estimate from spend. Quote-required opportunities now have a null amount and zero confidence until comparable evidence exists.
   - The `category_evaluation_runs` ledger has RLS enabled, browser roles cannot read it, and aggregate structural evaluation results are stored.
 - **Validation completed on August 6**:
