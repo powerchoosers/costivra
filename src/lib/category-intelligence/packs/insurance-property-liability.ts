@@ -6,7 +6,9 @@ export const insurancePropertyLiabilityPack: CategoryExpertPackV1 = {
   displayName: "Commercial Property & General Liability Insurance",
   parentKey: "insurance-benefits",
   version: "2026.08.1",
-  status: "verified",
+  // This pack has not cleared Packet 10's source, evaluation, and human-review
+  // gates. Draft status prevents its guidance from being presented as verified.
+  status: "draft",
   jurisdictions: ["US"],
   effectiveFrom: "2026-01-01",
   effectiveTo: null,
@@ -96,7 +98,7 @@ export const insurancePropertyLiabilityPack: CategoryExpertPackV1 = {
   optimizationLevers: [
     {
       key: "deductible_optimization",
-      description: "Increase property deductible from $1,000 to $5,000 to achieve 12-18% base premium reduction.",
+      description: "Model deductible scenarios only after reviewing risk tolerance, cash reserves, policy terms, and current carrier quotes. Do not claim a premium reduction without comparable evidence.",
       prerequisites: ["working_capital_reserve"],
       risks: ["higher_out_of_pocket_per_claim"],
       needsAuthorization: true,

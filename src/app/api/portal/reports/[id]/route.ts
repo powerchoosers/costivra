@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { apiError, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
+import { categoryIntelligence } from "@/lib/category-intelligence/service";
+import { buildCategoryIntelligenceReportRows } from "@/lib/category-intelligence/report-summary";
 
 function csvCell(value: unknown) { return `"${String(value ?? "").replaceAll('"','""')}"`; }
 
@@ -21,6 +23,57 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     } else if (report.report_type === "data_coverage") {
       const { data, error } = await db.from("documents").select("original_filename,document_type,status,page_count,created_at").eq("organization_id", organizationId).order("created_at", { ascending: false });
       if (error) throw error; headers = ["Document","Type","Status","Pages","Added"]; values = (data ?? []).map((row) => [row.original_filename,row.document_type,row.status,row.page_count,row.created_at]);
+    } else if (report.report_type === "executive_value") {
+      const [invoicesResult, analysesResult, opportunitiesResult, savingsResult] = await Promise.all([
+        db.from("invoices").select("id,expense_category,metadata").eq("organization_id", organizationId),
+        db.from("category_analysis_runs").select("invoice_id,pack_version,missing_dimensions,live_sources_used").eq("organization_id", organizationId),
+        db.from("opportunities").select("estimated_annual_value").eq("organization_id", organizationId),
+        db.from("savings_outcomes").select("amount,status").eq("organization_id", organizationId),
+      ]);
+      for (const result of [invoicesResult, analysesResult, opportunitiesResult, savingsResult]) {
+        if (result.error) throw result.error;
+      }
+      const categoryKeys = new Set(
+        (invoicesResult.data ?? []).flatMap((invoice) => {
+          const metadata = invoice.metadata;
+          const trace = metadata && typeof metadata === "object" && !Array.isArray(metadata)
+            ? (metadata as Record<string, unknown>).categoryIntelligence
+            : null;
+          const key = trace && typeof trace === "object" && !Array.isArray(trace)
+            ? (trace as Record<string, unknown>).categoryKey
+            : null;
+          return typeof key === "string" && key ? [key] : [];
+        }),
+      );
+      const packStatuses = await Promise.all(
+        [...categoryKeys].map(async (key) => [
+          key,
+          (await categoryIntelligence.getExpertPackWithResolution(key)).status,
+        ] as const),
+      );
+      const rows = buildCategoryIntelligenceReportRows({
+        invoices: (invoicesResult.data ?? []).map((invoice) => ({
+          id: invoice.id,
+          expenseCategory: invoice.expense_category,
+          metadata: invoice.metadata,
+        })),
+        analyses: (analysesResult.data ?? []).map((analysis) => ({
+          invoiceId: analysis.invoice_id,
+          packVersion: analysis.pack_version,
+          missingDimensions: analysis.missing_dimensions,
+          liveSourcesUsed: analysis.live_sources_used,
+        })),
+        opportunities: (opportunitiesResult.data ?? []).map((opportunity) => ({
+          estimatedAnnualValue: opportunity.estimated_annual_value,
+        })),
+        savings: (savingsResult.data ?? []).map((outcome) => ({
+          amount: outcome.amount,
+          status: outcome.status,
+        })),
+        packStatusByKey: new Map(packStatuses),
+      });
+      headers = ["Metric", "Value", "Status", "Detail"];
+      values = rows.map((row) => [row.metric, row.value, row.status, row.detail]);
     } else {
       const { data, error } = await db.from("opportunities").select("title,status,confidence,estimated_annual_value,deadline_at,category").eq("organization_id", organizationId).order("estimated_annual_value", { ascending: false });
       if (error) throw error; headers = ["Opportunity","Category","Status","Confidence","Estimated annual value","Deadline"]; values = (data ?? []).map((row) => [row.title,row.category,row.status,row.confidence,row.estimated_annual_value,row.deadline_at]);

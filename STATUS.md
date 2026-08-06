@@ -21,6 +21,8 @@
   - Invoice intake now uses the shared category service and persists a category-analysis run plus pack-driven line-item classifications.
   - Bill Breakdown and Ask Costivra use the same service; Ask Costivra retains the selected category, pack version, and cited source IDs in assistant-message metadata.
   - The owner-only Manage assistant now uses the shared service when a question has sufficient category evidence. It receives only draft pack metadata, applicable line-item labels, review rules, and caveats; it does not receive customer documents, private invoice text, or live market research. Its safe audit record retains the selected category key and pack version.
+  - The Executive Value Report now includes category-trace coverage, draft-pack versions, unknown-category review count, missing benchmark dimensions, current-source-use state, estimated opportunity value, and separately calculated verified savings. It never adds estimates to verified value.
+  - Corrected an unregistered insurance source pack that was still marked `verified` and contained an unsupported deductible-savings range. It is now explicitly draft and quote/evidence-required, consistent with the release gate.
   - The opportunity helper no longer fabricates a ten-percent savings estimate from spend. Quote-required opportunities now have a null amount and zero confidence until comparable evidence exists.
   - The `category_evaluation_runs` ledger has RLS enabled, browser roles cannot read it, and aggregate structural evaluation results are stored.
 - **Validation completed on August 6**:
