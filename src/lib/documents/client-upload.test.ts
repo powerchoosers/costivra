@@ -79,9 +79,23 @@ describe("submitDocumentUpload", () => {
     );
   });
 
+  it("returns a rejected result for a security-blocked 422", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      jsonResponse(422, {
+        error: "The file was blocked by the security scan.",
+      }),
+    );
+
+    await expect(submitDocumentUpload(uploadForm(), fetcher)).resolves.toEqual(
+      expect.objectContaining({
+        kind: "rejected",
+        message: "The file was blocked by the security scan.",
+      }),
+    );
+  });
+
   it.each([
     [415, "Unsupported file type."],
-    [422, "The file was blocked by the security scan."],
     [425, "The upload is not ready yet."],
     [500, "Document processing failed."],
   ])("throws a typed request error for HTTP %s", async (status, message) => {
@@ -97,12 +111,42 @@ describe("submitDocumentUpload", () => {
 });
 
 describe("waitForDocumentBreakdown", () => {
+  it("does not treat a 202 processing response as ready", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(202, {
+          analysisReady: false,
+          message: "Still reading.",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          analysisReady: true,
+          document: { id: "doc" },
+        }),
+      );
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      waitForDocumentBreakdown("55555555-5555-4555-8555-555555555555", {
+        fetcher,
+        delays: [1, 1],
+        sleep,
+      }),
+    ).resolves.toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
   it("retries temporary states and resolves when the breakdown becomes ready", async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(404, { error: "Not ready." }))
       .mockResolvedValueOnce(jsonResponse(425, { error: "Still processing." }))
-      .mockResolvedValueOnce(jsonResponse(200, { document: { id: "doc" } }));
+      .mockResolvedValueOnce(
+        jsonResponse(200, { analysisReady: true, document: { id: "doc" } }),
+      );
     const sleep = vi.fn().mockResolvedValue(undefined);
 
     await expect(

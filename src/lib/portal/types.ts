@@ -1,3 +1,5 @@
+import type { OpportunityTrustState } from "@/lib/domain/opportunity-trust";
+
 export type PortalOrganization = {
   id: string;
   name: string;
@@ -9,6 +11,7 @@ export type PortalOrganization = {
   reviewThreshold: number;
   settings: Record<string, boolean>;
   logoUrl: string | null;
+  isSampleWorkspace: boolean;
 };
 
 export type PortalUser = {
@@ -63,6 +66,7 @@ export type PortalExpense = {
   status: string;
   documentId: string | null;
   invoiceId: string | null;
+  expenseAccountId: string | null;
   locationId: string | null;
   locationName: string | null;
   updatedAt: string;
@@ -116,6 +120,9 @@ export type PortalInvoice = {
   totalAmount: number | null;
   reviewStatus: string;
   vendorMatchStatus: string;
+  workspaceCustomerMatchStatus: string;
+  expenseAccountMatchStatus: string;
+  serviceLocationMatchStatus: string;
   reconciliationStatus: string;
   lineItemCount: number;
   vendorId: string | null;
@@ -127,13 +134,39 @@ export type PortalInvoice = {
   taxTotal: number | null;
   feeTotal: number | null;
   creditTotal: number | null;
+  previousBalance: number | null;
+  paymentsAndCredits: number | null;
+  balanceForward: number | null;
+  currentCharges: number | null;
+  currentPeriodCredits: number | null;
   amountDue: number | null;
   extractionConfidence: number | null;
   reconciliationDifference: number | null;
   reviewPriority: string;
   reviewNotes: string | null;
   expenseCategory: string | null;
+  expenseAccountId: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  energyService: PortalEnergyService | null;
   updatedAt: string;
+};
+
+export type PortalEnergyService = {
+  customerName: string | null;
+  serviceAddress: string | null;
+  serviceIdentifier: string | null;
+  meterId: string | null;
+  productName: string | null;
+  utilityTerritory: string | null;
+  billingDays: number | null;
+  usageKwh: number | null;
+  actualDemandKw: number | null;
+  billedDemandKw: number | null;
+  meterMultiplier: number | null;
+  averagePricePerKwh: number | null;
+  readDateStart: string | null;
+  readDateEnd: string | null;
 };
 
 export type PortalInvoiceLineItem = {
@@ -167,6 +200,19 @@ export type PortalOpportunity = {
   calculationResult: Record<string, string>;
   assumptions: string[];
   calculationInputs: Record<string, unknown>;
+  trustState: OpportunityTrustState;
+  generatedBy: string;
+  customerVisible: boolean;
+  monetaryClaimAllowed: boolean;
+  sourceDocumentId: string | null;
+  sourceExpenseId: string | null;
+  baselineExpenseId: string | null;
+  expenseAccountId: string | null;
+  expenseAccountReference: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  accountNumberLast4: string | null;
+  lastEvaluatedAt: string | null;
   updatedAt: string;
 };
 
@@ -237,9 +283,10 @@ export type PortalEvidenceReference = {
   id: string;
   documentId: string;
   opportunityId: string | null;
-  pageNumber: number;
+  pageNumber: number | null;
   fieldPath: string | null;
   textExcerpt: string;
+  sourceKey?: string | null;
 };
 
 export type PortalIntegration = {

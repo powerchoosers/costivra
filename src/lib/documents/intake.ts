@@ -9,6 +9,7 @@ import {
   type DocumentExtractionInputMode,
 } from "@/lib/documents/extraction-failure";
 import type { MalwareScanResult } from "@/lib/security/malware-scanner";
+import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024;
@@ -42,7 +43,17 @@ export async function ingestDocumentBuffer(input: {
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
   const { data: duplicate, error: duplicateError } = await input.db.from("documents").select("id,original_filename").eq("organization_id", input.organizationId).eq("sha256", sha256).maybeSingle();
   if (duplicateError) throw duplicateError;
-  if (duplicate) return { duplicate: true as const, documentId: duplicate.id as string, originalFilename: duplicate.original_filename as string, sha256 };
+  if (duplicate) {
+    await persistDocumentSecurityScan({
+      db: input.db,
+      organizationId: input.organizationId,
+      documentId: duplicate.id as string,
+      sha256,
+      sourceType: "duplicate_detection",
+      scan: input.malwareScan,
+    });
+    return { duplicate: true as const, documentId: duplicate.id as string, originalFilename: duplicate.original_filename as string, sha256 };
+  }
 
   const safeName = input.filename.replace(/[^A-Za-z0-9._-]/g, "-").slice(-180) || "document";
   const now = new Date();
@@ -65,6 +76,14 @@ export async function ingestDocumentBuffer(input: {
     await input.db.from("documents").delete().eq("id", document.id);
     throw uploaded.error;
   }
+  await persistDocumentSecurityScan({
+    db: input.db,
+    organizationId: input.organizationId,
+    documentId: document.id as string,
+    sha256,
+    sourceType: input.sourceType ?? (input.actorType === "service" ? "email_forwarding" : "manual_upload"),
+    scan: input.malwareScan,
+  });
   return processDocumentBuffer({
     db: input.db,
     documentId: document.id as string,
@@ -117,9 +136,9 @@ export async function processDocumentBuffer(input: {
     const usedPdfOcr = input.mimeType === "application/pdf" && !extracted.text.trim();
     inputMode = usedPdfOcr ? "pdf_ocr" : "native_text";
     if (!extracted.text.trim() && !usedPdfOcr) throw new Error("No readable text was found in this document.");
-    intelligence = usedPdfOcr
-      ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer })
-      : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text });
+      intelligence = usedPdfOcr
+      ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer, pageCount: extracted.pageCount })
+      : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text, pageCount: extracted.pageCount });
   } catch (analysisError) {
     const failureCode = classifyDocumentExtractionFailure(analysisError, inputMode);
     const summary = documentExtractionReviewSummary(failureCode);
@@ -160,10 +179,25 @@ export async function processDocumentBuffer(input: {
       completed_at: new Date().toISOString(),
     }).select("id").single();
     if (versionError) throw versionError;
+    let evidenceReferences: Array<{ id: string; fieldPath: string | null; sourceKey: string | null }> = [];
     if (intelligence.evidence.length) {
-      const evidenceRows = intelligence.evidence.map((evidence) => ({ document_id: input.documentId, page_number: 1, text_excerpt: evidence.quote, field_path: evidence.field }));
-      const { error: evidenceError } = await input.db.from("evidence_references").insert(evidenceRows);
+      const evidenceRows = intelligence.evidence.map((evidence) => ({
+        document_id: input.documentId,
+        page_number: evidence.pageNumber ?? null,
+        text_excerpt: evidence.quote,
+        field_path: evidence.field,
+        source_key: evidence.sourceKey ?? null,
+      }));
+      const { data: insertedEvidence, error: evidenceError } = await input.db
+        .from("evidence_references")
+        .insert(evidenceRows)
+        .select("id,field_path,source_key");
       if (evidenceError) throw evidenceError;
+      evidenceReferences = (insertedEvidence ?? []).map((evidence) => ({
+        id: String(evidence.id),
+        fieldPath: typeof evidence.field_path === "string" ? evidence.field_path : null,
+        sourceKey: typeof evidence.source_key === "string" ? evidence.source_key : null,
+      }));
     }
     const invoiceRecord = await createInvoiceRecordFromExtraction({
       db: input.db,
@@ -173,6 +207,7 @@ export async function processDocumentBuffer(input: {
       providedRelationshipId: input.organizationVendorId,
       sourceType: input.sourceType ?? (input.actorType === "service" ? "email_forwarding" : "manual_upload"),
       intelligence,
+      evidenceReferences,
     });
     const finalStatus = intelligence.confidence < .75 || invoiceRecord?.reviewStatus === "needs_review" ? "needs_review" : "ready";
     const { error: documentUpdateError } = await input.db.from("documents").update({ page_count: extracted.pageCount, document_type: intelligence.classification, extraction_summary: intelligence.summary, status: finalStatus, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);

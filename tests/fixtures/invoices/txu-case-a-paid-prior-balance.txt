@@ -1,0 +1,29 @@
+[[COSTIVRA_PAGE 1 of 3]]
+TXU Energy Commercial Electricity Statement
+Customer: Northstar Laundry Services LLC
+Account ending: 5124
+Service address: 8301 Sample Row, Dallas, TX 75247
+Billing period: 2026-04-24 through 2026-05-25
+
+Account summary
+Previous balance: $3,520.47
+Payments and credits: $3,520.47
+Balance forward: $0.00
+
+[[COSTIVRA_PAGE 2 of 3]]
+Current Charges: $2,472.37
+Supply charge: $1,200.00
+Oncor delivery and transmission: $942.54
+Taxes and other current charges: $329.83
+Amount due: $2,472.37
+Due date: 2026-06-18
+
+[[COSTIVRA_PAGE 3 of 3]]
+Product: Business Sure
+Utility territory: Oncor
+Service identifier: TX-ESI-0001
+Meter ID: METER-4491
+Usage: 15,900 kWh
+Actual demand: 72 kW
+Billed demand: 73 kW
+Average price: $0.141 per kWh

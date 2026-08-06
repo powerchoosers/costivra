@@ -516,6 +516,7 @@ export async function getManageData(input?: {
       timezone: nullable(organization.timezone),
       currency: text(organization.currency, "USD"),
       website: nullable(overlay?.website),
+      phone: nullable(overlay?.phone),
       stage: nullable(overlay?.lifecycle_stage),
       primaryContact:
         primary?.fullName ?? nullable(organization.primary_contact_name),
@@ -746,6 +747,7 @@ export async function getManageData(input?: {
         organizationsById.get(text(activity.organization_id))?.name,
         "Unknown account",
       ),
+      contactId: nullable(activity.contact_id),
       kind: text(activity.kind),
       direction: nullable(activity.direction),
       subject: text(activity.subject),

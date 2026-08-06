@@ -10,6 +10,38 @@ export type ManageOperator = {
   notificationSoundEnabled: boolean;
 };
 
+export type ManageOpportunityTrustReviewItem = {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  vendorName: string;
+  title: string;
+  category: string | null;
+  estimatedAnnualValue: number;
+  generatedBy: string;
+  trustState: string;
+  customerVisible: boolean;
+  evidenceCount: number;
+  expenseAccountReference: string | null;
+  locationName: string | null;
+  issue: string;
+  evidenceOptions: ManageOpportunityEvidenceOption[];
+};
+
+export type ManageOpportunityEvidenceOption = {
+  id: string;
+  documentId: string;
+  filename: string;
+  pageNumber: number | null;
+  fieldPath: string | null;
+  excerpt: string;
+};
+
+export type ManageOpportunityTrustReviewData = {
+  items: ManageOpportunityTrustReviewItem[];
+  generatedAt: string;
+};
+
 export type ManageStaffMember = {
   id: string;
   email: string;
@@ -27,6 +59,7 @@ export type ManageAccount = {
   timezone?: string | null;
   currency: string;
   website: string | null;
+  phone?: string | null;
   stage: string | null;
   primaryContact: string | null;
   primaryEmail: string | null;

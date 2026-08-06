@@ -40,14 +40,20 @@ function invoiceIntelligence(): DocumentIntelligence {
       dueDate: "2026-08-31",
       servicePeriodStart: "2026-08-01",
       servicePeriodEnd: "2026-08-31",
-      accountNumberLast4: "1234",
+      accountNumberLast4: null,
       purchaseOrderNumber: null,
       subtotal: "100.00",
       taxTotal: "8.25",
       feeTotal: "0.00",
       creditTotal: "0.00",
+      previousBalance: null,
+      paymentsAndCredits: null,
+      balanceForward: null,
+      currentCharges: "100.00",
+      currentPeriodCredits: "0.00",
       totalAmount: "108.25",
       amountDue: "108.25",
+      energyService: null,
       lineItems: [
         {
           description: "Business fiber service",
@@ -82,14 +88,14 @@ describe("createInvoiceRecordFromExtraction", () => {
       source: "exact",
       confidence: 0.99,
     });
-    mocks.normalizeLineItems.mockResolvedValue([
+    mocks.normalizeLineItems.mockImplementationOnce(async (items: Array<{ evidenceIds?: string[] }>) => [
       {
         lineItemId: "line-1",
         canonicalCode: "internet_access",
         confidence: 0.99,
         reviewRequired: false,
         packVersion: "2026.08.1",
-        evidenceIds: [],
+        evidenceIds: items[0]?.evidenceIds ?? [],
       },
     ]);
     mocks.analyzeBill.mockResolvedValue({
@@ -172,6 +178,13 @@ describe("createInvoiceRecordFromExtraction", () => {
       extractionVersionId: "extraction-1",
       sourceType: "manual_upload",
       intelligence: invoiceIntelligence(),
+      evidenceReferences: [
+        {
+          id: "evidence-line-1",
+          fieldPath: "invoice.lineItems[0].amount",
+          sourceKey: "line-1",
+        },
+      ],
     });
 
     const invoice = inserts.invoices[0] as { metadata: { categoryIntelligence: { categoryKey: string; packVersion: string } }; expense_category_id: string };
@@ -186,7 +199,11 @@ describe("createInvoiceRecordFromExtraction", () => {
     });
     expect(invoice.expense_category_id).toBe("category-telecom");
     expect(classifications).toEqual([
-      expect.objectContaining({ category_id: "category-telecom", expert_pack_version: "2026.08.1" }),
+      expect.objectContaining({
+        category_id: "category-telecom",
+        expert_pack_version: "2026.08.1",
+        evidence_reference_ids: ["evidence-line-1"],
+      }),
     ]);
     expect(analysis).toMatchObject({
       category_id: "category-telecom",

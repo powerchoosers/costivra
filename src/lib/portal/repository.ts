@@ -2,6 +2,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createSessionSupabaseClient } from "@/lib/supabase/session";
 import { isInboundEmailPlatformReady } from "@/lib/email/resend";
 import { portalRoleCanWrite } from "@/lib/portal/access";
+import {
+  canShowCustomerMonetaryClaim,
+  deriveOpportunityTrustState,
+  isOpportunityTrustState,
+} from "@/lib/domain/opportunity-trust";
 import type { PortalData } from "@/lib/portal/types";
 
 type Row = Record<string, unknown>;
@@ -17,6 +22,11 @@ function stringValue(value: unknown, fallback = ""): string {
 
 function nullableString(value: unknown): string | null {
   return typeof value === "string" && value ? value : null;
+}
+
+function maskIdentifier(value: unknown): string | null {
+  const raw = nullableString(value);
+  return raw ? `•••• ${raw.slice(-4)}` : null;
 }
 
 function rows(data: unknown): Row[] {
@@ -65,6 +75,9 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("contracts").select("*").eq("organization_id", organizationId).order("end_date"),
     db.from("documents").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
     db.from("document_extraction_versions").select("document_id,confidence,status,completed_at").order("created_at", { ascending: false }),
+    // Keep the read path usable while the forward trust migration is being
+    // rolled out. Once present, customer_visible is enforced in memory below;
+    // querying it here would make an older schema fail the entire portal load.
     db.from("opportunities").select("*").eq("organization_id", organizationId).order("deadline_at"),
     db.from("opportunity_evidence").select("opportunity_id,evidence_reference_id"),
     db.from("action_plans").select("*").order("due_at"),
@@ -120,7 +133,8 @@ export async function getPortalData(): Promise<PortalData> {
     const invoiceId = stringValue(line.invoice_id);
     invoiceLineItemCount.set(invoiceId, (invoiceLineItemCount.get(invoiceId) ?? 0) + 1);
   }
-  const opportunityById = new Map(rows(opportunitiesResult.data).map((opportunity) => [stringValue(opportunity.id), opportunity]));
+  const visibleOpportunityRows = rows(opportunitiesResult.data).filter((opportunity) => opportunity.customer_visible !== false);
+  const opportunityById = new Map(visibleOpportunityRows.map((opportunity) => [stringValue(opportunity.id), opportunity]));
   const approvalsByResource = new Map<string, Row[]>();
   for (const approval of rows(approvalsResult.data)) {
     const resourceId = stringValue(approval.resource_id);
@@ -128,6 +142,8 @@ export async function getPortalData(): Promise<PortalData> {
   }
   const policyById = new Map(rows(approvalPoliciesResult.data).map((policy) => [stringValue(policy.id), policy]));
   const locationById = new Map(rows(locationsResult.data).map((location) => [stringValue(location.id), location]));
+  const expenseById = new Map(rows(expensesResult.data).map((expense) => [stringValue(expense.id), expense]));
+  const invoiceById = new Map(rows(invoicesResult.data).map((invoice) => [stringValue(invoice.id), invoice]));
   const profileById = new Map(rows(profilesResult.data).map((entry) => [stringValue(entry.id), entry]));
 
   const resolveVendor = (organizationVendorId: string | null) => {
@@ -145,7 +161,7 @@ export async function getPortalData(): Promise<PortalData> {
       id: stringValue(organization.id), name: stringValue(organization.name), legalName: nullableString(organization.legal_name),
       industry: nullableString(organization.industry), timezone: stringValue(organization.timezone, "America/Chicago"),
       currency: stringValue(organization.currency, "USD"), primaryContactName: nullableString(organization.primary_contact_name),
-      reviewThreshold: numberValue(organization.review_threshold), settings: (organization.settings as Record<string, boolean>) ?? {}, logoUrl: nullableString(organization.logo_url),
+      reviewThreshold: numberValue(organization.review_threshold), settings: (organization.settings as Record<string, boolean>) ?? {}, logoUrl: nullableString(organization.logo_url), isSampleWorkspace: Boolean(organization.is_sample_workspace),
     },
     currentUser: {
       id: userId, email: stringValue(profile.email), fullName: stringValue(profile.full_name, stringValue(profile.email)), role: stringValue(membership.role),
@@ -191,7 +207,7 @@ export async function getPortalData(): Promise<PortalData> {
     expenses: rows(expensesResult.data).map((expense) => {
       const { vendor } = resolveVendor(stringValue(expense.organization_vendor_id));
       const location = locationById.get(stringValue(expense.location_id));
-      return { id: stringValue(expense.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), category: stringValue(expense.category), periodStart: stringValue(expense.period_start), periodEnd: stringValue(expense.period_end), amount: numberValue(expense.amount), priorPeriodAmount: expense.prior_period_amount == null ? null : numberValue(expense.prior_period_amount), status: stringValue(expense.status), documentId: nullableString(expense.document_id), invoiceId: nullableString(expense.invoice_id), locationId: nullableString(expense.location_id), locationName: location ? stringValue(location.name) : null, updatedAt: stringValue(expense.updated_at) };
+      return { id: stringValue(expense.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), category: stringValue(expense.category), periodStart: stringValue(expense.period_start), periodEnd: stringValue(expense.period_end), amount: numberValue(expense.amount), priorPeriodAmount: expense.prior_period_amount == null ? null : numberValue(expense.prior_period_amount), status: stringValue(expense.status), documentId: nullableString(expense.document_id), invoiceId: nullableString(expense.invoice_id), expenseAccountId: nullableString(expense.expense_account_id), locationId: nullableString(expense.location_id), locationName: location ? stringValue(location.name) : null, updatedAt: stringValue(expense.updated_at) };
     }),
     contracts: rows(contractsResult.data).map((contract) => {
       const { vendor } = resolveVendor(stringValue(contract.organization_vendor_id));
@@ -206,7 +222,11 @@ export async function getPortalData(): Promise<PortalData> {
     invoices: rows(invoicesResult.data).map((invoice) => {
       const { vendor } = resolveVendor(nullableString(invoice.organization_vendor_id));
       const id = stringValue(invoice.id);
-      return { id, documentId: stringValue(invoice.document_id), vendorId: vendor ? stringValue(vendor.id) : null, vendorName: stringValue(vendor?.canonical_name, "Unassigned"), invoiceNumber: nullableString(invoice.invoice_number), invoiceDate: nullableString(invoice.invoice_date), dueDate: nullableString(invoice.due_date), servicePeriodStart: nullableString(invoice.service_period_start), servicePeriodEnd: nullableString(invoice.service_period_end), accountNumberLast4: nullableString(invoice.account_number_last4), purchaseOrderNumber: nullableString(invoice.purchase_order_number), currency: nullableString(invoice.currency), subtotal: invoice.subtotal == null ? null : numberValue(invoice.subtotal), taxTotal: invoice.tax_total == null ? null : numberValue(invoice.tax_total), feeTotal: invoice.fee_total == null ? null : numberValue(invoice.fee_total), creditTotal: invoice.credit_total == null ? null : numberValue(invoice.credit_total), totalAmount: invoice.total_amount == null ? null : numberValue(invoice.total_amount), amountDue: invoice.amount_due == null ? null : numberValue(invoice.amount_due), extractionConfidence: invoice.extraction_confidence == null ? null : numberValue(invoice.extraction_confidence), reviewStatus: stringValue(invoice.review_status), vendorMatchStatus: stringValue(invoice.vendor_match_status), reconciliationStatus: stringValue(invoice.reconciliation_status), reconciliationDifference: invoice.reconciliation_difference == null ? null : numberValue(invoice.reconciliation_difference), reviewPriority: stringValue(invoice.review_priority, "normal"), reviewNotes: nullableString(invoice.review_notes), expenseCategory: nullableString(invoice.expense_category), lineItemCount: invoiceLineItemCount.get(id) ?? 0, updatedAt: stringValue(invoice.updated_at) };
+      const service = invoice.energy_service && typeof invoice.energy_service === "object" && !Array.isArray(invoice.energy_service)
+        ? invoice.energy_service as Record<string, unknown>
+        : null;
+      const location = locationById.get(stringValue(invoice.location_id));
+      return { id, documentId: stringValue(invoice.document_id), vendorId: vendor ? stringValue(vendor.id) : null, vendorName: stringValue(vendor?.canonical_name, "Unassigned"), invoiceNumber: nullableString(invoice.invoice_number), invoiceDate: nullableString(invoice.invoice_date), dueDate: nullableString(invoice.due_date), servicePeriodStart: nullableString(invoice.service_period_start), servicePeriodEnd: nullableString(invoice.service_period_end), accountNumberLast4: nullableString(invoice.account_number_last4), purchaseOrderNumber: nullableString(invoice.purchase_order_number), currency: nullableString(invoice.currency), subtotal: invoice.subtotal == null ? null : numberValue(invoice.subtotal), taxTotal: invoice.tax_total == null ? null : numberValue(invoice.tax_total), feeTotal: invoice.fee_total == null ? null : numberValue(invoice.fee_total), creditTotal: invoice.credit_total == null ? null : numberValue(invoice.credit_total), previousBalance: invoice.previous_balance == null ? null : numberValue(invoice.previous_balance), paymentsAndCredits: invoice.payments_and_credits == null ? null : numberValue(invoice.payments_and_credits), balanceForward: invoice.balance_forward == null ? null : numberValue(invoice.balance_forward), currentCharges: invoice.current_charges == null ? null : numberValue(invoice.current_charges), currentPeriodCredits: invoice.current_period_credits == null ? null : numberValue(invoice.current_period_credits), totalAmount: invoice.total_amount == null ? null : numberValue(invoice.total_amount), amountDue: invoice.amount_due == null ? null : numberValue(invoice.amount_due), extractionConfidence: invoice.extraction_confidence == null ? null : numberValue(invoice.extraction_confidence), reviewStatus: stringValue(invoice.review_status), vendorMatchStatus: stringValue(invoice.vendor_match_status), workspaceCustomerMatchStatus: stringValue(invoice.workspace_customer_match_status, "unknown"), expenseAccountMatchStatus: stringValue(invoice.expense_account_match_status, "unknown"), serviceLocationMatchStatus: stringValue(invoice.service_location_match_status, "unknown"), reconciliationStatus: stringValue(invoice.reconciliation_status), reconciliationDifference: invoice.reconciliation_difference == null ? null : numberValue(invoice.reconciliation_difference), reviewPriority: stringValue(invoice.review_priority, "normal"), reviewNotes: nullableString(invoice.review_notes), expenseCategory: nullableString(invoice.expense_category), expenseAccountId: nullableString(invoice.expense_account_id), locationId: nullableString(invoice.location_id), locationName: location ? stringValue(location.name) : null, energyService: service ? { customerName: nullableString(service.customerName), serviceAddress: nullableString(service.serviceAddress), serviceIdentifier: maskIdentifier(service.serviceIdentifier), meterId: maskIdentifier(service.meterId), productName: nullableString(service.productName), utilityTerritory: nullableString(service.utilityTerritory), billingDays: service.billingDays == null ? null : numberValue(service.billingDays), usageKwh: service.usageKwh == null ? null : numberValue(service.usageKwh), actualDemandKw: service.actualDemandKw == null ? null : numberValue(service.actualDemandKw), billedDemandKw: service.billedDemandKw == null ? null : numberValue(service.billedDemandKw), meterMultiplier: service.meterMultiplier == null ? null : numberValue(service.meterMultiplier), averagePricePerKwh: service.averagePricePerKwh == null ? null : numberValue(service.averagePricePerKwh), readDateStart: nullableString(service.readDateStart), readDateEnd: nullableString(service.readDateEnd) } : null, lineItemCount: invoiceLineItemCount.get(id) ?? 0, updatedAt: stringValue(invoice.updated_at) };
     }),
     invoiceLineItems: rows(invoiceLineItemsResult.data).map((line) => ({
       id: stringValue(line.id),
@@ -220,9 +240,42 @@ export async function getPortalData(): Promise<PortalData> {
       servicePeriodStart: nullableString(line.service_period_start),
       servicePeriodEnd: nullableString(line.service_period_end),
     })),
-    opportunities: rows(opportunitiesResult.data).map((opportunity) => {
-      const vendor = vendorForAccount(opportunity.expense_account_id);
-      return { id: stringValue(opportunity.id), title: stringValue(opportunity.title), summary: stringValue(opportunity.summary), type: stringValue(opportunity.type), category: nullableString(opportunity.category), status: stringValue(opportunity.status), priority: stringValue(opportunity.priority, "medium") as "high" | "medium" | "low", confidence: opportunity.confidence == null ? null : numberValue(opportunity.confidence), estimatedAnnualValue: opportunity.estimated_annual_value == null ? null : numberValue(opportunity.estimated_annual_value), deadlineAt: nullableString(opportunity.deadline_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), vendorId: vendor ? stringValue(vendor.id) : null, evidenceCount: evidenceCount.get(stringValue(opportunity.id)) ?? 0, ruleVersion: nullableString(opportunity.rule_version), calculationInputs: (opportunity.calculation_inputs as Record<string, unknown>) ?? {}, calculationResult: (opportunity.calculation_result as Record<string, string>) ?? {}, assumptions: Array.isArray(opportunity.assumptions) ? opportunity.assumptions.filter((item): item is string => typeof item === "string") : [], updatedAt: stringValue(opportunity.updated_at) };
+    opportunities: visibleOpportunityRows.map((opportunity) => {
+      const sourceExpenseId = nullableString(opportunity.source_expense_id);
+      const sourceExpense = sourceExpenseId ? expenseById.get(sourceExpenseId) : undefined;
+      const expenseAccountId = nullableString(opportunity.expense_account_id) ?? nullableString(sourceExpense?.expense_account_id);
+      const account = expenseAccountId ? accountById.get(expenseAccountId) : undefined;
+      const vendor = vendorForAccount(expenseAccountId);
+      const locationId = nullableString(sourceExpense?.location_id);
+      const location = locationId ? locationById.get(locationId) : undefined;
+      const sourceDocumentId = nullableString(opportunity.source_document_id) ?? nullableString(sourceExpense?.document_id);
+      const sourceInvoice = sourceExpense?.invoice_id ? invoiceById.get(stringValue(sourceExpense.invoice_id)) : undefined;
+      const evidenceTotal = evidenceCount.get(stringValue(opportunity.id)) ?? 0;
+      const calculationInputs = (opportunity.calculation_inputs as Record<string, unknown>) ?? {};
+      const calculationResult = (opportunity.calculation_result as Record<string, string>) ?? {};
+      const generatedBy = stringValue(opportunity.generated_by, "manual");
+      const explicitTrustState = isOpportunityTrustState(opportunity.trust_state) ? opportunity.trust_state : null;
+      const trustState = deriveOpportunityTrustState({
+        generatedBy,
+        explicitTrustState,
+        sourceRecordId: sourceExpenseId ?? sourceDocumentId,
+        evidenceCount: evidenceTotal,
+        ruleKey: nullableString(opportunity.rule_key),
+        ruleVersion: nullableString(opportunity.rule_version),
+        calculationInputs,
+        calculationResult,
+      });
+      const monetaryClaimAllowed = canShowCustomerMonetaryClaim({
+        trustState,
+        estimatedAnnualValue: opportunity.estimated_annual_value == null ? null : numberValue(opportunity.estimated_annual_value),
+        evidenceCount: evidenceTotal,
+        ruleVersion: nullableString(opportunity.rule_version),
+        calculationInputs,
+        calculationResult,
+      });
+      return {
+        id: stringValue(opportunity.id), title: stringValue(opportunity.title), summary: stringValue(opportunity.summary), type: stringValue(opportunity.type), category: nullableString(opportunity.category), status: stringValue(opportunity.status), priority: stringValue(opportunity.priority, "medium") as "high" | "medium" | "low", confidence: opportunity.confidence == null ? null : numberValue(opportunity.confidence), estimatedAnnualValue: monetaryClaimAllowed && opportunity.estimated_annual_value != null ? numberValue(opportunity.estimated_annual_value) : null, deadlineAt: nullableString(opportunity.deadline_at), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), vendorId: vendor ? stringValue(vendor.id) : null, evidenceCount: evidenceTotal, ruleVersion: nullableString(opportunity.rule_version), calculationInputs, calculationResult, assumptions: Array.isArray(opportunity.assumptions) ? opportunity.assumptions.filter((item): item is string => typeof item === "string") : [], trustState, generatedBy, customerVisible: opportunity.customer_visible !== false, monetaryClaimAllowed, sourceDocumentId, sourceExpenseId, baselineExpenseId: nullableString(opportunity.baseline_expense_id), expenseAccountId, expenseAccountReference: nullableString(account?.external_account_reference), locationId, locationName: location ? stringValue(location.name) : null, accountNumberLast4: nullableString(sourceInvoice?.account_number_last4), lastEvaluatedAt: nullableString(opportunity.last_evaluated_at), updatedAt: stringValue(opportunity.updated_at),
+      };
     }),
     actions: rows(actionsResult.data).flatMap((action) => {
       const opportunity = opportunityById.get(stringValue(action.opportunity_id));
@@ -253,7 +306,7 @@ export async function getPortalData(): Promise<PortalData> {
     team: rows(membershipsResult.data).map((member) => { const person = profileById.get(stringValue(member.user_id)); return { id: stringValue(member.user_id), fullName: stringValue(person?.full_name, stringValue(person?.email)), email: stringValue(person?.email), role: stringValue(member.role), permissions: Array.isArray(member.permissions) ? member.permissions.filter((item): item is string => typeof item === "string") : [] }; }),
     notifications: rows(notificationsResult.data).map((notification) => ({ id: stringValue(notification.id), title: stringValue(notification.title), body: stringValue(notification.body), resourceType: nullableString(notification.resource_type), resourceId: nullableString(notification.resource_id), readAt: nullableString(notification.read_at), createdAt: stringValue(notification.created_at) })),
     auditEvents: rows(auditEventsResult.data).map((event) => ({ id: stringValue(event.id), action: stringValue(event.action), resourceType: stringValue(event.resource_type), resourceId: nullableString(event.resource_id), actorType: stringValue(event.actor_type), actorName: event.actor_id ? stringValue(profileById.get(stringValue(event.actor_id))?.full_name, "Workspace member") : stringValue(event.actor_type, "System"), createdAt: stringValue(event.created_at) })),
-    evidenceReferences: rows(evidenceReferencesResult.data).map((evidence) => ({ id: stringValue(evidence.id), documentId: stringValue(evidence.document_id), opportunityId: opportunityByEvidence.get(stringValue(evidence.id)) ?? null, pageNumber: numberValue(evidence.page_number), fieldPath: nullableString(evidence.field_path), textExcerpt: stringValue(evidence.text_excerpt) })),
+    evidenceReferences: rows(evidenceReferencesResult.data).map((evidence) => ({ id: stringValue(evidence.id), documentId: stringValue(evidence.document_id), opportunityId: opportunityByEvidence.get(stringValue(evidence.id)) ?? null, pageNumber: numberValue(evidence.page_number), fieldPath: nullableString(evidence.field_path), textExcerpt: stringValue(evidence.text_excerpt), sourceKey: nullableString(evidence.source_key) })),
   };
 }
 

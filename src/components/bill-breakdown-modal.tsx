@@ -6,8 +6,8 @@ import {
   Download,
   ExternalLink,
   FileText,
+  MessageCircle,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -24,8 +24,8 @@ export type BreakdownData = {
     createdAt: string;
     securityScanStatus: string;
     securityScannedAt: string | null;
-    sha256Digest: string | null;
-    downloadUrl: string;
+    sha256: string | null;
+    downloadUrl: string | null;
   };
   invoice: {
     id: string;
@@ -76,14 +76,21 @@ export type BreakdownData = {
   }>;
   evidence: Array<{
     id: string;
-    pageNumber: number;
+    pageNumber: number | null;
     textExcerpt: string;
     fieldPath: string | null;
+    sourceKey: string | null;
   }>;
+  evidenceCounts?: {
+    invoiceField: number;
+    lineItem: number;
+    opportunity: number;
+  };
   anomalies: Array<{
     type: "warning" | "alert" | "info";
     title: string;
     message: string;
+    state?: "evidence_backed" | "needs_evidence";
   }>;
   billQuality?: {
     status: string;
@@ -141,6 +148,7 @@ export function BillBreakdownModal({
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [prevDocumentId, setPrevDocumentId] = useState<string | null>(documentId);
   const { openDrawer, setContext } = useClientAssistant();
 
@@ -148,6 +156,7 @@ export function BillBreakdownModal({
     setPrevDocumentId(documentId);
     setLoading(true);
     setError(null);
+    setProcessingMessage(null);
     setData(null);
   }
 
@@ -157,6 +166,16 @@ export function BillBreakdownModal({
 
     fetch(`/api/portal/documents/${documentId}/breakdown`)
       .then(async (response) => {
+        if (response.status === 202) {
+          const payload = await response.json().catch(() => null);
+          if (active) {
+            setProcessingMessage(
+              payload?.message || "Costivra is still preparing this bill breakdown.",
+            );
+            setLoading(false);
+          }
+          return null;
+        }
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
           throw new Error(payload?.error || "Failed to load document analysis.");
@@ -164,7 +183,7 @@ export function BillBreakdownModal({
         return response.json() as Promise<BreakdownData>;
       })
       .then((payload) => {
-        if (!active) return;
+        if (!active || !payload) return;
         setData(payload);
         setLoading(false);
       })
@@ -248,9 +267,9 @@ export function BillBreakdownModal({
                     ? `${data.vendor.name} — Bill Breakdown`
                     : data?.document.filename ?? "Document Breakdown"}
                 </h2>
-                {data?.document.securityScanStatus === "passed" && (
+                {data?.document.securityScanStatus === "clean" && (
                   <span className="bill-breakdown-clean-status">
-                    <ShieldCheck size={13} /> Security scan passed
+                    <ShieldCheck size={13} /> Security scan clean
                   </span>
                 )}
               </div>
@@ -259,14 +278,14 @@ export function BillBreakdownModal({
                 {data?.document.byteSize != null
                   ? ` · ${(data.document.byteSize / 1024).toFixed(1)} KB`
                   : ""}
-                {data?.document.sha256Digest ? " · SHA-256 recorded" : ""}
+                {data?.document.sha256 ? " · SHA-256 recorded" : ""}
               </p>
             </div>
           </div>
 
           <div className="bill-breakdown-header-actions">
             <button type="button" className="bill-breakdown-ask" onClick={askAssistant}>
-              <Sparkles size={15} /> Ask Costivra
+              <MessageCircle size={15} /> Ask Costivra
             </button>
             {data?.document.downloadUrl && (
               <a
@@ -294,6 +313,12 @@ export function BillBreakdownModal({
             <span className="bill-breakdown-spinner" />
             <p>Loading source evidence and bill analysis…</p>
           </div>
+        ) : processingMessage ? (
+          <div className="bill-breakdown-state">
+            <CircleHelp size={36} />
+            <p>{processingMessage}</p>
+            <button type="button" onClick={onClose}>Close</button>
+          </div>
         ) : error ? (
           <div className="bill-breakdown-state bill-breakdown-error">
             <AlertTriangle size={36} />
@@ -306,7 +331,7 @@ export function BillBreakdownModal({
               <div className="bill-breakdown-preview-bar">
                 <span>Source file · {data.document.filename}</span>
                 <span>
-                  {data.document.securityScanStatus === "passed" ? (
+                  {data.document.securityScanStatus === "clean" ? (
                     <><CheckCircle2 size={13} /> Clean</>
                   ) : (
                     <><CircleHelp size={13} /> {titleCase(data.document.securityScanStatus)}</>
@@ -314,21 +339,28 @@ export function BillBreakdownModal({
                 </span>
               </div>
               <div className="bill-breakdown-preview-content">
-                {isPdf ? (
-                  <iframe
-                    src={`${data.document.downloadUrl}#toolbar=0`}
-                    title={`Preview of ${data.document.filename}`}
-                  />
-                ) : isImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={data.document.downloadUrl} alt={data.document.filename} />
+                {data.document.downloadUrl ? (
+                  isPdf ? (
+                    <iframe
+                      src={`${data.document.downloadUrl}#toolbar=0`}
+                      title={`Preview of ${data.document.filename}`}
+                    />
+                  ) : isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={data.document.downloadUrl} alt={data.document.filename} />
+                  ) : (
+                    <div className="bill-breakdown-no-preview">
+                      <FileText size={46} />
+                      <p>A browser preview is not available for this file type.</p>
+                      <a href={data.document.downloadUrl} target="_blank" rel="noreferrer">
+                        Open source file <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  )
                 ) : (
                   <div className="bill-breakdown-no-preview">
-                    <FileText size={46} />
-                    <p>A browser preview is not available for this file type.</p>
-                    <a href={data.document.downloadUrl} target="_blank" rel="noreferrer">
-                      Open source file <ExternalLink size={14} />
-                    </a>
+                    <CircleHelp size={46} />
+                    <p>The protected source file is not available for preview yet.</p>
                   </div>
                 )}
               </div>
@@ -372,6 +404,10 @@ export function BillBreakdownModal({
                   <div className="bill-breakdown-line-items">
                     {data.lineItems.map((item) => {
                       const explanation = explanationsByLineItem.get(item.id);
+                      const lineEvidence = (explanation?.evidenceIds ?? [])
+                        .map((id) => data.evidence.find((reference) => reference.id === id))
+                        .filter((reference): reference is BreakdownData["evidence"][number] => Boolean(reference));
+                      const primaryEvidence = lineEvidence[0];
                       return (
                         <div className="bill-breakdown-line-item" key={item.id}>
                           <div>
@@ -383,6 +419,29 @@ export function BillBreakdownModal({
                             </span>
                             {explanation?.explanation && (
                               <p>{explanation.explanation}</p>
+                            )}
+                            {primaryEvidence ? (
+                              <div className="bill-breakdown-line-evidence">
+                                <span>
+                                  {primaryEvidence.pageNumber == null
+                                    ? "Source page unknown"
+                                    : `Source page ${primaryEvidence.pageNumber}`}
+                                </span>
+                                <p>“{primaryEvidence.textExcerpt}”</p>
+                                {data.document.downloadUrl && primaryEvidence.pageNumber != null && (
+                                  <a
+                                    href={`${data.document.downloadUrl}#page=${primaryEvidence.pageNumber}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Open source page <ExternalLink size={11} />
+                                  </a>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="bill-breakdown-line-evidence missing">
+                                <span>Source evidence needs review</span>
+                              </div>
                             )}
                           </div>
                           <div className="bill-breakdown-line-amount">
@@ -410,6 +469,9 @@ export function BillBreakdownModal({
                       <div key={`${finding.title}-${index}`}>
                         <strong>{finding.title}</strong>
                         <p>{finding.message}</p>
+                        {finding.state === "needs_evidence" && (
+                          <span className="bill-breakdown-finding-state">Needs source evidence</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -518,12 +580,18 @@ export function BillBreakdownModal({
                     <div>
                       <span className="bill-breakdown-label">Source evidence</span>
                       <h3>{data.evidence.length} references</h3>
+                      <p className="bill-breakdown-source-counts">
+                        {data.evidenceCounts?.invoiceField ?? data.evidence.length} invoice fields · {data.evidenceCounts?.lineItem ?? 0} line-item links · opportunity evidence separate
+                      </p>
                     </div>
                   </div>
                   <div className="bill-breakdown-evidence">
                     {data.evidence.map((item) => (
                       <blockquote key={item.id}>
-                        <span>Page {item.pageNumber}</span>
+                        <span>
+                          {item.pageNumber == null ? "Source page unknown" : `Page ${item.pageNumber}`}
+                          {item.fieldPath ? ` · ${item.fieldPath}` : ""}
+                        </span>
                         <p>“{item.textExcerpt}”</p>
                       </blockquote>
                     ))}
@@ -547,10 +615,10 @@ export function BillBreakdownModal({
         .bill-breakdown-body{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(380px,.92fr);overflow:hidden}.bill-breakdown-preview{min-width:0;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid rgba(255,255,255,.08);background:#020617}.bill-breakdown-preview-bar{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 15px;border-bottom:1px solid rgba(255,255,255,.07);color:#94a3b8;background:rgba(15,23,42,.88);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}.bill-breakdown-preview-bar span{gap:4px}.bill-breakdown-preview-content{min-height:0;flex:1;display:grid;place-items:center;overflow:auto}.bill-breakdown-preview-content iframe{width:100%;height:100%;border:0;background:#fff}.bill-breakdown-preview-content img{max-width:100%;max-height:100%;object-fit:contain}.bill-breakdown-no-preview{display:flex;flex-direction:column;align-items:center;gap:12px;color:#94a3b8}.bill-breakdown-no-preview a{display:inline-flex;align-items:center;gap:5px;color:#93c5fd}
         .bill-breakdown-analysis{min-width:0;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:#0b1222}.bill-breakdown-card{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(30,41,59,.46)}.bill-breakdown-card-heading{justify-content:space-between;gap:12px;margin-bottom:13px}.bill-breakdown-card-heading h3{margin:3px 0 0;color:#f8fafc;font-size:.92rem}.bill-breakdown-label{color:#94a3b8;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.bill-breakdown-category{max-width:52%;overflow:hidden;padding:4px 9px;border:1px solid rgba(96,165,250,.25);border-radius:999px;color:#bfdbfe;background:rgba(59,130,246,.12);font-size:.7rem;text-overflow:ellipsis;white-space:nowrap}
         .bill-breakdown-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.bill-breakdown-metrics.two-column{grid-template-columns:repeat(2,minmax(0,1fr))}.bill-breakdown-metrics>div{min-width:0;padding:10px 11px;border-radius:9px;background:rgba(15,23,42,.62)}.bill-breakdown-metrics span{display:block;margin-bottom:3px;color:#94a3b8;font-size:.68rem}.bill-breakdown-metrics strong{display:block;overflow:hidden;color:#f8fafc;font-size:.9rem;text-overflow:ellipsis;white-space:nowrap}
-        .bill-breakdown-line-items,.bill-breakdown-findings,.bill-breakdown-guidance,.bill-breakdown-evidence{display:grid;gap:8px}.bill-breakdown-line-item{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:10px;border-radius:9px;background:rgba(15,23,42,.48)}.bill-breakdown-line-item>div:first-child{min-width:0}.bill-breakdown-line-item strong{color:#f8fafc;font-size:.78rem}.bill-breakdown-line-item span{display:block;margin-top:3px;color:#94a3b8;font-size:.66rem;text-transform:capitalize}.bill-breakdown-line-item p{margin:6px 0 0;color:#aebbd0;font-size:.7rem;line-height:1.45}.bill-breakdown-line-amount{flex:0 0 auto;color:#fff;font-size:.78rem;font-weight:700;text-align:right}.bill-breakdown-line-amount em{display:block;margin-top:4px;color:#fbbf24;font-size:.62rem;font-style:normal;font-weight:600}
-        .bill-breakdown-warning-card{border-color:rgba(245,158,11,.22);background:rgba(120,76,10,.14)}.bill-breakdown-warning-card .bill-breakdown-card-heading>svg{color:#fbbf24}.bill-breakdown-findings>div{padding:9px 10px;border-radius:8px;background:rgba(15,23,42,.38)}.bill-breakdown-findings strong{color:#f8fafc;font-size:.76rem}.bill-breakdown-findings p,.bill-breakdown-guidance p{margin:4px 0 0;color:#cbd5e1;font-size:.72rem;line-height:1.45}
+        .bill-breakdown-line-items,.bill-breakdown-findings,.bill-breakdown-guidance,.bill-breakdown-evidence{display:grid;gap:8px}.bill-breakdown-line-item{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:10px;border-radius:9px;background:rgba(15,23,42,.48)}.bill-breakdown-line-item>div:first-child{min-width:0}.bill-breakdown-line-item strong{color:#f8fafc;font-size:.78rem}.bill-breakdown-line-item span{display:block;margin-top:3px;color:#94a3b8;font-size:.66rem;text-transform:capitalize}.bill-breakdown-line-item p{margin:6px 0 0;color:#aebbd0;font-size:.7rem;line-height:1.45}.bill-breakdown-line-evidence{margin-top:8px;padding:8px;border:1px solid rgba(96,165,250,.16);border-radius:8px;background:rgba(30,64,175,.11)}.bill-breakdown-line-evidence span{margin:0;color:#93c5fd;font-size:.62rem}.bill-breakdown-line-evidence p{margin:4px 0 0;color:#cbd5e1;font-size:.68rem}.bill-breakdown-line-evidence a{display:inline-flex;align-items:center;gap:4px;margin-top:6px;color:#93c5fd;font-size:.64rem;text-decoration:none}.bill-breakdown-line-evidence.missing{border-color:rgba(251,191,36,.2);background:rgba(120,76,10,.12)}.bill-breakdown-line-evidence.missing span{color:#fbbf24}.bill-breakdown-line-amount{flex:0 0 auto;color:#fff;font-size:.78rem;font-weight:700;text-align:right}.bill-breakdown-line-amount em{display:block;margin-top:4px;color:#fbbf24;font-size:.62rem;font-style:normal;font-weight:600}
+        .bill-breakdown-warning-card{border-color:rgba(245,158,11,.22);background:rgba(120,76,10,.14)}.bill-breakdown-warning-card .bill-breakdown-card-heading>svg{color:#fbbf24}.bill-breakdown-findings>div{padding:9px 10px;border-radius:8px;background:rgba(15,23,42,.38)}.bill-breakdown-findings strong{color:#f8fafc;font-size:.76rem}.bill-breakdown-findings p,.bill-breakdown-guidance p{margin:4px 0 0;color:#cbd5e1;font-size:.72rem;line-height:1.45}.bill-breakdown-finding-state{display:block;margin-top:6px;color:#fbbf24!important;font-size:.62rem!important;text-transform:none!important}
         .bill-breakdown-market-card{border-color:rgba(59,130,246,.22)}.bill-breakdown-market-card .bill-breakdown-card-heading>svg{color:#60a5fa}.bill-breakdown-unavailable{display:flex;gap:11px;padding:12px;border:1px solid rgba(148,163,184,.16);border-radius:10px;color:#cbd5e1;background:rgba(15,23,42,.52)}.bill-breakdown-unavailable>svg{flex:0 0 auto;color:#93c5fd}.bill-breakdown-unavailable strong{color:#f8fafc;font-size:.78rem}.bill-breakdown-unavailable p{margin:4px 0;color:#aebbd0;font-size:.72rem;line-height:1.45}.bill-breakdown-unavailable ul{margin:8px 0 0;padding-left:18px;color:#94a3b8;font-size:.68rem}.bill-breakdown-source-note{margin:10px 0 0;color:#748196;font-size:.64rem}.bill-breakdown-savings{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 12px;border:1px solid rgba(52,211,153,.22);border-radius:9px;color:#a7f3d0;background:rgba(16,185,129,.09);font-size:.72rem}.bill-breakdown-savings strong{color:#6ee7b7;font-size:.9rem}
-        .bill-breakdown-guidance>div{display:flex;gap:10px;padding:10px;border-radius:9px;background:rgba(15,23,42,.46)}.bill-breakdown-guidance>div>span{width:24px;height:24px;display:grid;place-items:center;flex:0 0 auto;border-radius:8px;color:#bfdbfe;background:rgba(59,130,246,.15);font-size:.68rem;font-weight:700}.bill-breakdown-guidance strong{color:#f8fafc;font-size:.77rem}.bill-breakdown-evidence blockquote{margin:0;padding:10px;border-left:2px solid rgba(96,165,250,.55);border-radius:0 8px 8px 0;background:rgba(15,23,42,.42)}.bill-breakdown-evidence blockquote span{color:#93c5fd;font-size:.64rem}.bill-breakdown-evidence blockquote p{margin:5px 0 0;color:#cbd5e1;font-size:.7rem;line-height:1.45}
+        .bill-breakdown-guidance>div{display:flex;gap:10px;padding:10px;border-radius:9px;background:rgba(15,23,42,.46)}.bill-breakdown-guidance>div>span{width:24px;height:24px;display:grid;place-items:center;flex:0 0 auto;border-radius:8px;color:#bfdbfe;background:rgba(59,130,246,.15);font-size:.68rem;font-weight:700}.bill-breakdown-guidance strong{color:#f8fafc;font-size:.77rem}.bill-breakdown-evidence blockquote{margin:0;padding:10px;border-left:2px solid rgba(96,165,250,.55);border-radius:0 8px 8px 0;background:rgba(15,23,42,.42)}.bill-breakdown-evidence blockquote span{color:#93c5fd;font-size:.64rem}.bill-breakdown-evidence blockquote p{margin:5px 0 0;color:#cbd5e1;font-size:.7rem;line-height:1.45}.bill-breakdown-source-counts{margin:4px 0 0;color:#748196;font-size:.62rem}
         @media(max-width:980px){.bill-breakdown-backdrop{padding:0}.bill-breakdown-dialog{width:100vw;height:100dvh;border:0;border-radius:0}.bill-breakdown-body{grid-template-columns:1fr}.bill-breakdown-preview{display:none}.bill-breakdown-header{align-items:flex-start;padding:12px 14px}.bill-breakdown-header-actions{gap:6px}.bill-breakdown-secondary-action{display:none!important}.bill-breakdown-title-line{align-items:flex-start;flex-direction:column;gap:4px}.bill-breakdown-analysis{padding:14px}.bill-breakdown-metrics{grid-template-columns:1fr 1fr}.bill-breakdown-metrics>div:first-child{grid-column:1/-1}}
         @media(max-width:620px){.bill-breakdown-file-icon{display:none}.bill-breakdown-title-row p{max-width:52vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bill-breakdown-ask{font-size:0!important;width:36px;padding:0!important}.bill-breakdown-ask svg{width:16px}.bill-breakdown-category{max-width:44%}}
         @media(prefers-reduced-motion:reduce){.bill-breakdown-backdrop,.bill-breakdown-spinner{animation:none!important}}

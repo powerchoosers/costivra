@@ -134,6 +134,9 @@ export function portalRecordContext(
     lineItems = data.invoiceLineItems.filter((item) => item.invoiceId === id);
     quality.push(
       { label: "Vendor match", value: invoice?.vendorMatchStatus ?? "Unknown", status: invoice != null && ["exact", "provided"].includes(invoice.vendorMatchStatus) ? "ready" : "review" },
+      { label: "Account match", value: invoice?.expenseAccountMatchStatus === "matched" ? "Matched" : "Needs review", status: invoice?.expenseAccountMatchStatus === "matched" ? "ready" : "review" },
+      { label: "Location match", value: invoice?.serviceLocationMatchStatus === "matched" ? "Matched" : "Needs review", status: invoice?.serviceLocationMatchStatus === "matched" ? "ready" : "review" },
+      { label: "Customer identity", value: invoice?.workspaceCustomerMatchStatus === "matched" ? "Matched" : invoice?.workspaceCustomerMatchStatus === "unmatched" ? "Mismatch" : "Needs review", status: invoice?.workspaceCustomerMatchStatus === "matched" ? "ready" : "review" },
       { label: "Reconciliation", value: invoice?.reconciliationStatus ?? "Unknown", status: invoice?.reconciliationStatus === "reconciled" ? "ready" : "review" },
       { label: "Required fields", value: invoice && recorded(invoice.invoiceNumber) && recorded(invoice.invoiceDate) && invoice.totalAmount != null ? "Complete" : "Needs review", status: invoice && recorded(invoice.invoiceNumber) && recorded(invoice.invoiceDate) && invoice.totalAmount != null ? "ready" : "review" },
       { label: "Line items", value: lineItems.length ? `${lineItems.length} extracted` : "None extracted", status: lineItems.length ? "ready" : "review" },
@@ -142,9 +145,13 @@ export function portalRecordContext(
     const opportunity = data.opportunities.find((item) => item.id === id);
     vendorId = opportunity?.vendorId ?? null;
     opportunityId = id;
+    addDocument(opportunity?.sourceDocumentId);
     quality.push(
+      { label: "Trust state", value: opportunity?.trustState === "evidence_backed" ? "Evidence backed" : opportunity?.trustState === "demo_example" ? "Sample record" : opportunity?.trustState === "manual_note" ? "Internal note" : opportunity?.trustState === "deprecated" ? "Deprecated" : "Needs evidence", status: opportunity?.trustState === "evidence_backed" ? "ready" : "review" },
       { label: "Evidence", value: opportunity?.evidenceCount ? `${opportunity.evidenceCount} references` : "No evidence", status: opportunity?.evidenceCount ? "ready" : "review" },
       { label: "Calculation", value: opportunity?.ruleVersion ?? "Rule not recorded", status: opportunity?.ruleVersion ? "ready" : "review" },
+      { label: "Source record", value: opportunity?.sourceExpenseId || opportunity?.sourceDocumentId ? "Linked" : "Not linked", status: opportunity?.sourceExpenseId || opportunity?.sourceDocumentId ? "ready" : "review" },
+      { label: "Account or location", value: opportunity?.expenseAccountReference ?? opportunity?.locationName ?? "Not assigned", status: opportunity?.expenseAccountReference || opportunity?.locationName ? "ready" : "review" },
       { label: "Deadline", value: opportunity?.deadlineAt ? "Recorded" : "Not scheduled", status: opportunity?.deadlineAt ? "ready" : "review" },
     );
   } else if (kind === "action") {
@@ -185,7 +192,15 @@ export function portalRecordContext(
       if (!(kind === "contract" && contract.id === id)) add({ type: "Contract", title: contract.title, href: `/app/contracts/${contract.id}`, detail: contract.status });
     for (const invoice of data.invoices.filter((item) => item.vendorId === vendorId).slice(0, 4))
       if (!(kind === "invoice" && invoice.id === id)) add({ type: "Invoice", title: invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : "Invoice awaiting number", href: `/app/documents/${invoice.id}`, detail: invoice.reviewStatus });
-    for (const opportunity of data.opportunities.filter((item) => item.vendorId === vendorId).slice(0, 4))
+    const invoiceContext = kind === "invoice" ? data.invoices.find((item) => item.id === id) : null;
+    const relatedOpportunities = data.opportunities.filter((item) => {
+      if (item.vendorId !== vendorId) return false;
+      if (!invoiceContext) return true;
+      if (!invoiceContext.expenseAccountId) return true;
+      if (item.expenseAccountId !== invoiceContext.expenseAccountId) return false;
+      return !invoiceContext.locationId || item.locationId === invoiceContext.locationId;
+    });
+    for (const opportunity of relatedOpportunities.slice(0, 4))
       if (!(kind === "opportunity" && opportunity.id === id)) add({ type: "Opportunity", title: opportunity.title, href: `/app/opportunities/${opportunity.id}`, detail: opportunity.status });
   }
 

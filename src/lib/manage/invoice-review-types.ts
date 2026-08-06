@@ -86,6 +86,14 @@ export type InvoiceReviewDetail = InvoiceReviewQueueItem & {
   expenseCategory: string | null;
   reviewNotes: string | null;
   reconciliationDifference: string | null;
+  workspaceCustomerMatchStatus: string;
+  expenseAccountMatchStatus: string;
+  serviceLocationMatchStatus: string;
+  previousBalance: string | null;
+  paymentsAndCredits: string | null;
+  balanceForward: string | null;
+  currentCharges: string | null;
+  currentPeriodCredits: string | null;
   lineItems: InvoiceReviewLineItem[];
   evidence: InvoiceEvidence[];
   corrections: InvoiceCorrection[];

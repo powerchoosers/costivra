@@ -35,7 +35,7 @@ describe("portal record context", () => {
     const result = portalRecordContext(data({
       vendors: [{ id: "vendor-1", name: "Acme Telecom", relationshipStatus: "active" } as PortalData["vendors"][number]],
       documents: [{ id: "doc-1", vendorId: "vendor-1", originalFilename: "invoice.pdf", status: "ready" } as PortalData["documents"][number]],
-      invoices: [{ id: "invoice-1", documentId: "doc-1", vendorId: "vendor-1", invoiceNumber: "INV-42", vendorMatchStatus: "exact", reconciliationStatus: "reconciled", invoiceDate: "2026-07-01", totalAmount: 125, reviewStatus: "approved" } as PortalData["invoices"][number]],
+      invoices: [{ id: "invoice-1", documentId: "doc-1", vendorId: "vendor-1", invoiceNumber: "INV-42", vendorMatchStatus: "exact", workspaceCustomerMatchStatus: "matched", expenseAccountMatchStatus: "matched", serviceLocationMatchStatus: "matched", reconciliationStatus: "reconciled", invoiceDate: "2026-07-01", totalAmount: 125, reviewStatus: "approved" } as PortalData["invoices"][number]],
       invoiceLineItems: [{ id: "line-1", invoiceId: "invoice-1", lineNumber: 1, description: "Internet service", quantity: 1, unitPrice: 125, amount: 125, category: "Telecom", servicePeriodStart: null, servicePeriodEnd: null }],
       evidenceReferences: [{ id: "evidence-1", documentId: "doc-1", opportunityId: null, pageNumber: 1, fieldPath: "totalAmount", textExcerpt: "Total $125.00" }],
       contracts: [{ id: "contract-1", vendorId: "vendor-1", title: "Internet agreement", status: "active" } as PortalData["contracts"][number]],

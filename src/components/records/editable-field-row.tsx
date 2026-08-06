@@ -31,6 +31,8 @@ export type EditableFieldRowProps = {
   editable?: boolean;
   copyable?: boolean;
   pasteable?: boolean;
+  showLabel?: boolean;
+  compact?: boolean;
   input?: FieldInputConfig;
   onSave?: (newValue: unknown) => Promise<void>;
   source?: "customer" | "internal" | "extracted" | "enriched" | "system";
@@ -61,6 +63,8 @@ export function EditableFieldRow({
   editable = true,
   copyable = true,
   pasteable = false,
+  showLabel = true,
+  compact = false,
   input = { kind: "text" },
   onSave,
   source,
@@ -278,6 +282,7 @@ export function EditableFieldRow({
       >
         <label
           htmlFor={isEditing ? fieldId : undefined}
+          className={!showLabel ? "sr-only" : undefined}
           style={{
             fontSize: "0.74rem",
             fontWeight: 600,
@@ -444,12 +449,23 @@ export function EditableFieldRow({
           </div>
         </div>
       ) : (
-        <div style={{ position: "relative", minWidth: 0, width: "100%" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            minWidth: 0,
+            width: "100%",
+          }}
+        >
           <div
             className="editable-field-row__value"
             style={{
-              fontSize: "0.88rem",
-              fontWeight: 500,
+              order: 2,
+              flex: "1 1 auto",
+              minWidth: 0,
+              fontSize: compact ? "0.68rem" : "0.88rem",
+              fontWeight: compact ? 660 : 500,
               color: "var(--assistant-text, #0f172a)",
               whiteSpace: input.kind === "textarea" ? "pre-wrap" : "nowrap",
               overflow: "hidden",
@@ -463,18 +479,14 @@ export function EditableFieldRow({
             className="editable-field-row__actions"
             aria-hidden={!actionsVisible}
             style={{
-              position: "absolute",
-              top: "50%",
-              right: 0,
-              transform: actionsVisible
-                ? "translateY(-50%) translateX(0)"
-                : "translateY(-50%) translateX(4px)",
+              order: 1,
+              position: "static",
+              flex: "0 0 auto",
               display: "inline-flex",
               alignItems: "center",
               gap: 4,
-              paddingLeft: 18,
-              background:
-                "linear-gradient(90deg, transparent 0%, var(--assistant-surface, #ffffff) 32%)",
+              paddingLeft: 0,
+              background: "none",
               visibility: actionsVisible ? "visible" : "hidden",
               opacity: actionsVisible ? 1 : 0,
               pointerEvents: actionsVisible ? "auto" : "none",

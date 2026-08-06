@@ -1,5 +1,132 @@
 # Costivra Status
 
+## August 6, 2026 — Chunk 6 release validation
+
+- **Automated validation**: `npm test -- --run` PASS (117 files, 487 tests; 4 files and 6 tests skipped); focused breakdown route tests PASS (5 tests); focused owner trust-route tests PASS (3 tests); focused owner evidence-option data test PASS (1 test); `npm run eval:invoices -- --manifest tests/fixtures/invoices/golden-manifest.smoke.json --predictions tests/fixtures/invoices/golden-predictions.smoke.json` PASS (all 10 smoke metrics 100%, zero extraction errors); `npm run test:integration` PASS (8 tests, 6 credential-gated skips); `npm run typecheck` PASS; `npm run build` PASS; `npm run lint` PASS with the two existing `src/components/app-shell.tsx` warnings; `git diff --check` PASS.
+- **End-to-end validation**: `npm run test:e2e` PASS (26 passed, 6 skipped across desktop and mobile projects). Public homepage and the configured smoke paths rendered successfully. The authenticated customer flow was separately enabled with the local `.env.local` credentials and passed below.
+- **Authenticated customer replay**: `RUN_AUTHENTICATED_E2E=1 npm run test:e2e:authenticated` PASS (1 desktop test, disposable workspace cleaned up). This confirms sign-in, invoice/bill rendering, the document breakdown endpoint returning `200` from a stored legacy analysis record, opportunity approval, action approval, and savings workflow against the connected Supabase project. The same rendered test asserts that a stored `$3,000` amount with incomplete provenance is labeled `Needs evidence`, says `Not shown until calculated`, and does not display `$3,000`. The new trust banner and owner review actions remain migration-gated.
+- **Runtime**: Restored the normal local Next server on `http://localhost:3000` after Playwright. No production deployment or remote migration was performed.
+- **Next step**: Apply and verify the forward migrations in a controlled environment, then run the authenticated customer/owner browser walkthrough before release.
+- **Live schema finding**: The disposable authenticated customer run initially failed because the connected Supabase project does not yet have `opportunities.customer_visible`. The portal read path now falls back safely before migration, and the authenticated customer workflow passes. The trust banner’s persisted sample flag and owner mutation actions still require the forward migration; no remote migration was applied.
+- **Pre-migration owner safety**: The owner trust queue now falls back to legacy opportunity columns for read-only review, and mutation attempts return a clear migration-required response instead of an opaque server error. Evidence attachment checks document ownership with explicit tenant-scoped queries.
+- **Breakdown compatibility**: The breakdown route now selects only stable document columns. When the scan snapshot columns are absent, it recognizes only a successful tenant-scoped legacy ingestion audit event as clean; records without that proof remain unavailable. Added a regression test for the pre-migration path. The scan-provenance migration remains required for new upload writes and full customer/owner release QA.
+- **Evidence compatibility**: The live authenticated replay also exposed the pending `evidence_references.source_key` column. The breakdown route now retries with stable evidence columns when that migration is absent; the live replay passed after this fallback was added. New schemas retain source-key selection and ordering.
+- **Owner remediation**: The trust-review table now offers a multi-select of evidence from source documents linked to the opportunity’s expense account. The API enforces the same source-document boundary, deduplicates selections, records the link, and audits the action. The owner UI/live walkthrough remain migration-gated because trust-state persistence is not yet present in the connected project.
+- **Final verdict**: `INTERNAL_TESTING_ONLY`. The local and disposable authenticated evidence is green, but `BILL_UPLOAD_FLOW_READY` is not proven because the forward migrations have not been applied to the connected Supabase project, owner browser QA is not live-verified, production deployment identity is not recorded for this worktree, and the exact private invoice replay was intentionally not run or committed.
+- **Controlled release prerequisites**: Apply and verify `20260806171657_bill_upload_security_provenance.sql`, `20260806210000_txu_invoice_semantics_and_identity.sql`, `20260806213000_evidence_source_keys.sql`, and `20260806220000_finding_trust_and_sample_workspaces.sql`; then run the owner trust-review walkthrough and the complete upload/breakdown evidence capture against the deployed SHA.
+- **Read-only live schema audit**: A service-side column-availability check against the connected Supabase project returned `42703` for `documents.security_scan_status`, `invoices.current_charges`, `evidence_references.source_key`, `opportunities.customer_visible`, and `organizations.is_sample_workspace`. This confirms all four forward migration gates remain unapplied; no rows were read or changed.
+
+## August 6, 2026 — Bill upload repair Chunk 5: finding trust, tariff guardrails, and sample workspaces
+
+- **Trust states**: Added explicit `evidence_backed`, `needs_evidence`, `manual_note`, `demo_example`, and `deprecated` states. Customer-facing monetary values are only exposed when a deterministic rule, version, calculation inputs/results, source record, and evidence references are all present.
+- **Scope and provenance**: Portal opportunity records now carry source document, expense account, service location, account reference, generated-by, evidence count, rule version, and last-evaluated context. Same-vendor records are narrowed to the invoice account/location when that context is available.
+- **Energy guardrail**: Energy extraction accepts tariff dimensions only when visibly present. Category analysis persists a fails-closed tariff review; without an official current tariff and assigned rate-code comparison it returns the neutral “Tariff review may be worthwhile” message and no amount.
+- **Sample/demo controls**: Seeded Northstar data is marked as a sample workspace and the customer portal displays a persistent sample banner plus an upload warning. Owner-only trust review operations can mark a record as demo, keep it as an internal note, attach same-workspace evidence, hide it, or deprecate it without silently deleting it.
+- **Validation**: Trust/tariff/context tests PASS (8 tests); full unit suite, typecheck, build, lint, public E2E, and authenticated customer E2E have now passed. Owner trust-review and sample-workspace banner QA remain migration-gated.
+- **Known rollout risk**: Apply `supabase/migrations/20260806220000_finding_trust_and_sample_workspaces.sql` before using the new portal query or owner remediation route in a deployed environment.
+
+## August 6, 2026 — Bill upload repair Chunk 4: page-aware evidence and line-item provenance
+
+- **Evidence persistence**: Extraction evidence now keeps nullable source pages and stable line-item source keys. Native PDF text retains page markers; no page is fabricated when the source does not provide one.
+- **Line-item traceability**: Line items carry a stable `line-N` key, evidence rows are inserted before invoice records, and classifications receive the matching evidence-reference IDs. Missing line-item evidence forces review and is recorded as `line_item_evidence_missing`.
+- **Breakdown behavior**: Evidence is ordered deterministically, browsable through page-sized API results, and displayed separately as invoice-field evidence versus line-item links. Each classified line shows its first source page, short quote, and a page-fragment link when a private PDF download is available. Findings without stored evidence are labeled `needs_evidence` rather than evidence-backed.
+- **Migration**: Added `supabase/migrations/20260806213000_evidence_source_keys.sql` for the source-key column and index. Existing legacy evidence is not backfilled or assigned guessed pages.
+- **Validation**: Focused provenance/API tests PASS (12 tests); `npm run typecheck` PASS; `npm test -- --run` PASS (113 files, 476 tests; 4 files and 6 tests skipped); `npm run lint` PASS with the two existing `app-shell.tsx` warnings; `git diff --check` PASS.
+- **Known rollout risk**: Apply and verify the Chunk 1, Chunk 3, and Chunk 4 migrations before production intake writes the new scan, invoice-semantics, identity, and evidence source-key fields.
+
+## August 6, 2026 — Account locations and activity-linked internal notes
+
+- **Location workflow**: Replaced the Operating footprint count with a plus action. The account detail card now animates an inline address form beneath the map with location name, street, city, state, ZIP, country, save, and cancel controls. The server validates the account, required address fields, duplicate names, and records an internal audit event.
+- **Note workflow**: Added a plus action to the Internal CRM note card that opens the existing internal-note composer with the current account prefilled. Existing teammate mention controls remain available; mentioned teammates receive the existing in-app notification and internal email path.
+- **Activity linkage**: Notifications now deep-link to `/manage/accounts/:id?tab=activity&activity=:activityId`, and the account Activity tab scrolls the exact activity row into view. Notes continue to persist as `crm_activities`, so they appear in the account Activity tab and global recent activity surfaces after refresh.
+- **Files**: `src/components/manage-portal.tsx`, `src/app/globals.css`, `src/app/api/manage/locations/route.ts`, `src/app/api/manage/locations/route.test.ts`, `src/app/api/manage/activities/route.ts`.
+- **Validation**: Local browser QA passed for account-page identity, location-plus expansion, animated form rendering, note-plus account prefill, Activity tab rendering, deep-link row targeting, and zero browser warnings/errors. `npm run typecheck` PASS; focused ESLint PASS; location route tests PASS (2 tests); account API tests PASS (3 tests); `git diff --check` PASS.
+
+## August 6, 2026 — Searchable account selection for client contacts
+
+- **User-visible change**: Replaced the client-contact account dropdown with a searchable input that filters existing accounts and shows up to eight matching suggestions with account names and industries.
+- **Prefill and validation**: The account-page plus action still opens the existing modal with the current account prefilled. Selecting a suggestion preserves the real account ID; arbitrary text is rejected with a clear validation message.
+- **Files**: `src/components/manage-portal.tsx` and `src/app/globals.css`.
+- **Validation**: Local desktop browser QA confirmed prefill, filtering, suggestion selection, account-ID preservation, invalid free-text rejection, and zero browser warnings/errors. `npm run typecheck` PASS; focused ESLint for `manage-portal.tsx` PASS; focused account API tests PASS (3 tests); `git diff --check` PASS.
+
+## August 6, 2026 — Bill upload repair Chunk 3: TXU semantics, reconciliation, and identity matching
+
+- **Extraction contract**: Added separate `previousBalance`, `paymentsAndCredits`, `balanceForward`, `currentCharges`, and `currentPeriodCredits` fields. The AI instructions explicitly keep prior-balance activity out of current-period credits, do not calculate missing totals, and preserve `totalAmount` as current bill charges while `amountDue` remains the final amount requested.
+- **Energy fields**: Added validated optional energy service details for customer, service address, service identifier, meter, product, utility territory, billing days, usage, demand, multiplier, average price, and read dates. PDF text extraction now preserves page markers; evidence keeps a source page when available instead of hard-coding page 1. Customer-facing identifiers are masked.
+- **Deterministic reconciliation**: Added exact-cent checks for line items to current charges, balance forward plus current charges to amount due, and previous balance minus payments to balance forward. Missing semantics remain incomplete; no floating-point arithmetic was added.
+- **Identity matching**: Added separate workspace customer, expense-account, and service-location matching. Matching uses only allowlisted account, identifier, meter, and normalized full-address evidence; vendor identity alone cannot assign an account or location. Review codes include `workspace_customer_name_mismatch`, `expense_account_unmatched`, `service_identifier_unmatched`, and `service_location_unmatched`.
+- **Synthetic fixtures**: Added de-identified three-page Case A and Case B TXU layouts covering paid prior balance and carried-forward balance. No private customer PDFs, full account numbers, or service identifiers were added.
+- **Files**: New `src/lib/domain/energy-service.ts`, `src/lib/domain/invoice-matching.ts`, `src/lib/domain/txu-extraction.test.ts`, `src/lib/domain/invoice-matching.test.ts`, two synthetic fixtures, and `supabase/migrations/20260806210000_txu_invoice_semantics_and_identity.sql`; updated extraction, intake, invoice persistence, portal, and operator review surfaces.
+- **Validation**: Focused TXU/domain tests PASS (25 tests); `npm run typecheck` PASS; `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm test -- --run` PASS (111 files, 471 tests; 4 files and 6 tests skipped); `npm run test:integration` PASS (4 files, 8 tests; 4 files and 6 tests skipped); `npm run test:e2e` PASS (26 passed, 6 skipped); `npm run build` PASS; `git diff --check` PASS.
+- **Known rollout risk**: The migration must be applied and verified in production before extraction writes the new invoice columns. The real private TXU PDFs remain intentionally untested in-repository; synthetic fixtures cover the semantics without exposing customer data.
+
+## August 6, 2026 — Account relationship-map contact entry point
+
+- **User-visible change**: Replaced the People count badge in the account right rail with a plus icon button. It opens the existing `Add client contact` modal rather than creating a second contact flow.
+- **Prefill behavior**: The current account is passed into the modal as the controlled account selection, so the form opens with `Apollo QA - HubSpot Profile` selected while leaving the account selector available for correction.
+- **Files**: `src/components/manage-portal.tsx` and `src/app/globals.css`.
+- **Validation**: Local browser QA confirmed the plus button, modal opening, preselected account ID, visible contact fields, and zero console errors. `npm run typecheck` PASS; focused ESLint for `manage-portal.tsx` PASS; focused account API tests PASS (3 tests); `git diff --check` PASS.
+
+## August 6, 2026 — Account detail motion and floating Back control
+
+- **User-visible change**: The compact floating Back control now uses the same contained icon-button treatment as the phone action, while the page-top `Back to Accounts` control remains the existing text link.
+- **Interaction design**: The account technology list now measures its additional content and animates its height and opacity on `Show all` / `Show fewer`, moving the records beneath it downward and upward with the profile panel. Reduced-motion users receive an immediate state change.
+- **Files**: `src/components/manage-portal.tsx` and `src/app/globals.css`.
+- **Browser QA**: Local account detail QA passed at desktop and `390x844`. Confirmed page identity, nonblank render, contained compact Back control, preserved plain top Back control, expanded/collapsed technology states, surrounding-card movement, mobile alignment, and no horizontal overflow.
+- **Validation**: Targeted account API tests PASS (3 tests); lint PASS with two existing `app-shell.tsx` warnings; `git diff --check` PASS. Full typecheck and unit suite are currently blocked by unrelated concurrent invoice-model edits: four `InvoiceCandidate` type errors and six invoice reconciliation test failures in `src/lib/ai`, `src/lib/domain`, and `src/lib/documents`.
+
+## August 6, 2026 — Bill upload repair Chunk 2: attachment state, honest progress, and completion handling
+
+- **User-visible change**: Rebuilt the bill-upload modal around explicit idle, selected, submitting, complete, quarantined, duplicate, and error states. The selected attachment remains visible during submission with filename, extension, formatted size, vendor assignment, and change/remove controls.
+- **Progress contract**: Replaced percentage-style progress with honest “Reading your bill” copy, a moving scan line, and the three real stages: secure upload, security and integrity check, and reading bill details. Reduced-motion users receive the same information without motion.
+- **Completion contract**: A document is “ready” only when the server reports `analysisReady: true`. The modal closes before the parent refreshes once and shows one actionable toast. The inspector never opens automatically; the action opens it only after an explicit click. Duplicate, quarantined, rejected, and still-processing outcomes retain their distinct next actions.
+- **Files**: `src/components/document-upload-experience.tsx`, `src/components/portal-pages.tsx`, `src/lib/documents/client-upload.ts`, `src/lib/documents/upload-notifications.ts`, and related tests.
+- **Validation**: Focused upload tests PASS (15 tests); `npm run typecheck` PASS; `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm test -- --run` PASS (109 files, 465 tests; 4 files and 6 tests skipped); `npm run test:integration` PASS (4 files, 8 tests; 4 files and 6 tests skipped); `npm run test:e2e` PASS (26 passed, 6 skipped); `npm run build` PASS; `git diff --check` PASS.
+- **Browser QA**: Authenticated desktop QA confirmed the upload dialog opens, the selected modal surface is visible, Cancel closes the dialog, and focus returns to the upload trigger. Native file injection was unavailable in the connected browser, so the real upload mutation and upload-specific mobile interaction remain covered by automated tests rather than a live document upload.
+- **Known rollout risk**: The forward scan-provenance migration from Chunk 1 still must be applied and verified in production before deploying the new breakdown/upload contract.
+
+## August 6, 2026 — Account detail rail field controls
+
+- **User-visible change**: Industry, Website, and Phone in the account detail rail are now copyable and editable through the shared CRM field control. Website no longer repeats its field label inside the value area, and its link uses the same compact value sizing as the neighboring fields.
+- **Interaction design**: Copy and edit actions appear in a dedicated left-side action column on hover/focus, keeping the value readable and preventing controls from covering links or phone numbers. The field rows remain usable at the mobile `390x844` breakpoint.
+- **Data boundary**: Website and industry continue through the existing atomic account mutation. Operator-entered phone is stored as a nullable `crm_account_profiles.phone` override so the Apollo enrichment phone remains available as provider data rather than being overwritten silently.
+- **Files**: `src/components/manage-portal.tsx`, `src/components/records/editable-field-row.tsx`, `src/app/globals.css`, `src/app/api/manage/accounts/[id]/route.ts`, `src/lib/manage/types.ts`, `src/lib/manage/repository.ts`, `src/app/api/manage/accounts/[id]/route.test.ts`, and `supabase/migrations/20260806195000_add_operator_account_phone.sql`.
+- **Validation**: Browser QA passed locally at desktop and `390x844`; hover geometry confirms actions precede the value; edit mode opens the correct Industry input; `npm run typecheck` PASS; `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm test` PASS (109 files, 465 tests; 4 files and 6 tests skipped); `npm run build` PASS; `git diff --check` PASS.
+- **Release note**: Apply the new Supabase migration before deploying the phone-edit path. No production deployment was performed in this task.
+
+## August 6, 2026 — Account header metadata and LinkedIn identity
+
+- **User-visible change**: Account detail headers now place the industry and headquarters location together on one metadata line, with the company legal name retained as a separate subtitle when available.
+- **LinkedIn action**: Replaced the generic chain icon with the actual LinkedIn “in” mark while preserving the existing website globe, external-link behavior, accessible label, and hover treatment.
+- **Files**: `src/components/manage-portal.tsx` and `src/app/globals.css`.
+- **Validation**: Authenticated browser QA passed at desktop and `390x844`; typecheck passed; lint passed with two existing `app-shell.tsx` warnings; `npm test -- --run` passed (108 files, 459 tests; 4 files and 6 tests skipped); `git diff --check` passed.
+- **Known repository issue**: `npm run build` compiled the app but failed on an unrelated pre-existing type error in `src/components/document-upload-experience.tsx:141` (`documentId` is not present on the rejected upload result variant). This UI change does not modify that file.
+
+## August 6, 2026 — Interactive owner dashboard follow-ups and activity
+
+- **User-visible change**: Follow-up rows in `/manage` are now direct links to the related contact or account work tab. Recent activity rows are direct links to the related record's activity tab.
+- **Interaction design**: Added the existing CRM row hover/focus treatment to activity rows so the clickable target is clear without adding loud card decoration.
+- **Activity clarity**: Added type-specific icons for notes, calls, meetings, email, account creation, status changes, inquiries, and task events. Activity contact IDs are now carried through repository normalization so contact-linked events reach the correct page.
+- **Files**: `src/components/manage-portal.tsx`, `src/app/globals.css`, and `src/lib/manage/repository.ts`.
+- **Validation**: `npm run typecheck` PASS; `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm test -- --run` PASS (108 files, 458 tests; 4 files and 6 tests skipped); `npm run build` PASS; `git diff --check` PASS. Browser QA confirmed follow-up navigation to a contact work tab, activity navigation to an account activity tab, and the stacked mobile layout at `390x844`.
+
+## August 6, 2026 — Bill upload repair Chunk 1: breakdown contract and scan provenance
+
+- **Implementation**: Added `agent/bill-upload-01-breakdown-contract` with a forward Supabase migration for `document_status` alignment, document scan snapshots, and the server-only append-only `document_security_scan_attempts` ledger. Clean ingestion and quarantine rescan paths now persist safe scan provenance.
+- **Breakdown API**: The endpoint uses only live-compatible `sha256` plus the new snapshot fields, returns `400` for invalid IDs, `404` for tenant-scoped absence, `202` for processing or missing analysis, `409` for blocked files, and a traceable safe `500` for database failures. It reads stored category analysis, classifications, and ordered evidence instead of recomputing on GET.
+- **UI contract**: The breakdown modal understands `clean` scan status, the `sha256` field, nullable protected download URLs, and honest processing responses. The generic sparkle glyph was not retained in the edited surface.
+- **Validation**: `npm run typecheck` PASS; focused breakdown route tests PASS (4 tests); intake/security boundary tests PASS (7 tests); `git diff --check` PASS. Full lint, integration, build, and browser release gates remain for Chunk 6.
+- **Live schema check**: Production schema was inspected read-only. The migration has not been applied to production in this chunk, so the new route must not be deployed ahead of the migration.
+- **Unrelated work preserved**: Existing concurrent edits in `STATUS.md`, `src/app/globals.css`, and `src/components/manage-portal.tsx` were not modified by this chunk.
+
+## August 6, 2026 — Owner dashboard summary cleanup
+
+- **User-visible change**: Removed the four hard-coded summary-card SVG squiggles from `/manage`. They were not backed by trend data and made the cards feel visually unbalanced.
+- **Replacement**: Added compact state markers (`Tracked`, `Current`, `Action queue`, and `In progress`) plus plain-language context for each count. Mobile summary cards stack their marker and context cleanly at the existing `780px` breakpoint.
+- **Files**: `src/components/manage-portal.tsx` and `src/app/globals.css`.
+- **Validation at this milestone**: `npm run typecheck` PASS; `npm run lint` PASS with two existing `app-shell.tsx` warnings; the initial unit/build checks were blocked by concurrent document-upload work in the working tree, then passed after that work settled. See the interactive dashboard entry above for the current full-suite results.
+- **Browser QA at this milestone**: The authenticated production owner tab confirmed the deployed page still contained the old four sparklines. Local authenticated QA was completed in the follow-up dashboard pass above.
+
 ## August 6, 2026 — Homepage premium-upgrade baseline (Chunk 0)
 
 - **Baseline revision**: `main` at `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`; the working tree already contained unrelated lifecycle-history changes, which were preserved.

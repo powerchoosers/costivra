@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       const mentionRows = mentionedUserIds.map((mentionedUserId) => ({ activity_id: activity.id, mentioned_user_id: mentionedUserId, mentioned_by: userId }));
       const { error: mentionsError } = await db.from("crm_activity_mentions").insert(mentionRows);
       if (mentionsError) throw mentionsError;
-      const notifications = mentionedUserIds.map((mentionedUserId) => ({ organization_id: organizationId, recipient_user_id: mentionedUserId, kind: "note_mention", title: `${fullName} mentioned you in a note`, body: subject, resource_type: "crm_activity", resource_id: activity.id, action_href: `/manage/accounts/${organizationId}` }));
+      const notifications = mentionedUserIds.map((mentionedUserId) => ({ organization_id: organizationId, recipient_user_id: mentionedUserId, kind: "note_mention", title: `${fullName} mentioned you in a note`, body: subject, resource_type: "crm_activity", resource_id: activity.id, action_href: `/manage/accounts/${organizationId}?tab=activity&activity=${activity.id}` }));
       const { error: notificationError } = await db.from("internal_notifications").insert(notifications);
       if (notificationError) throw notificationError;
       await Promise.allSettled((staff ?? []).map((member) => {

@@ -3,6 +3,9 @@ export type DocumentUploadPayload = {
   outcome?: "processed" | "quarantined" | "duplicate" | "rejected";
   documentId?: string;
   originalFilename?: string;
+  status?: string;
+  analysisReady?: boolean;
+  invoiceRecord?: Record<string, unknown> | null;
   warning?: string;
   error?: string;
 };
@@ -24,7 +27,20 @@ export type DocumentUploadResult =
       documentId: string | null;
       warning: string;
       payload: DocumentUploadPayload;
+    }
+  | {
+      kind: "rejected";
+      message: string;
+      payload: DocumentUploadPayload;
     };
+
+export type DocumentUploadCompletion =
+  | (Extract<DocumentUploadResult, { kind: "processed" }> & {
+      breakdownReady: boolean;
+    })
+  | Extract<DocumentUploadResult, { kind: "duplicate" }>
+  | Extract<DocumentUploadResult, { kind: "quarantined" }>
+  | Extract<DocumentUploadResult, { kind: "rejected" }>;
 
 export class DocumentUploadRequestError extends Error {
   readonly status: number;
@@ -72,6 +88,16 @@ export async function submitDocumentUpload(
     };
   }
 
+  if (response.status === 422) {
+    return {
+      kind: "rejected",
+      message:
+        payload.error ||
+        "The file was blocked by the security check and was not analyzed.",
+      payload,
+    };
+  }
+
   if (!response.ok) {
     throw new DocumentUploadRequestError(
       payload.error || "The bill could not be uploaded.",
@@ -115,8 +141,12 @@ export async function waitForDocumentBreakdown(
       { cache: "no-store" },
     ).catch(() => null);
 
-    if (response?.ok) return true;
-    if (response && ![404, 409, 425, 500, 503].includes(response.status)) {
+    if (response?.ok) {
+      const payload = await readPayload(response);
+      if (payload.analysisReady === true) return true;
+      if (response.status !== 202) return false;
+    }
+    if (response && ![202, 404, 425, 500, 503].includes(response.status)) {
       return false;
     }
     await sleep(delays[attempt]);

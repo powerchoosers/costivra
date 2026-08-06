@@ -86,4 +86,19 @@ describe("account detail API route", () => {
     expect(orgUpdates.length).toBe(0);
     expect(profileUpserts.length).toBe(0);
   });
+
+  it("passes an operator-entered account phone override to the atomic mutation", async () => {
+    const accountId = "a1b2c3d4-e5f6-4890-abcd-1234567890ab";
+    const req = new Request(`http://localhost/api/manage/accounts/${accountId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedUpdatedAt: "2026-08-06T00:00:00.000Z", phone: "+1 888-482-7768" }),
+    });
+
+    const res = await PATCH(req, { params: Promise.resolve({ id: accountId }) });
+    expect(res.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("manage_update_account_record", expect.objectContaining({
+      p_updates: expect.objectContaining({ phone: "+1 888-482-7768" }),
+    }));
+  });
 });

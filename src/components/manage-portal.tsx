@@ -80,6 +80,7 @@ import type {
   ManageMailThread,
   ManageOperator,
   ManageLocation,
+  ManageOpportunityTrustReviewData,
   ManageVendorRelationship,
 } from "@/lib/manage/types";
 import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
@@ -134,6 +135,7 @@ const navGroups = [
       ["Intake", "/manage/intake", ShieldAlert],
       ["Invoice review", "/manage/invoice-review", FileCheck2],
       ["Category operations", "/manage/category-intelligence", Layers],
+      ["Trust review", "/manage/trust-review", ShieldCheck],
       ["Activity", "/manage/activity", Activity],
     ],
   },
@@ -392,11 +394,18 @@ function contactComposeContext(contact: ManageContact): ComposeContext {
   };
 }
 
-function Sparkline({ path, stroke = "#2563eb" }: { path: string; stroke?: string }) {
+function SummaryMarker({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "blue" | "green" | "amber" | "slate";
+}) {
   return (
-    <svg className="manage-sparkline" viewBox="0 0 68 24" aria-hidden="true">
-      <path d={path} stroke={stroke} strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <span className={`manage-summary-marker manage-summary-marker--${tone}`}>
+      <i aria-hidden="true" />
+      {label}
+    </span>
   );
 }
 
@@ -624,18 +633,56 @@ function FormActions({
   );
 }
 
+function OpportunityTrustReview({ data }: { data: ManageOpportunityTrustReviewData }) {
+  const [items, setItems] = useState(data.items);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedEvidence, setSelectedEvidence] = useState<Record<string, string[]>>({});
+  const toast = useToast();
+  const act = async (id: string, action: string, evidenceIds: string[] = []) => {
+    setBusyId(id);
+    try {
+      const response = await fetch(`/api/manage/opportunity-trust/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, ...(evidenceIds.length ? { evidenceIds } : {}) }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "The trust review could not be saved.");
+      setItems((current) => current.filter((item) => item.id !== id));
+      setSelectedEvidence((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      toast.success("Trust review saved", action === "mark_demo" ? "The record is now labeled as a sample." : action === "deprecate" || action === "hide_customer" ? "The record is no longer shown to customers." : "The record remains an internal note until supported.");
+    } catch (error) {
+      toast.error("Trust review failed", error instanceof Error ? error.message : "Try again.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+  return <>
+    <header className="manage-page-heading"><div><p className="manage-eyebrow">Owner control</p><h1>Opportunity trust review</h1><p>Review manual opportunities that contain a dollar claim without evidence or a deterministic calculation.</p></div></header>
+    <section className="manage-panel"><div className="manage-panel-header"><div><h2>{items.length} records need review</h2><p>Nothing is deleted automatically. Choose how each record should appear.</p></div></div>{items.length ? <div className="manage-table-wrap"><table className="manage-table"><thead><tr><th>Workspace / vendor</th><th>Record</th><th>Scope</th><th>Claim</th><th>Action</th></tr></thead><tbody>{items.map((item) => {
+      const selected = selectedEvidence[item.id] ?? [];
+      return <tr key={item.id}><td><strong>{item.organizationName}</strong><small>{item.vendorName}</small></td><td><strong>{item.title}</strong><small>{item.issue}</small></td><td>{item.expenseAccountReference ?? "Account not assigned"}<small>{item.locationName ?? "Location not assigned"}</small></td><td><strong>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(item.estimatedAnnualValue)}</strong><small>{item.trustState} · {item.evidenceCount} evidence</small></td><td><div className="manage-trust-actions">
+        {item.evidenceOptions.length ? <label className="manage-trust-evidence-picker"><span>Supporting source</span><select aria-label={`Evidence for ${item.title}`} multiple size={Math.min(4, Math.max(2, item.evidenceOptions.length))} value={selected} onChange={(event) => setSelectedEvidence((current) => ({ ...current, [item.id]: Array.from(event.currentTarget.selectedOptions, (option) => option.value) }))}>{item.evidenceOptions.map((option) => <option key={option.id} value={option.id}>{option.filename}{option.pageNumber ? ` · page ${option.pageNumber}` : ""} · {option.excerpt}</option>)}</select><small>Only evidence from this account’s linked source documents is offered.</small></label> : <small className="manage-trust-no-evidence">No linked source evidence is available for this account.</small>}
+        <div className="manage-inline-actions"><button className="manage-button manage-button--quiet" disabled={busyId === item.id} onClick={() => void act(item.id, "mark_demo")}>Mark demo</button><button className="manage-button manage-button--quiet" disabled={busyId === item.id} onClick={() => void act(item.id, "manual_note")}>Keep note</button><button className="manage-button manage-button--quiet" disabled={busyId === item.id || !selected.length} onClick={() => void act(item.id, "attach_evidence", selected)}>Attach selected evidence</button><button className="manage-button manage-button--quiet" disabled={busyId === item.id} onClick={() => void act(item.id, "hide_customer")}>Hide</button><button className="manage-button manage-button--danger" disabled={busyId === item.id} onClick={() => void act(item.id, "deprecate")}>Deprecate</button></div>
+      </div></td></tr>;
+    })}</tbody></table></div> : <div className="manage-empty"><CheckCircle2 size={20} /><strong>No unsupported manual claims remain.</strong><span>New candidates will appear here when an owner needs to review them.</span></div>}</section>
+  </>;
+}
+
 export function ManagePortal({
   section,
   detailId,
   data,
   invoiceReview,
   intakeOperations,
+  trustReview,
 }: {
   section: string;
   detailId?: string | null;
   data: ManageData;
   invoiceReview?: ManageInvoiceReviewData | null;
   intakeOperations?: ManageIntakeOperationsData | null;
+  trustReview?: ManageOpportunityTrustReviewData | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -645,7 +692,7 @@ export function ManagePortal({
   const { openComposer } = useManageComposer();
   const currentAccount = section === "accounts" && detailId ? data.accounts.find((item) => item.id === detailId) : null;
   const currentContact = section === "contacts" && detailId ? data.contacts.find((item) => item.id === detailId) : null;
-  const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations" };
+  const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations", "trust-review": "Trust review" };
   const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? managePageLabels[section] ?? pretty(section);
   const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : "/manage";
   const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : "Client operations";
@@ -1198,7 +1245,7 @@ export function ManagePortal({
             <Overview data={data} />
           )}
           {section === "accounts" && (
-              detailId ? <AccountDetailPage data={data} accountId={detailId} run={run} onCompose={(contact) => setCompose(contactComposeContext(contact))} /> : <Accounts
+              detailId ? <AccountDetailPage data={data} accountId={detailId} run={run} onCompose={(contact) => setCompose(contactComposeContext(contact))} onAddContact={(account) => { setContextAccount(account); openDialog("contact"); }} onAddNote={(account) => { setContextAccount(account); openDialog("note"); }} /> : <Accounts
               data={data}
               query={search}
             />
@@ -1247,6 +1294,7 @@ export function ManagePortal({
             <ManageIntakeOperations data={intakeOperations} />
           )}
           {section === "category-intelligence" && <ManageCategoryIntelligence />}
+          {section === "trust-review" && trustReview && data.operator.role === "owner" && <OpportunityTrustReview data={trustReview} />}
           {section === "activity" && (
             <ActivityPage
               data={data}
@@ -1284,6 +1332,7 @@ export function ManagePortal({
       {dialog === "contact" && (
         <ContactForm
           data={data}
+          defaultAccount={contextAccount}
           busy={busy}
           onClose={closeDialog}
           isClosing={Boolean(dialogClosing)}
@@ -1411,33 +1460,45 @@ function Overview({ data }: { data: ManageData }) {
         </div>
       </section>
       <section className="manage-summary" aria-label="CRM summary">
-        <div>
-          <div className="manage-sparkline-head">
+        <div className="manage-summary-card">
+          <div className="manage-summary-meta">
             <small>ALL ACCOUNTS</small>
-            <Sparkline path="M 2 18 Q 18 10, 34 14 T 66 5" stroke="#2563eb" />
+            <SummaryMarker label="Tracked" tone="blue" />
           </div>
-          <strong>{data.accounts.length}</strong>
+          <div className="manage-summary-value">
+            <strong>{data.accounts.length}</strong>
+            <span>organizations monitored</span>
+          </div>
         </div>
-        <div>
-          <div className="manage-sparkline-head">
+        <div className="manage-summary-card">
+          <div className="manage-summary-meta">
             <small>ACTIVE</small>
-            <Sparkline path="M 2 20 Q 20 14, 38 8 T 66 4" stroke="#12b76a" />
+            <SummaryMarker label="Current" tone="green" />
           </div>
-          <strong>{active}</strong>
+          <div className="manage-summary-value">
+            <strong>{active}</strong>
+            <span>active relationship</span>
+          </div>
         </div>
-        <div>
-          <div className="manage-sparkline-head">
+        <div className="manage-summary-card">
+          <div className="manage-summary-meta">
             <small>NEEDS FOLLOW-UP</small>
-            <Sparkline path="M 2 8 Q 18 14, 36 18 T 66 20" stroke="#f79009" />
+            <SummaryMarker label="Action queue" tone="amber" />
           </div>
-          <strong>{followUps}</strong>
+          <div className="manage-summary-value">
+            <strong>{followUps}</strong>
+            <span>accounts need attention</span>
+          </div>
         </div>
-        <div>
-          <div className="manage-sparkline-head">
+        <div className="manage-summary-card">
+          <div className="manage-summary-meta">
             <small>ONBOARDING</small>
-            <Sparkline path="M 2 16 Q 22 18, 42 10 T 66 6" stroke="#2e60d4" />
+            <SummaryMarker label="In progress" tone="slate" />
           </div>
-          <strong>{onboarding}</strong>
+          <div className="manage-summary-value">
+            <strong>{onboarding}</strong>
+            <span>accounts being set up</span>
+          </div>
         </div>
       </section>
       <div className="manage-overview-grid">
@@ -2016,35 +2077,74 @@ function InlineAccountText({ account, field, value, display, placeholder, type =
   return multiline ? <textarea className="manage-inline-textarea" rows={3} {...shared} /> : <input className="manage-inline-input" type={type} {...shared} />;
 }
 
-function InlineAccountWebsite({ account }: { account: ManageAccount }) {
+function InlineAccountDetailField({
+  account,
+  label,
+  field,
+  value,
+  input,
+  displayValue,
+}: {
+  account: ManageAccount;
+  label: string;
+  field: "industry" | "phone" | "website";
+  value: string | null | undefined;
+  input: { kind: "text"; maxLength?: number } | { kind: "url" } | { kind: "phone" };
+  displayValue?: ReactNode;
+}) {
   const router = useRouter();
   const toast = useToast();
 
-  const handleSaveWebsite = async (newValue: unknown) => {
-    const websiteStr = String(newValue ?? "");
+  const handleSave = async (newValue: unknown) => {
+    const nextValue = String(newValue ?? "").trim();
     await api(`/api/manage/accounts/${account.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ website: websiteStr, expectedUpdatedAt: account.updatedAt }),
+      body: JSON.stringify({ [field]: nextValue || null, expectedUpdatedAt: account.updatedAt }),
     });
-    toast.success(websiteStr.trim() ? "Account website updated." : "Account website removed.");
+    toast.success(nextValue ? `${label} updated.` : `${label} removed.`);
     router.refresh();
   };
 
   return (
     <EditableFieldRow
-      label="Website"
-      value={account.website}
-      displayValue={
-        account.website ? (
-          <a href={account.website} target="_blank" rel="noreferrer" style={{ color: "var(--assistant-accent, #002FA7)", textDecoration: "none" }}>
-            {account.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-          </a>
-        ) : null
-      }
-      input={{ kind: "url" }}
-      onSave={handleSaveWebsite}
+      label={label}
+      value={value ?? null}
+      displayValue={displayValue}
+      input={input}
+      compact
+      showLabel={false}
+      onSave={handleSave}
     />
   );
+}
+
+function InlineAccountIndustry({ account, profile }: { account: ManageAccount; profile: ManageAccount["enrichment"] }) {
+  return <InlineAccountDetailField account={account} label="Industry" field="industry" value={account.industry || profile?.industry} input={{ kind: "text", maxLength: 80 }} />;
+}
+
+function InlineAccountWebsite({ account }: { account: ManageAccount }) {
+  const href = externalHref(account.website);
+  return <InlineAccountDetailField
+    account={account}
+    label="Website"
+    field="website"
+    value={account.website}
+    input={{ kind: "url" }}
+    displayValue={account.website && href ? <a href={href} target="_blank" rel="noreferrer">{account.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a> : undefined}
+  />;
+}
+
+function InlineAccountPhone({ account, profile }: { account: ManageAccount; profile: ManageAccount["enrichment"] }) {
+  const phone = account.phone || profile?.phone;
+  const phoneHref = phone?.replace(/[^+\d]/g, "");
+  return <InlineAccountDetailField
+    account={account}
+    label="Phone"
+    field="phone"
+    value={phone}
+    input={{ kind: "phone" }}
+    displayValue={phone && phoneHref ? <a className="manage-record-company-phone" href={`tel:${phoneHref}`}>{phone}</a> : undefined}
+  />;
 }
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
@@ -2493,26 +2593,58 @@ function RecordHeaderLinks({ website, linkedinUrl, entityName }: { website: stri
   if (!websiteHref && !linkedinHref) return null;
   return <span className="manage-record-title-links" aria-label={`${entityName} links`}>
     {websiteHref && <a href={websiteHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} website`} title="Website"><Globe2 size={16} /></a>}
-    {linkedinHref && <a href={linkedinHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} LinkedIn profile`} title="LinkedIn"><Link2 size={16} /></a>}
+    {linkedinHref && <a href={linkedinHref} target="_blank" rel="noreferrer" aria-label={`Open ${entityName} LinkedIn profile`} title="LinkedIn"><LinkedInMark /></a>}
   </span>;
 }
 
-function AccountHeaderMeta({ profile }: { account?: ManageAccount; profile: ManageAccount["enrichment"] }) {
-  if (!profile?.location) return null;
+function LinkedInMark() {
+  return (
+    <svg className="manage-linkedin-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M20.47 2H3.53A1.53 1.53 0 0 0 2 3.53v16.94A1.53 1.53 0 0 0 3.53 22h16.94A1.53 1.53 0 0 0 22 20.47V3.53A1.53 1.53 0 0 0 20.47 2ZM8.09 18.65H5.24V9.5h2.85v9.15ZM6.66 8.25a1.66 1.66 0 1 1 1.66-1.66 1.66 0 0 1-1.66 1.66Zm12.1 10.4h-2.85v-4.46c0-1.06-.02-2.43-1.48-2.43-1.48 0-1.71 1.15-1.71 2.35v4.54H9.87V9.5h2.74v1.25h.04c.38-.72 1.31-1.48 2.7-1.48 2.89 0 3.42 1.9 3.42 4.37v5.01Z" />
+    </svg>
+  );
+}
+
+function AccountHeaderMeta({ account, profile }: { account: ManageAccount; profile: ManageAccount["enrichment"] }) {
+  const industry = account.industry || profile?.industry;
+  if (!industry && !profile?.location) return null;
   return <div className="manage-record-identity-meta" aria-label="Company contact details">
-    <span title="Headquarters location"><MapPin size={13} />{profile.location}</span>
+    {industry && <span title="Industry">{industry}</span>}
+    {profile?.location && <span title="Headquarters location"><MapPin size={13} />{profile.location}</span>}
   </div>;
 }
 
 function TechnologyList({ technologies }: { technologies: string[] }) {
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? technologies : technologies.slice(0, 8);
+  const [additionalHeight, setAdditionalHeight] = useState(0);
+  const additionalContentRef = useRef<HTMLDivElement>(null);
+  const visible = technologies.slice(0, 8);
+  const additional = technologies.slice(8);
+  const additionalId = "account-additional-technologies";
+  useEffect(() => {
+    const content = additionalContentRef.current;
+    if (!content) return;
+    if (!expanded) return;
+    const measure = () => setAdditionalHeight(content.scrollHeight);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [additional.length, expanded]);
   if (!technologies.length) return null;
   return <div className="manage-record-technologies">
     <div className="manage-record-technology-list" aria-label="Technologies used">
       {visible.map((technology) => <span key={technology}>{technology}</span>)}
     </div>
-    {technologies.length > 8 && <button type="button" className="manage-record-technology-toggle" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>{expanded ? "Show fewer" : `Show all ${technologies.length}`}</button>}
+    {additional.length > 0 && <div id={additionalId} className={`manage-record-technology-extra${expanded ? " is-expanded" : ""}`} style={{ height: expanded ? additionalHeight : 0 }} aria-hidden={!expanded}>
+      <div ref={additionalContentRef} className="manage-record-technology-extra__inner">
+        <div className="manage-record-technology-list" aria-label="Additional technologies">
+          {additional.map((technology) => <span key={technology}>{technology}</span>)}
+        </div>
+      </div>
+    </div>}
+    {additional.length > 0 && <button type="button" className="manage-record-technology-toggle" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded} aria-controls={additionalId}>{expanded ? "Show fewer" : `Show all ${technologies.length}`}</button>}
   </div>;
 }
 
@@ -2525,11 +2657,22 @@ function locationSearchHref(label: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label)}`;
 }
 
-function LocationMapCard({ locations, fallback }: { locations: ManageLocation[]; fallback?: string | null }) {
+function LocationMapCard({ accountId, locations, fallback, run }: { accountId?: string; locations: ManageLocation[]; fallback?: string | null; run?: (work: () => Promise<unknown>, success: string) => Promise<void> }) {
+  const [adding, setAdding] = useState(false);
   const activeLocations = locations.filter((location) => location.status !== "inactive");
   const mapLabel = activeLocations[0] ? `${activeLocations[0].name}, ${readableLocation(activeLocations[0])}` : fallback;
+  const canAdd = Boolean(accountId && run);
+  const saveLocation = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accountId || !run) return;
+    await run(
+      () => api("/api/manage/locations", { method: "POST", body: JSON.stringify({ organizationId: accountId, ...Object.fromEntries(new FormData(event.currentTarget)) }) }),
+      "Location added to this account.",
+    );
+    setAdding(false);
+  };
   return <section className="manage-context-card manage-location-context" id="account-locations">
-    <div className="manage-context-card__heading"><div><span>Operating footprint</span><h3>Locations</h3></div><span className="manage-context-count">{activeLocations.length}</span></div>
+    <div className="manage-context-card__heading"><div><span>Operating footprint</span><h3>Locations</h3></div>{canAdd && <button type="button" className="manage-context-add" onClick={() => setAdding((value) => !value)} aria-expanded={adding} aria-controls="manage-location-form" aria-label={adding ? "Close location form" : "Add location to this account"} title={adding ? "Close location form" : "Add location to this account"}>{adding ? <X size={15} aria-hidden="true" /> : <Plus size={15} aria-hidden="true" />}</button>}</div>
     {mapLabel ? <>
       <a className="manage-location-map" href={locationSearchHref(mapLabel)} target="_blank" rel="noreferrer" aria-label={`Open map for ${mapLabel}`}>
         <span className="manage-location-map__grid" aria-hidden="true" /><span className="manage-location-map__pin"><MapPin size={18} /></span><span className="manage-location-map__label">Open map</span>
@@ -2538,13 +2681,27 @@ function LocationMapCard({ locations, fallback }: { locations: ManageLocation[];
     </> : <div className="manage-context-empty"><MapPin size={16} /><span>Add a physical address in the client workspace to map this account.</span></div>}
     {activeLocations.length > 1 && <div className="manage-location-list">{activeLocations.slice(0, 4).map((location) => <a href={locationSearchHref(`${location.name}, ${readableLocation(location)}`)} target="_blank" rel="noreferrer" key={location.id}><span>{location.name}</span><small>{readableLocation(location)}</small><ChevronRight size={13} /></a>)}</div>}
     {activeLocations.length > 4 && <small className="manage-context-footnote">+{activeLocations.length - 4} more locations in the client workspace</small>}
+    {canAdd && <div id="manage-location-form" className={`manage-location-form-transition${adding ? " is-open" : ""}`} aria-hidden={!adding}>
+      <form className="manage-location-form" onSubmit={saveLocation}>
+        <label><span>Location name *</span><input name="name" required placeholder="Headquarters" /></label>
+        <label><span>Street address *</span><input name="line1" required placeholder="123 Main Street" /></label>
+        <label><span>Address line 2</span><input name="line2" placeholder="Suite or floor" /></label>
+        <div className="manage-location-form__grid">
+          <label><span>City *</span><input name="city" required placeholder="Austin" /></label>
+          <label><span>State *</span><input name="state" required placeholder="TX" /></label>
+          <label><span>ZIP code *</span><input name="postalCode" required placeholder="78701" /></label>
+          <label><span>Country</span><input name="country" defaultValue="US" maxLength={2} /></label>
+        </div>
+        <footer><button type="button" className="manage-button manage-button--quiet" onClick={() => setAdding(false)}>Cancel</button><button type="submit" className="manage-button manage-button--primary">Save location</button></footer>
+      </form>
+    </div>}
   </section>;
 }
 
-function AccountPeopleRail({ contacts, onCompose }: { contacts: ManageContact[]; onCompose: (contact: ManageContact) => void }) {
+function AccountPeopleRail({ contacts, onCompose, onAddContact }: { contacts: ManageContact[]; onCompose: (contact: ManageContact) => void; onAddContact?: () => void }) {
   const ordered = [...contacts].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || Number(a.source === "workspace") - Number(b.source === "workspace") || a.fullName.localeCompare(b.fullName));
   return <section className="manage-context-card manage-people-context" id="account-people">
-    <div className="manage-context-card__heading"><div><span>Relationship map</span><h3>People</h3></div><span className="manage-context-count">{contacts.length}</span></div>
+    <div className="manage-context-card__heading"><div><span>Relationship map</span><h3>People</h3></div>{onAddContact && <button type="button" className="manage-context-add" onClick={onAddContact} aria-label="Add contact to this account" title="Add contact to this account"><Plus size={15} aria-hidden="true" /></button>}</div>
     {ordered.length ? <div className="manage-context-people">{ordered.map((contact) => <article key={contact.id}><span className="manage-person-avatar">{initials(contact.fullName)}</span><div className="manage-context-person"><Link href={`/manage/contacts/${contact.id}`}><strong>{contact.fullName}</strong></Link><small>{contact.title || "Role not set"}</small></div>{contact.isPrimary && <span className="manage-record-primary">Primary</span>}<div className="manage-context-person-actions"><button type="button" onClick={() => onCompose(contact)} aria-label={`Email ${contact.fullName}`} title={`Email ${contact.fullName}`}><Mail size={14} /></button>{contact.phone && <a href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.fullName}`}><Phone size={14} /></a>}</div></article>)}</div> : <div className="manage-context-empty"><Users size={16} /><span>No contacts connected yet.</span></div>}
   </section>;
 }
@@ -2580,6 +2737,8 @@ function AccountOverview({
   setSelectedVendorId,
   setActive,
   onCompose,
+  onAddContact,
+  onAddNote,
   run,
 }: {
   account: ManageAccount;
@@ -2594,10 +2753,10 @@ function AccountOverview({
   setSelectedVendorId: (id: string) => void;
   setActive: (active: string) => void;
   onCompose: (contact: ManageContact) => void;
+  onAddContact: (account: ManageAccount) => void;
+  onAddNote: (account: ManageAccount) => void;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
 }) {
-  const companyPhone = profile?.phone;
-  const phoneHref = companyPhone?.replace(/[^+\d]/g, "");
   const accountLocations = locations.filter((location) => location.organizationId === account.id);
   return <div className="manage-record-layout manage-record-layout--right-rail">
     <main className="manage-record-main">
@@ -2635,11 +2794,11 @@ function AccountOverview({
       </section>
     </main>
     <aside className="manage-record-rail manage-record-right-rail" aria-label="Account context">
-      <section className="manage-context-card manage-account-details-context"><div className="manage-context-card__heading"><div><span>Account details</span><h3>At a glance</h3></div></div><dl><div><dt>Industry</dt><dd>{account.industry || profile?.industry || "Not set"}</dd></div><div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div><div><dt>Phone</dt><dd>{companyPhone && phoneHref ? <a href={`tel:${phoneHref}`} className="manage-record-company-phone">{companyPhone}</a> : "Not recorded"}</dd></div><div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div><div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div></dl></section>
-      <AccountPeopleRail contacts={contacts} onCompose={onCompose} />
+      <section className="manage-context-card manage-account-details-context"><div className="manage-context-card__heading"><div><span>Account details</span><h3>At a glance</h3></div></div><dl><div><dt>Industry</dt><dd><InlineAccountIndustry account={account} profile={profile} /></dd></div><div><dt>Website</dt><dd><InlineAccountWebsite account={account} /></dd></div><div><dt>Phone</dt><dd><InlineAccountPhone account={account} profile={profile} /></dd></div><div><dt>Primary contact</dt><dd>{account.primaryContact || "Not set"}</dd></div><div><dt>Account since</dt><dd>{date(account.createdAt)}</dd></div></dl></section>
+      <AccountPeopleRail contacts={contacts} onCompose={onCompose} onAddContact={() => onAddContact(account)} />
       <AccountHierarchyCard account={account} accounts={allAccounts} run={run} />
-      <LocationMapCard locations={accountLocations} fallback={profile?.location} />
-      <section className="manage-context-card"><div className="manage-context-card__heading"><div><span>Internal CRM</span><h3>Operator note</h3></div></div><p className="manage-context-copy">{account.privateNotes || "No private account note yet."}</p></section>
+      <LocationMapCard accountId={account.id} locations={accountLocations} fallback={profile?.location} run={run} />
+      <section className="manage-context-card"><div className="manage-context-card__heading"><div><span>Internal CRM</span><h3>Operator note</h3></div><button type="button" className="manage-context-add" onClick={() => onAddNote(account)} aria-label="Add note to this account" title="Add note to this account"><Plus size={15} aria-hidden="true" /></button></div><p className="manage-context-copy">{account.privateNotes || "No private account note yet."}</p></section>
     </aside>
   </div>;
 }
@@ -2649,11 +2808,15 @@ function AccountDetailPage({
   accountId,
   run,
   onCompose,
+  onAddContact,
+  onAddNote,
 }: {
   data: ManageData;
   accountId: string;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
   onCompose: (contact: ManageContact) => void;
+  onAddContact: (account: ManageAccount) => void;
+  onAddNote: (account: ManageAccount) => void;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -2662,9 +2825,18 @@ function AccountDetailPage({
 
   const tabFromUrl = searchParams.get("tab");
   const active = ["overview", "vendors", "files", "activity", "work", "history"].includes(tabFromUrl ?? "") ? tabFromUrl! : "overview";
+  const activityId = searchParams.get("activity");
   const selectedVendorId = searchParams.get("vendor");
   const setActive = (tab: string) => router.push(`/manage/accounts/${accountId}?tab=${tab}${tab === "vendors" && selectedVendorId ? `&vendor=${selectedVendorId}` : ""}`);
   const setSelectedVendorId = (vendorId: string | null) => router.push(`/manage/accounts/${accountId}?tab=vendors${vendorId ? `&vendor=${vendorId}` : ""}`);
+
+  useEffect(() => {
+    if (active !== "activity" || !activityId) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`activity-${activityId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [active, activityId]);
 
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
@@ -2714,7 +2886,7 @@ function AccountDetailPage({
   const expenses = data.expenses.filter((item) => item.organizationId === account.id);
   const vendorContracts = data.vendorContracts.filter((item) => item.organizationId === account.id);
   const profile = account.enrichment;
-  const companyPhone = profile?.phone;
+  const companyPhone = account.phone || profile?.phone;
   const companyPhoneHref = companyPhone?.replace(/[^+\d]/g, "");
   const profileSummary =
     profile?.shortDescription ||
@@ -2927,7 +3099,7 @@ function AccountDetailPage({
                 entityName={account.name}
               />
             </h2>
-            <span>{account.legalName || account.industry || "Account profile"}</span>
+            {(account.legalName || (!account.industry && !profile?.industry && !profile?.location)) && <span>{account.legalName || "Account profile"}</span>}
             <AccountHeaderMeta account={account} profile={profile} />
           </div>
         </div>
@@ -3007,6 +3179,8 @@ function AccountDetailPage({
           setSelectedVendorId={setSelectedVendorId}
           setActive={setActive}
           onCompose={onCompose}
+          onAddContact={onAddContact}
+          onAddNote={onAddNote}
           run={run}
         />
       )}
@@ -5519,22 +5693,42 @@ function TaskList({ tasks }: { tasks: ManageData["tasks"] }) {
   return (
     <div className="manage-compact-list">
       {tasks.map((task) => (
-        <article key={task.id}>
+        <Link
+          key={task.id}
+          href={taskHref(task)}
+          className="manage-compact-record-row manage-follow-up-row"
+          aria-label={`Open ${task.title} for ${task.organizationName}`}
+        >
           <span
             className={`manage-task-icon manage-task-icon--${task.priority}`}
           >
-            <CalendarClock size={16} />
+            <TaskIcon taskType={task.taskType} />
           </span>
           <div>
             <strong>{task.title}</strong>
             <p>{task.organizationName}</p>
           </div>
           <time>{date(task.dueAt)}</time>
-        </article>
+        </Link>
       ))}
     </div>
   );
 }
+
+function taskHref(task: ManageData["tasks"][number]) {
+  return task.contactId
+    ? `/manage/contacts/${task.contactId}?tab=work`
+    : `/manage/accounts/${task.organizationId}?tab=work`;
+}
+
+function TaskIcon({ taskType }: { taskType: string }) {
+  if (taskType === "email") return <Mail size={16} aria-hidden="true" />;
+  if (taskType === "call") return <Phone size={16} aria-hidden="true" />;
+  if (taskType === "meeting") return <CalendarClock size={16} aria-hidden="true" />;
+  if (taskType === "review") return <FileCheck2 size={16} aria-hidden="true" />;
+  return <CalendarClock size={16} aria-hidden="true" />;
+}
+
 function ActivityList({
   activities,
 }: {
@@ -5543,9 +5737,15 @@ function ActivityList({
   return (
     <div className="manage-activity-list">
       {activities.map((item) => (
-        <article key={item.id}>
-          <span>
-            <Activity size={15} />
+        <Link
+          key={item.id}
+          id={`activity-${item.id}`}
+          href={activityHref(item)}
+          className={`manage-activity-row manage-activity-row--${activityTone(item.kind)}`}
+          aria-label={`Open ${item.subject} for ${item.organizationName}`}
+        >
+          <span className="manage-activity-icon">
+            <ActivityIcon kind={item.kind} />
           </span>
           <div>
             <strong>{item.subject}</strong>
@@ -5553,10 +5753,42 @@ function ActivityList({
             <small>{item.organizationName}</small>
           </div>
           <time>{date(item.occurredAt, true)}</time>
-        </article>
+        </Link>
       ))}
     </div>
   );
+}
+
+function activityHref(activity: ManageData["activities"][number]) {
+  return activity.contactId
+    ? `/manage/contacts/${activity.contactId}?tab=activity`
+    : `/manage/accounts/${activity.organizationId}?tab=activity`;
+}
+
+function ActivityIcon({ kind }: { kind: string }) {
+  if (kind === "note") return <FileText size={15} aria-hidden="true" />;
+  if (kind === "call") return <Phone size={15} aria-hidden="true" />;
+  if (kind === "meeting") return <CalendarClock size={15} aria-hidden="true" />;
+  if (["email", "email_inbound", "email_outbound"].includes(kind)) {
+    return <Mail size={15} aria-hidden="true" />;
+  }
+  if (kind === "account_created") return <Building2 size={15} aria-hidden="true" />;
+  if (kind === "status_change") return <RefreshCw size={15} aria-hidden="true" />;
+  if (kind === "inquiry_received") return <Inbox size={15} aria-hidden="true" />;
+  if (kind === "task_created" || kind === "task_completed") {
+    return <CheckCircle2 size={15} aria-hidden="true" />;
+  }
+  return <Activity size={15} aria-hidden="true" />;
+}
+
+function activityTone(kind: string) {
+  if (kind === "note") return "note";
+  if (["call", "meeting", "email", "email_inbound", "email_outbound"].includes(kind)) {
+    return "outreach";
+  }
+  if (["account_created", "status_change"].includes(kind)) return "account";
+  if (kind === "inquiry_received") return "inquiry";
+  return "default";
 }
 
 function ApolloCompanyLogo({ src, iconSize }: { src: string | null; iconSize: number }) {
@@ -5834,14 +6066,83 @@ function companyWebsiteDomain(value: string) {
     return "";
   }
 }
+
+function ManageAccountSearchField({ accounts, defaultAccount }: { accounts: ManageAccount[]; defaultAccount?: ManageAccount | null }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState(defaultAccount?.name ?? "");
+  const [selectedAccountId, setSelectedAccountId] = useState(defaultAccount?.id ?? "");
+  const [open, setOpen] = useState(false);
+  const matches = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return accounts
+      .filter((account) => !normalized || account.name.toLowerCase().includes(normalized) || account.industry?.toLowerCase().includes(normalized))
+      .slice(0, 8);
+  }, [accounts, query]);
+
+  useEffect(() => {
+    const handleOutsidePointer = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutsidePointer);
+    return () => document.removeEventListener("mousedown", handleOutsidePointer);
+  }, []);
+
+  const chooseAccount = (account: ManageAccount) => {
+    setQuery(account.name);
+    setSelectedAccountId(account.id);
+    rootRef.current?.querySelector<HTMLInputElement>('input[type="text"]')?.setCustomValidity("");
+    setOpen(false);
+  };
+
+  return <div ref={rootRef} className="manage-account-company-lookup manage-contact-account-search">
+    <input type="hidden" name="organizationId" value={selectedAccountId} />
+    <div className="manage-account-company-lookup__input">
+      <Search size={15} aria-hidden="true" />
+      <input
+        type="text"
+        value={query}
+        required
+        autoFocus={!defaultAccount}
+        placeholder="Search existing accounts"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open && matches.length > 0}
+        aria-controls="manage-contact-account-suggestions"
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setSelectedAccountId("");
+          event.currentTarget.setCustomValidity("Choose an existing account from the suggestions.");
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setOpen(false);
+          if (event.key === "Enter" && open && matches[0]) {
+            event.preventDefault();
+            chooseAccount(matches[0]);
+          }
+        }}
+      />
+    </div>
+    {open && matches.length > 0 && <div id="manage-contact-account-suggestions" className="manage-account-company-results" role="listbox" aria-label="Existing account suggestions">
+      {matches.map((account) => <button type="button" role="option" aria-selected={account.id === selectedAccountId} key={account.id} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseAccount(account)}>
+        <span className="manage-account-company-results__identity"><Building2 size={18} aria-hidden="true" /><span><strong>{account.name}</strong><small>{account.industry || "Account"}</small></span></span>
+        {account.id === selectedAccountId && <Check size={14} aria-hidden="true" />}
+      </button>)}
+    </div>}
+  </div>;
+}
+
 function ContactForm({
   data,
+  defaultAccount,
   busy,
   onClose,
   isClosing,
   onSubmit,
 }: {
   data: ManageData;
+  defaultAccount?: ManageAccount | null;
   busy: boolean;
   onClose: () => void;
   isClosing?: boolean;
@@ -5857,29 +6158,24 @@ function ContactForm({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          onSubmit(new FormData(event.currentTarget));
+          const formData = new FormData(event.currentTarget);
+          if (!String(formData.get("organizationId") ?? "").trim()) {
+            const accountInput = event.currentTarget.querySelector<HTMLInputElement>('[role="combobox"]');
+            accountInput?.setCustomValidity("Choose an existing account from the suggestions.");
+            accountInput?.reportValidity();
+            return;
+          }
+          onSubmit(formData);
         }}
       >
         <div className="manage-form-grid">
           <label className="wide">
             <span>Account *</span>
-            <CostivraSelect
-              name="organizationId"
-              required
-              autoFocus
-              placeholder="Choose an account"
-              options={[
-                { value: "", label: "Choose an account" },
-                ...data.accounts.map((account) => ({
-                  value: account.id,
-                  label: account.name,
-                })),
-              ]}
-            />
+            <ManageAccountSearchField accounts={data.accounts} defaultAccount={defaultAccount} />
           </label>
           <label>
             <span>Full name *</span>
-            <input name="fullName" required />
+            <input name="fullName" required autoFocus={Boolean(defaultAccount)} />
           </label>
           <label>
             <span>Work email *</span>

@@ -4,6 +4,7 @@ import { ManagePortal } from "@/components/manage-portal";
 import { getManageData } from "@/lib/manage/repository";
 import { getManageInvoiceReviewData } from "@/lib/manage/invoice-review";
 import { getManageIntakeOperationsData } from "@/lib/manage/intake-operations";
+import { getManageOpportunityTrustReviewData } from "@/lib/manage/opportunity-trust-review";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -56,11 +57,15 @@ export default async function Page({
   const intakeOperations = section === "intake"
     ? await getManageIntakeOperationsData(slug[1] ?? null)
     : null;
+  const trustReview = section === "trust-review"
+    ? await getManageOpportunityTrustReviewData()
+    : null;
   return <ManagePortal
     section={section}
     detailId={section === "accounts" || section === "contacts" ? slug[1] ?? null : null}
     data={result.data}
     invoiceReview={invoiceReview}
     intakeOperations={intakeOperations}
+    trustReview={trustReview}
   />;
 }

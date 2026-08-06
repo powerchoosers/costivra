@@ -7,9 +7,13 @@ from auth.users
 where email = 'demo@costivra.com'
 on conflict (id) do update set full_name = excluded.full_name, email = excluded.email, updated_at = now();
 
-insert into public.organizations (name, legal_name, industry, employee_count_range, annual_revenue_range, timezone, currency, primary_contact_name, review_threshold)
-select 'Northstar Hospitality', 'Northstar Hospitality Group LLC', 'Hotels & hospitality', '250-499', '$25M-$50M', 'America/Chicago', 'USD', 'Alex Morgan', 10000
+insert into public.organizations (name, legal_name, industry, employee_count_range, annual_revenue_range, timezone, currency, primary_contact_name, review_threshold, is_sample_workspace)
+select 'Northstar Hospitality', 'Northstar Hospitality Group LLC', 'Hotels & hospitality', '250-499', '$25M-$50M', 'America/Chicago', 'USD', 'Alex Morgan', 10000, true
 where not exists (select 1 from public.organizations where name = 'Northstar Hospitality');
+
+update public.organizations
+set is_sample_workspace = true
+where name = 'Northstar Hospitality';
 
 insert into public.organization_memberships (organization_id, user_id, role, permissions)
 select o.id, p.id, 'owner', '["documents:write","opportunities:approve","settings:write","reports:export"]'::jsonb
@@ -132,8 +136,8 @@ join public.vendors v on v.id = ov.vendor_id
 join public.organizations o on o.id = d.organization_id and o.name = 'Northstar Hospitality'
 where not exists (select 1 from public.evidence_references er where er.document_id = d.id);
 
-insert into public.opportunities (organization_id, expense_account_id, type, title, summary, status, confidence, estimated_annual_value, currency, priority, deadline_at, category)
-select o.id, ea.id, x.type, x.title, x.summary, x.status::opportunity_status, x.confidence, x.value, 'USD', x.priority, x.deadline_at, v.category
+insert into public.opportunities (organization_id, expense_account_id, type, title, summary, status, confidence, estimated_annual_value, currency, priority, deadline_at, category, generated_by, trust_state, customer_visible)
+select o.id, ea.id, x.type, x.title, x.summary, x.status::opportunity_status, x.confidence, x.value, 'USD', x.priority, x.deadline_at, v.category, 'manual', 'demo_example', true
 from (values
   ('Verizon Wireless','price_increase','Telecom bill increase requires approval','A new recurring surcharge is not reflected in the current contract baseline.','under_review',.92::numeric,18750::numeric,'high',timestamptz '2026-08-03 17:00:00-05'),
   ('Adobe','unused_licenses','Software license cleanup ready to execute','Usage review indicates paid seats without an active owner.','approved',.88::numeric,12430::numeric,'medium',timestamptz '2026-08-09 17:00:00-05'),

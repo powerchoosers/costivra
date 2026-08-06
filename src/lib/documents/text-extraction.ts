@@ -21,7 +21,9 @@ export async function extractDocumentText(
     await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     try {
-      const result = await parser.getText();
+      const result = await parser.getText({
+        pageJoiner: "\n\n[[COSTIVRA_PAGE page_number of total_number]]\n",
+      });
       return { text: result.text, pageCount: result.total };
     } finally {
       await parser.destroy();

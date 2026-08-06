@@ -13,6 +13,7 @@ type WorkspaceFixture = {
   organizationName: string;
   vendorId: string;
   relationshipId: string;
+  documentId: string;
   invoiceId: string;
   opportunityId: string;
   opportunityTitle: string;
@@ -144,6 +145,16 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       .single();
     if (document.error || !document.data) throw document.error;
 
+    const documentAudit = await admin.from("audit_events").insert({
+      organization_id: organizationId,
+      actor_type: "user",
+      actor_id: userId,
+      action: "document.uploaded_and_extracted",
+      resource_type: "document",
+      resource_id: document.data.id,
+    });
+    if (documentAudit.error) throw documentAudit.error;
+
     const expense = await admin
       .from("expenses")
       .insert({
@@ -191,6 +202,18 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       .select("id")
       .single();
     if (invoice.error || !invoice.data) throw invoice.error;
+
+    const analysisRun = await admin.from("category_analysis_runs").insert({
+      organization_id: organizationId,
+      document_id: document.data.id,
+      invoice_id: invoice.data.id,
+      pack_version: "authenticated-e2e",
+      findings: [],
+      missing_dimensions: [],
+      calculations: { benchmarkStatus: "insufficient_data" },
+      confidence: "0.98",
+    });
+    if (analysisRun.error) throw analysisRun.error;
 
     const lineItem = await admin.from("invoice_line_items").insert({
       organization_id: organizationId,
@@ -241,6 +264,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       organizationName,
       vendorId,
       relationshipId,
+      documentId: String(document.data.id),
       invoiceId: String(invoice.data.id),
       opportunityId: String(opportunity.data.id),
       opportunityTitle,
@@ -331,6 +355,20 @@ test.describe("authenticated customer workspace", () => {
       await page.getByRole("button", { name: "History" }).click();
       await expect(page.getByRole("heading", { name: "Relationship history" })).toBeVisible();
 
+      const breakdownResponse = await page.request.get(
+        `/api/portal/documents/${fixture.documentId}/breakdown`,
+      );
+      expect(breakdownResponse.status()).toBe(200);
+      const breakdown = await breakdownResponse.json();
+      expect(breakdown).toEqual(expect.objectContaining({
+        analysisReady: true,
+        document: expect.objectContaining({
+          securityScanStatus: "clean",
+          sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+        invoice: expect.objectContaining({ totalAmount: 1250 }),
+      }));
+
       await page.goto("/app/settings");
       await page.getByRole("tab", { name: "Team & approvals" }).click();
       await expect(page.getByRole("heading", { name: "Approval policies" })).toBeVisible();
@@ -357,6 +395,9 @@ test.describe("authenticated customer workspace", () => {
         hasText: fixture.opportunityTitle,
       });
       await expect(opportunityCard).toBeVisible();
+      await expect(opportunityCard.getByText("Needs evidence", { exact: true })).toBeVisible();
+      await expect(opportunityCard).toContainText("Not shown until calculated");
+      await expect(opportunityCard).not.toContainText("$3,000");
       await opportunityCard
         .getByRole("button", { name: `Update ${fixture.opportunityTitle} status` })
         .click();

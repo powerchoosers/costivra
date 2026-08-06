@@ -1,0 +1,29 @@
+[[COSTIVRA_PAGE 1 of 3]]
+TXU Energy Commercial Electricity Statement
+Customer: Northstar Laundry Services LLC
+Account ending: 7788
+Service address: 4100 Sample Avenue, Houston, TX 77002
+Billing period: 2026-05-10 through 2026-06-08
+
+Account summary
+Previous balance: $2,472.37
+Payments and credits: $0.00
+Balance forward: $2,472.37
+
+[[COSTIVRA_PAGE 2 of 3]]
+Current Charges: $2,050.80
+Supply charge: $1,000.00
+CenterPoint delivery and transmission: $850.80
+Taxes and other current charges: $200.00
+Amount due: $4,523.17
+Due date: 2026-07-01
+
+[[COSTIVRA_PAGE 3 of 3]]
+Product: Business Flex Rewards
+Utility territory: CenterPoint
+Service identifier: TX-ESI-0002
+Meter ID: METER-7712
+Usage: 8,766 kWh
+Actual demand: 54 kW
+Billed demand: 54 kW
+Average price: $0.212 per kWh

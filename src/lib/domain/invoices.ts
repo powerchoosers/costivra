@@ -1,4 +1,7 @@
+import type { EnergyService } from "@/lib/domain/energy-service";
+
 export type InvoiceLineCandidate = {
+  sourceKey?: string | null;
   description: string;
   quantity: string | null;
   unitPrice: string | null;
@@ -20,8 +23,14 @@ export type InvoiceCandidate = {
   taxTotal: string | null;
   feeTotal: string | null;
   creditTotal: string | null;
+  previousBalance: string | null;
+  paymentsAndCredits: string | null;
+  balanceForward: string | null;
+  currentCharges: string | null;
+  currentPeriodCredits: string | null;
   totalAmount: string | null;
   amountDue: string | null;
+  energyService: EnergyService | null;
   lineItems: InvoiceLineCandidate[];
 };
 
@@ -29,7 +38,12 @@ export type InvoiceReconciliation = {
   status: "reconciled" | "mismatch" | "incomplete";
   difference: string | null;
   checks: Array<{
-    name: "line_items_to_subtotal" | "components_to_total";
+    name:
+      | "line_items_to_subtotal"
+      | "line_items_to_current_charges"
+      | "components_to_total"
+      | "balance_forward_plus_current_charges_to_amount_due"
+      | "previous_balance_minus_payments_to_balance_forward";
     status: "passed" | "failed";
     difference: string;
   }>;
@@ -88,6 +102,19 @@ export function reconcileInvoice(candidate: InvoiceCandidate): InvoiceReconcilia
     });
   }
 
+  if (candidate.lineItems.length > 0 && candidate.currentCharges !== null) {
+    const lineTotal = candidate.lineItems.reduce(
+      (sum, line) => sum + toMinorUnits(line.amount),
+      BigInt(0),
+    );
+    const difference = lineTotal - toMinorUnits(candidate.currentCharges);
+    checks.push({
+      name: "line_items_to_current_charges",
+      status: difference === BigInt(0) ? "passed" : "failed",
+      difference: fromMinorUnits(difference),
+    });
+  }
+
   if (
     candidate.subtotal !== null &&
     candidate.taxTotal !== null &&
@@ -103,6 +130,30 @@ export function reconcileInvoice(candidate: InvoiceCandidate): InvoiceReconcilia
     const difference = expected - toMinorUnits(candidate.totalAmount);
     checks.push({
       name: "components_to_total",
+      status: difference === BigInt(0) ? "passed" : "failed",
+      difference: fromMinorUnits(difference),
+    });
+  }
+
+  if (candidate.balanceForward !== null && candidate.currentCharges !== null && candidate.amountDue !== null) {
+    const difference =
+      toMinorUnits(candidate.balanceForward) +
+      toMinorUnits(candidate.currentCharges) -
+      toMinorUnits(candidate.amountDue);
+    checks.push({
+      name: "balance_forward_plus_current_charges_to_amount_due",
+      status: difference === BigInt(0) ? "passed" : "failed",
+      difference: fromMinorUnits(difference),
+    });
+  }
+
+  if (candidate.previousBalance !== null && candidate.paymentsAndCredits !== null && candidate.balanceForward !== null) {
+    const difference =
+      toMinorUnits(candidate.previousBalance) -
+      toMinorUnits(candidate.paymentsAndCredits) -
+      toMinorUnits(candidate.balanceForward);
+    checks.push({
+      name: "previous_balance_minus_payments_to_balance_forward",
       status: difference === BigInt(0) ? "passed" : "failed",
       difference: fromMinorUnits(difference),
     });

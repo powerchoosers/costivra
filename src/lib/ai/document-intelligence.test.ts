@@ -153,4 +153,36 @@ describe("document intelligence validation", () => {
       { field: "invoice.totalAmount", quote: "Total due: $842.17" },
     ]);
   });
+
+  it("keeps indexed line-item evidence and creates a stable key when the model omits one", () => {
+    const parsed = parseDocumentIntelligence({
+      classification: "invoice",
+      summary: "Utility invoice.",
+      vendorName: "Utility Co",
+      currency: "USD",
+      confidence: 0.9,
+      invoice: {
+        invoiceNumber: "INV-1",
+        invoiceDate: null,
+        dueDate: null,
+        servicePeriodStart: null,
+        servicePeriodEnd: null,
+        accountNumberLast4: null,
+        purchaseOrderNumber: null,
+        subtotal: null,
+        taxTotal: null,
+        feeTotal: null,
+        creditTotal: null,
+        totalAmount: "12.00",
+        amountDue: "12.00",
+        lineItems: [{ description: "Energy charge", quantity: null, unitPrice: null, amount: "12.00" }],
+      },
+      evidence: [{ field: "invoice.lineItems[0].amount", quote: "Energy charge $12.00", pageNumber: 3, sourceKey: "line-1" }],
+    });
+
+    expect(parsed.invoice?.lineItems[0].sourceKey).toBe("line-1");
+    expect(parsed.evidence).toEqual([
+      { field: "invoice.lineItems[0].amount", quote: "Energy charge $12.00", pageNumber: 3, sourceKey: "line-1" },
+    ]);
+  });
 });

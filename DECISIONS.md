@@ -1,5 +1,145 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-06 — Gate customer-facing finding claims on trust provenance
+
+### Context
+
+Manual and seeded opportunities can contain nonzero dollar values without a source document, evidence reference, rule version, or deterministic calculation. Displaying those values as ordinary findings makes a customer believe an uploaded bill produced a supported result. Energy tariff conclusions have the same risk when the assigned rate code and current official tariff are not available.
+
+### Decision
+
+Represent opportunity trust explicitly as `evidence_backed`, `needs_evidence`, `manual_note`, `demo_example`, or `deprecated`. Derive the state from persisted provenance, preserve owner-reviewed demo/deprecated states, and expose a customer-facing monetary claim only when the evidence and deterministic calculation gate passes. Persist tariff review as a fails-closed, neutral analysis until the official source and assigned-versus-eligible comparison are present. Mark the local seeded workspace as sample and provide an owner-only remediation path instead of silently deleting unsupported records.
+
+### Consequences
+
+Customer cards and detail views can say exactly why a finding is or is not supported, and unsupported amounts are omitted rather than rendered as `$0`. Owner operations must review legacy manual claims and choose a visible treatment. The trust migration must be applied before portal reads use the new columns, and future deterministic rules must populate source record, evidence, calculation, and evaluation metadata together.
+
+## 2026-08-06 — Keep portal reads safe during forward trust migration rollout
+
+### Context
+
+The connected Supabase project may receive application code before the trust migration. A hard query predicate on the new `customer_visible` column caused the entire authenticated portal to fail with a schema error.
+
+### Decision
+
+Read opportunity rows through the existing tenant filter, enforce `customer_visible !== false` in application memory, and use a legacy-column fallback for the owner review queue. Mutations still fail closed with a migration-specific response until the new trust columns exist. Evidence attachment verifies document ownership through explicit tenant-scoped queries.
+
+### Consequences
+
+Existing customers retain portal access during a staged rollout, while unsupported findings remain conservatively unmonetized because trust derivation treats absent provenance as `needs_evidence` or `manual_note`. The migration remains mandatory before trust persistence, sample-workspace labeling, or owner remediation mutations can be used.
+
+## 2026-08-06 — Resolve legacy document scan status from successful ingestion evidence
+
+### Context
+
+The connected Supabase project does not yet have the document scan-provenance columns from the forward migration. The breakdown endpoint previously selected those columns directly, so an otherwise valid legacy document could fail with a schema error or be confused with a document that was still scanning.
+
+### Decision
+
+The breakdown read path selects only stable document columns. If the scan snapshot is missing, a tenant-scoped successful ingestion audit event may establish the legacy document as clean. Processing documents remain pending, and documents without that event remain unavailable; the code never infers a clean scan from a ready status alone.
+
+### Consequences
+
+Legacy extracted bills can still reach the stored breakdown during staged rollout, while unsupported security claims fail closed. The scan-provenance migration is still required before new uploads can persist scan snapshots and before release QA can treat the security workflow as fully live.
+
+## 2026-08-06 — Retry evidence reads across the source-key migration boundary
+
+### Context
+
+The connected project also predates the `evidence_references.source_key` migration. Selecting or ordering by that column caused an otherwise valid stored breakdown to return a database error even after the document scan-column issue was repaired.
+
+### Decision
+
+The breakdown endpoint first uses the source-key-aware evidence query. When the database explicitly reports a missing-column error, it retries with the stable evidence columns and maps the absent source key to unknown. It does not fabricate a source key or page number.
+
+### Consequences
+
+Legacy breakdowns remain readable during staged rollout, while migrated environments retain line-item source-key provenance. The evidence migration is still required before new intake records can persist the stronger source-key contract.
+
+## 2026-08-06 — Restrict owner evidence attachment to linked source documents
+
+### Context
+
+The trust-review API could already link any evidence reference from the same workspace, but workspace membership alone does not show that the evidence supports a particular opportunity. The owner UI also had no way to choose the required evidence.
+
+### Decision
+
+Expose only evidence references from documents linked to the opportunity’s expense account, require an explicit owner selection, and enforce that same source-document boundary again in the server mutation. Deduplicate selected IDs and record the attachment in the opportunity link table plus the audit event.
+
+### Consequences
+
+Owners can remediate unsupported records without attaching unrelated tenant evidence. Opportunities without a linked source document remain in the queue for a deliberate demo, manual-note, hide, or deprecation decision rather than receiving arbitrary support.
+
+## 2026-08-06 — Carry source keys through evidence persistence
+
+### Context
+
+Evidence references were stored without their extraction identity, and line-item classification persistence intentionally used empty evidence arrays. A broad line-item quote cannot safely be treated as proof for every charge, and a fixed evidence limit can hide source rows from a reviewer.
+
+### Decision
+
+Store an optional stable `source_key` with each evidence reference. Accept indexed line-item field paths and source-key matches, but never assign generic `invoice.lineItems` evidence to an individual line. Insert evidence first, map IDs by source key or exact line index, then persist line-item metadata and classification evidence IDs. Missing line-item evidence keeps the classification in review. Serve evidence in deterministic order with bounded page-sized results, and expose findings as evidence-backed only when stored reference IDs exist.
+
+### Consequences
+
+The breakdown can show a source page, quote, and page-fragment link for each classified line without claiming bounding-box precision. Older evidence remains unchanged and may retain unknown or legacy page values; reprocessing or operator relinking is required to repair it. The source-key migration must be applied before new intake writes these rows.
+
+## 2026-08-06 — Separate account-history balances from current charges and identity matches
+
+### Context
+
+TXU statements can show a prior balance, payments, a balance forward, current charges, and a final amount due on the same document. Treating the prior payment as an invoice credit makes the record financially misleading. The uploaded bill can also name a customer and service address that do not belong to the current workspace, even when the vendor is correctly identified.
+
+### Decision
+
+Represent each balance concept as a separate validated candidate field and reconcile only source-backed values with integer minor-unit arithmetic. Add a typed energy-service structure and page-aware evidence. Resolve workspace customer, expense account, and service location independently; assign an account or location only when allowlisted evidence produces one unambiguous match. Keep identity outcomes and review codes separate from vendor matching.
+
+### Consequences
+
+Case A and Case B can both reconcile without inventing a subtotal or annual usage. A vendor match no longer implies that the bill belongs to the customer account or location. New invoice columns and the forward migration are required before deployment, and unresolved identity evidence remains visible as review rather than being silently attached.
+
+## 2026-08-06 — Keep upload state local and completion effects parent-owned
+
+### Context
+
+The upload modal previously mixed visual progress, polling, refresh behavior, toasts, and inspector navigation. That made it possible to show completion before analysis was ready, refresh more than once, or open a document automatically without a customer choosing to inspect it.
+
+### Decision
+
+Use an explicit upload state machine for file selection, submission, security outcomes, duplicate detection, processing, and errors. The modal owns attachment presentation and honest progress; the parent owns modal closure, the single post-close refresh, and the one outcome toast. Treat `analysisReady: true` as the only ready signal. All other successful outcomes remain explicit actions, and the inspector opens only from a customer-clicked toast action.
+
+### Consequences
+
+The UI can explain what is happening without inventing a percentage or claiming analysis is finished. Duplicate, quarantine, rejection, and processing outcomes remain distinguishable and auditable. A later change to completion behavior must update the typed result contract and parent orchestration rather than adding another side effect inside the attachment component.
+
+## 2026-08-06 — Preserve provider phones when enabling account phone edits
+
+### Context
+
+The account detail rail needs an operator-editable phone field, but the displayed value may come from Apollo enrichment. Writing an edit directly over that enrichment would destroy provider provenance and make later refresh behavior ambiguous.
+
+### Decision
+
+Add a nullable `crm_account_profiles.phone` operator override and resolve the UI value as the operator phone when present, otherwise the enrichment phone. Route the edit through the existing tenant-scoped atomic account mutation and keep the provider snapshot separate.
+
+### Consequences
+
+Operators can correct or clear the phone shown in the CRM without erasing the Apollo source value. The forward migration must be applied before deploying the phone-edit path, and any future enrichment sync must define an explicit policy for whether an operator override remains authoritative.
+
+## 2026-08-06 — Make bill breakdowns read-only and security provenance server-owned
+
+### Context
+
+The bill breakdown route was masking database schema failures as document access failures, recomputing category analysis on every GET, and deriving scan status from a loose audit-event convention. The live `documents` table stores `sha256` and did not yet store a durable scan snapshot or append-only scan attempts.
+
+### Decision
+
+Use a forward migration to add explicit document scan snapshot fields, align the document status enum with the existing ingestion states, and add a server-only `document_security_scan_attempts` ledger. A database trigger projects each server-recorded attempt into the document snapshot. The breakdown GET reads the stored invoice analysis, line-item classifications, and evidence in deterministic order; it never creates new analytical records. Invalid IDs, missing tenant-scoped records, processing documents, analysis gaps, and database failures use separate response contracts.
+
+### Consequences
+
+Opening a breakdown is now read-only and repeatable, and customers can distinguish “still processing” from “not found” or an operational failure. Scan attempts retain only safe structured metadata and cannot be written by browser roles. A migration must be applied before deploying the route that selects the new snapshot columns; existing clean audit events are backfilled without inventing results for documents with no clean provenance.
+
 ## 2026-08-06 — Make lifecycle changes repeat-safe and audit them atomically
 
 ### Context

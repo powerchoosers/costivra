@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import type { PortalApprovalPolicy, PortalContract, PortalData, PortalLocation, PortalTeamMember, PortalVendor } from "@/lib/portal/types";
 import { useToast } from "@/components/toast-provider";
+import { useBillInspector } from "@/components/bill-inspector-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { formatMoneyInput } from "@/lib/vendors/spend";
@@ -54,11 +55,14 @@ import { approvalActionLabel } from "@/lib/portal/approval-policies";
 import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState, type VendorMonitoringRecord } from "@/lib/vendors/monitoring";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { DocumentUploadExperience } from "@/components/document-upload-experience";
+import type { DocumentUploadCompletion } from "@/lib/documents/client-upload";
+import { getUploadToastNotice } from "@/lib/documents/upload-notifications";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditRecordSheet } from "@/components/records/edit-record-sheet";
 import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
 import { RecordChangeHistory, type AuditHistoryItem } from "@/components/records/record-change-history";
 import { recordDraftChanged } from "@/lib/records/draft-state";
+import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 
 type ApiOptions = {
   method?: string;
@@ -145,17 +149,32 @@ function Status({ value }: { value: string }) {
   );
 }
 
+function TrustBadge({ state }: { state: PortalData["opportunities"][number]["trustState"] }) {
+  return <span className={`portal-status trust-${state}`}>{opportunityTrustLabel(state)}</span>;
+}
+
+function SampleWorkspaceBanner() {
+  return (
+    <div className="portal-sample-banner" role="note">
+      <strong>Sample workspace</strong>
+      <span>This workspace contains demonstration records that are not based on your uploaded documents.</span>
+    </div>
+  );
+}
+
 function PortalModal({
   open,
   title,
   description,
   onClose,
+  onClosed,
   children,
 }: {
   open: boolean;
   title: string;
   description?: string;
   onClose: () => void;
+  onClosed?: () => void;
   children: ReactNode;
 }) {
   const [mounted, setMounted] = useState(open);
@@ -163,11 +182,15 @@ function PortalModal({
   const dialogRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
+  const closedRef = useRef(onClosed);
   const titleId = useId();
   const descriptionId = useId();
   useEffect(() => {
     closeRef.current = onClose;
   }, [onClose]);
+  useEffect(() => {
+    closedRef.current = onClosed;
+  }, [onClosed]);
   useEffect(() => {
     let closeTimer: number | undefined;
     const stateTimer = window.setTimeout(() => {
@@ -179,6 +202,7 @@ function PortalModal({
         closeTimer = window.setTimeout(() => {
           setMounted(false);
           setLeaving(false);
+          closedRef.current?.();
         }, 190);
       }
     }, 0);
@@ -396,6 +420,7 @@ export function PortalPage({
             : "app-content motion-page"
         }
       >
+        {data.organization.isSampleWorkspace && <SampleWorkspaceBanner />}
         {page !== "home" && !detailId && <GlobalBackControl className="app-global-back" />}
         {pages[page] ?? (
           <Empty
@@ -486,13 +511,12 @@ function CommandCenter({ data }: { data: PortalData }) {
                 <div className="grow">
                   <strong>{item.title}</strong>
                   <span>
-                    {item.vendorName} · {item.evidenceCount} evidence reference
+                    {item.vendorName} · {opportunityTrustLabel(item.trustState)} · {item.evidenceCount} evidence reference
                     {item.evidenceCount === 1 ? "" : "s"}
                   </span>
                 </div>
-                <strong className="money-value">
-                  {money(item.estimatedAnnualValue ?? 0, true)}
-                </strong>
+                {item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? <strong className="money-value">{money(item.estimatedAnnualValue, true)}</strong> : <span className="money-value">Value not shown</span>}
+                <TrustBadge state={item.trustState} />
                 <Status value={item.status} />
               </a>
             ))}
@@ -694,7 +718,7 @@ function Opportunities({
     <>
       <PageHeader
         title="Opportunities"
-        description="Evidence-backed findings, prioritized for deliberate review."
+        description="Findings and review notes, with source provenance visible."
       />
       <Toolbar
         query={query}
@@ -719,7 +743,7 @@ function Opportunities({
               </div>
               <div>
                 <dt>Annual value</dt>
-                <dd>{money(item.estimatedAnnualValue ?? 0)}</dd>
+                <dd>{item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? money(item.estimatedAnnualValue) : item.trustState === "demo_example" ? "Sample only" : "Not shown until calculated"}</dd>
               </div>
               <div>
                 <dt>Evidence</dt>
@@ -727,7 +751,15 @@ function Opportunities({
               </div>
               <div>
                 <dt>Calculation</dt>
-                <dd>{item.ruleVersion ?? "Human-entered"}</dd>
+                <dd>{item.ruleVersion ?? "Not recorded"}</dd>
+              </div>
+              <div>
+                <dt>Trust</dt>
+                <dd><TrustBadge state={item.trustState} /></dd>
+              </div>
+              <div>
+                <dt>Scope</dt>
+                <dd>{item.expenseAccountReference ?? item.locationName ?? "Workspace-wide"}</dd>
               </div>
               <div>
                 <dt>Deadline</dt>
@@ -767,6 +799,12 @@ function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
   );
   return (
     <>
+      {data.organization.isSampleWorkspace && (
+        <div className="portal-upload-warning" role="note">
+          <strong>This bill will be stored beside sample records.</strong>
+          <span>Create a clean pilot workspace for customer testing.</span>
+        </div>
+      )}
       <PageHeader
         title="Contracts"
         description="Renewal, notice, value, and ownership in one reliable record."
@@ -2008,7 +2046,7 @@ function VendorMonitoringCard({
 
 function VendorBillsTab({ expenses, invoices }: { expenses: PortalData["expenses"]; invoices: PortalData["invoices"] }) {
   if (!expenses.length && !invoices.length) return <Empty title="No bills recorded" copy="Upload a bill or add a normalized expense to build this vendor's history." />;
-  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Bills and recorded expenses</h2><p>Amounts are shown from saved records; they are not annualized estimates.</p></div></div><div className="portal-list">{expenses.map((expense) => <Link key={expense.id} className="portal-list-row" href={`/app/expenses/${expense.id}`}><div className="grow"><strong>{date(expense.periodEnd)}</strong><span>{expense.category} · {expense.locationName ?? "Location not assigned"}</span></div><strong>{money(expense.amount)}</strong><ChevronRight size={16} /></Link>)}</div>{invoices.length ? <div className="portal-list" style={{ marginTop: 12 }}>{invoices.map((invoice) => <Link key={invoice.id} className="portal-list-row" href={`/app/documents/${invoice.documentId}`}><div className="grow"><strong>{invoice.invoiceNumber ?? "Invoice"}</strong><span>Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor match: {titleCase(invoice.vendorMatchStatus || "unknown")}</span></div><ChevronRight size={16} /></Link>)}</div> : null}</section>;
+  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Bills and recorded expenses</h2><p>Amounts are shown from saved records; they are not annualized estimates.</p></div></div><div className="portal-list">{expenses.map((expense) => <Link key={expense.id} className="portal-list-row" href={`/app/expenses/${expense.id}`}><div className="grow"><strong>{date(expense.periodEnd)}</strong><span>{expense.category} · {expense.locationName ?? "Location not assigned"}</span></div><strong>{money(expense.amount)}</strong><ChevronRight size={16} /></Link>)}</div>{invoices.length ? <div className="portal-list" style={{ marginTop: 12 }}>{invoices.map((invoice) => <Link key={invoice.id} className="portal-list-row" href={`/app/documents/${invoice.documentId}`}><div className="grow"><strong>{invoice.invoiceNumber ?? "Invoice"}</strong><span>Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor matched: {invoice.vendorMatchStatus === "exact" || invoice.vendorMatchStatus === "provided" ? "Yes" : "Needs review"} · Account match: {invoice.expenseAccountMatchStatus === "matched" ? "Matched" : "Needs review"} · Location match: {invoice.serviceLocationMatchStatus === "matched" ? "Matched" : "Needs review"}</span></div><ChevronRight size={16} /></Link>)}</div> : null}</section>;
 }
 
 function VendorContractsTab({ contracts }: { contracts: PortalData["contracts"] }) {
@@ -2017,8 +2055,8 @@ function VendorContractsTab({ contracts }: { contracts: PortalData["contracts"] 
 }
 
 function VendorFindingsTab({ opportunities }: { opportunities: PortalData["opportunities"] }) {
-  if (!opportunities.length) return <Empty title="No findings yet" copy="Costivra has not created an evidence-backed opportunity for this vendor." />;
-  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Findings</h2><p>Potential value remains separate from verified outcomes.</p></div></div><div className="portal-list">{opportunities.map((opportunity) => <Link key={opportunity.id} className="portal-list-row" href={`/app/opportunities/${opportunity.id}`}><div className="grow"><strong>{opportunity.title}</strong><span>{opportunity.evidenceCount} evidence reference{opportunity.evidenceCount === 1 ? "" : "s"} · {Math.round((opportunity.confidence ?? 0) * 100)}% confidence</span></div><Status value={opportunity.status} /><ChevronRight size={16} /></Link>)}</div></section>;
+  if (!opportunities.length) return <Empty title="No findings yet" copy="Costivra has not created a finding or review note for this vendor." />;
+  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Findings from this vendor relationship</h2><p>Potential value remains separate from verified outcomes.</p></div></div><div className="portal-list">{opportunities.map((opportunity) => <Link key={opportunity.id} className="portal-list-row" href={`/app/opportunities/${opportunity.id}`}><div className="grow"><strong>{opportunity.title}</strong><span>{opportunity.expenseAccountReference ?? opportunity.locationName ?? "Scope not assigned"} · {opportunity.evidenceCount} evidence reference{opportunity.evidenceCount === 1 ? "" : "s"} · {Math.round((opportunity.confidence ?? 0) * 100)}% confidence</span></div><TrustBadge state={opportunity.trustState} /><Status value={opportunity.status} /><ChevronRight size={16} /></Link>)}</div></section>;
 }
 
 function VendorActionsTab({ actions }: { actions: PortalData["actions"] }) {
@@ -3506,7 +3544,50 @@ function CreateModals({
   presetVendor?: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [pendingUploadNotice, setPendingUploadNotice] =
+    useState<DocumentUploadCompletion | null>(null);
+  const router = useRouter();
+  const toast = useToast();
+  const { openInspector } = useBillInspector();
   const close = () => !busy && setKind(null);
+  const completeUpload = (completion: DocumentUploadCompletion) => {
+    setPendingUploadNotice(completion);
+    setKind(null);
+  };
+  const handleUploadModalClosed = () => {
+    const completion = pendingUploadNotice;
+    if (!completion) return;
+    setPendingUploadNotice(null);
+    router.refresh();
+    const notice = getUploadToastNotice(completion);
+    if (!notice) return;
+    if (notice.action === "breakdown" && notice.documentId) {
+      toast.show({
+        tone: notice.tone,
+        title: notice.title,
+        message: notice.message,
+        actionLabel: "Open breakdown",
+        onActionClick: () => openInspector(notice.documentId!),
+        duration: notice.duration,
+      });
+      return;
+    }
+    toast.show({
+      tone: notice.tone,
+      title: notice.title,
+      message: notice.message,
+      actionHref: notice.documentId
+        ? `/app/documents/${notice.documentId}`
+        : "/app/documents",
+      actionLabel:
+        completion.kind === "duplicate"
+          ? "Open existing document"
+          : completion.kind === "quarantined"
+            ? "View document status"
+            : "View document",
+      duration: notice.duration,
+    });
+  };
   const selectedVendor = data.vendors.find(
     (v) => v.relationshipId === presetVendor,
   );
@@ -3620,6 +3701,7 @@ function CreateModals({
         title="Upload source document"
         description="PDF, DOCX, or text up to 20 MB. Every file passes a security scan before extraction."
         onClose={close}
+        onClosed={handleUploadModalClosed}
       >
         <DocumentUploadExperience
           vendors={data.vendors.map((vendor) => ({
@@ -3628,7 +3710,8 @@ function CreateModals({
           }))}
           presetVendor={presetVendor}
           onBusyChange={setBusy}
-          onComplete={() => setKind(null)}
+          onComplete={completeUpload}
+          onCancel={close}
         />
       </PortalModal>
       <PortalModal

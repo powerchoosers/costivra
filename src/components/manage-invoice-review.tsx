@@ -25,6 +25,10 @@ const issueLabels: Record<string, string> = {
   arithmetic_mismatch: "Arithmetic mismatch",
   reconciliation_incomplete: "Reconciliation incomplete",
   low_confidence: "Low confidence",
+  workspace_customer_name_mismatch: "Bill customer does not match workspace",
+  expense_account_unmatched: "Expense account needs review",
+  service_identifier_unmatched: "Service identifier needs review",
+  service_location_unmatched: "Service location needs review",
 };
 
 const formatMoney = (amount: string | null, currency: string | null) => amount == null
@@ -224,7 +228,8 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
           </div>
         </section>
         <section className="invoice-inspector-section"><header><div><span>Deterministic check</span><h3>Reconciliation</h3></div><span className={`invoice-reconcile invoice-reconcile--${invoice.reconciliationStatus}`}>{invoice.reconciliationStatus}</span></header>
-          <div className="invoice-money-grid"><Field name="subtotal" label="Subtotal" value={invoice.subtotal} inputMode="decimal" /><Field name="tax_total" label="Tax" value={invoice.taxTotal} inputMode="decimal" /><Field name="fee_total" label="Fees" value={invoice.feeTotal} inputMode="decimal" /><Field name="credit_total" label="Credits" value={invoice.creditTotal} inputMode="decimal" /><Field name="total_amount" label="Invoice total" value={invoice.totalAmount} inputMode="decimal" /><Field name="amount_due" label="Amount due" value={invoice.amountDue} inputMode="decimal" /></div>
+          <div className="invoice-money-grid"><Field name="subtotal" label="Subtotal" value={invoice.subtotal} inputMode="decimal" /><Field name="current_charges" label="Current charges" value={invoice.currentCharges} inputMode="decimal" /><Field name="previous_balance" label="Previous balance" value={invoice.previousBalance} inputMode="decimal" /><Field name="payments_and_credits" label="Payments and credits" value={invoice.paymentsAndCredits} inputMode="decimal" /><Field name="balance_forward" label="Balance forward" value={invoice.balanceForward} inputMode="decimal" /><Field name="current_period_credits" label="Current-period credits" value={invoice.currentPeriodCredits} inputMode="decimal" /><Field name="tax_total" label="Tax" value={invoice.taxTotal} inputMode="decimal" /><Field name="fee_total" label="Fees" value={invoice.feeTotal} inputMode="decimal" /><Field name="credit_total" label="Credits" value={invoice.creditTotal} inputMode="decimal" /><Field name="total_amount" label="Invoice total" value={invoice.totalAmount} inputMode="decimal" /><Field name="amount_due" label="Amount due" value={invoice.amountDue} inputMode="decimal" /></div>
+          <div className="invoice-match-summary" aria-label="Identity matching"><span>Customer: <strong>{invoice.workspaceCustomerMatchStatus === "matched" ? "Matched" : "Needs review"}</strong></span><span>Account: <strong>{invoice.expenseAccountMatchStatus === "matched" ? "Matched" : "Needs review"}</strong></span><span>Location: <strong>{invoice.serviceLocationMatchStatus === "matched" ? "Matched" : "Needs review"}</strong></span></div>
           {invoice.reconciliationDifference && invoice.reconciliationDifference !== "0.00" && <p className="invoice-reconciliation-warning"><CircleAlert size={15} />Difference: {formatMoney(invoice.reconciliationDifference, invoice.currency)}</p>}
         </section>
         {invoice.lineItems.length > 0 && <section className="invoice-inspector-section"><header><div><span>Source structure</span><h3>Line items</h3></div><small>{invoice.lineItems.length} extracted</small></header><div className="invoice-line-items">{invoice.lineItems.map((line) => <div key={line.id}><span>{line.lineNumber}</span><p><strong>{line.description}</strong><small>{line.category || "Uncategorized"}</small></p><b>{formatMoney(line.amount, invoice.currency)}</b></div>)}</div></section>}

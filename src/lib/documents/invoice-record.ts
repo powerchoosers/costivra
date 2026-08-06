@@ -4,6 +4,9 @@ import { classifyInvoiceReview } from "@/lib/domain/invoice-review";
 import { resolveVendorAndCategory } from "@/lib/vendors/resolve";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { categoryIntelligence } from "@/lib/category-intelligence/service";
+import { resolveInvoiceIdentity, type InvoiceIdentityResolution } from "@/lib/domain/invoice-matching";
+import { lineItemEvidenceMap, type EvidenceReferenceForMapping } from "@/lib/documents/evidence-mapping";
+import { evaluateTariffReview } from "@/lib/domain/tariff-review";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
 type SourceType = "manual_upload" | "email_forwarding" | "provider_integration";
@@ -11,6 +14,19 @@ type SourceType = "manual_upload" | "email_forwarding" | "provider_integration";
 function toFiniteAmount(value: string | number | null | undefined): number {
   const amount = Number(value);
   return Number.isFinite(amount) ? amount : 0;
+}
+
+function sourceFieldsForFinding(code: string): string[] {
+  switch (code) {
+    case "arithmetic_mismatch":
+      return ["invoice.totalAmount", "invoice.subtotal", "invoice.taxTotal", "invoice.currentCharges"];
+    case "tax_or_fee_question":
+      return ["invoice.taxTotal", "invoice.totalAmount"];
+    case "unverified_vendor":
+      return ["vendorName"];
+    default:
+      return [];
+  }
 }
 
 export async function createInvoiceRecordFromExtraction(input: {
@@ -21,6 +37,7 @@ export async function createInvoiceRecordFromExtraction(input: {
   providedRelationshipId?: string | null;
   sourceType: SourceType;
   intelligence: DocumentIntelligence;
+  evidenceReferences?: EvidenceReferenceForMapping[];
 }) {
   const candidate = input.intelligence.invoice;
   if (!candidate || !["invoice", "statement"].includes(input.intelligence.classification)) {
@@ -48,6 +65,20 @@ export async function createInvoiceRecordFromExtraction(input: {
     .maybeSingle();
   if (taxonomyCategoryError) throw taxonomyCategoryError;
 
+  const identity = await resolveIdentityForInvoice({
+    db: input.db,
+    organizationId: input.organizationId,
+    candidate,
+  });
+
+  const lineItemEvidenceIds = lineItemEvidenceMap({
+    evidence: input.evidenceReferences ?? [],
+    lineItems: candidate.lineItems,
+  });
+  const lineItemEvidenceMissing = candidate.lineItems.some(
+    (_line, index) => lineItemEvidenceIds[index]?.length === 0,
+  );
+
   const reconciliation = reconcileInvoice(candidate);
   const review = classifyInvoiceReview({
     hasVendor: Boolean(vendorResult.organizationVendorId),
@@ -60,6 +91,10 @@ export async function createInvoiceRecordFromExtraction(input: {
     expenseCategory: categoryResolution.displayName,
     reconciliationStatus: reconciliation.status,
     confidence: input.intelligence.confidence,
+    additionalIssueCodes: [
+      ...identity.issueCodes,
+      ...(lineItemEvidenceMissing ? ["line_item_evidence_missing"] : []),
+    ],
   });
   const reviewStatus = review.reviewStatus;
 
@@ -82,8 +117,19 @@ export async function createInvoiceRecordFromExtraction(input: {
       tax_total: candidate.taxTotal,
       fee_total: candidate.feeTotal,
       credit_total: candidate.creditTotal,
+      previous_balance: candidate.previousBalance,
+      payments_and_credits: candidate.paymentsAndCredits,
+      balance_forward: candidate.balanceForward,
+      current_charges: candidate.currentCharges,
+      current_period_credits: candidate.currentPeriodCredits,
       total_amount: candidate.totalAmount,
       amount_due: candidate.amountDue,
+      energy_service: candidate.energyService,
+      expense_account_id: identity.expenseAccountId,
+      location_id: identity.locationId,
+      workspace_customer_match_status: identity.workspaceCustomerMatchStatus,
+      expense_account_match_status: identity.expenseAccountMatchStatus,
+      service_location_match_status: identity.serviceLocationMatchStatus,
       expense_category: categoryResolution.displayName,
       expense_category_id: taxonomyCategory?.id ?? vendorResult.categoryId,
       extraction_confidence: input.intelligence.confidence,
@@ -98,6 +144,7 @@ export async function createInvoiceRecordFromExtraction(input: {
       metadata: {
         schemaVersion: "invoice-v1",
         reconciliationChecks: reconciliation.checks,
+        identityMatch: identity,
         extractedVendorName: input.intelligence.vendorName,
         isCandidateVendor: vendorResult.isCandidate,
         categoryIntelligence: {
@@ -128,22 +175,28 @@ export async function createInvoiceRecordFromExtraction(input: {
         category: line.category,
         service_period_start: line.servicePeriodStart,
         service_period_end: line.servicePeriodEnd,
+        metadata: {
+          sourceKey: line.sourceKey ?? `line-${index + 1}`,
+          evidenceReferenceIds: lineItemEvidenceIds[index] ?? [],
+        },
       })),
         )
-        .select("id, description, amount, quantity, unit_price");
+        .select("id, line_number, description, amount, quantity, unit_price");
       if (lineError) throw lineError;
 
       const normalizedLines = await categoryIntelligence.normalizeLineItems(
-        (storedLines ?? []).map((line) => ({
+        (storedLines ?? []).map((line, storedIndex) => ({
           id: line.id,
           description: line.description,
           amount: Number(line.amount),
           quantity: line.quantity === null ? undefined : Number(line.quantity),
           unitPrice:
             line.unit_price === null ? undefined : Number(line.unit_price),
-          // Field-level evidence mapping is not yet available from extraction.
-          // Keeping this empty forces review rather than overstating provenance.
-          evidenceIds: [],
+          evidenceIds: lineItemEvidenceIds[
+            Number.isInteger(Number(line.line_number))
+              ? Math.max(0, Number(line.line_number) - 1)
+              : storedIndex
+          ] ?? [],
         })),
         categoryResolution.key,
       );
@@ -158,7 +211,10 @@ export async function createInvoiceRecordFromExtraction(input: {
             source: "pack_rule",
             expert_pack_version: line.packVersion ?? null,
             evidence_reference_ids: line.evidenceIds,
-            review_status: line.reviewRequired ? "needs_review" : "auto_approved",
+            review_status:
+              line.reviewRequired || line.evidenceIds.length === 0
+                ? "needs_review"
+                : "auto_approved",
           })),
         );
       if (classificationError) throw classificationError;
@@ -187,6 +243,32 @@ export async function createInvoiceRecordFromExtraction(input: {
       billedAmount: toFiniteAmount(candidate.totalAmount),
       serviceDate: candidate.invoiceDate,
     });
+    const tariffReview = categoryResolution.parentKey === "energy-utilities"
+      ? evaluateTariffReview({
+        utilityTerritory: candidate.energyService?.utilityTerritory ?? null,
+        serviceIdentifier: candidate.energyService?.serviceIdentifier ?? null,
+        assignedRateCode: candidate.energyService?.assignedRateCode ?? null,
+        serviceVoltage: candidate.energyService?.serviceVoltage ?? null,
+        meteringConfiguration: candidate.energyService?.meteringConfiguration ?? null,
+        serviceClass: candidate.energyService?.serviceClass ?? null,
+        billedDemandKw: candidate.energyService?.billedDemandKw ?? null,
+        historicalDemandKw: candidate.energyService?.historicalDemandKw ?? null,
+        ratchetApplies: candidate.energyService?.ratchetApplies ?? null,
+        officialSource: null,
+        comparison: null,
+      })
+      : null;
+    const persistedFindings = billAnalysis.findings.map((finding) => {
+      const allowedFields = new Set(sourceFieldsForFinding(finding.code));
+      const evidenceReferenceIds = (input.evidenceReferences ?? [])
+        .filter((reference) => reference.fieldPath && allowedFields.has(reference.fieldPath))
+        .map((reference) => reference.id);
+      return {
+        ...finding,
+        evidenceReferenceIds,
+        evidenceStatus: evidenceReferenceIds.length > 0 ? "evidence_backed" : "needs_evidence",
+      };
+    });
     const { error: analysisError } = await input.db
       .from("category_analysis_runs")
       .insert({
@@ -202,9 +284,10 @@ export async function createInvoiceRecordFromExtraction(input: {
           reconciliationDifference: reconciliation.difference,
           benchmarkStatus: benchmark.status,
           benchmarkMissingDimensions: benchmark.missingDimensions,
+          tariffReview,
         },
-        findings: billAnalysis.findings,
-        missing_dimensions: [...billAnalysis.missingFields, ...benchmark.missingDimensions],
+        findings: persistedFindings,
+        missing_dimensions: [...billAnalysis.missingFields, ...benchmark.missingDimensions, ...(tariffReview?.missingDimensions ?? [])],
         confidence: categoryResolution.confidence,
         trace_id: crypto.randomUUID(),
       });
@@ -229,4 +312,39 @@ export async function createInvoiceRecordFromExtraction(input: {
     vendorMatchStatus: vendorResult.matchStatus,
     reconciliationStatus: reconciliation.status,
   };
+}
+
+async function resolveIdentityForInvoice(input: {
+  db: DatabaseClient;
+  organizationId: string;
+  candidate: NonNullable<DocumentIntelligence["invoice"]>;
+}): Promise<InvoiceIdentityResolution> {
+  const hasIdentityEvidence = Boolean(
+    input.candidate.accountNumberLast4 || input.candidate.energyService,
+  );
+  const unknown: InvoiceIdentityResolution = {
+    workspaceCustomerMatchStatus: "unknown",
+    expenseAccountMatchStatus: "unknown",
+    serviceLocationMatchStatus: "unknown",
+    expenseAccountId: null,
+    locationId: null,
+    issueCodes: [],
+  };
+  if (!hasIdentityEvidence) return unknown;
+
+  const [organizationResult, accountsResult, locationsResult] = await Promise.all([
+    input.db.from("organizations").select("name,legal_name").eq("id", input.organizationId).maybeSingle(),
+    input.db.from("expense_accounts").select("*").eq("organization_id", input.organizationId),
+    input.db.from("locations").select("*").eq("organization_id", input.organizationId),
+  ]);
+  const failed = [organizationResult, accountsResult, locationsResult].find((result) => result.error);
+  if (failed?.error) throw failed.error;
+
+  const organization = (organizationResult.data ?? {}) as Record<string, unknown>;
+  return resolveInvoiceIdentity({
+    candidate: input.candidate,
+    workspaceNames: [organization.name, organization.legal_name].filter((value): value is string => typeof value === "string"),
+    accounts: Array.isArray(accountsResult.data) ? accountsResult.data as Record<string, unknown>[] : [],
+    locations: Array.isArray(locationsResult.data) ? locationsResult.data as Record<string, unknown>[] : [],
+  });
 }

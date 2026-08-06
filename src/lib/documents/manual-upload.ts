@@ -9,6 +9,7 @@ import {
 } from "@/lib/documents/intake";
 import { manualUploadScanDecision } from "@/lib/documents/manual-upload-policy";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
+import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
@@ -113,6 +114,8 @@ export async function ingestManualUpload(input: {
       byte_size: input.buffer.length,
       sha256,
       status: "quarantined",
+      security_scan_status: scan.status,
+      security_scan_safe_code: scan.code ?? scan.status,
       extraction_summary: decision.message.slice(0, 1000),
       uploaded_by: input.actorId,
     })
@@ -130,6 +133,14 @@ export async function ingestManualUpload(input: {
     await input.db.from("documents").delete().eq("id", document.id);
     throw upload.error;
   }
+  await persistDocumentSecurityScan({
+    db: input.db,
+    organizationId: input.organizationId,
+    documentId: document.id as string,
+    sha256,
+    sourceType: "manual_upload",
+    scan,
+  });
   try {
     await recordAudit(input.db, {
       organizationId: input.organizationId,
@@ -184,6 +195,14 @@ export async function rescanManualUpload(input: {
     mimeType: document.mime_type,
   });
   const decision = manualUploadScanDecision(scan);
+  await persistDocumentSecurityScan({
+    db: input.db,
+    organizationId: input.organizationId,
+    documentId: document.id,
+    sha256: actualSha256,
+    sourceType: "quarantine_rescan",
+    scan,
+  });
   if (decision.action === "reject") {
     const { error: updateError } = await input.db
       .from("documents")

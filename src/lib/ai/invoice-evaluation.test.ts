@@ -19,8 +19,14 @@ const expectedInvoice = {
   taxTotal: "8.00",
   feeTotal: "0.00",
   creditTotal: "0.00",
+  previousBalance: null,
+  paymentsAndCredits: null,
+  balanceForward: null,
+  currentCharges: "100.00",
+  currentPeriodCredits: "0.00",
   totalAmount: "108.00",
   amountDue: "108.00",
+  energyService: null,
   lineItems: [
     {
       description: "Fiber service",

@@ -9,6 +9,7 @@ export type InvoiceReviewInput = {
   expenseCategory: string | null;
   reconciliationStatus: "reconciled" | "mismatch" | "incomplete" | "not_run";
   confidence: number | null;
+  additionalIssueCodes?: string[];
 };
 
 export function classifyInvoiceReview(input: InvoiceReviewInput) {
@@ -23,5 +24,8 @@ export function classifyInvoiceReview(input: InvoiceReviewInput) {
   if (input.reconciliationStatus === "mismatch") issueCodes.push("arithmetic_mismatch");
   if (["incomplete", "not_run"].includes(input.reconciliationStatus)) issueCodes.push("reconciliation_incomplete");
   if (input.confidence == null || input.confidence < 0.85) issueCodes.push("low_confidence");
+  for (const code of input.additionalIssueCodes ?? []) {
+    if (!issueCodes.includes(code)) issueCodes.push(code);
+  }
   return { issueCodes, reviewStatus: issueCodes.length ? "needs_review" as const : "ready" as const };
 }
