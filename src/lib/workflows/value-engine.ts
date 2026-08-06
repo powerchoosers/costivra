@@ -1,5 +1,6 @@
 import { calculateVerifiedAnnualSavings, evaluateExpenseChange, EXPENSE_CHANGE_RULE_VERSION, SAVINGS_METHOD_VERSION } from "@/lib/domain/value-engine";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { resolveCategoryTrace, withCategoryTrace } from "./category-trace";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
 type Row = Record<string, unknown>;
@@ -46,6 +47,7 @@ export async function evaluateApprovedExpense(input: {
   if (prior?.document_id) {
     const finding = evaluateExpenseChange(expensePeriod(current), expensePeriod(prior));
     if (finding) {
+      const categoryTrace = await resolveCategoryTrace(text(current.category));
       const { data: opportunity, error: opportunityError } = await input.db.from("opportunities").upsert({
         organization_id: input.organizationId,
         expense_account_id: current.expense_account_id,
@@ -63,7 +65,7 @@ export async function evaluateApprovedExpense(input: {
         rule_version: EXPENSE_CHANGE_RULE_VERSION,
         source_expense_id: current.id,
         baseline_expense_id: prior.id,
-        calculation_inputs: finding.calculationInputs,
+        calculation_inputs: withCategoryTrace(finding.calculationInputs, categoryTrace),
         calculation_result: finding.calculationResult,
         assumptions: finding.assumptions,
         generated_by: "deterministic_rule",
