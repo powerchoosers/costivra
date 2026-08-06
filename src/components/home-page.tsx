@@ -4,35 +4,144 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  Building2,
   Check,
+  CircleAlert,
+  Clock3,
+  ClipboardList,
   FileCheck2,
+  FileLock2,
   FileText,
-  Gauge,
-  LayoutDashboard,
   LockKeyhole,
   RadioTower,
-  ScanSearch,
   ShieldCheck,
+  Upload,
+  UserCheck,
   Users,
   Zap,
 } from "lucide-react";
 import { Faq } from "@/components/faq";
-import { CostivraMark } from "@/components/brand";
+import { OpportunityDemo } from "@/components/marketing-demo/opportunity-demo";
+import { PublicProofSection } from "@/components/public-proof-section";
 
 const steps = [
-  ["Connect", "Securely add bills, contracts, and vendor accounts."],
-  ["Extract", "AI reads terms while preserving the original source."],
-  ["Detect", "Rules find cost leaks, anomalies, and deadline risks."],
-  ["Approve", "The right people authorize consequential actions."],
-  ["Verify", "Future bills and credits prove the actual result."],
+  { title: "Connect", copy: "Add selected bills, contracts, and vendor records.", artifact: "3 files ready · 1 vendor", icon: FileCheck2 },
+  { title: "Extract", copy: "Costivra reads the terms and keeps the source attached.", artifact: "Annual adjustment · page 3", icon: FileText },
+  { title: "Detect", copy: "Rules flag price changes, duplicate costs, unused services, and deadline risk.", artifact: "Potential change · $1,040 / mo", icon: CircleAlert },
+  { title: "Approve", copy: "The right person decides whether Costivra should help take the next step.", artifact: "Finance owner · pending", icon: UserCheck },
+  { title: "Verify", copy: "A later bill, credit, or contract confirms whether the result occurred.", artifact: "Later bill · awaiting", icon: Clock3 },
 ] as const;
 
 const trust = [
-  [LockKeyhole, "Tenant-isolated data", "Customer data is separated by design and protected at the database layer."],
-  [FileText, "Private documents", "Files remain private and access uses short-lived, signed links."],
-  [Users, "Approval controls", "Humans authorize consequential action before a change is made."],
-  [ShieldCheck, "Complete audit history", "Every decision, correction, approval, and external effect is recorded."],
+  [FileLock2, "Private documents", "Files remain private and use controlled access."],
+  [Building2, "Tenant-isolated records", "Customer records are separated by organization boundaries and database policies."],
+  [UserCheck, "Human approval", "Consequential outside actions require the configured approval."],
+  [FileCheck2, "Source-linked findings", "Material claims remain connected to evidence and calculation details."],
+  [ClipboardList, "Audit history", "Decisions, corrections, approvals, and outside effects are recorded."],
+  [Upload, "No broad inbox access required", "Begin with selected uploads and controlled forwarding."],
 ] as const;
+
+type EvidenceCategory = "software" | "telecom" | "energy";
+type EvidenceFact = readonly [label: string, value: string, confidence: string];
+type EvidenceRow = { item: string; amount: string; highlight?: boolean };
+type EvidenceData = {
+  label: string;
+  solutionHref: string;
+  vendor: string;
+  docName: string;
+  relevantTerm: string;
+  issue: string;
+  calculation: string;
+  potentialValue: string;
+  confidence: string;
+  reconciliation: string;
+  rows: readonly EvidenceRow[];
+  total: string;
+  facts: readonly EvidenceFact[];
+};
+
+const evidenceCategories: Array<{ id: EvidenceCategory; label: string; solutionHref: string; icon: typeof FileCheck2 }> = [
+  { id: "software", label: "Software subscriptions", solutionHref: "/solutions/software", icon: FileCheck2 },
+  { id: "telecom", label: "Telecom and internet", solutionHref: "/solutions/telecom", icon: RadioTower },
+  { id: "energy", label: "Commercial energy review", solutionHref: "/solutions/energy", icon: Zap },
+];
+
+const evidenceData: Record<EvidenceCategory, EvidenceData> = {
+  software: {
+    label: "Software subscriptions",
+    solutionHref: "/solutions/software",
+    vendor: "Acme Software LLC",
+    docName: "Acme_Pro_Invoice.pdf",
+    relevantTerm: "Annual subscription · 14 unused seats",
+    issue: "Unused licenses detected",
+    calculation: "14 seats × $180 / month = $2,520 potential annual value",
+    potentialValue: "$2,520 / year",
+    confidence: "88%",
+    reconciliation: "Invoice total reconciles; unused-license count needs review.",
+    rows: [
+      { item: "Acme Pro — Annual subscription", amount: "$12,000.00", highlight: true },
+      { item: "User add-on pack (25 seats)", amount: "$2,500.00" },
+      { item: "Professional services", amount: "$2,500.00" },
+    ],
+    total: "$17,000.00",
+    facts: [
+      ["Invoice number", "INV-81235", "99%"],
+      ["Invoice date", "Apr 15, 2026", "98%"],
+      ["Vendor", "Acme Software LLC", "100%"],
+      ["Unused licenses", "14 seats", "88%"],
+      ["Total due", "$17,000.00", "99%"],
+    ],
+  },
+  telecom: {
+    label: "Telecom and internet",
+    solutionHref: "/solutions/telecom",
+    vendor: "Verizon Business",
+    docName: "Verizon_Bill_May.pdf",
+    relevantTerm: "Surchg-Access-Tier4 · unbundled charge",
+    issue: "Unapproved surcharge detected",
+    calculation: "$1,562.50 monthly charge × 12 months = $18,750 potential annual value",
+    potentialValue: "$18,750 / year",
+    confidence: "92%",
+    reconciliation: "Bill arithmetic reconciles; contract treatment needs review.",
+    rows: [
+      { item: "DIA 100Mbps Dedicated Line", amount: "$2,100.00" },
+      { item: "Surchg-Access-Tier4 (Unbundled)", amount: "$1,562.50", highlight: true },
+      { item: "Regulatory Recovery Fee", amount: "$340.00" },
+    ],
+    total: "$4,002.50",
+    facts: [
+      ["Account number", "VZN-99201", "100%"],
+      ["Billing period", "May 2026", "99%"],
+      ["Unapproved surcharge", "$1,562.50 / mo", "92%"],
+      ["Annual potential", "$18,750.00", "92%"],
+      ["Total due", "$4,002.50", "99%"],
+    ],
+  },
+  energy: {
+    label: "Commercial energy review",
+    solutionHref: "/solutions/energy",
+    vendor: "Direct Energy Commercial",
+    docName: "DirectEnergy_Meters.pdf",
+    relevantTerm: "Peak surcharge · billed factor 1.48",
+    issue: "Peak factor exceeds the stated cap",
+    calculation: "0.28 factor variance × usage basis = $9,680 potential annual value",
+    potentialValue: "$9,680 / year",
+    confidence: "68%",
+    reconciliation: "Invoice arithmetic reconciles; rate basis requires professional review.",
+    rows: [
+      { item: "Meter #48291 Energy Charge (kWh)", amount: "$4,210.00" },
+      { item: "Meter #48291 Peak Surcharge (1.48)", amount: "$2,674.10", highlight: true },
+      { item: "State Utility Tax", amount: "$380.00" },
+    ],
+    total: "$7,264.10",
+    facts: [
+      ["Meter ID", "#48291 (Commercial)", "100%"],
+      ["Billed peak factor", "1.48 (cap 1.20)", "94%"],
+      ["Potential variance", "$9,680.00 / yr", "68%"],
+      ["Total due", "$7,264.10", "98%"],
+    ],
+  },
+};
 
 export function HomePage() {
   return (
@@ -40,69 +149,65 @@ export function HomePage() {
       <section className="hero">
         <div className="container hero-inner">
           <div className="hero-copy">
-            <span className="hero-eyebrow">Recurring bill and contract monitoring for growing businesses</span>
-            <h1>Find unnecessary costs and renewal risks in your business bills.</h1>
-            <p>Costivra reviews recurring bills and contracts for unexplained price increases, possible duplicate or unused services, and deadlines that are easy to miss. Every finding shows the source evidence, and your team approves what happens next.</p>
-            <p className="hero-fit">For owners, CFOs, and operations leaders managing recurring business spend.</p>
+            <span className="hero-eyebrow">Recurring cost intelligence for finance and operations</span>
+            <h1>Put every recurring business cost under command.</h1>
+            <p>Costivra reviews bills and contracts for price increases, duplicate or unused services, and renewal risk. Every finding links to the source evidence, and your team approves what happens next.</p>
+            <p className="hero-fit">For owners, CFOs, controllers, and operations leaders managing recurring business spend.</p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/scan">Upload 3 bills for a free review <ArrowRight aria-hidden="true" size={17} /></Link>
-              <Link className="button button-secondary" href="#how-it-works">See how monitoring works</Link>
+              <Link className="button button-primary" href="/scan">Scan 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
+              <Link className="button button-secondary" href="#evidence">See a finding from source to result</Link>
             </div>
             <div className="hero-assurance" aria-label="Costivra product assurances">
               <span><LockKeyhole aria-hidden="true" size={15} /> Only the documents you choose</span>
-              <span><ShieldCheck aria-hidden="true" size={15} /> No broad inbox access required</span>
-              <span><Users aria-hidden="true" size={15} /> Human approval before any outside action</span>
+              <span><ShieldCheck aria-hidden="true" size={15} /> No broad inbox access</span>
+              <span><Users aria-hidden="true" size={15} /> Human approval before outside action</span>
             </div>
           </div>
-          <OpportunityPreview />
+          <OpportunityDemo />
         </div>
       </section>
+
+      <PublicProofSection />
+
+      <EvidenceSection />
 
       <section className="workflow" id="how-it-works">
         <div className="container">
           <ScrollReveal className="workflow-reveal">
             <h2 className="section-heading" style={{ maxWidth: "none", fontSize: "clamp(2.2rem, 3vw, 2.8rem)" }}>From scattered bills to a controlled cost base.</h2>
             <p className="section-lede">Costivra gives finance and operations one place to see what changed, why it matters, who owns the decision, and what the outcome proves.</p>
-            <div className="steps">
-              {steps.map(([title, copy], index) => (
-                <div className="step" key={title}>
+            <div className="steps" aria-label="Workflow stages">
+              {steps.map(({ title, copy, artifact, icon: ArtifactIcon }, index) => (
+                <article className="step" key={title}>
                   <span className="step-number">{index + 1}</span>
                   <h3>{title}</h3>
                   <p>{copy}</p>
-                </div>
+                  <span className="workflow-artifact"><ArtifactIcon aria-hidden="true" size={14} />{artifact}</span>
+                </article>
               ))}
             </div>
-            <div className="doctrine-line">AI interprets. Code calculates. Policies control. Humans authorize. Evidence proves.</div>
           </ScrollReveal>
-        </div>
-      </section>
-
-      <section className="evidence-section">
-        <div className="container evidence-layout">
-          <div>
-            <h2 className="section-heading" style={{ fontSize: "clamp(2.6rem, 4.2vw, 4.5rem)" }}>See the leak.<br />See the evidence.<br />Decide what happens next.</h2>
-            <div className="category-list">
-              <Link className="category-row active" href="/solutions/software"><span className="category-row-label"><FileCheck2 aria-hidden="true" size={19} />Software subscriptions</span><ArrowRight aria-hidden="true" size={18} /></Link>
-              <Link className="category-row" href="/solutions/telecom"><span className="category-row-label"><RadioTower aria-hidden="true" size={19} />Telecom & internet</span><ArrowRight aria-hidden="true" size={18} /></Link>
-              <Link className="category-row" href="/solutions/energy"><span className="category-row-label"><Zap aria-hidden="true" size={19} />Commercial energy review</span><ArrowRight aria-hidden="true" size={18} /></Link>
-            </div>
-          </div>
-          <EvidenceViewer />
         </div>
       </section>
 
       <section className="doctrine">
         <div className="container doctrine-layout">
-          <h2>Built for consequential decisions.</h2>
-          <div>
-            <div className="doctrine-words"><span>AI interprets.</span><span>Code calculates.</span><span>Policies control.</span><span>Humans authorize.</span><span>Evidence proves.</span></div>
-            <div className="trust-grid">
+          <div className="doctrine-intro">
+            <h2>Built for decisions that affect real money.</h2>
+            <p>AI can read and explain the documents. Deterministic code calculates the amounts. Policies define what is allowed. Your team approves consequential actions. The source and audit history remain attached.</p>
+          </div>
+          <div className="doctrine-detail">
+            <div className="trust-list" aria-label="Costivra trust controls">
               {trust.map(([Icon, title, copy]) => (
                 <div className="trust-item" key={title}>
-                  <Icon aria-hidden="true" size={22} />
+                  <Icon aria-hidden="true" size={18} />
                   <div><strong>{title}</strong><p>{copy}</p></div>
                 </div>
               ))}
+            </div>
+            <div className="doctrine-actions">
+              <p>Costivra does not automatically cancel services, sign contracts, change payment instructions, or send customer records to an outside advisor.</p>
+              <Link className="button button-secondary" href="/security">Review Costivra security <ArrowRight aria-hidden="true" size={16} /></Link>
             </div>
           </div>
         </div>
@@ -115,13 +220,13 @@ export function HomePage() {
           <div className="pricing-layout">
             <div className="pricing-intro">
               <strong>Simple plans.<br />Clear value.</strong>
-              <p className="muted">Pilot pricing shown for product evaluation.</p>
+              <p className="muted">Plans shown for the current Costivra offering. See pricing for details.</p>
             </div>
             <Plan name="Starter" price="$149" copy="One business, up to three active expense accounts, document monitoring, and renewal reminders." />
             <Plan name="Growth" price="$599" copy="Multiple locations, approvals, team access, advanced reports, and weekly monitoring." />
             <Plan name="Enterprise" price="Let's talk" copy="SSO, custom policies, integrations, retention controls, and dedicated support." />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link></div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Scan 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link></div>
         </div>
       </section>
 
@@ -135,150 +240,42 @@ export function HomePage() {
   );
 }
 
-function OpportunityPreview() {
-  const [stage, setStage] = useState(0);
-  const previewStages = [
-    ["01", "Source document classified", "Bill uploaded and ready for extraction."],
-    ["02", "Charge change detected", "A recurring rate moved outside the expected pattern."],
-    ["03", "Evidence linked", "The finding is tied to the source page and calculation."],
-    ["04", "Approval requested", "The next action is waiting for the right owner."],
-  ] as const;
+function EvidenceSection() {
+  const [category, setCategory] = useState<EvidenceCategory>("software");
+  const current = evidenceData[category];
 
-  useEffect(() => {
-    const interval = window.setInterval(() => setStage((current) => (current + 1) % previewStages.length), 3800);
-    return () => window.clearInterval(interval);
-  }, [previewStages.length]);
-
-  const currentStage = previewStages[stage];
+  const selectCategory = (nextCategory: EvidenceCategory) => setCategory(nextCategory);
 
   return (
-    <div className="product-frame" aria-label="Costivra opportunity preview">
-      <div className="preview-shell">
-        <div className="preview-sidebar" aria-hidden="true"><span className="mini-mark"><CostivraMark size={20} /></span><LayoutDashboard size={17} /><FileText size={17} /><Gauge size={17} /><ShieldCheck size={17} /></div>
-        <div className="preview-main">
-          <div className="frame-top">
-            <div className="frame-org">Illustrative workspace</div>
-            <span className="eyebrow">Example finding</span>
-          </div>
-          <div className="preview-stage" aria-live="polite">
-            <span>{currentStage[0]}</span>
-            <div key={currentStage[0]} className="preview-stage-message"><strong>{currentStage[1]}</strong><small>{currentStage[2]}</small></div>
-            <div className="preview-stage-dots" aria-hidden="true">{previewStages.map((_, index) => <i key={index} className={index === stage ? "is-active" : ""} />)}</div>
-          </div>
-          <div className="frame-body">
-            <div className="opportunity-preview">
-              <div className="opportunity-head">
-                <span className="icon-well"><RadioTower aria-hidden="true" size={23} /></span>
-                <div><h3>Telecom bill increase</h3><span className="muted">Rate increase detected on primary business internet service.</span></div>
+    <section className="evidence-section" id="evidence" aria-labelledby="evidence-title">
+      <div className="container evidence-layout">
+        <div className="evidence-navigation">
+          <h2 id="evidence-title" className="section-heading" style={{ fontSize: "clamp(2.6rem, 4.2vw, 4.5rem)" }}>See the leak.<br />See the evidence.<br />Decide what happens next.</h2>
+          <div className="category-list" role="group" aria-label="Evidence categories">
+            {evidenceCategories.map(({ id, label, solutionHref, icon: Icon }) => (
+              <div className={`category-row${category === id ? " active" : ""}`} key={id}>
+                <button type="button" aria-pressed={category === id} onClick={() => selectCategory(id)}>
+                  <span className="category-row-label"><Icon aria-hidden="true" size={19} />{label}</span>
+                  <ArrowRight aria-hidden="true" size={18} />
+                </button>
+                <Link className="category-row-link" href={solutionHref}>Explore</Link>
               </div>
-              <div className="fact-grid">
-              <div className="fact"><span>Potential annual value</span><strong className="value">$12,480</strong></div>
-                <div className="fact"><span>Confidence</span><strong>92%</strong></div>
-                <div className="fact"><span>Renewal date</span><strong>59 days</strong></div>
-                <div className="fact"><span>Evidence</span><strong>7 refs</strong></div>
-              </div>
-            </div>
-            <div className="evidence-preview">
-              <span className="eyebrow">Source document</span>
-              <div className="document-sheet">
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".7rem" }}><strong>Business internet</strong><span>Page 3</span></div>
-                <div className="doc-line short" /><div className="doc-line" /><div className="doc-line blue" /><div className="doc-line" />
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--ink)", paddingTop: 10, marginTop: 22, fontSize: ".72rem" }}><span>Total</span><strong>$1,510.00</strong></div>
-              </div>
-              <button className="button button-quiet" type="button" style={{ width: "100%", marginTop: 14 }}>View source <ScanSearch aria-hidden="true" size={16} /></button>
-            </div>
+            ))}
           </div>
-          <div className="approval-bar"><div><strong>Requires approval</strong><div className="muted" style={{ fontSize: ".78rem", marginTop: 4 }}>2 of 2 approvers pending</div></div><Link className="button button-primary" href="/app/opportunities">Review opportunity</Link></div>
+          <p className="evidence-navigation-note">Choose a category to keep the source bill, extracted facts, issue, and calculation together.</p>
         </div>
+        <EvidenceViewer category={category} current={current} />
       </div>
-    </div>
+    </section>
   );
 }
 
-function EvidenceViewer() {
-  const [category, setCategory] = useState<"software" | "telecom" | "energy">("software");
-
-  const categoryData = {
-    software: {
-      vendor: "Acme Software LLC",
-      docName: "Acme_Pro_Invoice.pdf",
-      rows: [
-        { item: "Acme Pro — Annual subscription", amount: "$12,000.00", highlight: true },
-        { item: "User add-on pack (25 seats)", amount: "$2,500.00", highlight: false },
-        { item: "Professional services", amount: "$2,500.00", highlight: false },
-      ],
-      total: "$17,000.00",
-      facts: [
-        ["Invoice number", "INV-81235", "99%"],
-        ["Invoice date", "Apr 15, 2026", "98%"],
-        ["Vendor", "Acme Software LLC", "100%"],
-        ["Unused Licenses", "14 seats", "88%"],
-        ["Total due", "$17,000.00", "99%"],
-      ],
-    },
-    telecom: {
-      vendor: "Verizon Business",
-      docName: "Verizon_Bill_May.pdf",
-      rows: [
-        { item: "DIA 100Mbps Dedicated Line", amount: "$2,100.00", highlight: false },
-        { item: "Surchg-Access-Tier4 (Unbundled)", amount: "$1,562.50", highlight: true },
-        { item: "Regulatory Recovery Fee", amount: "$340.00", highlight: false },
-      ],
-      total: "$4,002.50",
-      facts: [
-        ["Account number", "VZN-99201", "100%"],
-        ["Billing period", "May 2026", "99%"],
-        ["Unapproved Surcharge", "$1,562.50 / mo", "92%"],
-        ["Annual Leakage", "$18,750.00", "92%"],
-        ["Total due", "$4,002.50", "99%"],
-      ],
-    },
-    energy: {
-      vendor: "Direct Energy Commercial",
-      docName: "DirectEnergy_Meters.pdf",
-      rows: [
-        { item: "Meter #48291 Energy Charge (kwh)", amount: "$4,210.00", highlight: false },
-        { item: "Meter #48291 Peak Surcharge (1.48)", amount: "$2,674.10", highlight: true },
-        { item: "State Utility Tax", amount: "$380.00", highlight: false },
-      ],
-      total: "$7,264.10",
-      facts: [
-        ["Meter ID", "#48291 (Commercial)", "100%"],
-        ["Billed Peak Factor", "1.48 (Cap 1.20)", "94%"],
-        ["Est. Rate Discrepancy", "$9,680.00 / yr", "68%"],
-        ["Total due", "$7,264.10", "98%"],
-      ],
-    },
-  };
-
-  const current = categoryData[category];
-
+function EvidenceViewer({ category, current }: { category: EvidenceCategory; current: EvidenceData }) {
   return (
-    <div className="evidence-viewer">
-      <div className="viewer-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>EVIDENCE VIEWER · EXTRACTION V3</span>
-        <div style={{ display: "flex", gap: 6 }}>
-          {(["software", "telecom", "energy"] as const).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setCategory(cat)}
-              style={{
-                background: category === cat ? "var(--mint)" : "transparent",
-                color: category === cat ? "var(--ink)" : "#95a1b5",
-                border: "1px solid #2c374b",
-                borderRadius: 4,
-                padding: "2px 8px",
-                fontSize: ".68rem",
-                fontWeight: 700,
-                textTransform: "capitalize",
-                cursor: "pointer",
-              }}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+    <div className="evidence-viewer" data-evidence-category={category}>
+      <div className="viewer-label">
+        <span>Source-linked finding</span>
+        <span className="viewer-label-note">Bill and extracted facts · Illustrative example</span>
       </div>
       <div className="viewer-content" key={category} aria-live="polite">
         <div className="invoice">
@@ -287,7 +284,11 @@ function EvidenceViewer() {
               <h4>{current.vendor}</h4>
               <small className="muted">{current.docName}</small>
             </div>
-            <strong>Source Bill</strong>
+            <strong>Source bill</strong>
+          </div>
+          <div className="evidence-finding-summary">
+            <div><span>Relevant charge or term</span><strong>{current.relevantTerm}</strong></div>
+            <div><span>Issue detected</span><strong>{current.issue}</strong></div>
           </div>
           <div className="invoice-table">
             {current.rows.map((row) => (
@@ -301,25 +302,19 @@ function EvidenceViewer() {
               <strong style={{ color: "var(--blue)" }}>{current.total}</strong>
             </div>
           </div>
-          <div style={{ marginTop: 40, color: "var(--muted)", fontSize: ".72rem" }}>
-            Source: page 1 of 1 · coordinates & digital digest preserved
-          </div>
+          <div className="evidence-source-note">Source: page 1 of 1 · illustrative document excerpt</div>
         </div>
         <div className="facts">
-          <div className="eyebrow">Extracted facts</div>
+          <div className="eyebrow">Bill and extracted facts</div>
           {current.facts.map(([label, value, confidence]) => (
             <div className="extracted-row" key={label}>
-              <span>
-                {label}
-                <br />
-                <strong className="mono">{value}</strong>
-              </span>
+              <span>{label}<br /><strong className="mono">{value}</strong></span>
               <span className="confidence">{confidence}</span>
             </div>
           ))}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 18, color: "var(--mint-dark)", fontWeight: 700, fontSize: ".78rem" }}>
-            <Check aria-hidden="true" size={16} /> Arithmetic reconciles with contract rules
-          </div>
+          <div className="evidence-calculation"><span>Calculation</span><strong>{current.calculation}</strong></div>
+          <div className="evidence-potential"><span>Potential value</span><strong>{current.potentialValue}</strong><small>Illustrative only · not verified</small></div>
+          <div className="evidence-status"><Check aria-hidden="true" size={16} /><span><strong>{current.reconciliation}</strong><small>Reconciliation and rule status</small></span></div>
         </div>
       </div>
     </div>

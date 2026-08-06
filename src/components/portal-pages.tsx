@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   FormEvent,
@@ -51,7 +51,7 @@ import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-h
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
-import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState } from "@/lib/vendors/monitoring";
+import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState, type VendorMonitoringRecord } from "@/lib/vendors/monitoring";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { useBillInspector } from "@/components/bill-inspector-provider";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
@@ -65,6 +65,7 @@ type ApiOptions = {
   body?: BodyInit | Record<string, unknown>;
 };
 type ModalState = null | "expense" | "contract" | "invite" | "upload" | "monitor";
+const vendorTabIds = new Set(["overview", "bills", "contracts", "findings", "actions", "files", "monitoring", "history"]);
 
 async function api(url: string, options: ApiOptions = {}) {
   const body =
@@ -1231,16 +1232,12 @@ export function VendorDetail({
   onAdd: (kind: Exclude<ModalState, null>, relationshipId: string) => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const vendor = data.vendors.find((item) => item.id === vendorId);
 
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("tab") || "overview";
-    }
-    return "overview";
-  });
+  const requestedTab = searchParams?.get("tab") ?? "overview";
+  const activeTab = vendorTabIds.has(requestedTab) ? requestedTab : "overview";
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [dangerMode, setDangerMode] = useState<"end" | "remove">("end");
@@ -1249,23 +1246,32 @@ export function VendorDetail({
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
+  const [monitoring, setMonitoring] = useState<VendorMonitoringRecord | null>(null);
+  const [monitoringError, setMonitoringError] = useState<string | null>(null);
 
   // Edit form state
-  const [displayNameOverride, setDisplayNameOverride] = useState(vendor?.name ?? "");
-  const [categoryOverride, setCategoryOverride] = useState(vendor?.category ?? "");
-  const [websiteOverride, setWebsiteOverride] = useState(vendor?.website ?? "");
+  const [displayNameOverride, setDisplayNameOverride] = useState(vendor?.displayNameOverride ?? "");
+  const [categoryOverride, setCategoryOverride] = useState(vendor?.categoryOverride ?? "");
+  const [websiteOverride, setWebsiteOverride] = useState(vendor?.websiteOverride ?? "");
   const [relationshipStatus, setRelationshipStatus] = useState(vendor?.relationshipStatus ?? "active");
   const [annualizedSpend, setAnnualizedSpend] = useState(vendor?.annualizedSpend?.toString() ?? "0");
   const [spendCadence, setSpendCadence] = useState(vendor?.spendCadence ?? "monthly");
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("tab", tab);
-      window.history.pushState({}, "", url.toString());
-    }
+    router.push(`/app/vendors/${vendorId}?tab=${tab}`);
   };
+
+  useEffect(() => {
+    if (!vendor) return;
+    void fetch(`/api/portal/vendors/${vendor.relationshipId}/monitoring`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Monitoring details are unavailable.");
+        const payload = await response.json();
+        setMonitoring(payload.monitoring ?? null);
+        setMonitoringError(null);
+      })
+      .catch((error: unknown) => setMonitoringError(error instanceof Error ? error.message : "Monitoring details are unavailable."));
+  }, [vendor]);
 
   useEffect(() => {
     if (!vendor || activeTab !== "history") return;
@@ -1287,8 +1293,9 @@ export function VendorDetail({
     );
 
   const canWrite = data.currentUser.role !== "viewer";
+  const canManageLifecycle = data.currentUser.role === "owner" || data.currentUser.role === "admin";
   const vendorDraftDirty = recordDraftChanged(
-    { displayNameOverride: vendor.name, categoryOverride: vendor.category, websiteOverride: vendor.website ?? "", relationshipStatus: vendor.relationshipStatus, annualizedSpend: vendor.annualizedSpend ?? 0, spendCadence: vendor.spendCadence ?? "monthly" },
+    { displayNameOverride: vendor.displayNameOverride ?? "", categoryOverride: vendor.categoryOverride ?? "", websiteOverride: vendor.websiteOverride ?? "", relationshipStatus: vendor.relationshipStatus, annualizedSpend: vendor.annualizedSpend ?? 0, spendCadence: vendor.spendCadence ?? "monthly" },
     { displayNameOverride, categoryOverride, websiteOverride, relationshipStatus, annualizedSpend, spendCadence },
     ["displayNameOverride", "categoryOverride", "websiteOverride", "relationshipStatus", "annualizedSpend", "spendCadence"],
   );
@@ -1307,7 +1314,7 @@ export function VendorDetail({
   const actions = data.actions.filter((item) => item.vendorId === vendorId);
   const contract = contracts[0];
   const latest = expenses[0];
-  const rawMonitoringState = (vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState || "not_set_up";
+  const rawMonitoringState = monitoring?.state ?? ((vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState | undefined) ?? "not_set_up";
   const hasPendingReviewInvoice = data.invoices.some((i) => i.vendorId === vendorId && i.reviewStatus === "needs_review");
   const hasOpenFinding = opportunities.some((o) => !["closed", "declined"].includes(o.status));
   const hasPendingAction = actions.some((a) => !["complete", "cancelled"].includes(a.status));
@@ -1321,9 +1328,9 @@ export function VendorDetail({
   });
 
   const handleOpenEditSheet = () => {
-    setDisplayNameOverride(vendor.name);
-    setCategoryOverride(vendor.category);
-    setWebsiteOverride(vendor.website ?? "");
+    setDisplayNameOverride(vendor.displayNameOverride ?? "");
+    setCategoryOverride(vendor.categoryOverride ?? "");
+    setWebsiteOverride(vendor.websiteOverride ?? "");
     setRelationshipStatus(vendor.relationshipStatus);
     setAnnualizedSpend(vendor.annualizedSpend?.toString() ?? "0");
     setSpendCadence(vendor.spendCadence ?? "monthly");
@@ -1387,18 +1394,27 @@ export function VendorDetail({
     }
   };
 
+  const handleToggleMonitoring = async () => {
+    const action = monitoring?.state === "paused" ? "resume" : "paused";
+    const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}/monitoring`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state: action }) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(payload.error || "Failed to update monitoring.");
+    setMonitoring(payload.monitoring ?? null);
+    toast.success(action === "paused" ? "Monitoring paused." : "Monitoring resumed.");
+  };
+
   const handleConfirmDangerAction = async (reason?: string) => {
     if (dangerMode === "end") {
       const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ relationshipStatus: vendor.relationshipStatus === "terminated" ? "active" : "terminated", reason }),
+        body: JSON.stringify({ relationshipStatus: vendor.relationshipStatus === "terminated" ? "active" : "terminated", reason, expectedUpdatedAt: vendor.updatedAt }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to end vendor relationship.");
       }
-      toast.success("Vendor relationship ended.");
+      toast.success(vendor.relationshipStatus === "terminated" ? "Vendor relationship reactivated." : "Vendor relationship ended.");
       router.refresh();
     } else {
       const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}`, {
@@ -1420,7 +1436,7 @@ export function VendorDetail({
       id: "edit",
       label: "Edit vendor relationship",
       icon: <Pencil size={15} />,
-      disabled: !canWrite,
+      disabled: !canManageLifecycle,
       onSelect: handleOpenEditSheet,
     },
     {
@@ -1432,10 +1448,17 @@ export function VendorDetail({
     },
     {
       id: "upload",
-      label: "Add bill or contract",
+      label: "Add bill",
       icon: <Plus size={15} />,
       disabled: !canWrite,
       onSelect: () => onAdd("upload", vendor.relationshipId),
+    },
+    {
+      id: "contract",
+      label: "Add contract",
+      icon: <FileText size={15} />,
+      disabled: !canWrite,
+      onSelect: () => onAdd("contract", vendor.relationshipId),
     },
     {
       id: "copy",
@@ -1446,6 +1469,13 @@ export function VendorDetail({
         await navigator.clipboard.writeText(info);
         toast.success("Vendor details copied to clipboard.");
       },
+    },
+    {
+      id: "monitoring-state",
+      label: monitoring?.state === "paused" ? "Resume monitoring" : "Pause monitoring",
+      icon: <Pause size={15} />,
+      disabled: !canWrite || !monitoring || monitoring.state === "not_configured",
+      onSelect: () => { void handleToggleMonitoring().catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Failed to update monitoring.")); },
     },
     {
       id: "end",
@@ -1460,7 +1490,7 @@ export function VendorDetail({
       icon: <Trash2 size={15} />,
       destructive: true,
       separatorBefore: true,
-      disabled: !canWrite || (data.currentUser.role !== "owner" && data.currentUser.role !== "admin"),
+      disabled: !canManageLifecycle,
       onSelect: () => handleOpenDangerDialog("remove"),
     },
   ];
@@ -1472,6 +1502,7 @@ export function VendorDetail({
     { id: "findings", label: "Findings", count: opportunities.length },
     { id: "actions", label: "Actions", count: actions.length },
     { id: "files", label: "Files", count: documents.length },
+    { id: "monitoring", label: "Monitoring" },
     { id: "history", label: "History", count: auditHistory.length },
   ];
 
@@ -1594,19 +1625,27 @@ export function VendorDetail({
           </section>
           <VendorMonitoringCard
             vendor={vendor}
-            organizationId={data.organization.id}
+            monitoring={monitoring}
+            error={monitoringError}
             canWrite={canWrite}
             onMonitor={() => onAdd("monitor", vendor.relationshipId)}
           />
           <DataCompletenessChecklist
-            documentsCount={documents.length}
-            expensesCount={expenses.length}
+            documents={documents}
+            expenses={expenses}
+            invoices={data.invoices.filter((item) => item.vendorId === vendorId)}
             contract={contract}
-            monitoringActive={rawMonitoringState === "active"}
+            monitoring={monitoring}
           />
         </>
       )}
       {activeTab === "history" && <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Relationship history</h2><p>Recorded changes to this vendor relationship.</p></div></div><RecordChangeHistory history={auditHistory} emptyMessage="No relationship history has been recorded yet." /></section>}
+      {activeTab === "monitoring" && <VendorMonitoringCard vendor={vendor} monitoring={monitoring} error={monitoringError} canWrite={canWrite} onMonitor={() => onAdd("monitor", vendor.relationshipId)} expanded />}
+      {activeTab === "bills" && <VendorBillsTab expenses={expenses} invoices={data.invoices.filter((item) => item.vendorId === vendorId)} />}
+      {activeTab === "contracts" && <VendorContractsTab contracts={contracts} />}
+      {activeTab === "findings" && <VendorFindingsTab opportunities={opportunities} />}
+      {activeTab === "actions" && <VendorActionsTab actions={actions} />}
+      {activeTab === "files" && <RecordFilesWorkspace title="Vendor files" description="Original source files, invoices, contracts, and evidence collected for this vendor relationship." emptyCopy="Upload a bill or contract to preserve the source evidence for this vendor relationship." files={documents.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: vendor.name, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} />}
 
       {/* Edit Record Sheet */}
       <EditRecordSheet
@@ -1630,7 +1669,7 @@ export function VendorDetail({
               type="text"
               value={displayNameOverride}
               onChange={(e) => setDisplayNameOverride(e.target.value)}
-              placeholder={vendor.name}
+              placeholder={vendor.canonicalName}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
             />
           </div>
@@ -1643,7 +1682,7 @@ export function VendorDetail({
               type="text"
               value={categoryOverride}
               onChange={(e) => setCategoryOverride(e.target.value)}
-              placeholder={vendor.category}
+              placeholder={vendor.canonicalCategory}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
             />
           </div>
@@ -1656,7 +1695,7 @@ export function VendorDetail({
               type="url"
               value={websiteOverride}
               onChange={(e) => setWebsiteOverride(e.target.value)}
-              placeholder="https://..."
+              placeholder={vendor.canonicalWebsite ?? "https://..."}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
             />
           </div>
@@ -1668,12 +1707,13 @@ export function VendorDetail({
             <select
               value={relationshipStatus}
               onChange={(e) => setRelationshipStatus(e.target.value)}
+              disabled={!canManageLifecycle && vendor.relationshipStatus === "terminated"}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
             >
               <option value="active">Active</option>
               <option value="prospect">Prospect</option>
               <option value="inactive">Inactive</option>
-              <option value="terminated">Terminated</option>
+              <option value="terminated" disabled={!canManageLifecycle}>Terminated</option>
             </select>
           </div>
 
@@ -1700,10 +1740,13 @@ export function VendorDetail({
               >
                 <option value="monthly">Monthly</option>
                 <option value="annual">Annual</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="usage_based">Usage Based</option>
               </select>
             </div>
+          </div>
+          <div className="portal-panel" style={{ padding: 14 }}>
+            <strong style={{ fontSize: "0.82rem" }}>Canonical vendor reference</strong>
+            <p className="muted" style={{ margin: "6px 0 10px", fontSize: "0.8rem" }}>These catalog values are read-only here. Your overrides above affect only this workspace.</p>
+            <dl className="record-summary-list"><div><dt>Canonical name</dt><dd>{vendor.canonicalName}</dd></div><div><dt>Canonical category</dt><dd>{vendor.canonicalCategory}</dd></div><div><dt>Canonical website</dt><dd>{vendor.canonicalWebsite ?? "Not recorded"}</dd></div><div><dt>Created at</dt><dd>{date(vendor.createdAt)}</dd></div><div><dt>Updated at</dt><dd>{date(vendor.updatedAt)}</dd></div><div><dt>Terminated at</dt><dd>{vendor.endedAt ? date(vendor.endedAt) : "Not terminated"}</dd></div></dl>
           </div>
         </div>
       </EditRecordSheet>
@@ -1719,6 +1762,7 @@ export function VendorDetail({
         loadingPreview={loadingPreview}
         requiredConfirmationText={dangerMode === "remove" ? "REMOVE" : undefined}
       />
+      {activeTab === "overview" && <>
       <div className="vendor-detail-grid">
         <section className="portal-panel vendor-contract-summary">
           <div className="portal-panel-heading">
@@ -1899,24 +1943,28 @@ export function VendorDetail({
           sourceAvailable: !item.sourcePurgedAt,
         }))}
       />
+      </>}
     </div>
   );
 }
 
 function VendorMonitoringCard({
   vendor,
-  organizationId,
+  monitoring,
+  error,
   canWrite,
   onMonitor,
+  expanded = false,
 }: {
   vendor: PortalVendor;
-  organizationId: string;
+  monitoring: VendorMonitoringRecord | null;
+  error: string | null;
   canWrite: boolean;
   onMonitor: () => void;
+  expanded?: boolean;
 }) {
-  const rawState = (vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState || "not_set_up";
+  const rawState = monitoring?.state ?? ((vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState | undefined) ?? "not_set_up";
   const { label, copy, badgeClass } = getMonitoringStateLabel(rawState);
-  const privateAddress = `inbox-${organizationId.slice(0, 8)}@costivra.ai`;
 
   return (
     <section className="portal-panel vendor-monitoring-card" style={{ marginBottom: 24, padding: "20px 24px" }}>
@@ -1937,17 +1985,20 @@ function VendorMonitoringCard({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, background: "var(--bg-subtle, #f8fafc)", padding: "16px", borderRadius: 10, border: "1px solid var(--border-color, #e2e8f0)" }}>
         <div>
           <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Approved forwarding sender</span>
-          <strong style={{ fontSize: "0.9rem" }}>{vendor.approvedForwardingEmail ?? "Not configured"}</strong>
+          <strong style={{ fontSize: "0.9rem" }}>{monitoring?.approvedSenderAddress ?? "Not configured"}</strong>
         </div>
         <div>
           <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Private intake address</span>
-          <code style={{ fontSize: "0.85rem", background: "rgba(0,0,0,0.04)", padding: "2px 6px", borderRadius: 4 }}>{privateAddress}</code>
+          <strong style={{ fontSize: "0.9rem" }}>{monitoring?.privateIntakeAddress ?? "Not available until an intake address is active"}</strong>
         </div>
         <div>
           <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Expected cadence</span>
-          <strong style={{ fontSize: "0.9rem" }}>Monthly (30 days)</strong>
+          <strong style={{ fontSize: "0.9rem" }}>{monitoring?.expectedCadenceDays ? `${monitoring.expectedCadenceDays} days` : "Not configured"}</strong>
         </div>
+        <div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Grace period</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.gracePeriodDays ? `${monitoring.gracePeriodDays} days` : "Not configured"}</strong></div>
+        {expanded && <><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Last test</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.testCompletedAt ? date(monitoring.testCompletedAt) : "Not completed"}</strong></div><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Last bill received</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.lastReceivedAt ? date(monitoring.lastReceivedAt) : "Not received"}</strong></div><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Next expected bill</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.nextExpectedAt ? date(monitoring.nextExpectedAt) : "Unknown"}</strong></div><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Latest failure</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.lastFailureCode ?? "None recorded"}</strong></div></>}
       </div>
+      {error ? <p className="muted" role="status" style={{ margin: "12px 0 0" }}>{error}</p> : null}
       <p className="muted" style={{ fontSize: "0.78rem", margin: "14px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
         <ShieldCheck size={14} style={{ color: "#002FA7" }} /> Costivra receives only messages sent to your private workspace address. Costivra does not read the rest of your inbox.
       </p>
@@ -1955,27 +2006,58 @@ function VendorMonitoringCard({
   );
 }
 
+function VendorBillsTab({ expenses, invoices }: { expenses: PortalData["expenses"]; invoices: PortalData["invoices"] }) {
+  if (!expenses.length && !invoices.length) return <Empty title="No bills recorded" copy="Upload a bill or add a normalized expense to build this vendor's history." />;
+  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Bills and recorded expenses</h2><p>Amounts are shown from saved records; they are not annualized estimates.</p></div></div><div className="portal-list">{expenses.map((expense) => <Link key={expense.id} className="portal-list-row" href={`/app/expenses/${expense.id}`}><div className="grow"><strong>{date(expense.periodEnd)}</strong><span>{expense.category} · {expense.locationName ?? "Location not assigned"}</span></div><strong>{money(expense.amount)}</strong><ChevronRight size={16} /></Link>)}</div>{invoices.length ? <div className="portal-list" style={{ marginTop: 12 }}>{invoices.map((invoice) => <Link key={invoice.id} className="portal-list-row" href={`/app/documents/${invoice.documentId}`}><div className="grow"><strong>{invoice.invoiceNumber ?? "Invoice"}</strong><span>Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor match: {titleCase(invoice.vendorMatchStatus || "unknown")}</span></div><ChevronRight size={16} /></Link>)}</div> : null}</section>;
+}
+
+function VendorContractsTab({ contracts }: { contracts: PortalData["contracts"] }) {
+  if (!contracts.length) return <Empty title="No contracts recorded" copy="Add a contract and its notice dates to make renewal risk visible." />;
+  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Contracts</h2><p>Dates and values come from the recorded agreement.</p></div></div><div className="portal-list">{contracts.map((contract) => <Link key={contract.id} className="portal-list-row" href={`/app/contracts/${contract.id}`}><div className="grow"><strong>{contract.title}</strong><span>{contract.endDate ? `Ends ${date(contract.endDate)}` : "End date not recorded"}{contract.autoRenews ? " · Auto-renews" : ""}</span></div><strong>{contract.annualValue == null ? "Value not recorded" : money(contract.annualValue)}</strong><ChevronRight size={16} /></Link>)}</div></section>;
+}
+
+function VendorFindingsTab({ opportunities }: { opportunities: PortalData["opportunities"] }) {
+  if (!opportunities.length) return <Empty title="No findings yet" copy="Costivra has not created an evidence-backed opportunity for this vendor." />;
+  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Findings</h2><p>Potential value remains separate from verified outcomes.</p></div></div><div className="portal-list">{opportunities.map((opportunity) => <Link key={opportunity.id} className="portal-list-row" href={`/app/opportunities/${opportunity.id}`}><div className="grow"><strong>{opportunity.title}</strong><span>{opportunity.evidenceCount} evidence reference{opportunity.evidenceCount === 1 ? "" : "s"} · {Math.round((opportunity.confidence ?? 0) * 100)}% confidence</span></div><Status value={opportunity.status} /><ChevronRight size={16} /></Link>)}</div></section>;
+}
+
+function VendorActionsTab({ actions }: { actions: PortalData["actions"] }) {
+  if (!actions.length) return <Empty title="No actions planned" copy="Approved findings can create an attributable action here." />;
+  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Actions</h2><p>Actions require the configured approvals before consequential work begins.</p></div></div><div className="portal-list">{actions.map((action) => <Link key={action.id} className="portal-list-row" href={`/app/actions/${action.id}`}><div className="grow"><strong>{action.title}</strong><span>{action.dueAt ? `Due ${date(action.dueAt)}` : "No due date"}</span></div><Status value={action.status} /><ChevronRight size={16} /></Link>)}</div></section>;
+}
+
 function DataCompletenessChecklist({
-  documentsCount,
-  expensesCount,
+  documents,
+  expenses,
+  invoices,
   contract,
-  monitoringActive,
+  monitoring,
 }: {
-  documentsCount: number;
-  expensesCount: number;
+  documents: PortalData["documents"];
+  expenses: PortalData["expenses"];
+  invoices: PortalData["invoices"];
   contract?: PortalContract;
-  monitoringActive: boolean;
+  monitoring: VendorMonitoringRecord | null;
 }) {
-  const items = [
-    { label: "Recent invoice", done: expensesCount > 0 || documentsCount > 0 },
-    { label: "Vendor matched", done: true },
-    { label: "Totals reconciled", done: expensesCount > 0 },
-    { label: "Contract recorded", done: Boolean(contract) },
-    { label: "Renewal date recorded", done: Boolean(contract?.endDate) },
-    { label: "Location assigned", done: Boolean(contract?.locationId) },
-    { label: "Monitoring active", done: monitoringActive },
+  type CompletenessState = "complete" | "attention" | "unknown" | "not_applicable";
+  const [now] = useState(() => Date.now());
+  const latestDocument = documents.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const recentDocument = latestDocument && now - new Date(latestDocument.createdAt).getTime() <= 120 * 24 * 60 * 60 * 1000;
+  const hasResolvedMatch = invoices.some((invoice) => ["matched", "resolved"].includes(invoice.vendorMatchStatus));
+  const hasReconciledInvoice = invoices.some((invoice) => ["reconciled", "matched"].includes(invoice.reconciliationStatus));
+  const states: Array<{ label: string; state: CompletenessState }> = [
+    { label: "Recent source document", state: recentDocument ? "complete" : documents.length ? "attention" : "unknown" },
+    { label: "Vendor match resolved", state: hasResolvedMatch ? "complete" : invoices.length ? "attention" : "unknown" },
+    { label: "Invoice totals reconciled", state: hasReconciledInvoice ? "complete" : invoices.length ? "attention" : "unknown" },
+    { label: "Normalized expense exists", state: expenses.length ? "complete" : "unknown" },
+    { label: "Contract recorded", state: contract ? "complete" : "unknown" },
+    { label: "Renewal or end date recorded", state: contract ? (contract.endDate ? "complete" : "attention") : "unknown" },
+    { label: "Location assigned when applicable", state: contract ? (contract.locationId ? "complete" : "attention") : expenses.some((expense) => expense.locationId) ? "complete" : "not_applicable" },
+    { label: "Monitoring configured", state: monitoring ? (monitoring.state === "not_configured" ? "unknown" : "complete") : "unknown" },
+    { label: "Forwarding test passed when required", state: monitoring?.sourceMethod === "email_forwarding" ? (monitoring.testCompletedAt ? "complete" : "attention") : monitoring ? "not_applicable" : "unknown" },
+    { label: "Expected bill not missed", state: monitoring?.state === "attention_needed" ? "attention" : monitoring?.state === "active" ? "complete" : "unknown" },
   ];
-  const score = Math.round((items.filter((i) => i.done).length / items.length) * 100);
+  const score = Math.round((states.filter((item) => item.state === "complete").length / states.length) * 100);
 
   return (
     <section className="portal-panel" style={{ marginBottom: 24, padding: "20px 24px" }}>
@@ -1986,12 +2068,12 @@ function DataCompletenessChecklist({
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-        {items.map((item) => (
+        {states.map((item) => (
           <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: item.done ? "#10b981" : "#cbd5e1", color: "#fff", flexShrink: 0 }}>
-              {item.done ? <Check size={12} /> : <X size={12} />}
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: item.state === "complete" ? "#10b981" : item.state === "attention" ? "#b45309" : "#64748b", color: "#fff", flexShrink: 0 }}>
+              {item.state === "complete" ? <Check size={12} /> : item.state === "attention" ? <Info size={12} /> : <X size={12} />}
             </span>
-            <span style={{ color: item.done ? "inherit" : "var(--text-muted)" }}>{item.label}</span>
+            <span style={{ color: item.state === "complete" ? "inherit" : "var(--text-muted)" }}>{item.label} · {item.state === "not_applicable" ? "Not applicable" : titleCase(item.state)}</span>
           </div>
         ))}
       </div>
@@ -3674,14 +3756,17 @@ function CreateModals({
                 { value: "manual_upload", label: "Manual File Upload" },
               ]}
             />
+            <Field
+              label="Expected billing cadence (days)"
+              name="expectedCadenceDays"
+              type="number"
+              defaultValue="30"
+            />
           </div>
           <div style={{ background: "var(--bg-subtle, #f8fafc)", padding: 14, borderRadius: 8, marginTop: 14, border: "1px solid var(--border-color, #e2e8f0)" }}>
-            <strong style={{ fontSize: "0.85rem", display: "block", marginBottom: 6 }}>Your Private Intake Address:</strong>
-            <code style={{ fontSize: "0.85rem", background: "rgba(0,0,0,0.06)", padding: "4px 8px", borderRadius: 4, display: "inline-block" }}>
-              inbox-{data.organization.id.slice(0, 8)}@costivra.ai
-            </code>
+            <strong style={{ fontSize: "0.85rem", display: "block", marginBottom: 6 }}>Private intake address</strong>
             <p className="muted" style={{ fontSize: "0.78rem", margin: "8px 0 0" }}>
-              Set up a forwarding rule in Gmail or Outlook from <strong>{selectedVendor?.name ?? "this vendor"}</strong> to your private intake address.
+              Costivra shows the active private intake address after this workspace has one. It never invents an address from your organization ID.
             </p>
           </div>
           <p className="muted" style={{ fontSize: "0.78rem", marginTop: 12, display: "flex", gap: 6, alignItems: "center" }}>

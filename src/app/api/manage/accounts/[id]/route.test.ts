@@ -12,6 +12,7 @@ import { PATCH } from "@/app/api/manage/accounts/[id]/route";
 describe("account detail API route", () => {
   const orgUpdates: Array<Record<string, unknown>> = [];
   const profileUpserts: Array<Record<string, unknown>> = [];
+  const rpc = vi.fn((name: string) => Promise.resolve({ data: name === "manage_update_account_record" ? "2026-08-06T00:00:01.000Z" : null, error: null }));
 
   beforeEach(() => {
     orgUpdates.length = 0;
@@ -19,7 +20,7 @@ describe("account detail API route", () => {
 
     requireInternalOperator.mockResolvedValue({
       db: {
-        rpc: vi.fn((name: string) => Promise.resolve({ data: name === "manage_update_account_record" ? "2026-08-06T00:00:01.000Z" : null, error: null })),
+        rpc,
         from(table: string) {
           if (table === "organizations") {
             return {
@@ -45,6 +46,24 @@ describe("account detail API route", () => {
       },
       userId: "operator-123",
     });
+  });
+
+  it("passes the selected primary contact ID to the atomic account mutation", async () => {
+    const accountId = "a1b2c3d4-e5f6-4890-abcd-1234567890ab";
+    const primaryContactId = "b2c3d4e5-f6a7-4890-abcd-1234567890ab";
+    const req = new Request(`http://localhost/api/manage/accounts/${accountId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedUpdatedAt: "2026-08-06T00:00:00.000Z", primaryContactId }),
+    });
+
+    const res = await PATCH(req, { params: Promise.resolve({ id: accountId }) });
+    expect(res.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("manage_update_account_record", expect.objectContaining({
+      p_organization_id: accountId,
+      p_expected_updated_at: "2026-08-06T00:00:00.000Z",
+      p_updates: expect.objectContaining({ primary_contact_id: primaryContactId }),
+    }));
   });
 
   it("updates org-level fields (industry, revenue, timezone) on organizations table and assigned_to on crm_account_profiles", async () => {

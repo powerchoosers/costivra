@@ -37,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
-    "mobile-app"
+    "mobile-app",
+    ".next/dev/types"
   ]
 }

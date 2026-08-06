@@ -30,10 +30,10 @@ export interface VendorMonitoringRecord {
   state: DurableMonitoringState;
   sourceMethod: MonitoringSourceMethod;
   approvedSenderAddress?: string | null;
-  privateIntakeAddress: string;
+  privateIntakeAddress: string | null;
   inboundEmailAddressId?: string | null;
-  expectedCadenceDays: number;
-  gracePeriodDays: number;
+  expectedCadenceDays: number | null;
+  gracePeriodDays: number | null;
   testCompletedAt?: string | null;
   lastReceivedAt?: string | null;
   nextExpectedAt?: string | null;
@@ -172,7 +172,7 @@ export async function getDurableMonitoringConfig(
 
   const privateIntakeAddress = intakeAddr
     ? `${intakeAddr.local_part}@${intakeAddr.domain}`
-    : `inbox-${organizationId.slice(0, 8)}@costivra.ai`;
+    : null;
 
   // 2. Fetch monitoring record
   const { data: config } = await db
@@ -189,8 +189,8 @@ export async function getDurableMonitoringConfig(
       sourceMethod: "email_forwarding",
       privateIntakeAddress,
       inboundEmailAddressId: intakeAddr?.id ?? null,
-      expectedCadenceDays: 30,
-      gracePeriodDays: 7,
+      expectedCadenceDays: null,
+      gracePeriodDays: null,
     };
   }
 
@@ -202,8 +202,8 @@ export async function getDurableMonitoringConfig(
     approvedSenderAddress: config.approved_sender_address,
     privateIntakeAddress,
     inboundEmailAddressId: config.inbound_email_address_id || intakeAddr?.id || null,
-    expectedCadenceDays: config.expected_cadence_days || 30,
-    gracePeriodDays: config.grace_period_days || 7,
+    expectedCadenceDays: config.expected_cadence_days ?? null,
+    gracePeriodDays: config.grace_period_days ?? null,
     testCompletedAt: config.test_completed_at,
     lastReceivedAt: config.last_received_at,
     nextExpectedAt: config.next_expected_at,
@@ -223,10 +223,10 @@ export async function saveDurableMonitoringConfig(
     organizationVendorId: string;
     sourceMethod: MonitoringSourceMethod;
     approvedSenderAddress?: string | null;
-    expectedCadenceDays?: number;
+    expectedCadenceDays: number;
   },
 ): Promise<VendorMonitoringRecord> {
-  const { organizationId, actorId, organizationVendorId, sourceMethod, approvedSenderAddress, expectedCadenceDays = 30 } = params;
+  const { organizationId, actorId, organizationVendorId, sourceMethod, approvedSenderAddress, expectedCadenceDays } = params;
 
   // 1. Fetch active intake address
   const { data: intakeAddr } = await db
@@ -251,7 +251,7 @@ export async function saveDurableMonitoringConfig(
     updated_by: actorId,
   };
 
-  const { data: upserted, error } = await db
+  const { error } = await db
     .from("vendor_monitoring_configs")
     .upsert(payload, { onConflict: "organization_vendor_id" })
     .select("*")
@@ -262,16 +262,12 @@ export async function saveDurableMonitoringConfig(
   // Record audit event
   await db.from("audit_events").insert({
     organization_id: organizationId,
+    actor_type: "user",
     actor_id: actorId,
-    event_type: "vendor_monitoring_configured",
-    resource_type: "organization_vendor",
+    action: "vendor_monitoring.configured",
+    resource_type: "vendor_relationship",
     resource_id: organizationVendorId,
-    payload: {
-      sourceMethod,
-      approvedSenderAddress,
-      state: initialState,
-      configId: upserted.id,
-    },
+    safe_metadata: { source_method: sourceMethod, state: initialState },
   });
 
   return getDurableMonitoringConfig(db, organizationId, organizationVendorId);

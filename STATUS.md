@@ -13,6 +13,92 @@
 - **Known warning**: the public smoke server prints a non-failing Next.js warning that the Costivra mark has only one rendered dimension changed. Address during a later visual/CSS chunk with the brand component changes in scope.
 - **Next recommended task**: Chunk 1, header and hero refinement, only after approval and after resolving the unrelated TypeScript blocker.
 
+## August 6, 2026 — Homepage header and hero refinement (Chunk 1)
+
+- **User-visible change**: Replaced the hero eyebrow, headline, body, audience line, trust row, primary CTA, and secondary CTA with the approved finance-and-operations copy. Header navigation now uses `Product`, `What we review`, `How it works`, `Security`, and `Pricing`; header and mobile drawer CTAs use `Scan 3 bills free`.
+- **Layout and interaction**: Tightened the desktop header and hero rhythm so both actions and the trust row are visible at `1440x900`. Added the `#evidence` destination for `See a finding from source to result`. Mobile hero layout is explicitly single-column at `390x844`; the mobile menu opens, closes, and reopens without overflow. Lenis now does not initialize when reduced motion is requested.
+- **Brand/runtime cleanup**: Costivra mark sizing now supplies both rendered dimensions, removing the previous Next.js image warning during the homepage browser run.
+- **Files**: `src/components/home-page.tsx`, `src/components/marketing-shell.tsx`, `src/app/globals.css`, `src/components/smooth-scroll.tsx`, `src/components/brand.tsx`, and `tests/e2e/public-smoke.spec.ts`.
+- **Screenshots**: `output/playwright/homepage-chunk-1/homepage-1440x900.png` and `output/playwright/homepage-chunk-1/homepage-390x844.png`.
+- **Validation**: `npm run typecheck` PASS; `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm run build` PASS; focused Playwright checks PASS (4 passed, 2 expected skips) for desktop/mobile homepage navigation, exact copy/CTA assertions, evidence anchor behavior, reduced motion, and mobile overflow. The full public smoke file's unrelated worker guard checks returned 404 rather than expected 401 in the final run; homepage checks passed.
+- **Design QA**: Compared baseline and final screenshots at `1440x900`, plus final mobile at `390x844`. The desktop headline is shorter, CTA hierarchy is visible, the header is less inflated, and the mobile composition no longer clips into a two-column layout.
+- **Next recommended task**: Chunk 3, honest proof and verified-value methodology, after explicit approval.
+
+## August 6, 2026 — Interactive public product demo (Chunk 2)
+
+- **User-visible change**: Replaced the hero's theatrical preview with a focused public demo built from `src/components/marketing-demo/`. It uses clearly labeled synthetic data and moves through `Source received`, `Change detected`, `Evidence linked`, `Approval required`, and `Later result checked`.
+- **Evidence interaction**: `View source` now opens a modal dialog with a synthetic telecom bill excerpt, highlighted annual service adjustment, extracted fact, evidence reference `EV-ILL-003`, calculation inputs, confidence, and an illustrative-data note. Focus moves into the dialog, Escape closes it, focus returns to the trigger, and Tab remains inside the dialog.
+- **Authorization boundary**: `Review opportunity` stays on the public homepage and opens an explicit approval state. The panel names the proposed vendor question, data involved, approver, and the fact that Costivra has not acted; approve/decline buttons are illustrative only and send no external communication.
+- **Result wording**: The later-result state separates potential annual value, approved action, work in progress, and verified/unverified status. It uses the required wording `Example later invoice confirms the changed charge.` and explicitly says the demonstration is not a real customer result.
+- **Files**: `src/components/marketing-demo/demo-data.ts`, `src/components/marketing-demo/opportunity-demo.tsx`, `src/components/marketing-demo/source-evidence-drawer.tsx`, `src/components/marketing-demo/demo-approval-state.tsx`, `src/components/marketing-demo/demo-verification-state.tsx`, `src/components/home-page.tsx`, `src/app/globals.css`, and `tests/e2e/public-smoke.spec.ts`.
+- **Screenshots**: `output/playwright/homepage-chunk-2/homepage-default-1440x900.png`, `homepage-default-390x844.png`, `source-drawer-1440x900.png`, `approval-state-1440x900.png`, and `result-state-390x844.png`.
+- **Validation**: targeted lint PASS; `npm run typecheck` PASS; `npm test -- --run` PASS (104 files, 437 tests; 4 files and 6 tests skipped); `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm run build` PASS; focused Playwright public-homepage checks PASS (8 passed, 2 expected project skips) on desktop and Pixel 5 mobile, including reduced-motion demo behavior. The full public smoke worker guards remain an unrelated 404-vs-401 mismatch.
+- **Design QA**: Desktop source drawer, approval state, default hero, and mobile result state were inspected from captured screenshots. The demo remains public, evidence-led, and calm at the tested breakpoints; no generic AI sparkle/magic treatment was introduced.
+- **Next recommended task**: Chunk 4, evidence section and page-story reorder, only after explicit approval.
+
+## August 6, 2026 — Honest proof and verified-value methodology (Chunk 3)
+
+- **Proof-mode decision**: Repository review found no explicitly approved and consented public customer case. The homepage therefore renders the methodology fallback; it does not invent a logo, company name, quote, amount, or customer result.
+- **User-visible change**: Added a quiet pale-blue section immediately below the hero titled `Value is not verified until later evidence proves it.` Supporting copy keeps potential value separate from confirmed results and explains the later-evidence requirement.
+- **Evidence chain**: The section labels `Potential` as a finding identified from source and deterministic calculation, while `Verified` remains `Not claimed yet`. It shows the four required steps: `Finding identified`, `Customer approves the method`, `Later evidence arrives`, and `Result is confirmed or rejected`.
+- **Typed future-proof path**: Added `src/lib/public-proof.ts` with typed methodology and approved-case modes. `resolvePublicProof` falls back to methodology whenever an approved case lacks a non-empty `permissionReference`; synthetic approved-case content is covered in tests only.
+- **Accessibility/layout**: Added a semantic section with an explicit heading, ordered evidence sequence, responsive mobile layout, and `scroll-margin-top` so the fixed header does not cover the section title when reached by an anchor or keyboard navigation.
+- **Files**: `src/lib/public-proof.ts`, `src/lib/public-proof.test.ts`, `src/components/public-proof-section.tsx`, `src/components/home-page.tsx`, `src/app/globals.css`, and `tests/e2e/public-smoke.spec.ts`.
+- **Screenshots**: `output/playwright/homepage-chunk-3/homepage-proof-1440x900.png`, `homepage-proof-390x844.png`, `proof-section-desktop.png`, and `proof-section-mobile.png`.
+- **Validation**: `npm run typecheck` PASS; proof unit test PASS (4 tests); `npm test -- --run` PASS (105 files, 441 tests; 4 files and 6 tests skipped); `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm run build` PASS; focused Playwright fallback checks PASS (3 passed, 1 expected project skip) on desktop and Pixel 5 mobile; `git diff --check` PASS.
+- **Next recommended task**: Chunk 4, evidence section and page-story reorder, only after explicit approval.
+
+## August 6, 2026 — Evidence section and page-story reorder (Chunk 4)
+
+- **Page order**: The public homepage now flows `hero → proof/methodology → evidence → workflow → doctrine/trust → pricing → FAQ`. Workflow content itself was not changed.
+- **Evidence copy**: Replaced the internal `EVIDENCE VIEWER · EXTRACTION V3` label with `Source-linked finding` and `Bill and extracted facts · Illustrative example`.
+- **Synchronized category control**: Software subscriptions, Telecom and internet, and Commercial energy review are now button-based category selectors with `aria-pressed` state. Each selector updates the same evidence viewer state: provider, document, relevant term, highlighted row, issue, extracted facts, confidence, calculation, potential value, and reconciliation/rule status.
+- **Navigation boundary**: Each category has a separate quiet `Explore` link to its solution page. Switching categories does not navigate away from the homepage.
+- **Mobile behavior**: Category controls remain visible before the evidence details, and the evidence viewer stacks into a readable single-column layout at `390x844`.
+- **Generated-type hygiene**: Added `.next/dev/types` to `tsconfig.json` exclusions. Next may retain its generated include, but stale development route artifacts are excluded from TypeScript validation; the clean production route types remain authoritative.
+- **Files**: `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, `tsconfig.json`, `STATUS.md`, and `COSTIVRA_HOMEPAGE_UPGRADE_CHUNK_PLAN.md`.
+- **Screenshots**: `output/playwright/homepage-chunk-4/evidence-software-1440x900.png`, `evidence-telecom-1440x900.png`, `evidence-energy-1440x900.png`, and `evidence-telecom-390x844.png`.
+- **Validation**: `npm run typecheck` PASS; `npm test -- --run` PASS (105 files, 442 tests; 4 files and 6 tests skipped); `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm run build` PASS; focused category/browser checks PASS (3 passed, 1 expected project skip) on desktop and Pixel 5 mobile; `git diff --check` PASS.
+- **Next recommended task**: Chunk 5, compact and concrete workflow, only after explicit approval.
+
+## August 6, 2026 — Compact, concrete workflow (Chunk 5)
+
+- **User-visible change**: Replaced the oversized workflow viewport with a compact five-stage sequence: Connect, Extract, Detect, Approve, and Verify. The copy now names the real Costivra progression from selected records to later evidence.
+- **Product specificity**: Each stage includes one small artifact rather than a decorative icon: `3 files ready · 1 vendor`, `Annual adjustment · page 3`, `Potential change · $1,040 / mo`, `Finance owner · pending`, and `Later bill · awaiting`.
+- **Layout and trust**: Desktop keeps one connected horizontal sequence; mobile stacks the five stages with a quiet connector. The repeated doctrine line was removed from workflow so the trust section remains the single homepage doctrine treatment. Workflow scroll targeting now leaves room for the fixed header.
+- **Measured result**: Desktop workflow height is 492px after the change versus 597px in the prior-spacing reference, a reduction of 105px (17.6%).
+- **Files**: `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, and this status/tracking documentation.
+- **Screenshots**: `output/playwright/homepage-chunk-5/workflow-before-reference-section.png`, `workflow-desktop-section.png`, `workflow-tablet-section.png`, and `workflow-mobile-section.png`.
+- **Validation**: Focused Playwright checks PASS (5 passed, 1 expected project skip) on desktop and Pixel 5 mobile. The new workflow test covers exact stage order/count, copy, artifacts, doctrine removal, mobile ordering, and reduced-motion rendering. `npm run typecheck` PASS; `npm test -- --run` PASS (105 files, 442 tests; 4 files and 6 tests skipped); `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm run build` PASS; `git diff --check` PASS. Manual visual QA covered `1440x900`, `1024x900`, and `390x844`.
+- **Remaining risk**: Workflow artifacts are illustrative UI states, not customer proof. Amounts and later-evidence labels must stay clearly synthetic until connected to approved public evidence. Existing lint warnings and unrelated worker endpoint mismatches remain unchanged.
+- **Next recommended task**: Chunk 6, enterprise trust and security section, only after explicit approval.
+
+## August 6, 2026 — Enterprise trust and security (Chunk 6)
+
+- **User-visible change**: Replaced the old doctrine/trust block with `Built for decisions that affect real money.` and the required plain-language explanation of document interpretation, deterministic calculation, policy, human approval, source linkage, and audit history.
+- **Supported trust claims**: The section presents six open-list controls: Private documents; Tenant-isolated records; Human approval; Source-linked findings; Audit history; and No broad inbox access required. Each claim is grounded in the repository’s private-storage, organization-boundary, approval, evidence, audit, and selected-upload rules.
+- **Disclosure and CTA**: Added the required statement that Costivra does not automatically cancel services, sign contracts, change payment instructions, or send customer records to an outside advisor. Added the secondary `Review Costivra security` CTA to `/security`; browser QA verified the destination and existing security-page heading.
+- **Certification boundary**: No SOC 2, ISO, HIPAA, GDPR-compliant, bank-grade, or enterprise-grade certification/security language was added.
+- **Layout**: The trust section uses a dark, open, border-led list rather than a generic card grid. Desktop and tablet use two quiet columns; mobile stacks the same controls without horizontal overflow. The section preserves a single doctrine statement and keeps the homepage conversion CTA hierarchy intact.
+- **Files**: `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, and this status/tracking documentation.
+- **Screenshots**: `output/playwright/homepage-chunk-6/trust-desktop-1440x900.png`, `trust-tablet-1024x900.png`, and `trust-mobile-390x844.png`.
+- **Validation**: Targeted ESLint PASS; focused Playwright PASS (5 passed, 1 expected project skip) covering required claims, prohibited certification text, CTA navigation, contrast tokens, mobile overflow, and reduced motion; `npm run typecheck` PASS; `npm test -- --run` PASS (105 files, 442 tests; 4 files and 6 tests skipped); `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm run build` PASS; `git diff --check` PASS. Production-server visual QA had no console or page errors at `1440x900`, `1024x900`, and `390x844`.
+- **Remaining risk**: This is a plain-language presentation of current product rules, not a certification or independent security audit. Existing lint warnings and unrelated worker endpoint mismatches remain unchanged.
+- **Next recommended task**: Chunk 7, pricing, navigation, footer, and CTA consistency, only after explicit approval.
+
+## August 6, 2026 — Pricing, navigation, footer, and CTA consistency (Chunk 7)
+
+- **CTA consistency**: All homepage `/scan` links now use the exact label `Scan 3 bills free`, including the header, hero, pricing section, footer CTA, and footer scan link.
+- **Final CTA**: Footer headline is now `Start with three bills. Keep the evidence.` with supporting copy that explains selected documents, findings, and source linkage.
+- **Pricing**: Removed the temporary-sounding pilot pricing note. The homepage now says `Plans shown for the current Costivra offering. See pricing for details.` Tier names and prices are unchanged, and no guaranteed-savings language was added.
+- **Navigation/footer**: The recommended short navigation remains in place; `Sign in` stays at `/login`; duplicate Legal → Security was removed; UCEP disclosure remains in Legal; the year remains 2026; and the footer brand statement is now `Evidence-first control for recurring business costs.`
+- **Route matrix**: Added browser coverage for every internal header/footer link, desktop/mobile navigation parity, CTA labels/routes, `/login`, and `/ucep-disclosure`. No public link returned 404.
+- **Files**: `src/components/home-page.tsx`, `src/components/marketing-shell.tsx`, `tests/e2e/public-smoke.spec.ts`, and this status/tracking documentation.
+- **Screenshots**: `output/playwright/homepage-chunk-7/homepage-desktop-1440x900.png`, `pricing-desktop-1440x900.png`, `footer-mobile-390x844.png`, plus tablet/mobile captures in the same directory.
+- **Validation**: Targeted ESLint PASS; focused Playwright PASS (5 passed, 1 expected project skip) across desktop and Pixel 5 mobile; `npm run build` PASS; `npm run typecheck` PASS after regenerating disposable `.next` route types; `npm run lint` PASS with two existing `app-shell.tsx` warnings; `npm test -- --run` PASS (105 files, 442 tests; 4 files and 6 tests skipped); `git diff --check` PASS. Production-server visual QA had no console or page errors at `1440x900`, `1024x900`, and `390x844`.
+- **Remaining risk**: Route checks cover public HTTP responses only; authenticated workspace destinations remain outside this public homepage scope. Existing lint warnings and unrelated worker endpoint mismatches remain unchanged.
+- **Next recommended task**: Chunk 8, typography and marketing CSS consolidation, only after explicit approval.
+
 ## August 6, 2026 — ID page lifecycle history and destructive-action safeguards (Chunk 3)
 
 - Hardened account, contact, and vendor lifecycle routes around server authorization, durable audit history, explicit reasons, and fail-closed deletion behavior.
@@ -31,7 +117,19 @@
 - `20260806045418_account_delete_location_dependency.sql` is applied. Account deletion previews and the authoritative delete RPC now include locations; previews additionally expose expense accounts, monitoring configurations, mail messages, and document retention holds before a destructive action can proceed.
 - Validation after these changes: `npm run typecheck` passed; `npm test` passed (103 files, 433 tests; 4 files and 6 tests intentionally skipped); `npm run lint` completed with 0 errors and 2 existing warnings in `src/components/app-shell.tsx`; `npm run test:integration` passed (4 files, 8 tests; 4 files and 6 tests intentionally skipped); `npm run build` passed; `npm run test:e2e` passed (10 tests; 6 intentionally skipped).
 - Final rerun after the vendor permission correction: unit tests passed (103 files, 434 tests); integration tests passed (4 files, 8 tests); production build passed; and Playwright E2E passed (10 tests; 6 intentionally skipped). Browser QA could reach the local sign-in screen with no console errors but could not inspect the protected Manage record controls because the in-app browser has no internal operator session; no authentication was bypassed.
+- Applied `20260806052000_lifecycle_idempotency_and_atomic_vendor_audit.sql` to the Costivra Supabase project. Archive, contact-status, and vendor-lifecycle mutations now return safely without duplicate history when the requested state already exists; vendor lifecycle evidence is written in the same transaction as its status change and monitoring pause.
+- Final validation after the deployed migration: `npm run typecheck` passed; `npm test` passed (103 files, 434 tests; 4 files and 6 tests intentionally skipped); `npm run lint` passed with 0 errors and 2 existing app-shell warnings; `npm run test:integration` passed (4 files, 8 tests; 4 files and 6 tests intentionally skipped); `npm run build` passed; and `npm run test:e2e` passed (10 tests; 6 intentionally skipped).
 - Remaining release gate: add focused coverage for the full lifecycle permission matrix, dependency changes after preview, and the history pagination/metadata contract; then perform browser QA of the new record filters and destructive dialogs. Do not claim deployment readiness until those checks pass.
+
+## August 6, 2026 — Customer vendor ID page (Chunk 4)
+
+- Completed `/app/vendors/[vendorId]` as a relationship workspace, not a canonical-vendor editor. The page now keeps customer overrides separate from the canonical vendor reference, exposes the canonical name/category/website only as read-only context, and sends the relationship version for conflict-safe saves.
+- Vendor tabs are now real URL-backed sections: Overview, Bills, Contracts, Findings, Actions, Files, Monitoring, and History. Direct record links use the appropriate record routes, and the active tab persists through refresh and browser navigation.
+- Monitoring reads from the authenticated durable configuration endpoint. The page no longer fabricates a private intake address or assumes a monthly cadence. It displays stored sender, intake address, cadence, grace period, test/bill dates, expected date, failure state, and supports explicit pause/resume without changing the vendor relationship status.
+- Completeness uses recorded document, invoice-match, reconciliation, expense, contract, location, and monitoring states. Missing evidence remains Unknown or Needs attention; an expense no longer implies reconciliation.
+- Role rules are reflected in the page: viewers cannot change data; members can maintain ordinary relationship and monitoring fields but cannot terminate/reactivate or remove; owners/admins can perform lifecycle actions. Termination/re-activation uses the required current-version token, while unsafe removal continues through the dependency preview and typed confirmation.
+- Added monitoring endpoint coverage and extended the self-cleaning authenticated browser test to open Bills, Monitoring, and History through the actual vendor page.
+- Validation: `npm run typecheck` PASS; `npm run lint` PASS with 0 errors and 2 existing `app-shell.tsx` warnings; `npm test` PASS (104 files, 437 tests; 4 files and 6 tests intentionally skipped); `npm run test:integration` PASS (4 files, 8 tests; 4 files and 6 tests intentionally skipped); `npm run build` PASS; `npm run test:e2e` PASS (14 tests; 6 intentionally skipped); `RUN_AUTHENTICATED_E2E=1 npm run test:e2e:authenticated` PASS (one disposable, self-cleaning customer workflow).
 
 ## August 6, 2026 — Category Intelligence Packets 09–10: Structural Release Evidence
 
@@ -1196,3 +1294,23 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Account and contact update routes now require the same optimistic-concurrency version token and use their atomic database contracts instead of describing independent calls as transactions.
 - Validation passed: `npm run typecheck`; changed-file ESLint; focused account/contact/vendor API tests (4 passing); full unit suite (425 passing, 6 skipped); integration suite (8 passing, 6 skipped); and production build. The live function catalog confirms each new RPC is `security definer`, has `search_path = ''`, and is executable only by `service_role` and database owner. Supabase security advisor reports no new P0 warning.
 - Remaining Chunk 1 work: complete the archive/deactivate/restore RPCs and test coverage for forced failures, move-primary behavior, and browser-role denial before treating the data-contract milestone as complete.
+
+## 2026-08-06 — Manage account ID page (Chunk 5)
+
+- Completed the account detail workflow at `/manage/accounts/[accountId]`: URL-persisted overview, vendors, files, activity, work, and audit-history tabs; archive/restore and guarded deletion flows; related records; and an operational header with lifecycle, owner, last contact, follow-up, and next-step context.
+- Corrected the edit sheet so primary-contact selection uses `crm_contacts.id`, not the visible contact name. The existing server-side atomic mutation validates that the contact belongs to the account, clears any prior active primary, and records the update in audit history.
+- Filled the missing editable operating-profile and ownership fields: employee/revenue ranges, timezone, currency, assigned internal owner, primary contact, next follow-up, next step, private notes, and company identity fields. All save with optimistic concurrency and preserve the user’s draft on a conflict.
+- Validation passed: `npm run typecheck`; `npm run lint` (zero errors; two existing unused-variable warnings in `src/components/app-shell.tsx`); `npm test` (441 passed, 6 skipped); `npm run test:integration` (8 passed, 6 skipped); `npm run build`; and `npm run test:e2e` (18 passed, 6 credential-gated skips). The focused account route coverage has 2 passing tests, including the ID-based primary-contact contract.
+
+## 2026-08-06 — Manage contact ID page (Chunk 6)
+
+- Completed the contact detail workflow at `/manage/contacts/[contactId]`: URL-persisted record sections, a contact-specific email/task communication summary, distinct direct-contact and account-context activity, governed marketing-status presentation, guarded deactivation/removal, and audit history.
+- Contact edits now include account movement, primary-contact state, and allowed contact statuses. Movement explicitly preserves profile links, workspace memberships, and access; it changes only the CRM relationship. Make-primary now sends the required optimistic-concurrency version token to the existing atomic update contract.
+- Removed `.next/dev` generated types from `tsconfig.json` inputs. Those disposable browser-test artifacts had been able to corrupt an otherwise valid source typecheck.
+- Validation passed: `npm run typecheck`; focused contact-route test (2 passing); `npm run lint` (zero errors; two existing warnings in `src/components/app-shell.tsx`); and `npm run build`.
+
+## 2026-08-06 — ID-page test and release inventory (Chunk 7, internal testing)
+
+- Added `docs/testing/id-pages.md`, mapping vendor, account, and contact record-page acceptance areas to unit, route, integration, live, Playwright, and manual browser evidence. It also documents the required disposable-record screenshot policy and the conditions for the final release verdict.
+- Quality checks passed in the current workspace: `npm test` (442 passed, 6 skipped), `npm run test:integration` (8 passed, 6 skipped), and `npm run eval:invoices -- --manifest tests/fixtures/invoices/golden-manifest.smoke.json --predictions tests/fixtures/invoices/golden-predictions.smoke.json` (all smoke metrics 100%).
+- Current verdict: `INTERNAL_TESTING_ONLY`. The repository is a mixed, unmerged worktree; authenticated record-page screenshot capture, live Supabase advisor checks, production smoke journeys, exact-main CI, and deployment verification must precede `ID_PAGES_COMPLETE`.

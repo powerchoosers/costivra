@@ -90,6 +90,7 @@ suite("Disposable Pilot Journey Integration Test", () => {
         organizationVendorId: relId,
         sourceMethod: "email_forwarding",
         approvedSenderAddress: `billing@acme-${testId}.com`,
+        expectedCadenceDays: 30,
       });
       expect(config.state).toBe("pending_test");
 

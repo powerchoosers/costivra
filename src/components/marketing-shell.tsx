@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Brand } from "@/components/brand";
 
 const nav = [
-  ["What Costivra does", "/product"],
+  ["Product", "/product"],
   ["What we review", "/solutions"],
   ["How it works", "/how-it-works"],
   ["Security", "/security"],
@@ -25,7 +25,7 @@ export function MarketingHeader() {
         </nav>
         <div className="header-actions">
           <Link className="sign-in" href="/login">Sign in</Link>
-          <Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link>
+          <Link className="button button-primary" href="/scan">Scan 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
           <button className={`mobile-menu${open ? " is-open" : ""}`} type="button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="mobile-navigation" onClick={() => setOpen((value) => !value)}>
             <Menu className="mobile-menu-open-icon" aria-hidden="true" size={22} />
             <X className="mobile-menu-close-icon" aria-hidden="true" size={22} />
@@ -36,7 +36,7 @@ export function MarketingHeader() {
         <span className="mobile-drawer-label">Explore Costivra</span>
         {nav.map(([label, href], index) => <Link key={href} href={href} onClick={() => setOpen(false)}><span>0{index + 1}</span>{label}<ArrowRight aria-hidden="true" size={17} /></Link>)}
         <Link href="/login" onClick={() => setOpen(false)}><span>06</span>Sign in<ArrowRight aria-hidden="true" size={17} /></Link>
-        <Link className="button button-primary mobile-drawer-cta" href="/scan" onClick={() => setOpen(false)}>Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link>
+        <Link className="button button-primary mobile-drawer-cta" href="/scan" onClick={() => setOpen(false)}>Scan 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
       </nav>
     </header>
   );
@@ -45,8 +45,8 @@ export function MarketingHeader() {
 const columns = [
   { title: "Product", links: [["How it works", "/how-it-works"], ["Solutions", "/solutions"], ["Software", "/solutions/software"], ["Telecom", "/solutions/telecom"], ["Energy", "/solutions/energy"], ["Insurance & Benefits", "/solutions/insurance"], ["Facilities", "/solutions/facilities"], ["Pricing", "/pricing"]] },
   { title: "Company", links: [["About", "/about"], ["Case studies", "/case-studies"], ["Partners", "/partners"], ["Contact", "/contact"]] },
-  { title: "Resources", links: [["Cost leak scan", "/scan"], ["Help center", "/help"], ["Security", "/security"], ["System status", "/status"]] },
-  { title: "Legal", links: [["Privacy", "/privacy"], ["Terms", "/terms"], ["Security", "/security"], ["UCEP disclosure", "/ucep-disclosure"]] },
+  { title: "Resources", links: [["Scan 3 bills free", "/scan"], ["Help center", "/help"], ["Security", "/security"], ["System status", "/status"]] },
+  { title: "Legal", links: [["Privacy", "/privacy"], ["Terms", "/terms"], ["UCEP disclosure", "/ucep-disclosure"]] },
 ] as const;
 
 export function MarketingFooter() {
@@ -54,13 +54,13 @@ export function MarketingFooter() {
     <footer className="marketing-footer">
       <div className="container">
         <div className="footer-intro">
-          <div><span className="eyebrow">A clearer next step</span><h2>Put recurring costs under command.</h2><p>Start with three current bills. Costivra keeps the evidence, decision, and next action together.</p></div>
-          <Link className="button footer-cta" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link>
+          <div><span className="eyebrow">A clearer next step</span><h2>Start with three bills. Keep the evidence.</h2><p>Costivra reviews the selected documents, shows what changed, and keeps every finding tied to the source.</p></div>
+          <Link className="button footer-cta" href="/scan">Scan 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
         </div>
         <div className="footer-grid">
           <div className="footer-brand">
             <Brand light />
-            <p>Evidence-led cost control for the decisions that matter.</p>
+            <p>Evidence-first control for recurring business costs.</p>
           </div>
           {columns.map((column) => (
             <div className="footer-column" key={column.title}>

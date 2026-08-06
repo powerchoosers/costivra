@@ -12,6 +12,7 @@ type WorkspaceFixture = {
   organizationId: string;
   organizationName: string;
   vendorId: string;
+  relationshipId: string;
   invoiceId: string;
   opportunityId: string;
   opportunityTitle: string;
@@ -75,6 +76,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
   let userId = "";
   let organizationId = "";
   let vendorId = "";
+  let relationshipId = "";
 
   try {
     const created = await admin.auth.admin.createUser({
@@ -110,6 +112,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       .select("id")
       .single();
     if (relationship.error || !relationship.data) throw relationship.error;
+    relationshipId = String(relationship.data.id);
 
     const account = await admin
       .from("expense_accounts")
@@ -237,6 +240,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       organizationId,
       organizationName,
       vendorId,
+      relationshipId,
       invoiceId: String(invoice.data.id),
       opportunityId: String(opportunity.data.id),
       opportunityTitle,
@@ -317,6 +321,15 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.getByRole("heading", { name: "Opportunities" })).toBeVisible({
         timeout: 30_000,
       });
+
+      await page.goto(`/app/vendors/${fixture.vendorId}?tab=bills`);
+      await expect(page.getByRole("heading", { name: "Bills and recorded expenses" })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText("Reconciliation: Reconciled", { exact: false })).toBeVisible();
+      await page.getByRole("button", { name: "Monitoring" }).click();
+      await expect(page.getByRole("heading", { name: "Continuous Bill Monitoring" })).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`/app/vendors/${fixture.vendorId}\\?tab=monitoring`));
+      await page.getByRole("button", { name: "History" }).click();
+      await expect(page.getByRole("heading", { name: "Relationship history" })).toBeVisible();
 
       await page.goto("/app/settings");
       await page.getByRole("tab", { name: "Team & approvals" }).click();

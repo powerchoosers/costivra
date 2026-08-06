@@ -180,7 +180,10 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
   useEffect(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
-    const observer = new IntersectionObserver(([entry]) => setIsFloating(!entry.isIntersecting), { threshold: 0 });
+    const observer = new IntersectionObserver(([entry]) => {
+      const nextIsFloating = !entry.isIntersecting && entry.boundingClientRect.bottom <= 80;
+      setIsFloating((current) => current === nextIsFloating ? current : nextIsFloating);
+    }, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
     observer.observe(anchor);
     return () => observer.disconnect();
   }, []);

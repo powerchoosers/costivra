@@ -24,9 +24,13 @@ export type PortalVendor = {
   name: string;
   category: string;
   website: string | null;
+  canonicalName: string;
+  canonicalCategory: string;
+  canonicalWebsite: string | null;
   annualizedSpend: number;
   relationshipStatus: string;
   spendCadence: string;
+  createdAt: string;
   updatedAt: string;
   logoUrl: string | null;
   displayNameOverride?: string | null;

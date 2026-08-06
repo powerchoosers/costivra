@@ -10,7 +10,7 @@ export function CostivraMark({ size = 34 }: { size?: number }) {
       height={size}
       alt=""
       priority
-      style={{ width: size, height: "auto", maxWidth: size, maxHeight: size, objectFit: "contain", flexShrink: 0 }}
+      style={{ width: size, height: size, maxWidth: size, maxHeight: size, objectFit: "contain", flexShrink: 0 }}
     />
   );
 }

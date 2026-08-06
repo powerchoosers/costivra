@@ -25,7 +25,7 @@ declare v_org uuid; v_status text;
 begin
   select organization_id,status into v_org,v_status from public.crm_contacts where id=p_contact_id for update;
   if not found then raise exception 'RECORD_NOT_FOUND'; end if;
-  if v_status = case when p_active then 'active' else 'inactive' end then return v_status; end if;
+  if v_status = (case when p_active then 'active' else 'inactive' end) then return v_status; end if;
   update public.crm_contacts set status=case when p_active then 'active' else 'inactive' end,archived_at=case when p_active then null else now() end,archived_by=case when p_active then null else p_actor_id end,is_primary=case when p_active then is_primary else false end,updated_at=now() where id=p_contact_id;
   insert into public.crm_activities (organization_id,contact_id,actor_id,kind,direction,subject,summary) values (v_org,p_contact_id,p_actor_id,'status_change','internal',case when p_active then 'Contact reactivated' else 'Contact deactivated' end,p_reason);
   insert into public.internal_audit_events (actor_id,organization_id,action,resource_type,resource_id,safe_metadata) values (p_actor_id,v_org,case when p_active then 'crm.contact_reactivated' else 'crm.contact_deactivated' end,'contact',p_contact_id,jsonb_build_object('reason',p_reason));

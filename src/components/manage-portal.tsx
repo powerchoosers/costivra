@@ -2656,11 +2656,15 @@ function AccountDetailPage({
   onCompose: (contact: ManageContact) => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const account = data.accounts.find((item) => item.id === accountId);
 
-  const [active, setActive] = useState("overview");
-  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
+  const tabFromUrl = searchParams.get("tab");
+  const active = ["overview", "vendors", "files", "activity", "work", "history"].includes(tabFromUrl ?? "") ? tabFromUrl! : "overview";
+  const selectedVendorId = searchParams.get("vendor");
+  const setActive = (tab: string) => router.push(`/manage/accounts/${accountId}?tab=${tab}${tab === "vendors" && selectedVendorId ? `&vendor=${selectedVendorId}` : ""}`);
+  const setSelectedVendorId = (vendorId: string | null) => router.push(`/manage/accounts/${accountId}?tab=vendors${vendorId ? `&vendor=${vendorId}` : ""}`);
 
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
@@ -2675,10 +2679,14 @@ function AccountDetailPage({
   const [name, setName] = useState(account?.name ?? "");
   const [legalName, setLegalName] = useState(account?.legalName ?? "");
   const [industry, setIndustry] = useState(account?.industry ?? "");
+  const [employeeCountRange, setEmployeeCountRange] = useState(account?.employeeCountRange ?? "");
+  const [annualRevenueRange, setAnnualRevenueRange] = useState(account?.annualRevenueRange ?? "");
+  const [timezone, setTimezone] = useState(account?.timezone ?? "");
   const [currency, setCurrency] = useState(account?.currency ?? "USD");
   const [website, setWebsite] = useState(account?.website ?? "");
   const [stage, setStage] = useState(account?.stage ?? "onboarding");
-  const [primaryContact, setPrimaryContact] = useState(account?.primaryContact ?? "");
+  const [assignedTo, setAssignedTo] = useState(account?.assignedTo ?? "");
+  const [primaryContactId, setPrimaryContactId] = useState(account?.primaryContactId ?? "");
   const [nextFollowUpAt, setNextFollowUpAt] = useState(account?.nextFollowUpAt ?? "");
   const [nextStep, setNextStep] = useState(account?.nextStep ?? "");
   const [privateNotes, setPrivateNotes] = useState(account?.privateNotes ?? "");
@@ -2715,16 +2723,20 @@ function AccountDetailPage({
       : "Add the account website or a short internal note to make this record easier to recognize at a glance.");
 
   const isOwner = data.operator.role === "owner";
-  const accountDraftDirty = recordDraftChanged({ name: account.name, legalName: account.legalName ?? "", industry: account.industry ?? "", currency: account.currency ?? "USD", website: account.website ?? "", stage: account.stage ?? "onboarding", primaryContact: account.primaryContact ?? "", nextFollowUpAt: account.nextFollowUpAt ?? "", nextStep: account.nextStep ?? "", privateNotes: account.privateNotes ?? "" }, { name, legalName, industry, currency, website, stage, primaryContact, nextFollowUpAt, nextStep, privateNotes }, ["name", "legalName", "industry", "currency", "website", "stage", "primaryContact", "nextFollowUpAt", "nextStep", "privateNotes"]);
+  const accountDraftDirty = recordDraftChanged({ name: account.name, legalName: account.legalName ?? "", industry: account.industry ?? "", employeeCountRange: account.employeeCountRange ?? "", annualRevenueRange: account.annualRevenueRange ?? "", timezone: account.timezone ?? "", currency: account.currency ?? "USD", website: account.website ?? "", stage: account.stage ?? "onboarding", assignedTo: account.assignedTo ?? "", primaryContactId: account.primaryContactId ?? "", nextFollowUpAt: account.nextFollowUpAt ?? "", nextStep: account.nextStep ?? "", privateNotes: account.privateNotes ?? "" }, { name, legalName, industry, employeeCountRange, annualRevenueRange, timezone, currency, website, stage, assignedTo, primaryContactId, nextFollowUpAt, nextStep, privateNotes }, ["name", "legalName", "industry", "employeeCountRange", "annualRevenueRange", "timezone", "currency", "website", "stage", "assignedTo", "primaryContactId", "nextFollowUpAt", "nextStep", "privateNotes"]);
 
   const handleOpenEditSheet = () => {
     setName(account.name);
     setLegalName(account.legalName ?? "");
     setIndustry(account.industry ?? "");
+    setEmployeeCountRange(account.employeeCountRange ?? "");
+    setAnnualRevenueRange(account.annualRevenueRange ?? "");
+    setTimezone(account.timezone ?? "");
     setCurrency(account.currency ?? "USD");
     setWebsite(account.website ?? "");
     setStage(account.stage ?? "onboarding");
-    setPrimaryContact(account.primaryContact ?? "");
+    setAssignedTo(account.assignedTo ?? "");
+    setPrimaryContactId(account.primaryContactId ?? "");
     setNextFollowUpAt(account.nextFollowUpAt ?? "");
     setNextStep(account.nextStep ?? "");
     setPrivateNotes(account.privateNotes ?? "");
@@ -2743,10 +2755,14 @@ function AccountDetailPage({
           name,
           legalName,
           industry,
+          employeeCountRange,
+          annualRevenueRange,
+          timezone,
           currency,
           website,
           stage,
-          primaryContact,
+          assignedTo,
+          primaryContactId,
           nextFollowUpAt,
           nextStep,
           privateNotes,
@@ -2828,6 +2844,12 @@ function AccountDetailPage({
       icon: <Pencil size={15} />,
       onSelect: handleOpenEditSheet,
     },
+    { id: "add-contact", label: "Add contact", icon: <UserPlus size={15} />, href: `/manage/contacts?organizationId=${account.id}` },
+    { id: "add-task", label: "Add task", icon: <CalendarClock size={15} />, href: `/manage/outreach?organizationId=${account.id}` },
+    { id: "add-note", label: "Add internal note", icon: <MessageSquareText size={15} />, href: `/manage/activity?organizationId=${account.id}` },
+    { id: "add-vendor", label: "Add vendor", icon: <Building2 size={15} />, href: `/app/vendors?organizationId=${account.id}` },
+    { id: "workspace", label: "Manage workspace access", icon: <Users size={15} />, href: `/app/settings?tab=team&organizationId=${account.id}` },
+    { id: "history", label: "View history", icon: <Activity size={15} />, onSelect: () => setActive("history") },
     {
       id: "copy",
       label: "Copy account details",
@@ -2938,6 +2960,14 @@ function AccountDetailPage({
         <div>
           <span>Lifecycle</span>
           <Status value={account.stage || "unclassified"} />
+        </div>
+        <div>
+          <span>Assigned owner</span>
+          <strong>{account.assignedToName || "Unassigned"}</strong>
+        </div>
+        <div>
+          <span>Last contacted</span>
+          <strong>{account.lastContactedAt ? date(account.lastContactedAt) : "No approved activity"}</strong>
         </div>
         <div>
           <span>Next step</span>
@@ -3132,6 +3162,13 @@ function AccountDetailPage({
             </div>
           </div>
 
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <label><span>Employee range</span><input value={employeeCountRange} onChange={(e) => setEmployeeCountRange(e.target.value)} placeholder="e.g. 51–200" /></label>
+            <label><span>Revenue range</span><input value={annualRevenueRange} onChange={(e) => setAnnualRevenueRange(e.target.value)} placeholder="e.g. $10M–$50M" /></label>
+            <label><span>Timezone</span><input value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="e.g. America/Chicago" /></label>
+            <label><span>Currency</span><input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={10} /></label>
+          </div>
+
           <div>
             <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
               Website URL
@@ -3146,12 +3183,20 @@ function AccountDetailPage({
           </div>
 
           <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Assigned internal owner</label>
+            <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}>
+              <option value="">Unassigned</option>
+              {data.staff.map((member) => <option key={member.id} value={member.id}>{member.fullName}</option>)}
+            </select>
+          </div>
+
+          <div>
             <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
               Primary Contact
             </label>
             <select
-              value={primaryContact}
-              onChange={(e) => setPrimaryContact(e.target.value)}
+              value={primaryContactId}
+              onChange={(e) => setPrimaryContactId(e.target.value)}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
             >
               <option value="">-- None Selected --</option>
@@ -3161,6 +3206,11 @@ function AccountDetailPage({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Next follow-up</label>
+            <input type="datetime-local" value={nextFollowUpAt ? nextFollowUpAt.slice(0, 16) : ""} onChange={(e) => setNextFollowUpAt(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }} />
           </div>
 
           <div>
@@ -3300,10 +3350,13 @@ function ContactDetailPage({
   onCompose: (contact: ManageContact) => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const contact = data.contacts.find((item) => item.id === contactId);
 
-  const [active, setActive] = useState("overview");
+  const requestedTab = searchParams.get("tab");
+  const active = ["overview", "files", "activity", "work", "history"].includes(requestedTab ?? "") ? requestedTab! : "overview";
+  const setActive = (tab: string) => router.push(`/manage/contacts/${contactId}?tab=${tab}`);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [dangerMode, setDangerMode] = useState<"deactivate" | "remove">("deactivate");
@@ -3318,6 +3371,7 @@ function ContactDetailPage({
   const [email, setEmail] = useState(contact?.email ?? "");
   const [phone, setPhone] = useState(contact?.phone ?? "");
   const [title, setTitle] = useState(contact?.title ?? "");
+  const [organizationId, setOrganizationId] = useState(contact?.organizationId ?? "");
   const [isPrimary, setIsPrimary] = useState(contact?.isPrimary ?? false);
   const [status, setStatus] = useState(contact?.status ?? "active");
 
@@ -3336,14 +3390,19 @@ function ContactDetailPage({
     );
 
   const contactAccount = data.accounts.find((account) => account.id === contact.organizationId);
-  const contactDraftDirty = recordDraftChanged({ fullName: contact.fullName, email: contact.email, phone: contact.phone ?? "", title: contact.title ?? "", isPrimary: contact.isPrimary, status: contact.status }, { fullName, email, phone, title, isPrimary, status }, ["fullName", "email", "phone", "title", "isPrimary", "status"]);
+  const contactDraftDirty = recordDraftChanged({ fullName: contact.fullName, email: contact.email, phone: contact.phone ?? "", title: contact.title ?? "", organizationId: contact.organizationId, isPrimary: contact.isPrimary, status: contact.status }, { fullName, email, phone, title, organizationId, isPrimary, status }, ["fullName", "email", "phone", "title", "organizationId", "isPrimary", "status"]);
   const allAccountActivities = data.activities.filter((item) => item.organizationId === contact.organizationId);
   const contactSpecificActivities = allAccountActivities.filter((item) => item.contactId === contact.id);
   const generalAccountActivities = allAccountActivities.filter((item) => !item.contactId || item.contactId !== contact.id);
+  const lastContactedAt = [...contactSpecificActivities].sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))[0]?.occurredAt ?? null;
 
   const tasks = data.tasks.filter(
     (item) => item.organizationId === contact.organizationId && item.contactId === contact.id,
   );
+  const recentEmailThread = data.mail.threads
+    .filter((thread) => thread.contactId === contact.id || (!thread.contactId && thread.contactEmail?.trim().toLowerCase() === contact.email.trim().toLowerCase()))
+    .sort((left, right) => Date.parse(right.lastMessageAt) - Date.parse(left.lastMessageAt))[0] ?? null;
+  const nextTask = [...tasks].filter((task) => task.status !== "completed").sort((left, right) => (left.dueAt ?? "").localeCompare(right.dueAt ?? ""))[0] ?? null;
   const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
 
   const handleOpenEditSheet = () => {
@@ -3351,6 +3410,7 @@ function ContactDetailPage({
     setEmail(contact.email);
     setPhone(contact.phone ?? "");
     setTitle(contact.title ?? "");
+    setOrganizationId(contact.organizationId);
     setIsPrimary(contact.isPrimary);
     setStatus(contact.status);
     setEditError(null);
@@ -3369,6 +3429,7 @@ function ContactDetailPage({
           email,
           phone,
           title,
+          organizationId,
           isPrimary,
           status,
           expectedUpdatedAt: contact.updatedAt,
@@ -3447,7 +3508,7 @@ function ContactDetailPage({
       const res = await fetch(`/api/manage/contacts/${contact.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPrimary: true }),
+        body: JSON.stringify({ isPrimary: true, expectedUpdatedAt: contact.updatedAt }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -3467,12 +3528,16 @@ function ContactDetailPage({
       icon: <Pencil size={15} />,
       onSelect: handleOpenEditSheet,
     },
+    ...(recentEmailThread ? [{ id: "recent-email", label: "View recent email", icon: <MailOpen size={15} />, href: `/manage/mail/${recentEmailThread.id}` }] : []),
+    ...(contact.phone ? [{ id: "call", label: "Call", icon: <Phone size={15} />, href: `tel:${contact.phone.replace(/[^+\d]/g, "")}` }] : []),
     {
       id: "email",
       label: "Send email",
       icon: <Mail size={15} />,
       onSelect: () => onCompose(contact),
     },
+    { id: "move", label: "Move to another account", icon: <Building2 size={15} />, onSelect: handleOpenEditSheet },
+    { id: "history", label: "View history", icon: <Activity size={15} />, onSelect: () => setActive("history") },
     {
       id: "primary",
       label: "Make primary contact",
@@ -3681,6 +3746,10 @@ function ContactDetailPage({
                 </div>
               </header>
               <dl className="manage-detail-list">
+                <div><dt>Last contacted</dt><dd>{lastContactedAt ? date(lastContactedAt) : "No approved activity"}</dd></div>
+                <div><dt>Recent email</dt><dd>{recentEmailThread ? <Link href={`/manage/mail/${recentEmailThread.id}`}>{recentEmailThread.subject || "Untitled email"} · {date(recentEmailThread.lastMessageAt)}</Link> : "No contact-linked email"}</dd></div>
+                <div><dt>Next task</dt><dd>{nextTask ? nextTask.title : "No scheduled task"}</dd></div>
+                <div><dt>Open tasks</dt><dd>{tasks.filter((task) => task.status !== "completed").length}</dd></div>
                 <div>
                   <dt>Access status</dt>
                   <dd>
@@ -3867,6 +3936,14 @@ function ContactDetailPage({
             />
           </div>
 
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Account</label>
+            <select value={organizationId} onChange={(e) => setOrganizationId(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}>
+              {data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+            </select>
+            {organizationId !== contact.organizationId && <small>Only the CRM contact relationship moves. Workspace access, profile links, and memberships remain unchanged.</small>}
+          </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
             <input
               type="checkbox"
@@ -3878,6 +3955,18 @@ function ContactDetailPage({
               Primary contact for {contact.organizationName}
             </label>
           </div>
+
+          <div>
+            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Contact status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}>
+              <option value="active">Active</option><option value="inactive">Inactive</option><option value="bounced">Bounced</option><option value="unsubscribed">Unsubscribed</option>
+            </select>
+          </div>
+
+          <section className="manage-context-card" aria-label="Read-only workspace context">
+            <div className="manage-context-card__heading"><div><span>Workspace context</span><h3>Read only</h3></div></div>
+            <p className="manage-context-copy">CRM contact record. Workspace access is governed separately and is never changed when this contact moves accounts.</p>
+          </section>
         </div>
       </EditRecordSheet>
 

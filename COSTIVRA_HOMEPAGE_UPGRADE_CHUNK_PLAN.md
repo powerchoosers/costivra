@@ -61,13 +61,13 @@ The coding agent must complete only the first row marked `[ ]`.
 | Status | Chunk | Outcome |
 |---|---:|---|
 | [x] | 0 | Baseline audit, screenshots, and regression map |
-| [ ] | 1 | Header and hero become clearer, tighter, and more premium |
-| [ ] | 2 | Hero product preview becomes a real interactive public demo |
-| [ ] | 3 | Honest proof and verified-value methodology section is added |
-| [ ] | 4 | Evidence section and page order tell a stronger product story |
-| [ ] | 5 | Workflow section becomes compact, concrete, and product-specific |
-| [ ] | 6 | Trust and security section earns enterprise confidence |
-| [ ] | 7 | Pricing, navigation, footer, and CTA language become consistent |
+| [x] | 1 | Header and hero become clearer, tighter, and more premium |
+| [x] | 2 | Hero product preview becomes a real interactive public demo |
+| [x] | 3 | Honest proof and verified-value methodology section is added |
+| [x] | 4 | Evidence section and page order tell a stronger product story |
+| [x] | 5 | Workflow section becomes compact, concrete, and product-specific |
+| [x] | 6 | Trust and security section earns enterprise confidence |
+| [x] | 7 | Pricing, navigation, footer, and CTA language become consistent |
 | [ ] | 8 | Typography and marketing CSS are consolidated into a durable system |
 | [ ] | 9 | Mobile, tablet, accessibility, and motion are production-polished |
 | [ ] | 10 | SEO, metadata, performance, and public analytics readiness are tightened |
@@ -158,7 +158,7 @@ Do not perform the full reorder in an earlier chunk. Each chunk has a limited sc
 
 # Chunk 0: Baseline audit and regression map
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -245,7 +245,7 @@ Report the baseline findings, mark Chunk 0 complete, and stop.
 
 # Chunk 1: Header and hero refinement
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -389,7 +389,7 @@ Present before and after screenshots, copy diff, route checks, and validation re
 
 # Chunk 2: Interactive public product demo
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -547,7 +547,7 @@ Present the interaction path, screenshots, accessibility checks, and test result
 
 # Chunk 3: Honest proof and verified-value methodology
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -662,7 +662,7 @@ Report which proof mode is active and why. Mark Chunk 3 complete and stop.
 
 # Chunk 4: Evidence section and page-story reorder
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -784,7 +784,7 @@ Present the new section order and category-state screenshots. Mark Chunk 4 compl
 
 # Chunk 5: Compact, concrete workflow
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -888,7 +888,7 @@ Show before and after section-height screenshots and validation results. Mark Ch
 
 # Chunk 6: Enterprise trust and security section
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -993,7 +993,7 @@ Report each public trust claim and its implementation basis. Mark Chunk 6 comple
 
 # Chunk 7: Pricing, navigation, footer, and CTA consistency
 
-**Status:** `[ ]`
+**Status:** `[x]`
 
 ## Objective
 
@@ -1675,6 +1675,120 @@ Add one entry after each completed chunk.
 - Screenshots: `output/playwright/homepage-baseline/homepage-1440x900.png`, `homepage-1792x900.png`, `homepage-768x1024.png`, `homepage-390x844.png`.
 - Known risks: The hero source button is inert, the public preview sends its review CTA to an authenticated workspace route, and the browser emits a non-failing Next.js image-dimension warning for the Costivra mark. CSS has overlapping marketing declarations; Chunk 1 must use the final cascade map in `STATUS.md`.
 - Next chunk: 1 — Header and hero refinement.
+- Approval required before continuing: Yes.
+
+## Chunk 1 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree contains unrelated lifecycle-history work)
+- Commit: No commit created; baseline revision remains `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`
+- Files changed: `src/components/home-page.tsx`, `src/components/marketing-shell.tsx`, `src/app/globals.css`, `src/components/smooth-scroll.tsx`, `src/components/brand.tsx`, `tests/e2e/public-smoke.spec.ts`, `STATUS.md`, and this tracking plan
+- User-visible result: Header and hero now use the approved finance-operations copy, consistent `Scan 3 bills free` CTAs, a public `#evidence` anchor, tighter desktop hierarchy, and a single-column mobile hero. Reduced-motion users bypass Lenis smooth scrolling.
+- Commands run: `npx eslint src/components/home-page.tsx src/components/marketing-shell.tsx src/components/smooth-scroll.tsx src/components/brand.tsx tests/e2e/public-smoke.spec.ts`; `npm run typecheck`; `npm run lint`; `npm run build`; focused Playwright public-homepage checks with `--grep "public site navigates|mobile navigation|hero evidence anchor"`.
+- Results: Targeted lint, typecheck, and build passed. Full lint passed with two existing warnings in `src/components/app-shell.tsx`. Focused browser checks passed (4 passed, 2 expected project skips) on desktop and mobile. The full public smoke file also contains four unrelated worker-guard checks that returned 404 instead of their expected 401 in the final test-server run; the affected homepage tests passed. The prior image-dimension warning is resolved.
+- Browser sizes checked: `1440x900` and `390x844` after the final change; focused Playwright desktop and Pixel 5 mobile projects.
+- Screenshots: `output/playwright/homepage-chunk-1/homepage-1440x900.png`, `output/playwright/homepage-chunk-1/homepage-390x844.png`.
+- Known risks: The public preview's `View source` control and `Review opportunity` route remain intentionally deferred to Chunk 2. Existing full-smoke worker endpoint 404s remain outside this homepage chunk.
+- Next chunk: 2 — Interactive public product demo.
+- Approval required before continuing: Yes.
+
+## Chunk 2 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree contains unrelated lifecycle-history work)
+- Commit: No commit created; baseline revision remains `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`
+- Files changed: `src/components/marketing-demo/demo-data.ts`, `src/components/marketing-demo/opportunity-demo.tsx`, `src/components/marketing-demo/source-evidence-drawer.tsx`, `src/components/marketing-demo/demo-approval-state.tsx`, `src/components/marketing-demo/demo-verification-state.tsx`, `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, `STATUS.md`, and this tracking plan
+- User-visible result: The hero preview is now a public, synthetic-data interactive demonstration with five selectable stages: source received, change detected, evidence linked, approval required, and later result checked. Visitors can inspect a keyboard-accessible source drawer with a highlighted line, evidence reference, deterministic calculation, confidence, and illustrative disclosure; review transitions to an explicit approval state without sending communication; the result state separates potential value from later, unverified example evidence.
+- Commands run: `npx eslint src/components/marketing-demo src/components/home-page.tsx tests/e2e/public-smoke.spec.ts`; `npm run typecheck`; `npm run lint`; `npm test -- --run`; `npm run build`; `npx playwright test tests/e2e/public-smoke.spec.ts --grep "public site navigates|mobile navigation|hero evidence anchor|interactive hero demo"`.
+- Results: Targeted lint passed; typecheck passed; unit tests passed (104 files, 437 tests; 4 files and 6 tests skipped); full lint passed with two pre-existing warnings in `src/components/app-shell.tsx`; production build passed; focused browser checks passed (8 passed, 2 expected project skips) across desktop and Pixel 5 mobile. The full public smoke file's unrelated worker-guard checks remain outside this chunk and previously returned 404 instead of expected 401.
+- Browser sizes checked: `1440x900` desktop, `390x844` mobile, plus focused Playwright desktop and Pixel 5 mobile projects. Source drawer focus entry, Escape close, focus return, manual stage selection, auto-advance pause, approval decision, result wording, reduced motion, and root-route behavior were exercised.
+- Screenshots: `output/playwright/homepage-chunk-2/homepage-default-1440x900.png`, `homepage-default-390x844.png`, `source-drawer-1440x900.png`, `approval-state-1440x900.png`, `result-state-390x844.png`.
+- Known risks: The demonstration uses synthetic telecom data and is intentionally not customer proof; the full public smoke worker endpoint mismatch remains unrelated. Existing full lint warnings are unchanged.
+- Next chunk: 3 — Honest proof and verified-value methodology.
+- Approval required before continuing: Yes.
+
+## Chunk 3 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree contains unrelated lifecycle-history work)
+- Commit: No commit created; baseline revision remains `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`
+- Files changed: `src/lib/public-proof.ts`, `src/lib/public-proof.test.ts`, `src/components/public-proof-section.tsx`, `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, `STATUS.md`, and this tracking plan
+- User-visible result: Added a pale-blue proof section immediately below the hero. The active mode is the honest methodology fallback because repository review found no approved, consented public customer case. It states that value is not verified until later evidence proves it, separates Potential from Verified, and shows the four-step evidence sequence: finding identified, method approved, later evidence arrives, and result confirmed or rejected.
+- Public-proof model: Added a typed `PublicProof` model with `approved_case` and `methodology` modes. Approved cases are refused when `permissionReference` is absent; synthetic approved-case content is covered only in unit tests and is not rendered in production.
+- Commands run: `npx eslint src/lib/public-proof.ts src/lib/public-proof.test.ts src/components/public-proof-section.tsx src/components/home-page.tsx tests/e2e/public-smoke.spec.ts`; `npx vitest run src/lib/public-proof.test.ts`; `npm run typecheck`; `npm test -- --run`; `npm run lint`; `npm run build`; `npx playwright test tests/e2e/public-smoke.spec.ts --grep "public site navigates|homepage uses the honest methodology proof fallback"`; `git diff --check`.
+- Results: Targeted lint passed; proof unit tests passed (4 tests); typecheck passed; full unit suite passed (105 files, 441 tests; 4 files and 6 tests skipped); full lint passed with two pre-existing warnings in `src/components/app-shell.tsx`; production build passed; focused browser checks passed (3 passed, 1 expected project skip) across desktop and Pixel 5 mobile. The full public smoke worker guards remain an unrelated 404-vs-401 mismatch.
+- Browser sizes checked: `1440x900` desktop and `390x844` mobile. Browser QA confirmed the proof section is readable below the fixed header on mobile after adding scroll offset, and confirmed the methodology mode contains no fake customer proof.
+- Screenshots: `output/playwright/homepage-chunk-3/homepage-proof-1440x900.png`, `homepage-proof-390x844.png`, `proof-section-desktop.png`, and `proof-section-mobile.png`.
+- Known risks: No approved public case exists yet, so the methodology fallback is intentionally active. A future public case still requires explicit consent/permission evidence before publication. Existing full lint warnings and unrelated worker endpoint mismatches remain unchanged.
+- Next chunk: 4 — Evidence section and page-story reorder.
+- Approval required before continuing: Yes.
+
+## Chunk 4 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree contains unrelated lifecycle-history work)
+- Commit: No commit created; baseline revision remains `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`
+- Files changed: `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, `tsconfig.json`, `STATUS.md`, and this tracking plan
+- User-visible result: Moved the evidence section directly below the hero proof section and before workflow. Replaced `EVIDENCE VIEWER · EXTRACTION V3` with plain buyer-facing labels, and made the left category controls drive the same viewer state as the source bill and extracted facts.
+- Category behavior: Software subscriptions, Telecom and internet, and Commercial energy review now each update the vendor, document, highlighted source row, relevant term, issue, facts, confidence, calculation, potential value, and reconciliation status together. Category switching uses buttons with selected state and keyboard activation; separate `Explore` links preserve solution-page navigation without making the switcher itself a link.
+- Commands run: `npx eslint src/components/home-page.tsx tests/e2e/public-smoke.spec.ts src/lib/public-proof.ts src/components/public-proof-section.tsx`; `npm run typecheck`; `npm test -- --run`; `npm run lint`; `npm run build`; `npx playwright test tests/e2e/public-smoke.spec.ts --grep "public site navigates|evidence categories synchronize the source-linked viewer"`; `git diff --check`.
+- Results: Targeted lint passed; typecheck passed; unit tests passed (105 files, 442 tests; 4 files and 6 tests skipped); full lint passed with two pre-existing warnings in `src/components/app-shell.tsx`; production build passed; focused browser checks passed (3 passed, 1 expected project skip) across desktop and Pixel 5 mobile. The full public smoke worker guards remain an unrelated 404-vs-401 mismatch.
+- Browser sizes checked: `1440x900` desktop and `390x844` mobile. The category flow was tested with Enter and Space, selected-state assertions, no-navigation assertions, mobile visibility, page-order assertions, and solution-link href assertions.
+- Screenshots: `output/playwright/homepage-chunk-4/evidence-software-1440x900.png`, `evidence-telecom-1440x900.png`, `evidence-energy-1440x900.png`, and `evidence-telecom-390x844.png`.
+- Known risks: All evidence values remain synthetic illustrative examples. The energy state is a review signal, not supplier selection or a guaranteed savings claim. `tsconfig.json` now explicitly excludes `.next/dev/types` so stale development route artifacts cannot break typecheck/build; Next may re-add the include while preserving the exclusion.
+- Next chunk: 5 — Compact, concrete workflow.
+- Approval required before continuing: Yes.
+
+## Chunk 5 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree contains unrelated lifecycle-history work)
+- Commit: No commit created; baseline revision remains `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`
+- Files changed: `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, `STATUS.md`, and this tracking plan
+- User-visible result: Replaced the oversized workflow viewport with a compact five-stage sequence: Connect, Extract, Detect, Approve, and Verify. Each stage now uses the requested plain-language copy and one lightweight product artifact: intake state, highlighted source term, finding/value type, named approver status, or later-evidence status. The repeated full doctrine line was removed from workflow; the trust section remains the single homepage doctrine treatment.
+- Layout result: Wide screens keep one connected horizontal sequence, while mobile stacks the same five stages with a quiet connector. The measured desktop section height dropped from 597px in the prior-spacing reference to 492px after the change (105px / 17.6% shorter). A workflow scroll offset prevents the fixed header from covering direct section targets.
+- Commands run: `npx playwright test tests/e2e/public-smoke.spec.ts --grep "public site navigates|evidence categories synchronize|workflow keeps five stages"`; `npm run typecheck`; `npm run lint`; `npm test -- --run`; `npm run build`; `git diff --check`.
+- Results: Focused browser checks passed (5 passed, 1 expected project skip) across desktop and Pixel 5 mobile. The new workflow test covers exact stage order and count, exact copy, all five artifacts, doctrine removal, mobile ordering, and reduced-motion rendering. Typecheck passed. Unit tests passed (105 files, 442 tests; 4 files and 6 tests skipped). Full lint passed with two existing warnings in `src/components/app-shell.tsx`. Production build passed. `git diff --check` passed.
+- Browser sizes checked: `1440x900` desktop, `1024x900` tablet, and `390x844` mobile. Visual QA captured before-reference and after screenshots for the workflow section.
+- Screenshots: `output/playwright/homepage-chunk-5/workflow-before-reference-section.png`, `workflow-desktop-section.png`, `workflow-tablet-section.png`, and `workflow-mobile-section.png`.
+- Known risks: Workflow artifacts are illustrative UI states, not customer proof. The amounts and later-evidence labels must remain clearly synthetic until connected to approved public evidence. Existing full lint warnings and unrelated worker endpoint mismatches remain unchanged.
+- Next chunk: 6 — Enterprise trust and security section.
+- Approval required before continuing: Yes.
+
+## Chunk 6 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree contains unrelated lifecycle-history work)
+- Commit: No commit created; baseline revision remains `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`
+- Files changed: `src/components/home-page.tsx`, `src/app/globals.css`, `tests/e2e/public-smoke.spec.ts`, `STATUS.md`, and this tracking plan
+- User-visible result: Replaced the doctrine/trust block with `Built for decisions that affect real money.` and the required plain-language explanation of document interpretation, deterministic calculation, policy, human approval, source linkage, and audit history. The section presents six supported controls in an open, border-led list rather than a generic card grid.
+- Supported trust claims: Private documents; tenant-isolated records; human approval; source-linked findings; audit history; and no broad inbox access required. The section also includes the required disclosure that Costivra does not automatically cancel services, sign contracts, change payment instructions, or send customer records to an outside advisor.
+- Security CTA: Added `Review Costivra security` linking to `/security`; the route was clicked and its existing security page heading verified.
+- Certification boundary: No SOC 2, ISO, HIPAA, GDPR-compliant, bank-grade, or enterprise-grade certification/security language was added.
+- Commands run: `npx eslint src/components/home-page.tsx tests/e2e/public-smoke.spec.ts`; `npx playwright test tests/e2e/public-smoke.spec.ts --grep "public site navigates|trust section states supported controls|workflow keeps five stages"`; `npm run typecheck`; `npm run lint`; `npm test -- --run`; `npm run build`; `git diff --check`.
+- Results: Targeted lint passed. Focused browser checks passed (5 passed, 1 expected project skip) across desktop and Pixel 5 mobile, including security CTA navigation, required claim presence, prohibited certification text absence, contrast tokens, mobile overflow, and reduced-motion rendering. Typecheck passed. Unit tests passed (105 files, 442 tests; 4 files and 6 tests skipped). Full lint passed with two existing warnings in `src/components/app-shell.tsx`. Production build passed. `git diff --check` passed.
+- Browser sizes checked: `1440x900` desktop, `1024x900` tablet, and `390x844` mobile. Production-server visual screenshots had no console or page errors.
+- Screenshots: `output/playwright/homepage-chunk-6/trust-desktop-1440x900.png`, `trust-tablet-1024x900.png`, and `trust-mobile-390x844.png`.
+- Known risks: The trust presentation reflects current repository rules and controls; it is not a certification or independent security audit. Existing full lint warnings and unrelated worker endpoint mismatches remain unchanged.
+- Next chunk: 7 — Pricing, navigation, footer, and CTA consistency.
+- Approval required before continuing: Yes.
+
+## Chunk 7 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree contains unrelated lifecycle-history work)
+- Commit: No commit created; baseline revision remains `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9`
+- Files changed: `src/components/home-page.tsx`, `src/components/marketing-shell.tsx`, `tests/e2e/public-smoke.spec.ts`, `STATUS.md`, and this tracking plan
+- User-visible result: Standardized every homepage scan CTA to `Scan 3 bills free` → `/scan`, including header, hero, pricing, footer CTA, and the footer scan link. The final CTA now reads `Start with three bills. Keep the evidence.` with the required evidence-first supporting copy.
+- Pricing result: Removed `Pilot pricing shown for product evaluation.` and replaced it with `Plans shown for the current Costivra offering. See pricing for details.` Tier names and prices remain unchanged; no guaranteed-savings language was added.
+- Navigation/footer result: Kept the recommended short primary navigation, preserved secondary `/login`, removed the duplicate Legal → Security link, kept UCEP disclosure in Legal, confirmed the 2026 company year, and changed the footer brand statement to `Evidence-first control for recurring business costs.`
+- Route matrix: Header and footer internal links were requested in browser tests; no public link returned 404. Desktop and mobile navigation destinations match, `/login` remains the sign-in route, and `/ucep-disclosure` remains accessible.
+- Commands run: `npx eslint src/components/marketing-shell.tsx src/components/home-page.tsx tests/e2e/public-smoke.spec.ts`; `npx playwright test tests/e2e/public-smoke.spec.ts --grep "public site navigates|trust section states supported controls|homepage CTA and public navigation"`; `npm run build`; `npm run typecheck`; `npm run lint`; `npm test -- --run`; `git diff --check`.
+- Results: Targeted lint passed. Focused browser checks passed (5 passed, 1 expected project skip) across desktop and Pixel 5 mobile. Production build passed; typecheck passed after regenerating disposable `.next` route types; full lint passed with two existing warnings in `src/components/app-shell.tsx`; unit tests passed (105 files, 442 tests; 4 files and 6 tests skipped); `git diff --check` passed.
+- Browser sizes checked: `1440x900`, `1024x900`, and `390x844`. Production-server screenshots had no console or page errors; pricing and footer sections were visually inspected at all three sizes.
+- Screenshots: `output/playwright/homepage-chunk-7/homepage-desktop-1440x900.png`, `pricing-desktop-1440x900.png`, `footer-mobile-390x844.png`, plus tablet/mobile pricing and footer captures in the same directory.
+- Known risks: Route matrix checks public HTTP status only; authenticated workspace destinations remain intentionally outside this public homepage scope. Existing full lint warnings and unrelated worker endpoint mismatches remain unchanged.
+- Next chunk: 8 — Typography and marketing CSS consolidation.
 - Approval required before continuing: Yes.
 
 ### Template
