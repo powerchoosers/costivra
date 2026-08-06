@@ -13,7 +13,6 @@ import {
 import { createPortal } from "react-dom";
 import {
   ArrowDownRight,
-  ArrowLeft,
   ArrowUpRight,
   Building2,
   CalendarClock,
@@ -48,6 +47,7 @@ import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
+import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
@@ -57,6 +57,7 @@ import { DocumentUploadExperience } from "@/components/document-upload-experienc
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditRecordSheet } from "@/components/records/edit-record-sheet";
 import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
+import { RecordChangeHistory, type AuditHistoryItem } from "@/components/records/record-change-history";
 import { recordDraftChanged } from "@/lib/records/draft-state";
 
 type ApiOptions = {
@@ -303,6 +304,21 @@ export function PortalPage({
   data: PortalData;
 }) {
   const page = slug?.[0] ?? "home";
+  const detailId = slug?.[1];
+  const pageNames: Record<string, string> = { home: "Command Center", expenses: "Expenses", opportunities: "Opportunities", contracts: "Contracts", documents: "Documents", actions: "Actions", savings: "Savings", vendors: "Vendors", reports: "Reports", settings: "Settings", integrations: "Integrations", team: "Team & approvals", ask: "Ask Costivra" };
+  const detailName = detailId
+    ? page === "vendors" ? data.vendors.find((item) => item.id === detailId)?.name
+      : page === "expenses" ? data.expenses.find((item) => item.id === detailId)?.vendorName
+        : page === "opportunities" ? data.opportunities.find((item) => item.id === detailId)?.title
+          : page === "contracts" ? data.contracts.find((item) => item.id === detailId)?.title
+            : page === "documents" ? (data.documents.find((item) => item.id === detailId)?.originalFilename ?? data.invoices.find((item) => item.id === detailId)?.invoiceNumber)
+              : page === "actions" ? data.actions.find((item) => item.id === detailId)?.title
+                : page === "savings" ? data.savings.find((item) => item.id === detailId)?.title
+                  : undefined
+    : undefined;
+  const fallbackHref = detailId ? `/app/${page}` : "/app";
+  const fallbackLabel = detailId ? pageNames[page] ?? "Command Center" : "Command Center";
+  useNavigationLabel(detailName ?? pageNames[page] ?? "Command Center", fallbackHref, fallbackLabel);
   const [modal, setModal] = useState<ModalState>(null);
   const [presetVendor, setPresetVendor] = useState<string | undefined>();
   const [vendorPanelOpen, setVendorPanelOpen] = useState(false);
@@ -379,6 +395,7 @@ export function PortalPage({
             : "app-content motion-page"
         }
       >
+        {page !== "home" && !detailId && <GlobalBackControl className="app-global-back" />}
         {pages[page] ?? (
           <Empty
             title="Page not found"
@@ -1231,6 +1248,7 @@ export function VendorDetail({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
 
   // Edit form state
   const [displayNameOverride, setDisplayNameOverride] = useState(vendor?.name ?? "");
@@ -1249,12 +1267,18 @@ export function VendorDetail({
     }
   };
 
+  useEffect(() => {
+    if (!vendor || activeTab !== "history") return;
+    void fetch(`/api/portal/vendors/${vendor.relationshipId}/history`, { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : { history: [] })
+      .then((payload) => setAuditHistory(Array.isArray(payload.history) ? payload.history : []))
+      .catch(() => setAuditHistory([]));
+  }, [activeTab, vendor]);
+
   if (!vendor)
     return (
       <div className="vendor-not-found">
-        <Link href="/app/vendors">
-          <ArrowLeft size={15} /> Back to vendors
-        </Link>
+        <GlobalBackControl className="vendor-back" />
         <Empty
           title="Vendor not found"
           copy="This vendor is not part of your organization, or the link is no longer valid."
@@ -1368,7 +1392,7 @@ export function VendorDetail({
       const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ relationshipStatus: "ended", reason }),
+        body: JSON.stringify({ relationshipStatus: vendor.relationshipStatus === "terminated" ? "active" : "terminated", reason }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1379,6 +1403,8 @@ export function VendorDetail({
     } else {
       const res = await fetch(`/api/portal/vendors/${vendor.relationshipId}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, confirmation: "REMOVE" }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -1423,7 +1449,7 @@ export function VendorDetail({
     },
     {
       id: "end",
-      label: vendor.relationshipStatus === "ended" ? "Reactivate relationship" : "End vendor relationship",
+      label: vendor.relationshipStatus === "terminated" ? "Reactivate relationship" : "End vendor relationship",
       icon: <Pause size={15} />,
       disabled: !canWrite,
       onSelect: () => handleOpenDangerDialog("end"),
@@ -1446,13 +1472,12 @@ export function VendorDetail({
     { id: "findings", label: "Findings", count: opportunities.length },
     { id: "actions", label: "Actions", count: actions.length },
     { id: "files", label: "Files", count: documents.length },
+    { id: "history", label: "History", count: auditHistory.length },
   ];
 
   return (
     <div className="vendor-detail">
-      <Link className="vendor-back" href="/app/vendors">
-        <ArrowLeft size={15} /> Back to vendors
-      </Link>
+      <GlobalBackControl className="vendor-back" />
       <header className="vendor-detail-header" style={{ position: "relative" }}>
         <div>
           <div className="vendor-detail-title">
@@ -1581,6 +1606,7 @@ export function VendorDetail({
           />
         </>
       )}
+      {activeTab === "history" && <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Relationship history</h2><p>Recorded changes to this vendor relationship.</p></div></div><RecordChangeHistory history={auditHistory} emptyMessage="No relationship history has been recorded yet." /></section>}
 
       {/* Edit Record Sheet */}
       <EditRecordSheet
@@ -1645,9 +1671,9 @@ export function VendorDetail({
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
             >
               <option value="active">Active</option>
-              <option value="under_review">Under Review</option>
-              <option value="paused">Paused</option>
-              <option value="ended">Ended</option>
+              <option value="prospect">Prospect</option>
+              <option value="inactive">Inactive</option>
+              <option value="terminated">Terminated</option>
             </select>
           </div>
 
@@ -1691,7 +1717,7 @@ export function VendorDetail({
         onConfirm={handleConfirmDangerAction}
         dependencyPreview={deletionPreview}
         loadingPreview={loadingPreview}
-        requiredConfirmationText={dangerMode === "remove" ? vendor.name : undefined}
+        requiredConfirmationText={dangerMode === "remove" ? "REMOVE" : undefined}
       />
       <div className="vendor-detail-grid">
         <section className="portal-panel vendor-contract-summary">

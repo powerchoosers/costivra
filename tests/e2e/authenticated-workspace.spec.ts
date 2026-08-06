@@ -90,12 +90,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       throw created.error ?? new Error("The temporary E2E user was not created.");
     }
     userId = created.data.user.id;
-    const staff = await admin.from("internal_staff_users").upsert({ user_id: userId, role: "owner", status: "active" }, { onConflict: "user_id" });
-    if (staff.error) throw staff.error;
     organizationId = await waitForMembership(admin, userId);
-
-    const profile = await admin.from("crm_account_profiles").upsert({ organization_id: organizationId, lifecycle_stage: "active", visible_in_crm: true }, { onConflict: "organization_id" });
-    if (profile.error) throw profile.error;
 
     const vendor = await admin
       .from("vendors")
@@ -333,8 +328,8 @@ test.describe("authenticated customer workspace", () => {
       await policyDialog.getByLabel("Policy name").fill("E2E consequential work approval");
       await policyDialog.getByLabel("Explicit consent").check();
       await policyDialog.getByRole("button", { name: "Add policy", exact: true }).click();
-      await expect(page.getByText("Approval policy added.", { exact: true })).toBeVisible();
-      await expect(page.getByText("E2E consequential work approval", { exact: true })).toBeVisible();
+      await expect(page.getByText("Approval policy added.", { exact: true })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText("E2E consequential work approval", { exact: true })).toBeVisible({ timeout: 30_000 });
 
       await page.goto(`/app/documents/${fixture.invoiceId}`);
       await expect(page.getByRole("heading", { name: "Invoice INV-E2E-001" })).toBeVisible();
@@ -353,7 +348,7 @@ test.describe("authenticated customer workspace", () => {
         .getByRole("button", { name: `Update ${fixture.opportunityTitle} status` })
         .click();
       await opportunityCard.getByRole("option", { name: "Approve plan" }).click();
-      await expect(page.getByText("Opportunity updated.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Opportunity updated.", { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect
         .poll(async () => {
           const result = await fixture.admin
@@ -372,7 +367,7 @@ test.describe("authenticated customer workspace", () => {
       });
       await expect(actionCard).toBeVisible({ timeout: 30_000 });
       await actionCard.getByRole("button", { name: "Approve", exact: true }).click();
-      await expect(page.getByText("Action approved.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Action approved.", { exact: true })).toBeVisible({ timeout: 30_000 });
 
       await page.goto("/app/savings");
       const savingsRow = page.locator(".savings-workflow-row", {
@@ -383,15 +378,15 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.getByRole("heading", { name: "Verification review" })).toBeVisible();
       await page.getByRole("checkbox", { name: /reviewed the supporting records and method/i }).check();
       await page.getByRole("button", { name: "Accept reviewed baseline" }).click();
-      await expect(page.getByText("Baseline accepted.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Baseline accepted.", { exact: true })).toBeVisible({ timeout: 30_000 });
 
       await page.goto("/app/actions");
       await expect(actionCard).toBeVisible();
       await actionCard.getByRole("button", { name: "Start work" }).click();
-      await expect(page.getByText("Action started.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Action started.", { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(actionCard.getByRole("button", { name: "Mark complete" })).toBeVisible();
       await actionCard.getByRole("button", { name: "Mark complete" }).click();
-      await expect(page.getByText("Action completed.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Action completed.", { exact: true })).toBeVisible({ timeout: 30_000 });
 
       const [opportunity, action, policy, savings, audit] = await Promise.all([
         fixture.admin

@@ -60,7 +60,7 @@ The coding agent must complete only the first row marked `[ ]`.
 
 | Status | Chunk | Outcome |
 |---|---:|---|
-| [ ] | 0 | Baseline audit, screenshots, and regression map |
+| [x] | 0 | Baseline audit, screenshots, and regression map |
 | [ ] | 1 | Header and hero become clearer, tighter, and more premium |
 | [ ] | 2 | Hero product preview becomes a real interactive public demo |
 | [ ] | 3 | Honest proof and verified-value methodology section is added |
@@ -1661,6 +1661,21 @@ Mark Chunk 11 complete, present the full review packet, and stop.
 ## 5. Chunk completion log
 
 Add one entry after each completed chunk.
+
+## Chunk 0 completion
+
+- Date: August 6, 2026
+- Branch: `main` (working tree already contains unrelated lifecycle-history work)
+- Commit: `8543d4ae28ddf3f19d232639ac3d17b8e3f804f9` baseline; no homepage commit created
+- Files changed: `STATUS.md`, this tracking plan; screenshots only in `output/playwright/homepage-baseline/`
+- User-visible result: No public design, copy, or route changes. A four-viewport visual and interaction baseline now documents the current homepage.
+- Commands run: manual browser audit at `1440x900`, `1792x900`, `768x1024`, and `390x844`; `npx playwright test tests/e2e/public-smoke.spec.ts`; `npm run typecheck`.
+- Results: Browser interactions completed without runtime console errors or horizontal mobile overflow. Public smoke suite passed (10 passed, 2 expected skips). Typecheck is blocked by unrelated uncommitted errors in `src/components/manage-portal.tsx` (`lifecycleFilter`, `setLifecycleFilter`, `setPage`, and `setSelectedIds` are undefined); lint and build were not run because the required typecheck gate failed.
+- Browser sizes checked: `1440x900`, `1792x900`, `768x1024`, `390x844`.
+- Screenshots: `output/playwright/homepage-baseline/homepage-1440x900.png`, `homepage-1792x900.png`, `homepage-768x1024.png`, `homepage-390x844.png`.
+- Known risks: The hero source button is inert, the public preview sends its review CTA to an authenticated workspace route, and the browser emits a non-failing Next.js image-dimension warning for the Costivra mark. CSS has overlapping marketing declarations; Chunk 1 must use the final cascade map in `STATUS.md`.
+- Next chunk: 1 — Header and hero refinement.
+- Approval required before continuing: Yes.
 
 ### Template
 

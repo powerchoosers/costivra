@@ -107,36 +107,32 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { db, userId } = await requireInternalOperator();
+    const { db, userId, role } = await requireInternalOperator();
     const contactId = cleanUuid((await params).id);
     if (!contactId) {
       return NextResponse.json({ error: "Invalid contact ID." }, { status: 400 });
     }
 
-    const { data: contact } = await db
-      .from("crm_contacts")
-      .select("id, organization_id, profile_id, email")
-      .eq("id", contactId)
-      .maybeSingle();
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const reason = cleanText(body.reason, 200);
+    const confirmation = cleanText(body.confirmation, 80);
+    if (!reason || confirmation !== "REMOVE") return NextResponse.json({ error: "Provide a reason and type REMOVE to permanently remove a contact." }, { status: 400 });
 
-    if (!contact) {
-      return NextResponse.json({ error: "Contact not found." }, { status: 404 });
-    }
+    const { data: contact, error: contactError } = await db.from("crm_contacts").select("id, profile_id").eq("id", contactId).maybeSingle();
+    if (contactError) throw contactError;
+    if (!contact) return NextResponse.json({ error: "Contact not found." }, { status: 404 });
+    if (contact.profile_id && role !== "owner") return NextResponse.json({ error: "Only a Costivra owner can remove a profile-linked contact. Manage workspace access separately." }, { status: 403 });
 
-    // Safely delete CRM contact record (leaves auth profiles & workspace memberships intact)
-    const { error: deleteErr } = await db.from("crm_contacts").delete().eq("id", contactId);
-    if (deleteErr) throw deleteErr;
-
-    await db.from("internal_audit_events").insert({
-      actor_id: userId,
-      organization_id: contact.organization_id,
-      action: "crm.contact_removed",
-      resource_type: "contact",
-      resource_id: contactId,
-      safe_metadata: {
-        had_profile_link: Boolean(contact.profile_id),
-      },
+    // This server-side function rechecks every dependency immediately before
+    // deletion; the browser preview is deliberately not treated as authority.
+    const { error: deleteErr } = await db.rpc("manage_delete_empty_crm_contact", {
+      p_contact_id: contactId,
+      p_actor_id: userId,
+      p_reason: reason,
     });
+    if (deleteErr?.message.includes("RECORD_NOT_FOUND")) return NextResponse.json({ error: "Contact not found." }, { status: 404 });
+    if (deleteErr?.message.includes("DEPENDENCIES_PRESENT")) return NextResponse.json({ error: "Contact dependency state changed or it has protected history. Reload the deletion preview and deactivate the contact instead.", blocked: true }, { status: 409 });
+    if (deleteErr) throw deleteErr;
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -6,6 +6,7 @@ import { Check, ChevronRight, Copy, FileText, LockKeyhole, Pencil, X } from "luc
 import { useState } from "react";
 import { useToast } from "@/components/toast-provider";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
+import { GlobalBackControl } from "@/components/navigation-history";
 import type { PortalData } from "@/lib/portal/types";
 import {
   portalRecordContext,
@@ -177,7 +178,7 @@ function SavingsReviewPanel({ outcome, canDecide }: { outcome: PortalData["savin
 
 export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind: Kind; id: string }) {
   const detail = build(data, kind, id); const meta = labels[kind];
-  if (!detail) return <div className="record-detail"><Link className="record-back" href={`/app/${meta.plural}`}>← Back to {meta.plural}</Link><section className="record-empty"><h1>{meta.noun} not found</h1><p>This record is not part of your workspace, or it no longer exists.</p></section></div>;
+  if (!detail) return <div className="record-detail"><GlobalBackControl className="record-back" /><section className="record-empty"><h1>{meta.noun} not found</h1><p>This record is not part of your workspace, or it no longer exists.</p></section></div>;
   const recordId = String((detail.record as Record<string, unknown>).id); const vendorId = (detail.record as Record<string, unknown>).vendorId as string | null;
   const audits = data.auditEvents.filter((event) => event.resourceId === detail.updateId || event.resourceId === recordId).slice(0, 8);
   const context = portalRecordContext(data, kind, id);
@@ -191,7 +192,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
   );
   const savingsOutcome = kind === "savings" ? data.savings.find((item) => item.id === id) ?? null : null;
   return <div className="record-detail">
-    <Link className="record-back" href={`/app/${meta.plural}`}>← Back to {meta.plural}</Link>
+    <GlobalBackControl className="record-back" />
     <header className="record-detail-header"><div><span className="record-eyebrow">{meta.noun} record</span><h1>{detail.title}</h1><p>{detail.subtitle}</p></div><span className="record-status"><i />{text(detail.status)}</span></header>
     <nav className="record-tabs" aria-label={`${meta.noun} detail sections`}>{savingsOutcome && <a href="#verification">Verification</a>}<a href="#overview">Overview</a>{lineItems.length > 0 && <a href="#line-items">Line items</a>}<a href="#files">Files</a><a href="#quality">Data quality</a><a href="#related">Related records</a>{evidence.length > 0 && <a href="#evidence">Evidence</a>}<a href="#history">History</a></nav>
     <div className="record-detail-layout"><main>

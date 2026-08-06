@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { db, organizationId, userId } = await requirePortalEditor();
+    const { db, organizationId, userId, role } = await requirePortalEditor();
     const relationshipId = cleanUuid((await params).id);
     if (!relationshipId) {
       return NextResponse.json({ error: "Invalid vendor relationship ID." }, { status: 400 });
@@ -25,10 +25,13 @@ export async function PATCH(
     const categoryOverride = body.categoryOverride !== undefined ? cleanText(body.categoryOverride, 100) : undefined;
     const websiteOverride = body.websiteOverride !== undefined ? cleanText(body.websiteOverride, 2048) : undefined;
     const relationshipStatus = body.relationshipStatus !== undefined ? cleanText(body.relationshipStatus) : undefined;
+    const reason = body.reason !== undefined ? cleanText(body.reason, 200) : undefined;
     const annualizedSpend = body.annualizedSpend !== undefined ? Number(body.annualizedSpend) : undefined;
     const spendCadence = body.spendCadence !== undefined ? cleanText(body.spendCadence) : undefined;
 
     if (relationshipStatus !== undefined && !statuses.has(relationshipStatus)) return NextResponse.json({ error: "Choose a valid vendor relationship status." }, { status: 400 });
+    if (relationshipStatus === "terminated" && !reason) return NextResponse.json({ error: "Explain why this vendor relationship is ending." }, { status: 400 });
+    if (relationshipStatus === "terminated" && role !== "owner" && role !== "admin") return NextResponse.json({ error: "Only organization owners or admins can end a vendor relationship." }, { status: 403 });
     if (spendCadence !== undefined && !cadences.has(spendCadence)) return NextResponse.json({ error: "Choose a valid spend cadence." }, { status: 400 });
     if (annualizedSpend !== undefined && (!Number.isFinite(annualizedSpend) || annualizedSpend < 0)) return NextResponse.json({ error: "Annualized spend must be a non-negative number." }, { status: 400 });
     if (websiteOverride && !/^https?:\/\/[^\s/$.?#][^\s]*$/i.test(websiteOverride)) return NextResponse.json({ error: "Enter a public http or https vendor website." }, { status: 400 });
@@ -41,8 +44,21 @@ export async function PATCH(
     if (relationshipStatus !== undefined) {
       updates.relationship_status = relationshipStatus;
     }
+    if (reason !== undefined) updates.reason = reason;
     if (annualizedSpend !== undefined && !isNaN(annualizedSpend)) updates.annualized_spend = annualizedSpend;
     if (spendCadence !== undefined) updates.spend_cadence = spendCadence;
+
+    const { data: currentRelationship, error: currentRelationshipError } = await db
+      .from("organization_vendors")
+      .select("relationship_status")
+      .eq("id", relationshipId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (currentRelationshipError) throw currentRelationshipError;
+    if (!currentRelationship) return NextResponse.json({ error: "Vendor relationship not found." }, { status: 404 });
+    if (currentRelationship.relationship_status === "terminated" && relationshipStatus === "active" && role !== "owner" && role !== "admin") {
+      return NextResponse.json({ error: "Only organization owners or admins can reactivate a vendor relationship." }, { status: 403 });
+    }
 
     const { data, error } = await db.rpc("portal_update_vendor_relationship", {
       p_relationship_id: relationshipId, p_organization_id: organizationId, p_actor_id: userId,
@@ -52,6 +68,24 @@ export async function PATCH(
       if (error.message.includes("RECORD_CONFLICT")) return NextResponse.json({ error: conflictMessage, code: "record_conflict" }, { status: 409 });
       if (error.message.includes("RECORD_NOT_FOUND")) return NextResponse.json({ error: "Vendor relationship not found." }, { status: 404 });
       throw error;
+    }
+    // The atomic RPC records the bounded field update and monitoring pause.
+    // Persist a distinct lifecycle event as well so customer history can state
+    // clearly that the relationship ended or was reactivated.
+    const isLifecycleChange =
+      (currentRelationship.relationship_status !== "terminated" && relationshipStatus === "terminated") ||
+      (currentRelationship.relationship_status === "terminated" && relationshipStatus === "active");
+    if (isLifecycleChange && relationshipStatus) {
+      const { error: lifecycleAuditError } = await db.from("audit_events").insert({
+        organization_id: organizationId,
+        actor_type: "user",
+        actor_id: userId,
+        action: relationshipStatus === "terminated" ? "vendor_relationship.terminated" : "vendor_relationship.reactivated",
+        resource_type: "vendor_relationship",
+        resource_id: relationshipId,
+        safe_metadata: { fields_changed: ["relationship status"], new_relationship_status: relationshipStatus, ...(reason ? { reason } : {}) },
+      });
+      if (lifecycleAuditError) throw lifecycleAuditError;
     }
     return NextResponse.json({ ok: true, relationship: Array.isArray(data) ? data[0] : data });
   } catch (error) {
@@ -77,6 +111,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid vendor relationship ID." }, { status: 400 });
     }
 
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const reason = cleanText(body.reason, 200);
+    const confirmation = cleanText(body.confirmation, 80);
+    if (!reason || confirmation !== "REMOVE") return NextResponse.json({ error: "Provide a reason and type REMOVE to permanently remove this vendor relationship." }, { status: 400 });
+
     const { data: rel } = await db
       .from("organization_vendors")
       .select("id, vendor_id, vendors(canonical_name)")
@@ -88,21 +127,27 @@ export async function DELETE(
       return NextResponse.json({ error: "Vendor relationship not found." }, { status: 404 });
     }
 
-    const [expensesRes, contractsRes, invoicesRes] = await Promise.all([
+    const [accountsRes, expensesRes, contractsRes, invoicesRes, documentsRes, monitoringRes] = await Promise.all([
+      db.from("expense_accounts").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
       db.from("expenses").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
       db.from("contracts").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
       db.from("invoices").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
+      db.from("documents").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
+      db.from("vendor_monitoring_configs").select("id", { count: "exact" }).eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId),
     ]);
 
+    const accountCount = accountsRes.count ?? 0;
     const expenseCount = expensesRes.count ?? 0;
     const contractCount = contractsRes.count ?? 0;
     const invoiceCount = invoicesRes.count ?? 0;
 
-    if (expenseCount > 0 || contractCount > 0 || invoiceCount > 0) {
+    const documentCount = documentsRes.count ?? 0;
+    const monitoringCount = monitoringRes.count ?? 0;
+    if (accountCount > 0 || expenseCount > 0 || contractCount > 0 || invoiceCount > 0 || documentCount > 0 || monitoringCount > 0) {
       return NextResponse.json(
         {
           error: "Cannot delete vendor relationship with recorded financial transactions or contracts. End relationship instead.",
-          counts: { expenses: expenseCount, contracts: contractCount, invoices: invoiceCount },
+          counts: { expenseAccounts: accountCount, expenses: expenseCount, contracts: contractCount, invoices: invoiceCount, documents: documentCount, monitoringConfigurations: monitoringCount },
         },
         { status: 409 },
       );
@@ -122,7 +167,7 @@ export async function DELETE(
       action: "vendor_relationship.deleted",
       resource_type: "vendor_relationship",
       resource_id: relationshipId,
-      safe_metadata: { vendor_id: rel.vendor_id },
+      safe_metadata: { vendor_id: rel.vendor_id, reason },
     });
 
     return NextResponse.json({ ok: true });
