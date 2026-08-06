@@ -23,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Account not found." }, { status: 404 });
     }
 
-    const [memRes, conRes, locRes, docRes, heldDocRes, invRes, expRes, expenseAccountRes, cntRes, oppRes, actRes, savRes, venRes, monitoringRes, mailRes, mailMessageRes, taskRes] = await Promise.all([
+    const [memRes, conRes, locRes, docRes, heldDocRes, invRes, expRes, expenseAccountRes, cntRes, oppRes, actRes, savRes, venRes, monitoringRes, mailRes, mailMessageRes, taskRes, activityRes] = await Promise.all([
       db.from("organization_memberships").select("id", { count: "exact" }).eq("organization_id", organizationId),
       db.from("crm_contacts").select("id", { count: "exact" }).eq("organization_id", organizationId),
       db.from("locations").select("id", { count: "exact" }).eq("organization_id", organizationId),
@@ -41,6 +41,7 @@ export async function GET(
       db.from("crm_email_threads").select("id", { count: "exact" }).eq("organization_id", organizationId),
       db.from("crm_email_messages").select("id", { count: "exact" }).eq("organization_id", organizationId),
       db.from("crm_tasks").select("id", { count: "exact" }).eq("organization_id", organizationId),
+      db.from("crm_activities").select("id", { count: "exact" }).eq("organization_id", organizationId),
     ]);
 
     const memberships = memRes.count ?? 0;
@@ -60,8 +61,9 @@ export async function GET(
     const mailThreads = mailRes.count ?? 0;
     const mailMessages = mailMessageRes.count ?? 0;
     const tasks = taskRes.count ?? 0;
+    const activities = activityRes.count ?? 0;
 
-    const blocked = [memberships, contacts, locations, documents, invoices, expenses, expenseAccounts, contracts, opportunities, actions, savings, vendors, monitoring, mailThreads, mailMessages, tasks, retentionHolds].some((count) => count > 0);
+    const blocked = [memberships, contacts, locations, documents, invoices, expenses, expenseAccounts, contracts, opportunities, actions, savings, vendors, monitoring, mailThreads, mailMessages, tasks, activities, retentionHolds].some((count) => count > 0);
     const blockReason = blocked
       ? `This account cannot be permanently deleted because it has active customer history (${memberships} member(s), ${documents} document(s), ${invoices} invoice(s)). Archive the account instead.`
       : undefined;
@@ -89,6 +91,7 @@ export async function GET(
         { key: "mail_threads", label: "Mail Threads", count: mailThreads },
         { key: "mail_messages", label: "Mail Messages", count: mailMessages },
         { key: "tasks", label: "Tasks", count: tasks },
+        { key: "crm_activities", label: "CRM Activities", count: activities },
       ],
       previewVersion: "v1",
       checkedAt: new Date().toISOString(),

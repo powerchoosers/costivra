@@ -69,24 +69,6 @@ export async function PATCH(
       if (error.message.includes("RECORD_NOT_FOUND")) return NextResponse.json({ error: "Vendor relationship not found." }, { status: 404 });
       throw error;
     }
-    // The atomic RPC records the bounded field update and monitoring pause.
-    // Persist a distinct lifecycle event as well so customer history can state
-    // clearly that the relationship ended or was reactivated.
-    const isLifecycleChange =
-      (currentRelationship.relationship_status !== "terminated" && relationshipStatus === "terminated") ||
-      (currentRelationship.relationship_status === "terminated" && relationshipStatus === "active");
-    if (isLifecycleChange && relationshipStatus) {
-      const { error: lifecycleAuditError } = await db.from("audit_events").insert({
-        organization_id: organizationId,
-        actor_type: "user",
-        actor_id: userId,
-        action: relationshipStatus === "terminated" ? "vendor_relationship.terminated" : "vendor_relationship.reactivated",
-        resource_type: "vendor_relationship",
-        resource_id: relationshipId,
-        safe_metadata: { fields_changed: ["relationship status"], new_relationship_status: relationshipStatus, ...(reason ? { reason } : {}) },
-      });
-      if (lifecycleAuditError) throw lifecycleAuditError;
-    }
     return NextResponse.json({ ok: true, relationship: Array.isArray(data) ? data[0] : data });
   } catch (error) {
     return apiError(error, "Failed to update vendor relationship.");
