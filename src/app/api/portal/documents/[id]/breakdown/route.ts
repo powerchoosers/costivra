@@ -3,6 +3,12 @@ import { apiError, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { categoryIntelligence } from "@/lib/category-intelligence/service";
 
+const CLEAN_SCAN_AUDIT_ACTIONS = [
+  "document.uploaded_and_extracted",
+  "document.quarantine_released_and_extracted",
+  "document.inbound_attachment_processed",
+] as const;
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -20,18 +26,40 @@ export async function GET(
     const { data: document, error: documentError } = await db
       .from("documents")
       .select(
-        "id, original_filename, mime_type, byte_size, status, extraction_summary, created_at, storage_path, security_scan_status, security_scanned_at, sha256_digest",
+        "id, original_filename, mime_type, byte_size, status, extraction_summary, created_at, storage_path, sha256",
       )
       .eq("id", id)
       .eq("organization_id", organizationId)
       .maybeSingle();
 
-    if (documentError || !document) {
+    if (documentError) {
+      console.error("Document breakdown lookup failed", {
+        documentId: id,
+        code: documentError.code,
+      });
+      return NextResponse.json(
+        { error: "Document analysis could not be loaded." },
+        { status: 500 },
+      );
+    }
+
+    if (!document) {
       return NextResponse.json(
         { error: "Document not found or access denied." },
         { status: 404 },
       );
     }
+
+    const { data: scanAudit } = await db
+      .from("audit_events")
+      .select("action, created_at")
+      .eq("organization_id", organizationId)
+      .eq("resource_type", "document")
+      .eq("resource_id", document.id)
+      .in("action", [...CLEAN_SCAN_AUDIT_ACTIONS])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     const { data: invoice } = await db
       .from("invoices")
@@ -56,7 +84,7 @@ export async function GET(
       const { data: relationship } = await db
         .from("organization_vendors")
         .select(
-          "id, annualized_spend, vendors(id, canonical_name, category, website, catalog_status, logo_url)",
+          "id, annualized_spend, display_name_override, category_override, website_override, vendors(id, canonical_name, category, website, catalog_status, logo_url)",
         )
         .eq("id", invoice.organization_vendor_id)
         .eq("organization_id", organizationId)
@@ -73,9 +101,14 @@ export async function GET(
         };
         vendor = {
           id: catalogVendor.id,
-          name: catalogVendor.canonical_name,
-          category: catalogVendor.category ?? "General",
-          website: catalogVendor.website ?? null,
+          name:
+            relationship.display_name_override || catalogVendor.canonical_name,
+          category:
+            relationship.category_override ||
+            catalogVendor.category ||
+            "General",
+          website:
+            relationship.website_override || catalogVendor.website || null,
           catalogStatus: catalogVendor.catalog_status,
           logoUrl: catalogVendor.logo_url ?? null,
           annualizedSpend: relationship.annualized_spend ?? 0,
@@ -119,7 +152,8 @@ export async function GET(
       .from("evidence_references")
       .select("id, page_number, text_excerpt, field_path")
       .eq("document_id", document.id)
-      .limit(10);
+      .order("page_number", { ascending: true })
+      .limit(25);
 
     const evidence = (evidenceRows ?? []).map((item) => ({
       id: item.id,
@@ -223,6 +257,16 @@ export async function GET(
             },
           ]
         : []),
+      ...(invoice?.reconciliation_status !== "reconciled"
+        ? [
+            {
+              title: "Complete Bill Reconciliation",
+              action:
+                "Review the extracted credits, taxes, fees, and line items before accepting the invoice as a normalized expense.",
+              priority: "high",
+            },
+          ]
+        : []),
       {
         title: "Market Comparison",
         action: marketGuidance,
@@ -238,50 +282,63 @@ export async function GET(
       },
     ];
 
-    return NextResponse.json({
-      document: {
-        id: document.id,
-        filename: document.original_filename,
-        mimeType: document.mime_type,
-        byteSize: document.byte_size,
-        status: document.status,
-        extractionSummary: document.extraction_summary,
-        createdAt: document.created_at,
-        securityScanStatus: document.security_scan_status ?? "unknown",
-        securityScannedAt: document.security_scanned_at ?? null,
-        sha256Digest: document.sha256_digest ?? null,
-        downloadUrl: `/api/portal/documents/${document.id}/download`,
+    const securityScanStatus = scanAudit
+      ? "passed"
+      : document.status === "quarantined"
+        ? "quarantined"
+        : "not_recorded";
+
+    return NextResponse.json(
+      {
+        document: {
+          id: document.id,
+          filename: document.original_filename,
+          mimeType: document.mime_type,
+          byteSize: document.byte_size,
+          status: document.status,
+          extractionSummary: document.extraction_summary,
+          createdAt: document.created_at,
+          securityScanStatus,
+          securityScannedAt: scanAudit?.created_at ?? null,
+          sha256Digest: document.sha256 ?? null,
+          downloadUrl: `/api/portal/documents/${document.id}/download`,
+        },
+        invoice: invoice
+          ? {
+              id: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+              invoiceDate: invoice.invoice_date,
+              dueDate: invoice.due_date,
+              totalAmount:
+                invoice.total_amount != null
+                  ? Number(invoice.total_amount)
+                  : null,
+              subtotalAmount:
+                invoice.subtotal != null ? Number(invoice.subtotal) : null,
+              taxAmount:
+                invoice.tax_total != null ? Number(invoice.tax_total) : null,
+              currency: invoice.currency ?? "USD",
+              reviewStatus: invoice.review_status,
+              vendorMatchStatus: invoice.vendor_match_status,
+              reconciliationStatus: invoice.reconciliation_status,
+            }
+          : null,
+        vendor,
+        category: categoryResolution,
+        lineItems,
+        lineItemExplanations,
+        evidence,
+        anomalies,
+        billQuality,
+        marketBenchmark,
+        guidance,
       },
-      invoice: invoice
-        ? {
-            id: invoice.id,
-            invoiceNumber: invoice.invoice_number,
-            invoiceDate: invoice.invoice_date,
-            dueDate: invoice.due_date,
-            totalAmount:
-              invoice.total_amount != null
-                ? Number(invoice.total_amount)
-                : null,
-            subtotalAmount:
-              invoice.subtotal != null ? Number(invoice.subtotal) : null,
-            taxAmount:
-              invoice.tax_total != null ? Number(invoice.tax_total) : null,
-            currency: invoice.currency ?? "USD",
-            reviewStatus: invoice.review_status,
-            vendorMatchStatus: invoice.vendor_match_status,
-            reconciliationStatus: invoice.reconciliation_status,
-          }
-        : null,
-      vendor,
-      category: categoryResolution,
-      lineItems,
-      lineItemExplanations,
-      evidence,
-      anomalies,
-      billQuality,
-      marketBenchmark,
-      guidance,
-    });
+      {
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      },
+    );
   } catch (error) {
     return apiError(error);
   }
