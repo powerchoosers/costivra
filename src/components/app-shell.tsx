@@ -506,14 +506,17 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 }
 
 import { BillInspectorProvider } from "@/components/bill-inspector-provider";
+import { NavigationHistoryProvider } from "@/components/navigation-history";
 
 export function AppShell({ children, data }: { children: ReactNode; data: PortalData }) {
   return (
-    <ClientAssistantProvider>
-      <BillInspectorProvider>
-        <AppShellContent data={data}>{children}</AppShellContent>
-      </BillInspectorProvider>
-    </ClientAssistantProvider>
+    <NavigationHistoryProvider scope="app">
+      <ClientAssistantProvider>
+        <BillInspectorProvider>
+          <AppShellContent data={data}>{children}</AppShellContent>
+        </BillInspectorProvider>
+      </ClientAssistantProvider>
+    </NavigationHistoryProvider>
   );
 }
 

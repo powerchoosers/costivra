@@ -14,7 +14,6 @@ import type {
   ManageVendorRelationship,
 } from "@/lib/manage/types";
 import { canUseMailbox, formatMailboxSender } from "@/lib/manage/mailboxes";
-import { hiddenOrganizationIds } from "@/lib/manage/visibility";
 import { recordedSpendTotal } from "@/lib/manage/vendor-costs";
 import { isConfiguredSecret } from "@/lib/env/secrets";
 
@@ -185,9 +184,8 @@ export async function getManageData(input?: {
   const enrichmentAvailable = !accountEnrichmentsResult.error;
 
   const overlayRows = rows(overlaysResult.data);
-  const hiddenOrganizations = hiddenOrganizationIds(overlayRows);
   const isVisibleOrganization = (organizationId: string) =>
-    Boolean(organizationId) && !hiddenOrganizations.has(organizationId);
+    Boolean(organizationId);
   const organizations = rows(organizationsResult.data).filter((row) =>
     isVisibleOrganization(text(row.id)),
   );

@@ -23,7 +23,7 @@ export async function POST(
     // Verify vendor relationship belongs to organization
     const { data: relationship, error: relError } = await db
       .from("organization_vendors")
-      .select("id, organization_id, vendor_id")
+      .select("id, organization_id, vendor_id, relationship_status")
       .eq("id", relationshipId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -35,12 +35,9 @@ export async function POST(
         { status: 404 },
       );
     }
-
-    // Update relationship status to active
-    await db
-      .from("organization_vendors")
-      .update({ relationship_status: "active" })
-      .eq("id", relationshipId);
+    if (relationship.relationship_status === "terminated") {
+      return NextResponse.json({ error: "Reactivate the vendor relationship before resuming monitoring." }, { status: 409 });
+    }
 
     // Save durable monitoring configuration in DB with audit event
     const record = await saveDurableMonitoringConfig(db, {

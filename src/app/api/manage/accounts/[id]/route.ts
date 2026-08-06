@@ -193,31 +193,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid account ID." }, { status: 400 });
     }
 
-    // Check linked history
-    const [memRes, docRes, invRes, expRes] = await Promise.all([
-      db.from("organization_memberships").select("id", { count: "exact" }).eq("organization_id", organizationId),
-      db.from("documents").select("id", { count: "exact" }).eq("organization_id", organizationId),
-      db.from("invoices").select("id", { count: "exact" }).eq("organization_id", organizationId),
-      db.from("expenses").select("id", { count: "exact" }).eq("organization_id", organizationId),
-    ]);
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const reason = cleanText(body.reason, 200);
+    const confirmation = cleanText(body.confirmation, 80);
+    if (!reason || confirmation !== "DELETE") return NextResponse.json({ error: "Provide a reason and type DELETE to permanently remove an account." }, { status: 400 });
 
-    const memberships = memRes.count ?? 0;
-    const documents = docRes.count ?? 0;
-    const invoices = invRes.count ?? 0;
-    const expenses = expRes.count ?? 0;
-
-    if (memberships > 0 || documents > 0 || invoices > 0 || expenses > 0) {
-      return NextResponse.json(
-        {
-          error: `Account cannot be permanently deleted because it has active customer history (${memberships} membership(s), ${documents} document(s), ${invoices} invoice(s)). Archive the account instead.`,
-          blocked: true,
-        },
-        { status: 409 },
-      );
-    }
-
-    const { error: deleteErr } = await db.rpc("manage_delete_empty_account", { p_organization_id: organizationId, p_actor_id: userId });
-    if (deleteErr?.message.includes("DEPENDENCIES_PRESENT")) return NextResponse.json({ error: "Account dependency state changed. Reload the deletion preview before trying again.", blocked: true }, { status: 409 });
+    const { error: deleteErr } = await db.rpc("manage_delete_empty_account", { p_organization_id: organizationId, p_actor_id: userId, p_reason: reason });
+    if (deleteErr?.message.includes("DEPENDENCIES_PRESENT")) return NextResponse.json({ error: "Account dependency state changed or it has protected history. Reload the deletion preview and archive the account instead.", blocked: true }, { status: 409 });
     if (deleteErr) throw deleteErr;
 
     return NextResponse.json({ ok: true });

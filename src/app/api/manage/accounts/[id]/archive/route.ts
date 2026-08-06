@@ -14,7 +14,8 @@ export async function POST(
     }
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    const reason = cleanText(body.reason, 200) || "Account archived by internal operator";
+    const reason = cleanText(body.reason, 200);
+    if (!reason) return NextResponse.json({ error: "Explain why this account is being archived." }, { status: 400 });
 
     const { error } = await db.rpc("manage_set_account_archive_state", { p_organization_id: organizationId, p_actor_id: userId, p_archived: true, p_reason: reason });
     if (error) throw error;

@@ -1,0 +1,53 @@
+
+> costivra@0.1.0 test:e2e:authenticated
+> node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/authenticated-workspace.spec.ts --project=desktop-chromium --reporter=line
+
+
+Running 1 test using 1 worker
+
+[1/1] [desktop-chromium] › tests\e2e\authenticated-workspace.spec.ts:302:7 › authenticated customer workspace › completes the customer approval workflow through the rendered UI
+
+  1) [desktop-chromium] › tests\e2e\authenticated-workspace.spec.ts:302:7 › authenticated customer workspace › completes the customer approval workflow through the rendered UI 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('E2E consequential work approval', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('E2E consequential work approval', { exact: true })
+
+
+      330 |       await policyDialog.getByRole("button", { name: "Add policy", exact: true }).click();
+      331 |       await expect(page.getByText("Approval policy added.", { exact: true })).toBeVisible({ timeout: 30_000 });
+    > 332 |       await expect(page.getByText("E2E consequential work approval", { exact: true })).toBeVisible();
+          |                                                                                        ^
+      333 |
+      334 |       await page.goto(`/app/documents/${fixture.invoiceId}`);
+      335 |       await expect(page.getByRole("heading", { name: "Invoice INV-E2E-001" })).toBeVisible();
+        at C:\Users\Lap3p\OneDrive\Documents\Costivra\tests\e2e\authenticated-workspace.spec.ts:332:88
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\authenticated-workspace-au-a12ad-low-through-the-rendered-UI-desktop-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\authenticated-workspace-au-a12ad-low-through-the-rendered-UI-desktop-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\authenticated-workspace-au-a12ad-low-through-the-rendered-UI-desktop-chromium\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\authenticated-workspace-au-a12ad-low-through-the-rendered-UI-desktop-chromium\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\authenticated-workspace-au-a12ad-low-through-the-rendered-UI-desktop-chromium\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    [desktop-chromium] › tests\e2e\authenticated-workspace.spec.ts:302:7 › authenticated customer workspace › completes the customer approval workflow through the rendered UI 

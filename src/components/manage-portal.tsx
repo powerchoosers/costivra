@@ -102,6 +102,7 @@ import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { ManageLiveNotifications } from "@/components/manage-live-notifications";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
+import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
 import type { SystemReadiness } from "@/lib/manage/system-readiness";
@@ -642,6 +643,13 @@ export function ManagePortal({
   const router = useRouter();
   const toast = useToast();
   const { openComposer } = useManageComposer();
+  const currentAccount = section === "accounts" && detailId ? data.accounts.find((item) => item.id === detailId) : null;
+  const currentContact = section === "contacts" && detailId ? data.contacts.find((item) => item.id === detailId) : null;
+  const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations" };
+  const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? managePageLabels[section] ?? pretty(section);
+  const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : "/manage";
+  const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : "Client operations";
+  useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
   const [mobileNav, setMobileNav] = useState(false);
   const [sidebarViewport, setSidebarViewport] =
@@ -1185,6 +1193,7 @@ export function ManagePortal({
           </div>
         </header>
         <div key={section} className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}>
+          {section !== "overview" && !detailId && <GlobalBackControl className="manage-global-back" />}
           {section === "overview" && (
             <Overview data={data} />
           )}
@@ -2072,6 +2081,7 @@ function Accounts({
 }) {
   const pageSize = 25;
   const [filter, setFilter] = useState("all");
+  const [visibilityFilter, setVisibilityFilter] = useState<"active" | "archived" | "all">("active");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
@@ -2082,6 +2092,7 @@ function Accounts({
   const filtered = data.accounts.filter(
     (account) =>
       (filter === "all" || (account.stage || "unclassified") === filter) &&
+      (visibilityFilter === "all" || (visibilityFilter === "active" ? account.visibleInCrm !== false : account.visibleInCrm === false)) &&
       `${account.name} ${account.primaryContact} ${account.primaryEmail}`
         .toLowerCase()
         .includes(query.toLowerCase()),
@@ -2158,6 +2169,9 @@ function Accounts({
                 </span>
               </button>
             ))}
+          </div>
+          <div className="manage-tabs" aria-label="Account visibility filter">
+            {(["active", "archived", "all"] as const).map((state) => <button key={state} className={visibilityFilter === state ? "active" : ""} onClick={() => { setVisibilityFilter(state); setPage(1); setSelectedIds(new Set()); }}>{pretty(state)} <span>{data.accounts.filter((account) => state === "all" || (state === "active" ? account.visibleInCrm !== false : account.visibleInCrm === false)).length}</span></button>)}
           </div>
           <AccountRows
             key={`${filter}-${query}`}
@@ -2277,6 +2291,19 @@ function ContactInspector({
   );
 }
 
+function useRecordAuditHistory(endpoint: string) {
+  const [history, setHistory] = useState<AuditHistoryItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(endpoint, { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() : { history: [] })
+      .then((payload) => { if (!cancelled && Array.isArray(payload.history)) setHistory(payload.history); })
+      .catch(() => { if (!cancelled) setHistory([]); });
+    return () => { cancelled = true; };
+  }, [endpoint]);
+  return history;
+}
+
 function Contacts({
   data,
   query,
@@ -2288,6 +2315,7 @@ function Contacts({
 }) {
   const pageSize = 25;
   const [filter, setFilter] = useState<"all" | "primary" | "workspace" | "crm">("all");
+  const [lifecycleFilter, setLifecycleFilter] = useState<"active" | "inactive" | "all">("active");
   const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectedContactId, setSelectedContactId] = useState<string | null>(data.contacts[0]?.id ?? null);
@@ -2304,7 +2332,7 @@ function Contacts({
     const matchesQuery = `${contact.fullName} ${contact.email} ${contact.organizationName}`
       .toLowerCase()
       .includes(query.toLowerCase());
-    return matchesFilter && matchesQuery;
+    return matchesFilter && matchesQuery && (lifecycleFilter === "all" || contact.status === lifecycleFilter);
   });
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -2358,6 +2386,9 @@ function Contacts({
           >
             CRM <span>{data.contacts.filter((c) => c.source === "crm").length}</span>
           </button>
+        </div>
+        <div className="manage-tabs" aria-label="Contact lifecycle filter">
+          {(["active", "inactive", "all"] as const).map((state) => <button key={state} className={lifecycleFilter === state ? "active" : ""} onClick={() => { setLifecycleFilter(state); setPage(1); setSelectedIds(new Set()); }}>{pretty(state)} <span>{data.contacts.filter((contact) => state === "all" || contact.status === state).length}</span></button>)}
         </div>
         <div className="manage-table-wrap">
           <table className="manage-data-table manage-contact-data-table">
@@ -2638,6 +2669,7 @@ function AccountDetailPage({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const auditHistory = useRecordAuditHistory(`/api/manage/accounts/${accountId}/history`);
 
   // Edit form state
   const [name, setName] = useState(account?.name ?? "");
@@ -2666,6 +2698,7 @@ function AccountDetailPage({
     );
 
   const contacts = data.contacts.filter((item) => item.organizationId === account.id);
+  const accountEmailContact = contacts.find((item) => item.id === account.primaryContactId) ?? contacts.find((item) => item.isPrimary) ?? contacts.find((item) => Boolean(item.email));
   const activities = data.activities.filter((item) => item.organizationId === account.id);
   const tasks = data.tasks.filter((item) => item.organizationId === account.id);
   const documents = data.documents.filter((item) => item.organizationId === account.id);
@@ -2761,20 +2794,23 @@ function AccountDetailPage({
 
   const handleConfirmDangerAction = async (reason?: string) => {
     if (dangerMode === "archive") {
-      const res = await fetch(`/api/manage/accounts/${account.id}/archive`, {
+      const restoring = account.visibleInCrm === false;
+      const res = await fetch(`/api/manage/accounts/${account.id}/${restoring ? "restore" : "archive"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to archive account.");
+        throw new Error(err.error || `Failed to ${restoring ? "restore" : "archive"} account.`);
       }
-      toast.success("Account archived.");
+      toast.success(restoring ? "Account restored." : "Account archived.");
       router.push("/manage/accounts");
     } else {
       const res = await fetch(`/api/manage/accounts/${account.id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, confirmation: "DELETE" }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -2823,7 +2859,7 @@ function AccountDetailPage({
     },
     {
       id: "archive",
-      label: "Archive account",
+      label: account.visibleInCrm === false ? "Restore account" : "Archive account",
       icon: <Archive size={15} />,
       onSelect: () => handleOpenDangerDialog("archive"),
     },
@@ -2838,14 +2874,6 @@ function AccountDetailPage({
     },
   ];
 
-  const auditHistory: AuditHistoryItem[] = activities.map((act) => ({
-    id: act.id,
-    action: act.kind,
-    actorName: act.actorName || "Internal Operator",
-    timestamp: act.createdAt || act.occurredAt || new Date().toISOString(),
-    summary: act.subject || act.summary || "Account activity recorded",
-    source: "internal",
-  }));
 
   const accountTabs = [
     { id: "overview", label: "Overview" },
@@ -2858,9 +2886,13 @@ function AccountDetailPage({
 
   return (
     <div className="manage-detail-page manage-record-page motion-page">
-      <Link href="/manage/accounts" className="manage-back-link">
-        <ArrowLeft size={15} /> Accounts
-      </Link>
+      <GlobalBackControl
+        className="manage-back-link"
+        floatingActions={<>
+          {accountEmailContact && <button type="button" className="global-back-control__action global-back-control__action--email" onClick={() => onCompose(accountEmailContact)} aria-label={`Compose email to ${accountEmailContact.fullName}`} title={`Compose email to ${accountEmailContact.fullName}`}><Mail size={16} /></button>}
+          {companyPhone && companyPhoneHref && <a className="global-back-control__action global-back-control__action--phone" href={`tel:${companyPhoneHref}`} aria-label={`Call ${account.name}`} title={`Call ${companyPhone}`}><Phone size={16} /></a>}
+        </>}
+      />
       <header className="manage-record-heading" style={{ position: "relative" }}>
         <div className="manage-record-identity">
           <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" />
@@ -2878,6 +2910,16 @@ function AccountDetailPage({
           </div>
         </div>
         <div className="manage-record-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {accountEmailContact && (
+            <button
+              className="manage-record-action-icon manage-record-action-icon--email"
+              onClick={() => onCompose(accountEmailContact)}
+              aria-label={`Compose email to ${accountEmailContact.fullName}`}
+              title={`Compose email to ${accountEmailContact.fullName}`}
+            >
+              <Mail size={17} />
+            </button>
+          )}
           {companyPhone && companyPhoneHref && (
             <a
               className="manage-record-action-icon manage-record-action-icon--phone"
@@ -3157,7 +3199,7 @@ function AccountDetailPage({
         onConfirm={handleConfirmDangerAction}
         dependencyPreview={deletionPreview}
         loadingPreview={loadingPreview}
-        requiredConfirmationText={dangerMode === "permanent-delete" ? account.name : undefined}
+        requiredConfirmationText={dangerMode === "permanent-delete" ? "DELETE" : undefined}
       />
     </div>
   );
@@ -3269,6 +3311,7 @@ function ContactDetailPage({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const auditHistory = useRecordAuditHistory(`/api/manage/contacts/${contactId}/history`);
 
   // Form state
   const [fullName, setFullName] = useState(contact?.fullName ?? "");
@@ -3372,20 +3415,23 @@ function ContactDetailPage({
 
   const handleConfirmDangerAction = async (reason?: string) => {
     if (dangerMode === "deactivate") {
-      const res = await fetch(`/api/manage/contacts/${contact.id}/deactivate`, {
+      const restoring = contact.status === "inactive";
+      const res = await fetch(`/api/manage/contacts/${contact.id}/${restoring ? "restore" : "deactivate"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason, primaryDisposition: !restoring && contact.isPrimary ? "clear" : undefined }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to change contact status.");
+        throw new Error(err.error || `Failed to ${restoring ? "restore" : "change"} contact status.`);
       }
       toast.success(contact.status === "inactive" ? "Contact reactivated." : "Contact deactivated.");
       router.refresh();
     } else {
       const res = await fetch(`/api/manage/contacts/${contact.id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason, confirmation: "REMOVE" }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -3460,14 +3506,6 @@ function ContactDetailPage({
     },
   ];
 
-  const auditHistory: AuditHistoryItem[] = contactSpecificActivities.map((act) => ({
-    id: act.id,
-    action: act.kind,
-    actorName: act.actorName || "Internal Operator",
-    timestamp: act.createdAt || act.occurredAt || new Date().toISOString(),
-    summary: act.subject || act.summary || "Contact activity recorded",
-    source: "internal",
-  }));
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -3479,9 +3517,13 @@ function ContactDetailPage({
 
   return (
     <div className="manage-detail-page manage-record-page motion-page">
-      <Link href="/manage/contacts" className="manage-back-link">
-        <ArrowLeft size={15} /> Contacts
-      </Link>
+      <GlobalBackControl
+        className="manage-back-link"
+        floatingActions={<>
+          <button type="button" className="global-back-control__action global-back-control__action--email" onClick={() => onCompose(contact)} aria-label={`Compose email to ${contact.fullName}`} title={`Compose email to ${contact.fullName}`}><Mail size={16} /></button>
+          {contact.phone && <a className="global-back-control__action global-back-control__action--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={16} /></a>}
+        </>}
+      />
       <header className="manage-record-heading" style={{ position: "relative" }}>
         <div className="manage-record-identity">
           <span className="manage-record-person-avatar">{initials(contact.fullName)}</span>
@@ -3848,6 +3890,8 @@ function ContactDetailPage({
         onConfirm={handleConfirmDangerAction}
         dependencyPreview={deletionPreview}
         loadingPreview={loadingPreview}
+        requiredConfirmationText={dangerMode === "remove" ? "REMOVE" : dangerMode === "deactivate" && contact.status !== "inactive" && contact.isPrimary ? "CLEAR PRIMARY" : undefined}
+        requiresReason={dangerMode === "deactivate"}
       />
     </div>
   );
