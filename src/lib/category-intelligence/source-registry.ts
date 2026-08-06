@@ -313,3 +313,14 @@ export const TRUSTED_SOURCES_REGISTRY: TrustedSource[] = TRUSTED_SOURCE_SEEDS.ma
     status: "active",
   }),
 );
+
+export function sourceFreshness(
+  source: Pick<TrustedSource, "lastVerifiedAt" | "freshnessDays">,
+  now = new Date(),
+): "fresh" | "stale" | "unverified" {
+  const verifiedAt = Date.parse(source.lastVerifiedAt);
+  if (!Number.isFinite(verifiedAt)) return "unverified";
+  return now.getTime() - verifiedAt <= source.freshnessDays * 24 * 60 * 60 * 1000
+    ? "fresh"
+    : "stale";
+}

@@ -468,6 +468,22 @@ export async function resolveCategory(
     return resolution(ALIAS_MAP[rawCategory], "catalog");
   }
 
+  // Persistence paths already store canonical taxonomy keys. Treat an exact
+  // registered key as authoritative instead of sending it through the loose
+  // alias and keyword heuristics below.
+  if (rawCategory && hasDedicatedExpertPack(rawCategory)) {
+    const pack = getExpertPack(rawCategory);
+    return {
+      id: null,
+      key: pack.categoryKey,
+      displayName: pack.displayName,
+      parentKey: pack.parentKey,
+      confidence: 1,
+      source: "catalog",
+      expertPackVersion: pack.version,
+    };
+  }
+
   const vendor = (input.vendorName || "").trim();
   const vendorMatch = vendor ? vendorCandidate(vendor) : null;
   if (vendorMatch) return resolution(vendorMatch, "verified_vendor");

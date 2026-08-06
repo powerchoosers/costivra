@@ -12,27 +12,14 @@ import {
   writeMarketResearchCache,
 } from "./market-research-cache";
 import { getExpertPack } from "./packs";
+import { sanitizeSearchQuery } from "./research-safety";
+
+export { sanitizeSearchQuery } from "./research-safety";
 
 /**
  * Strips common private identifiers prior to any public search. Callers must
  * still pass only public-safe category, jurisdiction, vendor, and service hints.
  */
-export function sanitizeSearchQuery(query: string): string {
-  return query
-    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[SSN-REDACTED]")
-    .replace(/\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/g, "[CARD-REDACTED]")
-    .replace(
-      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
-      "[EMAIL-REDACTED]",
-    )
-    .replace(
-      /\b(account|invoice|policy|claim|member)\s*#?\s*[A-Za-z0-9-]+/gi,
-      "$1 [REDACTED]",
-    )
-    .replace(/\b\d{8,}\b/g, "[IDENTIFIER-REDACTED]")
-    .slice(0, 500);
-}
-
 type UrlCitation = {
   url: string;
   title: string;

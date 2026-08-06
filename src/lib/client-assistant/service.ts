@@ -244,6 +244,7 @@ export async function executeAssistantTurn(
     .join("\n");
 
   let categoryExpertSection = "";
+  let categoryTrace: Record<string, unknown> | null = null;
   try {
     const selectedCategory = await selectRelevantCategory(prompt, boundedContext);
     if (selectedCategory) {
@@ -258,6 +259,20 @@ export async function executeAssistantTurn(
           query: `${resolution.displayName} current official rates tariffs fees rules`,
           vendorName: selectedCategory.vendorName,
         });
+        categoryTrace = {
+          categoryKey: aiContext.category.key,
+          packVersion: aiContext.category.expertPackVersion,
+          packStatus: aiContext.category.packStatus,
+          resolutionSource: resolution.source,
+          includeCurrentResearch,
+          marketResearch: {
+            factCount: aiContext.currentMarketFacts.length,
+            sourceIds: aiContext.currentMarketFacts.map((fact) => fact.sourceId),
+            retrievedAt: aiContext.currentMarketFacts.map(
+              (fact) => fact.retrievedAt,
+            ),
+          },
+        };
         const lineItems = aiContext.relevantLineItemDefinitions
           .slice(0, 8)
           .map(
@@ -458,6 +473,7 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
       content: responseText,
       status: assistantStatus,
       response_blocks: JSON.parse(JSON.stringify(hydratedBlocks)),
+      metadata: categoryTrace ? { categoryIntelligence: categoryTrace } : {},
       error_code: aiError,
       completed_at: aiError ? null : new Date().toISOString(),
     })

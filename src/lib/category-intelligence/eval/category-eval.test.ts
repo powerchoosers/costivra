@@ -39,6 +39,18 @@ describe("Category Intelligence Layer Verification", () => {
     expect(insurance.confidence).toBeLessThan(0.8);
   });
 
+  it("preserves an exact canonical pack key through the persistence path", async () => {
+    const category = await categoryIntelligence.resolveCategory({
+      rawCategory: "cloud-iaas-paas",
+    });
+
+    expect(category.key).toBe("cloud-iaas-paas");
+    expect(category.expertPackVersion).toBe(
+      getExpertPack("cloud-iaas-paas").version,
+    );
+    expect(category.confidence).toBe(1);
+  });
+
   it("returns insufficient_data when required dimensions are absent", () => {
     const result = evaluateMarketBenchmark({
       categoryKey: "commercial-electricity-supply",

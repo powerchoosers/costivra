@@ -1,5 +1,19 @@
 # Costivra Status
 
+## August 6, 2026 — Category Intelligence Packets 09–10: Structural Release Evidence
+
+- **Main branch work in progress**:
+  - Added four repeatable commands: `eval:categories`, `eval:line-items`, `eval:benchmarks`, and `eval:market-research`.
+  - The checks record only aggregate, non-customer results in the private `category_evaluation_runs` ledger. Browser roles have no select access; RLS is enabled and access is limited to server-side service operations.
+  - Fixed canonical category-key resolution so saved keys (for example `cloud-iaas-paas`) return their exact dedicated draft pack rather than falling through general heuristics.
+- **Validation completed**:
+  - `npm run typecheck`: PASS.
+  - All four evaluation commands: PASS. Structural results are persisted as `synthetic` and `structural`; they explicitly prove deterministic safety contracts, not customer-document performance.
+  - Database check: `category_evaluation_runs` has RLS enabled, anonymous and authenticated browser roles cannot select it, and four aggregate evaluation runs are stored.
+- **Release boundary**:
+  - This is not the Packet 10 promotion gate. The required representative, de-identified or consented corpus (including corrected and malformed cases), live source-refresh proof, and human review evidence are still outstanding.
+  - All category expert packs remain `draft`; no benchmark, savings estimate, or category result is promoted to verified.
+
 ## August 5, 2026 — Category Intelligence Foundation Merged to Main
 
 - **Main commit**: `af6ff21` (`feat(category-intelligence): merge source-backed expertise foundation`)

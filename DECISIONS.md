@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-06 — Keep category evaluation evidence private and honest about coverage
+
+### Context
+
+Packet 10 requires repeatable release evidence, while current Category Intelligence fixtures prove deterministic rules but are not a representative set of real customer documents. Publishing run data to the browser would also create an unnecessary operational-data surface.
+
+### Decision
+
+Provide separate, repeatable category, line-item, benchmark, and market-research evaluation commands. Persist only their aggregate outputs in a server-only, RLS-protected ledger: suite/version, case count, pass/fail, metrics, thresholds, pack versions, and registry hash. Every result records its data classification and coverage level. The current suite is explicitly `synthetic` and `structural`; it cannot promote a pack or support a verified claim.
+
+### Consequences
+
+The team can compare future runs and detect contract regressions without retaining prompts, customer records, or source documents. Before a category can advance beyond draft, Costivra still needs the Packet 10 representative, de-identified or consented corpus, source-refresh proof, and documented human review.
+
 ## 2026-08-05 — Keep category market research cited, bounded, and draft-only
 
 ### Context
