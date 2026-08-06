@@ -28,12 +28,13 @@
   - `npm run test:integration:live`: PASS (7 files / 13 tests).
   - `npm run eval:categories`, `eval:line-items`, `eval:benchmarks`, `eval:market-research`: PASS, but structural synthetic fixtures only.
   - `npm run lint`, `npm run typecheck`, and `npm run build`: PASS.
+  - `npm test -- --run src/lib/documents/invoice-record.test.ts`: PASS. The test proves that an invoice's resolved category key and pack version are retained consistently in invoice metadata, line-item classifications, and the persisted analysis run.
   - `npm run test:e2e`: PASS (10 tests; 6 intentionally skipped); the separately invoked authenticated E2E was skipped in this run, so it is not release evidence.
   - `npm run ops:readiness` and `npm run ops:smoke`: PASS.
 - **Known incomplete Packet 09 requirements**:
   - Monitoring, durable opportunity creation, and reports do not yet consume/persist the shared category trace.
   - `/manage/category-intelligence` is now an owner-only page in the standard Manage navigation. It shows protected live counts for unmapped/review-required lines, pending corrections, stale research, persisted analysis, and latest evaluation evidence. It still needs drill-down queues and an explicit unsupported-benchmark-attempt ledger.
-  - There is no end-to-end test that proves the same category, pack version, canonical codes, sources, and benchmark state from ingestion through chat, monitoring, opportunity, and reporting.
+  - The invoice-ingestion boundary now has a focused trace-consistency test. There is still no end-to-end test proving the same category, pack version, canonical codes, sources, and benchmark state from ingestion through chat, monitoring, opportunity, and reporting.
 - **Known incomplete Packet 10 requirements**:
   - No reviewed representative, de-identified or consented category corpus exists. The invoice evaluator correctly refuses to run without a supplied golden manifest; no artificial corpus was created.
   - No current-source refresh run with verifiable citations, documented human review, or authenticated customer E2E proof is available for this audit.
