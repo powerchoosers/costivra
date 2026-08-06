@@ -404,7 +404,10 @@ function AccountPage({ mode }: { mode: string }) {
     const destination = next?.startsWith("/app") || next?.startsWith("/manage")
       ? `/access?next=${encodeURIComponent(next)}`
       : "/access";
-    router.replace(destination); router.refresh();
+    // A full navigation lets the browser send the newly written Supabase auth
+    // cookie on the first protected workspace request. A client-side route
+    // transition can otherwise race the cookie write and be sent back to login.
+    window.location.assign(destination);
   }
   return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span>Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span></div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
   <div className="account-provider-grid" aria-label="Sign-in providers">

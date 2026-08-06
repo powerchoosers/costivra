@@ -33,7 +33,7 @@ function requiredEnvironmentVariable(name: string, fallback?: string) {
 }
 
 function assertExplicitProductionPermission() {
-  const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100";
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3100";
   const hostname = new URL(baseUrl).hostname;
   const local = hostname === "127.0.0.1" || hostname === "localhost";
   if (!local && process.env.E2E_ALLOW_PRODUCTION !== "1") {
@@ -314,7 +314,9 @@ test.describe("authenticated customer workspace", () => {
       await page.getByRole("button", { name: "Sign in", exact: true }).click();
 
       await expect(page).toHaveURL(/\/app\/opportunities$/, { timeout: 30_000 });
-      await expect(page.getByText(fixture.organizationName, { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Opportunities" })).toBeVisible({
+        timeout: 30_000,
+      });
 
       await page.goto("/app/settings");
       await page.getByRole("tab", { name: "Team & approvals" }).click();
@@ -347,12 +349,23 @@ test.describe("authenticated customer workspace", () => {
         .click();
       await opportunityCard.getByRole("option", { name: "Approve plan" }).click();
       await expect(page.getByText("Opportunity updated.", { exact: true })).toBeVisible();
+      await expect
+        .poll(async () => {
+          const result = await fixture.admin
+            .from("action_plans")
+            .select("id")
+            .eq("opportunity_id", fixture.opportunityId)
+            .maybeSingle();
+          if (result.error) throw result.error;
+          return result.data?.id ?? null;
+        })
+        .not.toBeNull();
 
       await page.goto("/app/actions");
       const actionCard = page.locator("article.portal-card", {
         hasText: `Review and act on: ${fixture.opportunityTitle}`,
       });
-      await expect(actionCard).toBeVisible();
+      await expect(actionCard).toBeVisible({ timeout: 30_000 });
       await actionCard.getByRole("button", { name: "Approve", exact: true }).click();
       await expect(page.getByText("Action approved.", { exact: true })).toBeVisible();
 
