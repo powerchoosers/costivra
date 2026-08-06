@@ -89,6 +89,7 @@ import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditableFieldRow } from "@/components/records/editable-field-row";
 import { EditRecordSheet } from "@/components/records/edit-record-sheet";
 import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
+import { recordDraftChanged } from "@/lib/records/draft-state";
 import { RecordChangeHistory, AuditHistoryItem } from "@/components/records/record-change-history";
 import { CostivraMark } from "@/components/brand";
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
@@ -360,10 +361,14 @@ async function api(url: string, init: RequestInit) {
   );
   const payload = (await response.json().catch(() => ({}))) as {
     error?: string;
+    code?: string;
     threadId?: string;
   };
-  if (!response.ok)
-    throw new Error(payload.error || "That action could not be completed.");
+  if (!response.ok) {
+    const error = new Error(payload.error || "That action could not be completed.");
+    Object.assign(error, { code: payload.code, status: response.status });
+    throw error;
+  }
   return payload;
 }
 
@@ -2677,6 +2682,7 @@ function AccountDetailPage({
       : "Add the account website or a short internal note to make this record easier to recognize at a glance.");
 
   const isOwner = data.operator.role === "owner";
+  const accountDraftDirty = recordDraftChanged({ name: account.name, legalName: account.legalName ?? "", industry: account.industry ?? "", currency: account.currency ?? "USD", website: account.website ?? "", stage: account.stage ?? "onboarding", primaryContact: account.primaryContact ?? "", nextFollowUpAt: account.nextFollowUpAt ?? "", nextStep: account.nextStep ?? "", privateNotes: account.privateNotes ?? "" }, { name, legalName, industry, currency, website, stage, primaryContact, nextFollowUpAt, nextStep, privateNotes }, ["name", "legalName", "industry", "currency", "website", "stage", "primaryContact", "nextFollowUpAt", "nextStep", "privateNotes"]);
 
   const handleOpenEditSheet = () => {
     setName(account.name);
@@ -2711,6 +2717,7 @@ function AccountDetailPage({
           nextFollowUpAt,
           nextStep,
           privateNotes,
+          expectedUpdatedAt: account.updatedAt,
         }),
       });
       if (!res.ok) {
@@ -2881,7 +2888,7 @@ function AccountDetailPage({
               <Phone size={17} />
             </a>
           )}
-          <RecordOverflowMenu items={menuItems} ariaLabel={`More actions for ${account.name}`} />
+          <RecordOverflowMenu items={menuItems} ariaLabel="More account actions" />
         </div>
       </header>
 
@@ -3020,7 +3027,7 @@ function AccountDetailPage({
         isOpen={editSheetOpen}
         onClose={() => setEditSheetOpen(false)}
         onSave={handleSaveEditSheet}
-        isDirty={true}
+        isDirty={accountDraftDirty}
         saving={savingEdit}
         error={editError}
       >
@@ -3284,6 +3291,7 @@ function ContactDetailPage({
     );
 
   const contactAccount = data.accounts.find((account) => account.id === contact.organizationId);
+  const contactDraftDirty = recordDraftChanged({ fullName: contact.fullName, email: contact.email, phone: contact.phone ?? "", title: contact.title ?? "", isPrimary: contact.isPrimary, status: contact.status }, { fullName, email, phone, title, isPrimary, status }, ["fullName", "email", "phone", "title", "isPrimary", "status"]);
   const allAccountActivities = data.activities.filter((item) => item.organizationId === contact.organizationId);
   const contactSpecificActivities = allAccountActivities.filter((item) => item.contactId === contact.id);
   const generalAccountActivities = allAccountActivities.filter((item) => !item.contactId || item.contactId !== contact.id);
@@ -3318,6 +3326,7 @@ function ContactDetailPage({
           title,
           isPrimary,
           status,
+          expectedUpdatedAt: contact.updatedAt,
         }),
       });
       if (!res.ok) {
@@ -3507,7 +3516,7 @@ function ContactDetailPage({
               <Phone size={17} />
             </a>
           )}
-          <RecordOverflowMenu items={menuItems} ariaLabel={`More actions for ${contact.fullName}`} />
+          <RecordOverflowMenu items={menuItems} ariaLabel="More contact actions" />
         </div>
       </header>
 
@@ -3757,7 +3766,7 @@ function ContactDetailPage({
         isOpen={editSheetOpen}
         onClose={() => setEditSheetOpen(false)}
         onSave={handleSaveEditSheet}
-        isDirty={true}
+        isDirty={contactDraftDirty}
         saving={savingEdit}
         error={editError}
       >

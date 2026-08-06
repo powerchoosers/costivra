@@ -59,6 +59,7 @@ export function RecordOverflowMenu({
 }: RecordOverflowMenuProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [opensUpward, setOpensUpward] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
@@ -87,6 +88,8 @@ export function RecordOverflowMenu({
       visibleItems,
       focus === "last" ? "last" : "first",
     );
+    const rect = triggerRef.current?.getBoundingClientRect();
+    setOpensUpward(Boolean(rect && window.innerHeight - rect.bottom < 300 && rect.top > window.innerHeight - rect.bottom));
     setOpen(true);
     setActiveIndex(nextIndex);
     if (focus !== "none" && nextIndex >= 0) {
@@ -263,9 +266,8 @@ export function RecordOverflowMenu({
           onKeyDown={handleMenuKeyDown}
           style={{
             position: "absolute",
-            top: "100%",
+            ...(opensUpward ? { bottom: "100%", marginBottom: 6 } : { top: "100%", marginTop: 6 }),
             right: 0,
-            marginTop: 6,
             minWidth: 220,
             maxWidth: 280,
             maxHeight: "min(420px, calc(100vh - 32px))",

@@ -57,6 +57,7 @@ import { useBillInspector } from "@/components/bill-inspector-provider";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditRecordSheet } from "@/components/records/edit-record-sheet";
 import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
+import { recordDraftChanged } from "@/lib/records/draft-state";
 
 type ApiOptions = {
   method?: string;
@@ -80,8 +81,11 @@ async function api(url: string, options: ApiOptions = {}) {
   const payload = response.headers.get("content-type")?.includes("json")
     ? await response.json()
     : null;
-  if (!response.ok)
-    throw new Error(payload?.error ?? "The request could not be completed.");
+  if (!response.ok) {
+    const error = new Error(payload?.error ?? "The request could not be completed.");
+    Object.assign(error, { code: payload?.code, status: response.status });
+    throw error;
+  }
   return payload;
 }
 
@@ -1259,6 +1263,11 @@ export function VendorDetail({
     );
 
   const canWrite = data.currentUser.role !== "viewer";
+  const vendorDraftDirty = recordDraftChanged(
+    { displayNameOverride: vendor.name, categoryOverride: vendor.category, websiteOverride: vendor.website ?? "", relationshipStatus: vendor.relationshipStatus, annualizedSpend: vendor.annualizedSpend ?? 0, spendCadence: vendor.spendCadence ?? "monthly" },
+    { displayNameOverride, categoryOverride, websiteOverride, relationshipStatus, annualizedSpend, spendCadence },
+    ["displayNameOverride", "categoryOverride", "websiteOverride", "relationshipStatus", "annualizedSpend", "spendCadence"],
+  );
   const expenses = data.expenses
     .filter((item) => item.vendorId === vendorId)
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
@@ -1312,6 +1321,7 @@ export function VendorDetail({
           relationshipStatus,
           annualizedSpend: Number(annualizedSpend) || 0,
           spendCadence,
+          expectedUpdatedAt: vendor.updatedAt,
         }),
       });
       if (!res.ok) {
@@ -1496,7 +1506,7 @@ export function VendorDetail({
               </button>
             </>
           )}
-          <RecordOverflowMenu items={menuItems} ariaLabel={`More actions for ${vendor.name}`} />
+          <RecordOverflowMenu items={menuItems} ariaLabel="More vendor actions" />
         </div>
       </header>
 
@@ -1579,7 +1589,7 @@ export function VendorDetail({
         isOpen={editSheetOpen}
         onClose={() => setEditSheetOpen(false)}
         onSave={handleSaveEditSheet}
-        isDirty={true}
+        isDirty={vendorDraftDirty}
         saving={savingEdit}
         error={editError}
       >
