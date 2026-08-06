@@ -6,7 +6,8 @@ export type CategoryOpportunity = {
   type: "overcharge" | "contract_variance" | "usage_optimization" | "market_quote_opportunity";
   title: string;
   description: string;
-  estimatedAnnualSavings: number;
+  estimatedAnnualSavings: number | null;
+  valueStatus: "estimated" | "quote_required";
   confidence: number;
   evidence: string[];
   requiresHumanReview: boolean;
@@ -32,6 +33,7 @@ export function evaluateCategoryOpportunities(
         title: "Arithmetic Overcharge Correction",
         description: finding.message,
         estimatedAnnualSavings: Math.round(finding.financialImpact * 12),
+        valueStatus: "estimated",
         confidence: 1.0,
         evidence: finding.evidence,
         requiresHumanReview: false,
@@ -47,6 +49,7 @@ export function evaluateCategoryOpportunities(
         title: "Tax Basis & Surcharge Exemption Audit",
         description: finding.message,
         estimatedAnnualSavings: Math.round(finding.financialImpact * 12),
+        valueStatus: "estimated",
         confidence: 0.90,
         evidence: finding.evidence,
         requiresHumanReview: true,
@@ -55,7 +58,9 @@ export function evaluateCategoryOpportunities(
     }
   }
 
-  // Market quote opportunity when billed amount is large and benchmark status is directional/quote_required
+  // A material bill can warrant a market quote, but spend alone never proves a
+  // savings amount. Keep this explicitly quote-required until a dated,
+  // dimensionally comparable source or quote is reviewed.
   if (billedAmount > 1000 && qualityResult.findings.length === 0) {
     opps.push({
       id: `opp-quote-${categoryKey}`,
@@ -63,8 +68,9 @@ export function evaluateCategoryOpportunities(
       type: "market_quote_opportunity",
       title: `${categoryKey.toUpperCase()} Contract Rate Review`,
       description: "Annual spend volume qualifies for competitive market quote comparison upon contract renewal.",
-      estimatedAnnualSavings: Math.round(billedAmount * 0.10 * 12),
-      confidence: 0.85,
+      estimatedAnnualSavings: null,
+      valueStatus: "quote_required",
+      confidence: 0,
       evidence: [`annualized_spend_tier: $${Math.round(billedAmount * 12).toLocaleString()}`],
       requiresHumanReview: true,
       ruleVersion: qualityResult.packVersion,
