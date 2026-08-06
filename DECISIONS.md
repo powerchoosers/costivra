@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-06 — Make lifecycle changes repeat-safe and audit them atomically
+
+### Context
+
+Archive, deactivate, terminate, and restore actions can be retried by a user or the network. Repeating an unchanged request must not manufacture additional history, and a vendor termination must not leave a monitoring pause without its corresponding evidence record.
+
+### Decision
+
+Use server-only database functions for lifecycle mutations. They lock the record, return safely without writing when the target lifecycle state is already present, and write the material audit event in the same transaction as the state change. Vendor termination pauses monitoring in that same transaction; reactivation deliberately does not resume monitoring.
+
+### Consequences
+
+The UI can safely retry a request after an interrupted response without creating duplicate CRM activities or audit entries. Lifecycle history remains evidence of an actual transition, while a separate explicit monitoring action is required to resume monitoring after a vendor is reactivated.
+
 ## 2026-08-06 — Keep category evaluation evidence private and honest about coverage
 
 ### Context
