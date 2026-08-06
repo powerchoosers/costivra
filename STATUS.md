@@ -36,7 +36,10 @@
   - `npm run lint`, `npm run typecheck`, and `npm run build`: PASS.
   - `npm test -- --run src/lib/documents/invoice-record.test.ts`: PASS. The test proves that an invoice's resolved category key and pack version are retained consistently in invoice metadata, line-item classifications, and the persisted analysis run.
   - `npm run test:e2e`: PASS (10 tests; 6 intentionally skipped); the separately invoked authenticated E2E was skipped in this run, so it is not release evidence.
+  - `RUN_AUTHENTICATED_E2E=1 npm run test:e2e:authenticated`: PASS (1 disposable, self-cleaning customer workflow through rendered UI). The default invocation remains intentionally skipped until explicitly enabled.
   - `npm run ops:readiness` and `npm run ops:smoke`: PASS.
+  - Packet 10 prohibited-pattern audit: PASS. No synthetic regional benchmark remnants, verified-pack labels, or prohibited pack-cloning spreads remain in `src`.
+  - Latest structural category evaluations and `npm run ops:verify`: PASS. `npm run eval:invoices` fails as designed without an approved `--manifest`; this is a release-evidence gap, not a passing evaluation.
 - **Known incomplete Packet 09 requirements**:
   - Monitoring, deterministic opportunity creation, and Executive Value Reports now consume/persist the shared category trace. The structural cross-surface contract is covered; a live authenticated customer journey still needs to prove persistence through every browser/API boundary.
   - `/manage/category-intelligence` is now an owner-only page in the standard Manage navigation. It shows protected live counts for unmapped/review-required lines, pending corrections, stale research, persisted analysis, and latest evaluation evidence. It still needs drill-down queues and an explicit unsupported-benchmark-attempt ledger.
