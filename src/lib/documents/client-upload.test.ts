@@ -1,3 +1,4 @@
+// Executable coverage for upload result handling and breakdown readiness polling.
 import { describe, expect, it, vi } from "vitest";
 import {
   DocumentUploadRequestError,
