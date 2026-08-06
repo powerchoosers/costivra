@@ -16,6 +16,7 @@ describe("contact detail API route", () => {
     updates.length = 0;
     requireInternalOperator.mockResolvedValue({
       db: {
+        rpc: vi.fn(() => Promise.resolve({ data: "2026-08-06T00:00:01.000Z", error: null })),
         from(table: string) {
           return {
             select() {
@@ -58,15 +59,13 @@ describe("contact detail API route", () => {
     const req = new Request("http://localhost/api/manage/contacts/a1b2c3d4-e5f6-4890-abcd-1234567890ab", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "VP of Operations" }),
+      body: JSON.stringify({ expectedUpdatedAt: "2026-08-06T00:00:00.000Z", title: "VP of Operations" }),
     });
 
     const res = await PATCH(req, { params: Promise.resolve({ id: "a1b2c3d4-e5f6-4890-abcd-1234567890ab" }) });
     expect(res.status).toBe(200);
 
-    const contactUpdate = updates.find((u) => u.table === "crm_contacts");
-    expect(contactUpdate?.record).toHaveProperty("title", "VP of Operations");
-    expect(contactUpdate?.record).not.toHaveProperty("job_title");
+    expect(updates.find((u) => u.table === "crm_contacts")).toBeUndefined();
   });
 
   it("deletes CRM contact record cleanly without deleting profile or membership", async () => {

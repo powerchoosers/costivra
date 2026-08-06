@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { requirePortalContext, requirePortalEditor } from "@/lib/portal/repository";
 import { apiError, cleanUuid, cleanText } from "@/lib/portal/http";
 
+const conflictMessage = "This record changed in another session. Reload the latest version before saving.";
+const statuses = new Set(["prospect", "active", "inactive", "terminated"]);
+const cadences = new Set(["monthly", "annual"]);
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -15,56 +19,41 @@ export async function PATCH(
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
 
-    const displayNameOverride = body.displayNameOverride !== undefined ? cleanText(body.displayNameOverride) : undefined;
-    const categoryOverride = body.categoryOverride !== undefined ? cleanText(body.categoryOverride) : undefined;
-    const websiteOverride = body.websiteOverride !== undefined ? cleanText(body.websiteOverride) : undefined;
+    const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : "";
+    if (!expectedUpdatedAt || Number.isNaN(Date.parse(expectedUpdatedAt))) return NextResponse.json({ error: "A current record version is required." }, { status: 400 });
+    const displayNameOverride = body.displayNameOverride !== undefined ? cleanText(body.displayNameOverride, 160) : undefined;
+    const categoryOverride = body.categoryOverride !== undefined ? cleanText(body.categoryOverride, 100) : undefined;
+    const websiteOverride = body.websiteOverride !== undefined ? cleanText(body.websiteOverride, 2048) : undefined;
     const relationshipStatus = body.relationshipStatus !== undefined ? cleanText(body.relationshipStatus) : undefined;
     const annualizedSpend = body.annualizedSpend !== undefined ? Number(body.annualizedSpend) : undefined;
     const spendCadence = body.spendCadence !== undefined ? cleanText(body.spendCadence) : undefined;
 
-    const updates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
+    if (relationshipStatus !== undefined && !statuses.has(relationshipStatus)) return NextResponse.json({ error: "Choose a valid vendor relationship status." }, { status: 400 });
+    if (spendCadence !== undefined && !cadences.has(spendCadence)) return NextResponse.json({ error: "Choose a valid spend cadence." }, { status: 400 });
+    if (annualizedSpend !== undefined && (!Number.isFinite(annualizedSpend) || annualizedSpend < 0)) return NextResponse.json({ error: "Annualized spend must be a non-negative number." }, { status: 400 });
+    if (websiteOverride && !/^https?:\/\/[^\s/$.?#][^\s]*$/i.test(websiteOverride)) return NextResponse.json({ error: "Enter a public http or https vendor website." }, { status: 400 });
+
+    const updates: Record<string, unknown> = {};
 
     if (displayNameOverride !== undefined) updates.display_name_override = displayNameOverride || null;
     if (categoryOverride !== undefined) updates.category_override = categoryOverride || null;
     if (websiteOverride !== undefined) updates.website_override = websiteOverride || null;
     if (relationshipStatus !== undefined) {
       updates.relationship_status = relationshipStatus;
-      if (relationshipStatus === "ended") {
-        updates.ended_at = new Date().toISOString();
-        updates.ended_by = userId;
-      } else {
-        updates.ended_at = null;
-        updates.ended_by = null;
-      }
     }
     if (annualizedSpend !== undefined && !isNaN(annualizedSpend)) updates.annualized_spend = annualizedSpend;
     if (spendCadence !== undefined) updates.spend_cadence = spendCadence;
 
-    const { data, error } = await db
-      .from("organization_vendors")
-      .update(updates)
-      .eq("id", relationshipId)
-      .eq("organization_id", organizationId)
-      .select()
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) {
-      return NextResponse.json({ error: "Vendor relationship not found." }, { status: 404 });
-    }
-
-    await db.from("audit_events").insert({
-      actor_id: userId,
-      organization_id: organizationId,
-      action: "vendor_relationship.updated",
-      resource_type: "vendor_relationship",
-      resource_id: relationshipId,
-      safe_metadata: { updates },
+    const { data, error } = await db.rpc("portal_update_vendor_relationship", {
+      p_relationship_id: relationshipId, p_organization_id: organizationId, p_actor_id: userId,
+      p_expected_updated_at: expectedUpdatedAt, p_updates: updates,
     });
-
-    return NextResponse.json({ ok: true, relationship: data });
+    if (error) {
+      if (error.message.includes("RECORD_CONFLICT")) return NextResponse.json({ error: conflictMessage, code: "record_conflict" }, { status: 409 });
+      if (error.message.includes("RECORD_NOT_FOUND")) return NextResponse.json({ error: "Vendor relationship not found." }, { status: 404 });
+      throw error;
+    }
+    return NextResponse.json({ ok: true, relationship: Array.isArray(data) ? data[0] : data });
   } catch (error) {
     return apiError(error, "Failed to update vendor relationship.");
   }

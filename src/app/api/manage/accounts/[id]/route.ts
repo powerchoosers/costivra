@@ -24,6 +24,8 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as Record<string, unknown>;
+    const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : "";
+    if (!expectedUpdatedAt || Number.isNaN(Date.parse(expectedUpdatedAt))) return NextResponse.json({ error: "A current record version is required." }, { status: 400 });
 
     const name = "name" in body ? cleanText(body.name, 120) || null : undefined;
     const legalName = "legalName" in body ? cleanText(body.legalName, 140) || null : undefined;
@@ -65,6 +67,17 @@ export async function PATCH(
     if ("website" in body && websiteInput && !website) {
       return NextResponse.json({ error: "Enter a public http or https account website." }, { status: 400 });
     }
+
+    const { data: updatedAt, error: mutationError } = await db.rpc("manage_update_account_record", {
+      p_organization_id: organizationId, p_actor_id: userId, p_expected_updated_at: expectedUpdatedAt,
+      p_updates: { ...(name !== undefined ? { name } : {}), ...(legalName !== undefined ? { legal_name: legalName } : {}), ...(industry !== undefined ? { industry } : {}), ...(employeeCountRange !== undefined ? { employee_count_range: employeeCountRange } : {}), ...(annualRevenueRange !== undefined ? { annual_revenue_range: annualRevenueRange } : {}), ...(timezone !== undefined ? { timezone } : {}), ...(currency !== undefined ? { currency } : {}), ...(parentAccountId !== undefined ? { parent_organization_id: parentAccountId } : {}), ...(primaryContactId !== undefined ? { primary_contact_id: primaryContactId } : {}), ...("stage" in body ? { lifecycle_stage: stage || "onboarding" } : {}), ...(assignedTo !== undefined ? { assigned_to: assignedTo } : {}), ...("nextFollowUpAt" in body ? { next_follow_up_at: nextFollowUpAt } : {}), ...("nextStep" in body ? { next_step: cleanText(body.nextStep, 500) || null } : {}), ...("privateNotes" in body ? { private_notes: cleanText(body.privateNotes, 4000) || null } : {}), ...(visibleInCrm !== undefined ? { visible_in_crm: visibleInCrm } : {}), ...("website" in body ? { website } : {}) },
+    });
+    if (mutationError) {
+      if (mutationError.message.includes("RECORD_CONFLICT")) return NextResponse.json({ error: "This record changed in another session. Reload the latest version before saving.", code: "record_conflict" }, { status: 409 });
+      if (mutationError.message.includes("INVALID_PARENT") || mutationError.message.includes("INVALID_PRIMARY_CONTACT")) return NextResponse.json({ error: "The selected relationship is no longer valid. Reload and try again." }, { status: 400 });
+      throw mutationError;
+    }
+    return NextResponse.json({ ok: true, updatedAt });
 
     // 1. Update organizations table if org-level fields supplied
     if (

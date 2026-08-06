@@ -25,6 +25,8 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as Record<string, unknown>;
+    const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : "";
+    if (!expectedUpdatedAt || Number.isNaN(Date.parse(expectedUpdatedAt))) return NextResponse.json({ error: "A current record version is required." }, { status: 400 });
 
     const fullName = "fullName" in body ? cleanText(body.fullName, 120) || null : undefined;
     const email = "email" in body ? cleanText(body.email, 255) || null : undefined;
@@ -35,6 +37,19 @@ export async function PATCH(
     const status = "status" in body ? cleanText(body.status, 30) || "active" : undefined;
 
     const newOrgId = targetOrganizationId ?? contact.organization_id;
+    if (email !== undefined && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+    if (status !== undefined && !["active", "inactive", "bounced", "unsubscribed"].includes(status)) return NextResponse.json({ error: "Choose a valid contact status." }, { status: 400 });
+
+    const { data: updatedAt, error: mutationError } = await db.rpc("manage_update_contact_record", {
+      p_contact_id: contactId, p_actor_id: userId, p_expected_updated_at: expectedUpdatedAt,
+      p_updates: { ...(fullName !== undefined ? { full_name: fullName } : {}), ...(email !== undefined ? { email: email?.toLowerCase() } : {}), ...(phone !== undefined ? { phone } : {}), ...(title !== undefined ? { title } : {}), ...(targetOrganizationId !== undefined ? { organization_id: targetOrganizationId } : {}), ...(isPrimary !== undefined ? { is_primary: isPrimary } : {}), ...(status !== undefined ? { status } : {}) },
+    });
+    if (mutationError) {
+      if (mutationError.message.includes("RECORD_CONFLICT")) return NextResponse.json({ error: "This record changed in another session. Reload the latest version before saving.", code: "record_conflict" }, { status: 409 });
+      if (mutationError.message.includes("RECORD_NOT_FOUND")) return NextResponse.json({ error: "Contact not found." }, { status: 404 });
+      throw mutationError;
+    }
+    return NextResponse.json({ ok: true, updatedAt });
 
     // Handle primary contact status transactionally if changed to true
     if (isPrimary === true) {

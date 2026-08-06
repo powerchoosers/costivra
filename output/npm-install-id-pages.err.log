@@ -1,0 +1,62 @@
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist\docs\01-app\03-api-reference\02-components'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist\docs\01-app\03-api-reference\03-file-conventions\02-route-segment-config'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist\docs\02-pages\04-api-reference'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist'
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\@playwright\\test',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\@playwright\test'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\@playwright\\test'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\tsx',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\tsx\node_modules'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\tsx\\node_modules'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     '\\\\?\\C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\tsx',
+npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\tsx'] {
+npm warn cleanup       errno: -4051,
+npm warn cleanup       code: 'ENOTEMPTY',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\tsx'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\playwright-core',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\playwright-core\lib\vite'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\playwright-core\\lib\\vite'
+npm warn cleanup     }
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\next',
+npm warn cleanup     [Error: EPERM: operation not permitted, rmdir 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\next\dist\server\route-modules\app-route\helpers'] {
+npm warn cleanup       errno: -4048,
+npm warn cleanup       code: 'EPERM',
+npm warn cleanup       syscall: 'rmdir',
+npm warn cleanup       path: 'C:\\Users\\Lap3p\\OneDrive\\Documents\\Costivra\\node_modules\\next\\dist\\server\\route-modules\\app-route\\helpers'
+npm warn cleanup     }
+npm warn cleanup   ]
+npm warn cleanup ]
+npm error code ENOTEMPTY
+npm error syscall rmdir
+npm error path C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\@babel\helpers\lib\helpers
+npm error errno -4051
+npm error ENOTEMPTY: directory not empty, rmdir 'C:\Users\Lap3p\OneDrive\Documents\Costivra\node_modules\@babel\helpers\lib\helpers'
+npm error A complete log of this run can be found in: C:\Users\Lap3p\AppData\Local\npm-cache\_logs\2026-08-06T02_00_48_378Z-debug-0.log

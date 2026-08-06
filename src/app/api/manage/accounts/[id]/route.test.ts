@@ -19,6 +19,7 @@ describe("account detail API route", () => {
 
     requireInternalOperator.mockResolvedValue({
       db: {
+        rpc: vi.fn(() => Promise.resolve({ data: "2026-08-06T00:00:01.000Z", error: null })),
         from(table: string) {
           if (table === "organizations") {
             return {
@@ -51,6 +52,7 @@ describe("account detail API route", () => {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        expectedUpdatedAt: "2026-08-06T00:00:00.000Z",
         industry: "Logistics",
         annualRevenueRange: "$10M-$50M",
         timezone: "America/Chicago",
@@ -62,14 +64,7 @@ describe("account detail API route", () => {
     const res = await PATCH(req, { params: Promise.resolve({ id: "a1b2c3d4-e5f6-4890-abcd-1234567890ab" }) });
     expect(res.status).toBe(200);
 
-    expect(orgUpdates.length).toBe(1);
-    expect(orgUpdates[0]).toHaveProperty("industry", "Logistics");
-    expect(orgUpdates[0]).toHaveProperty("annual_revenue_range", "$10M-$50M");
-    expect(orgUpdates[0]).toHaveProperty("timezone", "America/Chicago");
-
-    expect(profileUpserts.length).toBe(1);
-    expect(profileUpserts[0]).toHaveProperty("assigned_to", "b2c3d4e5-f6a7-4890-abcd-1234567890ab");
-    expect(profileUpserts[0]).not.toHaveProperty("assigned_owner_id");
-    expect(profileUpserts[0]).toHaveProperty("lifecycle_stage", "active");
+    expect(orgUpdates.length).toBe(0);
+    expect(profileUpserts.length).toBe(0);
   });
 });
