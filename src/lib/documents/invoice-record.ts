@@ -3,9 +3,15 @@ import { reconcileInvoice } from "@/lib/domain/invoices";
 import { classifyInvoiceReview } from "@/lib/domain/invoice-review";
 import { resolveVendorAndCategory } from "@/lib/vendors/resolve";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { categoryIntelligence } from "@/lib/category-intelligence/service";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
 type SourceType = "manual_upload" | "email_forwarding" | "provider_integration";
+
+function toFiniteAmount(value: string | number | null | undefined): number {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+}
 
 export async function createInvoiceRecordFromExtraction(input: {
   db: DatabaseClient;
@@ -30,6 +36,18 @@ export async function createInvoiceRecordFromExtraction(input: {
     documentId: input.documentId,
   });
 
+  const categoryResolution = await categoryIntelligence.resolveCategory({
+    rawCategory: vendorResult.categoryName,
+    vendorName: input.intelligence.vendorName,
+    lineItemDescriptions: candidate.lineItems.map((line) => line.description),
+  });
+  const { data: taxonomyCategory, error: taxonomyCategoryError } = await input.db
+    .from("vendor_categories")
+    .select("id")
+    .eq("canonical_key", categoryResolution.key)
+    .maybeSingle();
+  if (taxonomyCategoryError) throw taxonomyCategoryError;
+
   const reconciliation = reconcileInvoice(candidate);
   const review = classifyInvoiceReview({
     hasVendor: Boolean(vendorResult.organizationVendorId),
@@ -39,7 +57,7 @@ export async function createInvoiceRecordFromExtraction(input: {
     servicePeriodEnd: candidate.servicePeriodEnd,
     currency: input.intelligence.currency,
     totalAmount: candidate.totalAmount,
-    expenseCategory: vendorResult.categoryName,
+    expenseCategory: categoryResolution.displayName,
     reconciliationStatus: reconciliation.status,
     confidence: input.intelligence.confidence,
   });
@@ -66,8 +84,8 @@ export async function createInvoiceRecordFromExtraction(input: {
       credit_total: candidate.creditTotal,
       total_amount: candidate.totalAmount,
       amount_due: candidate.amountDue,
-      expense_category: vendorResult.categoryName,
-      expense_category_id: vendorResult.categoryId,
+      expense_category: categoryResolution.displayName,
+      expense_category_id: taxonomyCategory?.id ?? vendorResult.categoryId,
       extraction_confidence: input.intelligence.confidence,
       vendor_match_confidence: vendorResult.confidence,
       vendor_resolution_method: vendorResult.resolutionMethod,
@@ -82,14 +100,23 @@ export async function createInvoiceRecordFromExtraction(input: {
         reconciliationChecks: reconciliation.checks,
         extractedVendorName: input.intelligence.vendorName,
         isCandidateVendor: vendorResult.isCandidate,
+        categoryIntelligence: {
+          categoryKey: categoryResolution.key,
+          packVersion: categoryResolution.expertPackVersion,
+          resolutionSource: categoryResolution.source,
+          confidence: categoryResolution.confidence,
+        },
       },
     })
     .select("id")
     .single();
   if (invoiceError) throw invoiceError;
 
-  if (candidate.lineItems.length) {
-    const { error: lineError } = await input.db.from("invoice_line_items").insert(
+  try {
+    if (candidate.lineItems.length) {
+      const { data: storedLines, error: lineError } = await input.db
+        .from("invoice_line_items")
+        .insert(
       candidate.lineItems.map((line, index) => ({
         organization_id: input.organizationId,
         invoice_id: invoice.id,
@@ -102,11 +129,89 @@ export async function createInvoiceRecordFromExtraction(input: {
         service_period_start: line.servicePeriodStart,
         service_period_end: line.servicePeriodEnd,
       })),
-    );
-    if (lineError) {
-      await input.db.from("invoices").delete().eq("id", invoice.id);
-      throw lineError;
+        )
+        .select("id, description, amount, quantity, unit_price");
+      if (lineError) throw lineError;
+
+      const normalizedLines = await categoryIntelligence.normalizeLineItems(
+        (storedLines ?? []).map((line) => ({
+          id: line.id,
+          description: line.description,
+          amount: Number(line.amount),
+          quantity: line.quantity === null ? undefined : Number(line.quantity),
+          unitPrice:
+            line.unit_price === null ? undefined : Number(line.unit_price),
+          // Field-level evidence mapping is not yet available from extraction.
+          // Keeping this empty forces review rather than overstating provenance.
+          evidenceIds: [],
+        })),
+        categoryResolution.key,
+      );
+      const { error: classificationError } = await input.db
+        .from("invoice_line_item_classifications")
+        .insert(
+          normalizedLines.map((line) => ({
+            invoice_line_item_id: line.lineItemId,
+            category_id: taxonomyCategory?.id ?? null,
+            canonical_code: line.canonicalCode,
+            confidence: line.confidence,
+            source: "pack_rule",
+            expert_pack_version: line.packVersion ?? null,
+            evidence_reference_ids: line.evidenceIds,
+            review_status: line.reviewRequired ? "needs_review" : "auto_approved",
+          })),
+        );
+      if (classificationError) throw classificationError;
     }
+
+    const billAnalysis = await categoryIntelligence.analyzeBill({
+      invoiceId: invoice.id,
+      totalAmount: toFiniteAmount(candidate.totalAmount),
+      subtotalAmount: candidate.subtotal === null ? null : toFiniteAmount(candidate.subtotal),
+      taxAmount: candidate.taxTotal === null ? null : toFiniteAmount(candidate.taxTotal),
+      currency: input.intelligence.currency ?? "USD",
+      invoiceNumber: candidate.invoiceNumber,
+      invoiceDate: candidate.invoiceDate,
+      dueDate: candidate.dueDate,
+      vendorMatchStatus: vendorResult.matchStatus,
+      reconciliationStatus: reconciliation.status,
+      lineItems: candidate.lineItems.map((line) => ({
+        description: line.description,
+        amount: toFiniteAmount(line.amount),
+      })),
+      categoryKey: categoryResolution.key,
+    });
+    const benchmark = await categoryIntelligence.benchmark({
+      categoryKey: categoryResolution.key,
+      metric: "effective_rate",
+      billedAmount: toFiniteAmount(candidate.totalAmount),
+      serviceDate: candidate.invoiceDate,
+    });
+    const { error: analysisError } = await input.db
+      .from("category_analysis_runs")
+      .insert({
+        organization_id: input.organizationId,
+        document_id: input.documentId,
+        invoice_id: invoice.id,
+        category_id: taxonomyCategory?.id ?? null,
+        pack_version: billAnalysis.packVersion,
+        rules_executed: billAnalysis.findings.map((finding) => finding.findingId),
+        live_sources_used: [],
+        calculations: {
+          reconciliationStatus: reconciliation.status,
+          reconciliationDifference: reconciliation.difference,
+          benchmarkStatus: benchmark.status,
+          benchmarkMissingDimensions: benchmark.missingDimensions,
+        },
+        findings: billAnalysis.findings,
+        missing_dimensions: [...billAnalysis.missingFields, ...benchmark.missingDimensions],
+        confidence: categoryResolution.confidence,
+        trace_id: crypto.randomUUID(),
+      });
+    if (analysisError) throw analysisError;
+  } catch (error) {
+    await input.db.from("invoices").delete().eq("id", invoice.id);
+    throw error;
   }
 
   if (vendorResult.organizationVendorId) {

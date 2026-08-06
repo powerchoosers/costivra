@@ -6,6 +6,7 @@
   - Added four repeatable commands: `eval:categories`, `eval:line-items`, `eval:benchmarks`, and `eval:market-research`.
   - The checks record only aggregate, non-customer results in the private `category_evaluation_runs` ledger. Browser roles have no select access; RLS is enabled and access is limited to server-side service operations.
   - Fixed canonical category-key resolution so saved keys (for example `cloud-iaas-paas`) return their exact dedicated draft pack rather than falling through general heuristics.
+  - Invoice extraction now persists the resolved category, normalized stored line-item classifications, selected pack version, deterministic bill findings, benchmark state, and missing dimensions. A trace-persistence failure removes the new invoice rather than leaving a partial analysis record.
 - **Validation completed**:
   - `npm run typecheck`: PASS.
   - All four evaluation commands: PASS. Structural results are persisted as `synthetic` and `structural`; they explicitly prove deterministic safety contracts, not customer-document performance.
