@@ -16,35 +16,8 @@ export async function POST(
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const reason = cleanText(body.reason, 200) || "Account archived by internal operator";
 
-    const { error: profileErr } = await db.from("crm_account_profiles").upsert(
-      {
-        organization_id: organizationId,
-        visible_in_crm: false,
-        lifecycle_stage: "inactive",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "organization_id" },
-    );
-
-    if (profileErr) throw profileErr;
-
-    await db.from("crm_activities").insert({
-      organization_id: organizationId,
-      actor_id: userId,
-      kind: "status_change",
-      direction: "internal",
-      subject: "Account archived",
-      summary: reason,
-    });
-
-    await db.from("internal_audit_events").insert({
-      actor_id: userId,
-      organization_id: organizationId,
-      action: "crm.account_archived",
-      resource_type: "organization",
-      resource_id: organizationId,
-      safe_metadata: { reason },
-    });
+    const { error } = await db.rpc("manage_set_account_archive_state", { p_organization_id: organizationId, p_actor_id: userId, p_archived: true, p_reason: reason });
+    if (error) throw error;
 
     return NextResponse.json({ ok: true });
   } catch (error) {

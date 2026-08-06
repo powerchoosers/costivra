@@ -19,7 +19,7 @@ describe("account detail API route", () => {
 
     requireInternalOperator.mockResolvedValue({
       db: {
-        rpc: vi.fn(() => Promise.resolve({ data: "2026-08-06T00:00:01.000Z", error: null })),
+        rpc: vi.fn((name: string) => Promise.resolve({ data: name === "manage_update_account_record" ? "2026-08-06T00:00:01.000Z" : null, error: null })),
         from(table: string) {
           if (table === "organizations") {
             return {

@@ -1155,3 +1155,11 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Remote images are blocked by default to prevent invisible tracking requests. Operators can explicitly load them for an individual message, and links open in a separate tab with no referrer.
 - Added focused viewer-document tests covering content isolation, external-image policy, text fallback, and removal of email-provided document-control tags.
 - Validation passed: `npm run typecheck`, `npm run lint`, focused Manage mail/viewer tests (12 passing), and `git diff --check`. The local app started on port 3000, but in-app browser attachment timed out before visual QA could run; a browser read-through remains the only uncompleted check.
+
+## 2026-08-05 — ID page mutation contracts (Chunk 1, in progress)
+
+- Added migration `20260806020128_id_page_atomic_mutations.sql` and applied it to Supabase project `skfocjrykyvsaviyhdea`. It adds customer-safe `audit_events.safe_metadata` plus server-only, `security definer` RPCs for vendor, account, and contact updates. All three use an empty search path and grant execution only to `service_role`.
+- Vendor updates now validate live status/cadence values, require `expectedUpdatedAt`, return a safe `409 record_conflict`, append a valid customer audit row, and pause vendor monitoring atomically when the relationship is terminated.
+- Account and contact update routes now require the same optimistic-concurrency version token and use their atomic database contracts instead of describing independent calls as transactions.
+- Validation passed: `npm run typecheck`; changed-file ESLint; focused account/contact/vendor API tests (4 passing); full unit suite (425 passing, 6 skipped); integration suite (8 passing, 6 skipped); and production build. The live function catalog confirms each new RPC is `security definer`, has `search_path = ''`, and is executable only by `service_role` and database owner. Supabase security advisor reports no new P0 warning.
+- Remaining Chunk 1 work: complete the archive/deactivate/restore RPCs and test coverage for forced failures, move-primary behavior, and browser-role denial before treating the data-contract milestone as complete.

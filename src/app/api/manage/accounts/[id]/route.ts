@@ -216,17 +216,9 @@ export async function DELETE(
       );
     }
 
-    const { error: deleteErr } = await db.from("organizations").delete().eq("id", organizationId);
+    const { error: deleteErr } = await db.rpc("manage_delete_empty_account", { p_organization_id: organizationId, p_actor_id: userId });
+    if (deleteErr?.message.includes("DEPENDENCIES_PRESENT")) return NextResponse.json({ error: "Account dependency state changed. Reload the deletion preview before trying again.", blocked: true }, { status: 409 });
     if (deleteErr) throw deleteErr;
-
-    await db.from("internal_audit_events").insert({
-      actor_id: userId,
-      organization_id: organizationId,
-      action: "crm.account_deleted",
-      resource_type: "organization",
-      resource_id: organizationId,
-      safe_metadata: { empty_account_deleted: true },
-    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -16,28 +16,8 @@ export async function POST(
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const reason = cleanText(body.reason, 500) || "Restored to active CRM view";
 
-    const { error: profileErr } = await db
-      .from("crm_account_profiles")
-      .upsert(
-        {
-          organization_id: organizationId,
-          visible_in_crm: true,
-          visibility_reason: reason,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "organization_id" },
-      );
-
-    if (profileErr) throw profileErr;
-
-    await db.from("internal_audit_events").insert({
-      actor_id: userId,
-      organization_id: organizationId,
-      action: "crm.account_restored",
-      resource_type: "organization",
-      resource_id: organizationId,
-      safe_metadata: { reason },
-    });
+    const { error } = await db.rpc("manage_set_account_archive_state", { p_organization_id: organizationId, p_actor_id: userId, p_archived: false, p_reason: reason });
+    if (error) throw error;
 
     return NextResponse.json({ ok: true });
   } catch (error) {

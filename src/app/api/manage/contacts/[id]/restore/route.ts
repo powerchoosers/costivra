@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
-import { cleanUuid } from "@/lib/portal/http";
+import { cleanUuid, cleanText } from "@/lib/portal/http";
 
 export async function POST(
   request: Request,
@@ -13,36 +13,11 @@ export async function POST(
       return NextResponse.json({ error: "Invalid contact ID." }, { status: 400 });
     }
 
-    const { data: contact, error: fetchErr } = await db
-      .from("crm_contacts")
-      .select("id, organization_id")
-      .eq("id", contactId)
-      .maybeSingle();
-
-    if (fetchErr) throw fetchErr;
-    if (!contact) {
-      return NextResponse.json({ error: "Contact not found." }, { status: 404 });
-    }
-
-    const { error: updateErr } = await db
-      .from("crm_contacts")
-      .update({
-        archived_at: null,
-        archived_by: null,
-        status: "active",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", contactId);
-
-    if (updateErr) throw updateErr;
-
-    await db.from("internal_audit_events").insert({
-      actor_id: userId,
-      organization_id: contact.organization_id,
-      action: "crm.contact_restored",
-      resource_type: "contact",
-      resource_id: contactId,
-    });
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const reason = cleanText(body.reason, 200) || "Contact reactivated by internal operator";
+    const { error } = await db.rpc("manage_set_contact_active_state", { p_contact_id: contactId, p_actor_id: userId, p_active: true, p_reason: reason });
+    if (error?.message.includes("RECORD_NOT_FOUND")) return NextResponse.json({ error: "Contact not found." }, { status: 404 });
+    if (error) throw error;
 
     return NextResponse.json({ ok: true });
   } catch (error) {
