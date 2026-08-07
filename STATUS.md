@@ -1,5 +1,17 @@
 # Costivra Status
 
+## August 7, 2026 — Mobile category orbit alignment
+
+- **Mobile composition**: Centered the Software / Telecom / Energy category orbit within the stacked mobile signature scene while leaving the desktop layout unchanged.
+- **Responsive check**: Confirmed the orbit is centered at 384px with no horizontal overflow; desktop retains its original 330px left-column placement.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA reported no console issues.
+
+## August 7, 2026 — Footer link affordance
+
+- **Interactive links**: Added a shared footer hover and keyboard-focus state so muted links brighten and receive a restrained mint underline when visitors move over or focus them.
+- **Responsive behavior**: Kept the treatment within the existing footer layout; mobile remains contained with no horizontal overflow.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA confirmed the state on the homepage at desktop and mobile sizes with no console issues.
+
 ## August 7, 2026 — Scroll-linked workflow progress
 
 - **Visible progress**: Added a scroll-linked rail to the homepage workflow so the line fills from step 1 toward step 5 as the section moves through the visitor's viewport.

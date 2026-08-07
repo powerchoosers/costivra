@@ -1279,6 +1279,7 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
   .signature-manifesto blockquote { font-size: 3.2rem; }
   .signature-manifesto { padding: 46px 0; }
   .category-orbit { width: 250px; }
+  .signature-category .category-orbit { margin-inline: auto; }
   .spec-page .content-grid { margin-top: 0; }
 }
 
@@ -4619,6 +4620,22 @@ html { scroll-padding-top: 92px; }
 
 @media (prefers-reduced-motion: reduce) {
   .steps-progress-fill { transition: none; }
+}
+
+/* Footer links should clearly read as interactive without adding visual noise. */
+.footer-column a {
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+.footer-column a:hover,
+.footer-column a:focus-visible {
+  color: #f5f7fb;
+  text-decoration: underline;
+  text-decoration-color: var(--mint);
+  text-underline-offset: 4px;
+}
+.footer-column a:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 3px;
 }
 
 /* Homepage premium-upgrade Chunk 6: evidence-backed trust and authorization. */
