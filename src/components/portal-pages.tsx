@@ -541,8 +541,10 @@ export function PortalPage({
         className={
           page === "ask"
             ? "app-content app-content-chat motion-page"
-            : page === "vendors" && !detailId
+              : ["bills", "expenses", "documents"].includes(page) && !detailId
               ? "app-content app-content-table-page motion-page"
+              : page === "vendors" && !detailId
+                ? "app-content app-content-table-page motion-page"
             : "app-content motion-page"
         }
       >
@@ -1045,83 +1047,70 @@ function BillsWorkspace({
       </div>
 
       {activeView === "review" && (
-        <section className="portal-panel">
+        <section className="portal-panel bills-directory">
           {filteredReviewInvoices.length ? (
-            <div className="portal-list">
+            <div className="bills-table-wrap">
+              <table className="portal-table bills-table">
+                <thead>
+                  <tr>
+                    <th>Vendor</th>
+                    <th>Bill / Invoice</th>
+                    <th>Billing Period</th>
+                    <th>Current Charges</th>
+                    <th>Amount Due</th>
+                    <th>Due Date</th>
+                    <th>Account</th>
+                    <th>Location</th>
+                    <th>Review</th>
+                  </tr>
+                </thead>
+                <tbody>
               {filteredReviewInvoices.map((inv) => {
                 const doc = documentMap.get(inv.documentId);
                 const reasons = getPlainLanguageReviewReasons(inv, doc?.status);
                 return (
-                  <div key={inv.id} className="portal-list-row">
-                    <div className="grow">
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <strong>{inv.invoiceNumber ?? "Bill without invoice #"}</strong>
-                        {inv.vendorId && (
-                          <Link
-                            className="record-link"
-                            href={`/app/vendors/${inv.vendorId}`}
-                            title={`Open ${inv.vendorName} workspace`}
-                            style={{ fontSize: "0.85rem" }}
-                          >
-                            Open {inv.vendorName} workspace →
-                          </Link>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.82rem",
-                          color: "var(--assistant-muted, #64748b)",
-                          marginTop: 4,
-                          display: "flex",
-                          gap: 12,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span>Billing period: {displayPeriod(inv.servicePeriodStart, inv.servicePeriodEnd)}</span>
-                        <span>Current charges: {inv.currentCharges != null ? money(inv.currentCharges) : "Not recorded"}</span>
-                        <span>Amount due: {inv.amountDue != null ? money(inv.amountDue) : "Not recorded"}</span>
-                        <span>Due: {date(inv.dueDate)}</span>
-                        <span>Account: {inv.accountNumberLast4 ? `...${inv.accountNumberLast4}` : "Unassigned"}</span>
-                        <span>Location: {inv.locationName ?? "Not assigned"}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                        {reasons.map((reason, idx) => (
-                          <span
-                            key={idx}
-                            style={{
-                              fontSize: "0.74rem",
-                              padding: "2px 8px",
-                              borderRadius: 10,
-                              background: "rgba(245, 158, 11, 0.12)",
-                              color: "#b45309",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {reason}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <Link className="button button-quiet button-sm" href={`/app/bills/${inv.id}`}>
-                        Review bill <ChevronRight size={14} />
+                  <tr key={inv.id}>
+                    <td>
+                      {inv.vendorId ? <Link className="record-link" href={`/app/vendors/${inv.vendorId}`} title={`Open ${inv.vendorName} workspace`}><strong>{inv.vendorName}</strong></Link> : <strong>{inv.vendorName}</strong>}
+                    </td>
+                    <td>
+                      <Link className="record-link" href={`/app/bills/${inv.id}`}>
+                        {inv.invoiceNumber ?? "Bill without invoice #"}
                       </Link>
-                    </div>
-                  </div>
+                    </td>
+                    <td>{displayPeriod(inv.servicePeriodStart, inv.servicePeriodEnd)}</td>
+                    <td><strong>{inv.currentCharges != null ? money(inv.currentCharges) : "Not recorded"}</strong></td>
+                    <td><strong>{inv.amountDue != null ? money(inv.amountDue) : "Not recorded"}</strong></td>
+                    <td>{date(inv.dueDate)}</td>
+                    <td>{inv.accountNumberLast4 ? `...${inv.accountNumberLast4}` : "Unassigned"}</td>
+                    <td>{inv.locationName ?? "Not assigned"}</td>
+                    <td>
+                      <Link className="button button-quiet button-sm bills-review-link" href={`/app/bills/${inv.id}`}>
+                        Review <ChevronRight size={14} />
+                      </Link>
+                      <span className="bills-review-reasons" title={reasons.join(" · ")}>{reasons.length} flag{reasons.length === 1 ? "" : "s"}</span>
+                    </td>
+                  </tr>
                 );
               })}
+                </tbody>
+              </table>
             </div>
           ) : (
             <Empty title="Nothing needs review" copy="All current bills have cleared the available checks." />
           )}
+          <footer className="bills-table-footer">
+            <span>{filteredReviewInvoices.length} bill{filteredReviewInvoices.length === 1 ? "" : "s"}</span>
+            <span>Review queue</span>
+          </footer>
         </section>
       )}
 
       {activeView === "all" && (
-        <section className="portal-panel">
+        <section className="portal-panel bills-directory">
           {filteredAllInvoices.length ? (
-            <div className="table-wrap">
-              <table className="portal-table">
+            <div className="bills-table-wrap">
+              <table className="portal-table bills-table">
                 <thead>
                   <tr>
                     <th>Vendor</th>
@@ -1183,11 +1172,15 @@ function BillsWorkspace({
               }
             />
           )}
+          <footer className="bills-table-footer">
+            <span>{filteredAllInvoices.length} bill{filteredAllInvoices.length === 1 ? "" : "s"}</span>
+            <span>All bills</span>
+          </footer>
         </section>
       )}
 
       {activeView === "spend" && (
-        <section className="portal-panel">
+        <section className="portal-panel bills-directory">
           <div className="portal-panel-heading">
             <div>
               <h2>Spend ledger</h2>
@@ -1195,8 +1188,8 @@ function BillsWorkspace({
             </div>
           </div>
           {filteredExpenses.length ? (
-            <div className="table-wrap">
-              <table className="portal-table">
+            <div className="bills-table-wrap">
+              <table className="portal-table bills-table">
                 <thead>
                   <tr>
                     <th>Vendor</th>
@@ -1246,6 +1239,10 @@ function BillsWorkspace({
           ) : (
             <Empty title="No normalized spend yet" copy="Approved bills will appear here after review." />
           )}
+          <footer className="bills-table-footer">
+            <span>{filteredExpenses.length} spend record{filteredExpenses.length === 1 ? "" : "s"}</span>
+            <span>Spend ledger</span>
+          </footer>
         </section>
       )}
 

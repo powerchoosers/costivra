@@ -4826,3 +4826,19 @@ body.modal-open .app-topbar { filter: blur(7px); }
 @media (prefers-reduced-motion: reduce) {
   .bills-filter-popover, .bills-filter-popover.is-closing { animation: none; }
 }
+
+.bills-directory { min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
+.bills-table-wrap { min-height: 0; flex: 1 1 auto; overflow: auto; overscroll-behavior: contain; }
+.bills-table { min-width: 1240px; table-layout: auto; }
+.bills-table th, .bills-table td { white-space: nowrap; }
+.bills-table th:first-child, .bills-table td:first-child { min-width: 190px; }
+.bills-table th:nth-child(2), .bills-table td:nth-child(2) { min-width: 170px; }
+.bills-table th:nth-child(3), .bills-table td:nth-child(3) { min-width: 180px; }
+.bills-table-footer { display: flex; min-height: 48px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 14px; border-top: 1px solid #edf0f3; color: #778294; background: #fff; font-size: .68rem; }
+.bills-table-footer span:last-child { color: #53627a; font-weight: 650; }
+.bills-review-link { display: inline-flex; align-items: center; gap: 5px; }
+.bills-review-reasons { display: block; margin-top: 4px; color: #a96820; font-size: .62rem; font-weight: 650; }
+@media (max-width: 760px) {
+  .bills-table { min-width: 1120px; }
+  .bills-table-footer { min-height: 46px; }
+}
