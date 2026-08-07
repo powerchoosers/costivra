@@ -154,8 +154,9 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
     if (previous) {
       // The marker is written to every in-app history entry, so this cannot leave
       // Costivra when a previous in-app page is available.
-      const activeState = stateRef.current;
-      if (activeState) updateState({ ...activeState, entries: activeState.entries.slice(0, -1) });
+      // Let the popstate/navigation effect trim the stack after the destination
+      // is known. Optimistically trimming it here briefly changes the label to
+      // the wrong destination while the browser is still moving.
       window.history.back();
       return;
     }
@@ -205,8 +206,10 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
 
   const backButton = (compact = false) => (
     <button type="button" className={`global-back-control__button${compact ? " is-compact" : ""}`} onClick={goBack} aria-label={`Back to ${label}`} title={`Back to ${label}`}>
-      <ArrowLeft size={compact ? 17 : 15} aria-hidden="true" />
-      <span>{compact ? "Back" : `Back to ${label}`}</span>
+      <span className="global-back-control__content">
+        <ArrowLeft size={compact ? 17 : 15} aria-hidden="true" />
+        <span>{compact ? "Back" : `Back to ${label}`}</span>
+      </span>
     </button>
   );
 

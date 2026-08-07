@@ -3678,9 +3678,8 @@ html { scroll-padding-top: 92px; }
 .global-back-control__button,.global-back-control__action { display:inline-flex; min-height:36px; align-items:center; justify-content:center; gap:7px; font:650 .72rem/1 var(--font-sans,Arial,sans-serif); cursor:pointer; text-decoration:none; }
 .global-back-control__button { border:0; border-radius:8px; color:#52647a; background:transparent; box-shadow:none; transition:color .16s ease,transform .16s ease; }
 .global-back-control__button { padding:0 11px; }
-.global-back-control__button:hover { color:#1e56ac; background:transparent; transform:translateX(3px); }
-.global-back-control__button:hover svg { transform:translateX(-3px); }
-.global-back-control__button svg { transition:transform .16s ease; }
+.global-back-control__button:hover { color:#1e56ac; background:transparent; transform:translateX(-3px); }
+.global-back-control__content { display:inline-flex; align-items:center; gap:7px; }
 .global-back-control__action { width:36px; min-width:36px; border:1px solid #dce3ed; border-radius:10px; color:#41546e; background:rgba(255,255,255,.9); box-shadow:0 2px 9px rgba(15,23,42,.035); transition:border-color .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease; }
 .global-back-control__action:hover { border-color:#b9cbe3; color:#1e56ac; background:#f7faff; box-shadow:0 4px 13px rgba(31,79,214,.09); }
 .global-back-control__button:focus-visible,.global-back-control__action:focus-visible { outline:2px solid #1f4fd6; outline-offset:2px; }
@@ -3688,8 +3687,7 @@ html { scroll-padding-top: 92px; }
 .global-back-control__floating.is-visible { opacity:1; pointer-events:auto; transform:translateY(0); }
 .global-back-control__button.is-compact { width:36px; min-width:36px; padding:0; }
 .global-back-control__button.is-compact { border:1px solid #dce3ed; border-radius:10px; color:#41546e; background:rgba(255,255,255,.9); box-shadow:0 2px 9px rgba(15,23,42,.035); transition:border-color .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease; }
-.global-back-control__button.is-compact:hover { border-color:#b9cbe3; color:#1e56ac; background:#f7faff; box-shadow:0 4px 13px rgba(31,79,214,.09); transform:translateX(2px); }
-.global-back-control__button.is-compact:hover svg { transform:translateX(-2px); }
+.global-back-control__button.is-compact:hover { border-color:#b9cbe3; color:#1e56ac; background:#f7faff; box-shadow:0 4px 13px rgba(31,79,214,.09); transform:translateX(-2px); }
 .global-back-control__button.is-compact span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 .global-back-control__actions { display:inline-flex; align-items:center; gap:5px; }
 .global-back-control__action { padding:0; }
@@ -3700,7 +3698,7 @@ html { scroll-padding-top: 92px; }
 .manage-app .global-back-control__floating { top:84px; left:calc(72px + 20px); }
 .manage-app:not(.is-assistant-open) .manage-sidebar:not(.is-collapsed) ~ .manage-main .global-back-control__floating { left:258px; }
 @media (max-width:780px) { .global-back-control__floating,.manage-app .global-back-control__floating { top:calc(72px + env(safe-area-inset-top)); left:12px; max-width:calc(100vw - 24px); } .global-back-control { margin-bottom:15px; } }
-@media (prefers-reduced-motion:reduce) { .global-back-control__floating,.global-back-control__button,.global-back-control__button svg,.global-back-control__action { transition:none!important; } }
+@media (prefers-reduced-motion:reduce) { .global-back-control__floating,.global-back-control__button,.global-back-control__content,.global-back-control__action { transition:none!important; } }
 .record-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 8px 2px 28px; }
 .record-eyebrow { display: block; margin-bottom: 8px; color: #64748b; font-size: .72rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
 .record-detail-header h1 { max-width: 780px; margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(2.2rem, 4vw, 3.6rem); font-weight: 500; letter-spacing: -.045em; line-height: .98; }
