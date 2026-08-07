@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Building2, Globe2, MapPin } from "lucide-react";
+import { Building2, Globe2, MapPin, ReceiptText } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type PageScopeMode = "global" | "vendor" | "account";
+export type PageScopeMode = "global" | "vendor" | "account" | "invoice";
 
 export type ScopeBreadcrumb = {
   label: string;
@@ -15,16 +15,18 @@ export function PageScopeIndicator({
   vendorHref,
   accountLabel,
   accountHref,
+  detailLabel,
 }: {
   mode: PageScopeMode;
   vendorName?: string;
   vendorHref?: string;
   accountLabel?: string;
   accountHref?: string;
+  detailLabel?: string;
 }) {
-  const Icon = mode === "global" ? Globe2 : mode === "vendor" ? Building2 : MapPin;
-  const label = mode === "global" ? "Across all vendors" : mode === "vendor" ? "Vendor workspace" : "Vendor account";
-  const detail = mode === "global" ? "Every vendor relationship" : mode === "vendor" ? vendorName ?? "Vendor relationship" : accountLabel ?? "Account details";
+  const Icon = mode === "global" ? Globe2 : mode === "vendor" ? Building2 : mode === "invoice" ? ReceiptText : MapPin;
+  const label = mode === "global" ? "Across all vendors" : mode === "vendor" ? "Vendor workspace" : mode === "invoice" ? "Invoice review" : "Vendor account";
+  const detail = mode === "global" ? "Every vendor relationship" : mode === "vendor" ? vendorName ?? "Vendor relationship" : mode === "invoice" ? detailLabel ?? "Invoice record" : accountLabel ?? "Account details";
   const detailNode = mode === "account" && accountHref ? <Link href={accountHref}>{detail}</Link> : mode !== "global" && vendorHref ? <Link href={vendorHref}>{detail}</Link> : <span>{detail}</span>;
 
   return (

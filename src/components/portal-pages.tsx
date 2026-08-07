@@ -813,6 +813,8 @@ function BillsWorkspace({
   const defaultView = initialView ?? (reviewInvoices.length > 0 ? "review" : "all");
   const activeView = resolveBillsView(requestedView, defaultView);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersClosing, setFiltersClosing] = useState(false);
 
   const handleTabChange = (view: string) => {
     updateParams({ view }, "push");
@@ -883,8 +885,21 @@ function BillsWorkspace({
     ...data.documents.flatMap((document) => [document.status, document.extractionStatus, document.securityStatus]),
   ].filter(Boolean))).sort();
   const documentTypeOptions = Array.from(new Set(data.documents.map((document) => document.documentType).filter((value): value is string => Boolean(value)))).sort();
-  const hasFilters = Boolean(query || selectedVendorId !== "all" || selectedAccountId !== "all" || selectedLocationId !== "all" || selectedStatus !== "all" || dateFrom || dateTo || searchParams?.get("min") || searchParams?.get("max") || selectedDocumentType !== "all");
+  const activeFilterCount = [Boolean(query), selectedVendorId !== "all", selectedAccountId !== "all", selectedLocationId !== "all", selectedStatus !== "all", Boolean(dateFrom), Boolean(dateTo), Boolean(searchParams?.get("min")), Boolean(searchParams?.get("max")), selectedDocumentType !== "all"].filter(Boolean).length;
+  const hasFilters = activeFilterCount > 0;
   const clearFilters = () => updateParams({ q: null, vendor: null, account: null, location: null, status: null, from: null, to: null, min: null, max: null, type: null });
+  const closeFilters = () => {
+    if (!filtersOpen || filtersClosing) return;
+    setFiltersClosing(true);
+    window.setTimeout(() => {
+      setFiltersOpen(false);
+      setFiltersClosing(false);
+    }, 180);
+  };
+  const toggleFilters = () => {
+    if (filtersOpen) closeFilters();
+    else setFiltersOpen(true);
+  };
 
   const tabs = [
     { id: "review", label: "Needs Review", count: reviewInvoices.length },
@@ -898,7 +913,6 @@ function BillsWorkspace({
       <PageHeader
         title="Bills & Spend"
         description="Upload, review, track, and prove operating expenses across all vendor relationships."
-        scope={<PageScopeIndicator mode="global" />}
         action={
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
             <button
@@ -999,48 +1013,35 @@ function BillsWorkspace({
         }
       />
 
-      <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`portal-tab ${activeView === tab.id ? "is-active" : ""}`}
-            onClick={() => handleTabChange(tab.id)}
-          >
-            {tab.label}
-            {tab.count > 0 && (
-              <span
-                style={{
-                  fontSize: "0.74rem",
-                  padding: "1px 6px",
-                  borderRadius: 10,
-                  background:
-                    tab.id === "review" && tab.count > 0
-                      ? "rgba(245, 158, 11, 0.15)"
-                      : "rgba(30, 41, 59, 0.06)",
-                  color: tab.id === "review" && tab.count > 0 ? "#b45309" : "inherit",
-                  fontWeight: 600,
-                }}
-              >
-                {tab.count}
-              </span>
-            )}
+      <div className="bills-tab-toolbar">
+        <div className="portal-tab-bar">
+          {tabs.map((tab) => (
+            <button key={tab.id} type="button" className={`portal-tab ${activeView === tab.id ? "is-active" : ""}`} onClick={() => handleTabChange(tab.id)}>
+              {tab.label}
+              {tab.count > 0 && <span style={{ fontSize: "0.74rem", padding: "1px 6px", borderRadius: 10, background: tab.id === "review" && tab.count > 0 ? "rgba(245, 158, 11, 0.15)" : "rgba(30, 41, 59, 0.06)", color: tab.id === "review" && tab.count > 0 ? "#b45309" : "inherit", fontWeight: 600 }}>{tab.count}</span>}
+            </button>
+          ))}
+        </div>
+        <div className={`bills-filter-control${filtersOpen ? " is-open" : ""}`}>
+          <button type="button" className="bills-filter-trigger" aria-label="Filter bills and spend" aria-expanded={filtersOpen} onClick={toggleFilters}>
+            <ListFilter size={16} />
+            {hasFilters && <span className="bills-filter-count">{activeFilterCount}</span>}
           </button>
-        ))}
-      </div>
-
-      {hasFilters && <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}><button type="button" className="button button-quiet button-sm" onClick={clearFilters}>Clear filters</button></div>}
-
-      <div className="bills-filter-grid" aria-label="Bills and spend filters">
-        <label><span>Vendor</span><select value={selectedVendorId} onChange={(event) => updateParams({ vendor: event.target.value === "all" ? null : event.target.value })}><option value="all">All vendors</option>{data.vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}</select></label>
-        <label><span>Account</span><select value={selectedAccountId} onChange={(event) => updateParams({ account: event.target.value === "all" ? null : event.target.value })}><option value="all">All accounts</option>{data.expenseAccounts.map((account) => <option key={account.id} value={account.id}>{account.accountName ?? account.accountNumberLast4 ? `${account.accountName ?? "Account"}${account.accountNumberLast4 ? ` · …${account.accountNumberLast4}` : ""}` : "Vendor account"}</option>)}</select></label>
-        <label><span>Location</span><select value={selectedLocationId} onChange={(event) => updateParams({ location: event.target.value === "all" ? null : event.target.value })}><option value="all">All locations</option>{data.locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
-        <label><span>Status</span><select value={selectedStatus} onChange={(event) => updateParams({ status: event.target.value === "all" ? null : event.target.value })}><option value="all">All statuses</option>{statusOptions.map((status) => <option key={status} value={status}>{titleCase(status)}</option>)}</select></label>
-        <label><span>From</span><input type="date" value={dateFrom} onChange={(event) => updateParams({ from: event.target.value || null })} /></label>
-        <label><span>To</span><input type="date" value={dateTo} onChange={(event) => updateParams({ to: event.target.value || null })} /></label>
-        <label><span>Minimum amount</span><input type="number" min="0" step="0.01" value={searchParams?.get("min") ?? ""} onChange={(event) => updateParams({ min: event.target.value || null })} placeholder="Any" /></label>
-        <label><span>Maximum amount</span><input type="number" min="0" step="0.01" value={searchParams?.get("max") ?? ""} onChange={(event) => updateParams({ max: event.target.value || null })} placeholder="Any" /></label>
-        <label><span>Document type</span><select value={selectedDocumentType} onChange={(event) => updateParams({ type: event.target.value === "all" ? null : event.target.value })}><option value="all">All document types</option>{documentTypeOptions.map((type) => <option key={type} value={type}>{titleCase(type)}</option>)}</select></label>
+          {(filtersOpen || filtersClosing) && <div className={`bills-filter-popover${filtersClosing ? " is-closing" : ""}`} role="dialog" aria-label="Bills and spend filters">
+            <header><div><strong>Filters</strong><small>Refine the records shown below.</small></div>{hasFilters && <button type="button" className="bills-filter-clear" onClick={clearFilters}>Clear all</button>}</header>
+            <div className="bills-filter-grid">
+              <label><span>Vendor</span><CostivraSelect value={selectedVendorId} onChange={(value) => updateParams({ vendor: value === "all" ? null : value })} options={[{ value: "all", label: "All vendors" }, ...data.vendors.map((vendor) => ({ value: vendor.id, label: vendor.name }))]} /></label>
+              <label><span>Account</span><CostivraSelect value={selectedAccountId} onChange={(value) => updateParams({ account: value === "all" ? null : value })} options={[{ value: "all", label: "All accounts" }, ...data.expenseAccounts.map((account) => ({ value: account.id, label: account.accountName ?? account.accountNumberLast4 ? `${account.accountName ?? "Account"}${account.accountNumberLast4 ? ` · …${account.accountNumberLast4}` : ""}` : "Vendor account" }))]} /></label>
+              <label><span>Location</span><CostivraSelect value={selectedLocationId} onChange={(value) => updateParams({ location: value === "all" ? null : value })} options={[{ value: "all", label: "All locations" }, ...data.locations.map((location) => ({ value: location.id, label: location.name }))]} /></label>
+              <label><span>Status</span><CostivraSelect value={selectedStatus} onChange={(value) => updateParams({ status: value === "all" ? null : value })} options={[{ value: "all", label: "All statuses" }, ...statusOptions.map((status) => ({ value: status, label: titleCase(status) }))]} /></label>
+              <label><span>From</span><CostivraDatePicker value={dateFrom} onChange={(value) => updateParams({ from: value || null })} placeholder="Select start date" /></label>
+              <label><span>To</span><CostivraDatePicker value={dateTo} onChange={(value) => updateParams({ to: value || null })} placeholder="Select end date" /></label>
+              <label><span>Minimum amount</span><input type="number" min="0" step="0.01" value={searchParams?.get("min") ?? ""} onChange={(event) => updateParams({ min: event.target.value || null })} placeholder="Any" /></label>
+              <label><span>Maximum amount</span><input type="number" min="0" step="0.01" value={searchParams?.get("max") ?? ""} onChange={(event) => updateParams({ max: event.target.value || null })} placeholder="Any" /></label>
+              <label><span>Document type</span><CostivraSelect value={selectedDocumentType} onChange={(value) => updateParams({ type: value === "all" ? null : value })} options={[{ value: "all", label: "All document types" }, ...documentTypeOptions.map((type) => ({ value: type, label: titleCase(type) }))]} /></label>
+            </div>
+          </div>}
+        </div>
       </div>
 
       {activeView === "review" && (
@@ -2253,7 +2254,6 @@ export function VendorDetail({
     <div className="vendor-detail">
       <div className="vendor-scope-context">
         <GlobalBackControl className="vendor-back" />
-        <PageBreadcrumbs items={[{ label: "Vendors", href: "/app/vendors" }, { label: vendor.name }]} />
         <PageScopeIndicator mode="vendor" vendorName={vendor.name} vendorHref={`/app/vendors/${vendor.id}`} />
       </div>
 
@@ -4357,11 +4357,17 @@ function VendorSidePanel({
   const [leaving, setLeaving] = useState(false);
   useEffect(() => {
     let closeTimer: number | undefined;
+    let openTimer: number | undefined;
+    let leaveTimer: number | undefined;
     if (open) {
-      setMounted(true);
-      setLeaving(false);
+      if (!mounted || leaving) {
+        openTimer = window.setTimeout(() => {
+          setMounted(true);
+          setLeaving(false);
+        }, 0);
+      }
     } else if (mounted) {
-      setLeaving(true);
+      leaveTimer = window.setTimeout(() => setLeaving(true), 0);
       closeTimer = window.setTimeout(() => {
         setMounted(false);
         setLeaving(false);
@@ -4369,8 +4375,10 @@ function VendorSidePanel({
     }
     return () => {
       if (closeTimer) window.clearTimeout(closeTimer);
+      if (openTimer) window.clearTimeout(openTimer);
+      if (leaveTimer) window.clearTimeout(leaveTimer);
     };
-  }, [open, mounted]);
+  }, [open, mounted, leaving]);
   useEffect(() => {
     if (!open) return;
     try {

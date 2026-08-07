@@ -208,7 +208,7 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     <button type="button" className={`global-back-control__button${compact ? " is-compact" : ""}`} onClick={goBack} aria-label={`Back to ${label}`} title={`Back to ${label}`}>
       <span className="global-back-control__content">
         <ArrowLeft size={compact ? 17 : 15} aria-hidden="true" />
-        <span>{compact ? "Back" : `Back to ${label}`}</span>
+        <span className="global-back-control__label">{compact ? "Back" : `Back to ${label}`}</span>
       </span>
     </button>
   );
