@@ -1,5 +1,71 @@
 # Costivra Status
 
+## August 7, 2026 — Scroll-linked workflow progress
+
+- **Visible progress**: Added a scroll-linked rail to the homepage workflow so the line fills from step 1 toward step 5 as the section moves through the visitor's viewport.
+- **Responsive treatment**: Desktop uses a horizontal rail behind the five steps; mobile switches to a vertical rail beside the stacked steps without creating horizontal overflow.
+- **Motion and accessibility**: The fill uses restrained linear progress and removes its transition for reduced-motion preferences while preserving the scroll state.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA confirmed 0%, middle progress, and 100% states at desktop plus the vertical mobile rail.
+
+## August 7, 2026 — Homepage stage motion and navigation balance
+
+- **Stage transitions**: Added a calm fade-and-rise replay whenever the synthetic interactive-demo stage changes, while keeping the fixed stage viewport so the hero does not jump between states. Reduced-motion users receive no transition.
+- **Desktop navigation**: Centered the primary links in the grid track between the logo and action divider rails so the header reads as balanced; the existing mobile menu remains unchanged.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA passed at 1280px and 390px with no console issues or horizontal overflow.
+
+## August 7, 2026 — Light-surface secondary actions
+
+- **Readable buttons**: Added dark text, visible borders, light backgrounds, and rounded corners for secondary actions inside light marketing content pages and panels.
+- **Dark hero preservation**: Left the homepage’s dark-hero secondary action light so it remains legible against the product demo.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser checks passed on Scan, Solutions, and the homepage.
+
+## August 7, 2026 — Scan-page assurance rows
+
+- **Checklist alignment**: Converted the scan-page assurances into a shared flex row so each check icon sits to the left of its text with consistent baseline spacing.
+- **Responsive behavior**: Confirmed the rows wrap naturally at 390px without horizontal overflow while keeping the icon anchored to the first line.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA passed at desktop and mobile widths.
+
+## August 7, 2026 — Industry detail-card density and scene geometry
+
+- **Balanced industry grids**: Reduced the six solution-detail families to three focused cards each, folding the removed card’s key control language into the related card instead of leaving a sparse second row or inventing filler.
+- **Rounded signature scenes**: Added consistent 24px desktop / 20px mobile corners to timeline, category, consent, portfolio, and manifesto scenes so every large visual reads as a finished card.
+- **Responsive check**: Verified Software, Telecom, Energy, Insurance, Facilities, and Merchant solution pages at desktop; Software, Telecom, and Energy at 390px. All report three cards and no horizontal overflow.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS.
+
+## August 7, 2026 — Industry solution cards are navigable
+
+- **Solutions entry points**: Made the Software subscriptions, Telecom & internet, and Commercial energy review cards full-card links to their existing detail pages.
+- **Discoverability**: Added a restrained arrow cue on hover and keyboard focus while preserving the shared card hover treatment and accessible focus outline.
+- **Responsive behavior**: Confirmed all three cards remain full-width tap targets at 390px with no horizontal overflow; Telecom navigation resolves to `/solutions/telecom`.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; browser route and mobile checks PASS.
+
+## August 7, 2026 — Shared marketing card grid polish
+
+- **Grid edges**: Added explicit outer borders to the shared `.content-grid` so the first and last columns no longer look clipped or unfinished.
+- **Hover state**: Replaced the harsh black inversion with a light elevated surface, subtle blue border, controlled shadow, and a small scale lift that keeps text readable.
+- **Shared coverage**: Applied the fix at the shared style level and checked Product, Solutions, How it works, Pricing, Case studies, and Help at desktop and 390px mobile widths.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. All checked pages reported no horizontal overflow.
+
+## August 7, 2026 — Premium marketing header
+
+- **Desktop hierarchy**: Refined the marketing header into a quiet command bar with a frosted surface, subtle brand/action rails, calmer nav states, and a more considered primary CTA.
+- **Mobile navigation**: Strengthened the menu touch target, preserved the animated menu/X state, and made the open drawer opaque and spacious so navigation remains legible over the hero.
+- **Responsive guardrails**: Added a compact tablet treatment and confirmed the header stays within the viewport without horizontal overflow at desktop and 390px widths.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA passed at desktop and mobile widths.
+
+## August 7, 2026 — Homepage interaction polish
+
+- **Evidence chain**: Moved each methodology icon beside its bold step title so the four-step proof sequence reads as one compact row instead of stacking the icon above the copy.
+- **Trust controls**: Removed the bottom divider from the final Audit history / No broad inbox access row so the grid ends cleanly without an orphaned rule.
+- **FAQ motion**: Kept answers mounted for a smooth grid-height transition, added a subtle content fade/slide, and rotated the plus icon into an X while an answer is open. Reduced-motion users still receive no animation.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser checks passed at desktop and 390px widths.
+
+## August 7, 2026 — Stabilize interactive hero stage height
+
+- **Stage viewport**: Wrapped the interactive opportunity states in a shared content viewport with desktop and mobile minimum heights based on the tallest real stage. Approval and later-result states now occupy the same frame size as source, change, and evidence states instead of shrinking the hero during the cycle.
+- **Browser QA**: Measured all five stages at 1186px and 390px widths; every stage now reports the same product-frame height at each breakpoint.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS.
+
 ## August 7, 2026 — Global scroll performance polish
 
 - **Page scrolling**: Tuned Lenis interpolation from `0.09` to `0.12` so wheel and trackpad input settles sooner without losing the calm, eased motion.

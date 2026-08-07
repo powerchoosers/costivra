@@ -87,41 +87,43 @@ export function OpportunityDemo() {
                 </div>
               </div>
 
-              {stage === "approval" ? (
-                <DemoApprovalState decision={decision} onDecision={setDecision} />
-              ) : stage === "result" ? (
-                <DemoVerificationState />
-              ) : (
-                <>
-                  <div className="frame-body">
-                    <div className="opportunity-preview">
-                      <div className="opportunity-head">
-                        <span className="icon-well"><RadioTower aria-hidden="true" size={23} /></span>
-                        <div><h3>Telecom bill increase</h3><span className="muted">{stageHints[stage]}</span></div>
+              <div className="demo-stage-content" key={stage}>
+                {stage === "approval" ? (
+                  <DemoApprovalState decision={decision} onDecision={setDecision} />
+                ) : stage === "result" ? (
+                  <DemoVerificationState />
+                ) : (
+                  <>
+                    <div className="frame-body">
+                      <div className="opportunity-preview">
+                        <div className="opportunity-head">
+                          <span className="icon-well"><RadioTower aria-hidden="true" size={23} /></span>
+                          <div><h3>Telecom bill increase</h3><span className="muted">{stageHints[stage]}</span></div>
+                        </div>
+                        <div className="fact-grid">
+                          <div className="fact"><span>Potential annual value</span><strong className="value">{DEMO_FINDING.potentialAnnualValue}</strong></div>
+                          <div className="fact"><span>Confidence</span><strong>{DEMO_FINDING.confidence}</strong></div>
+                          <div className="fact"><span>Renewal window</span><strong>{DEMO_FINDING.renewalWindow}</strong></div>
+                          <div className="fact"><span>Evidence</span><strong>1 source</strong></div>
+                        </div>
                       </div>
-                      <div className="fact-grid">
-                        <div className="fact"><span>Potential annual value</span><strong className="value">{DEMO_FINDING.potentialAnnualValue}</strong></div>
-                        <div className="fact"><span>Confidence</span><strong>{DEMO_FINDING.confidence}</strong></div>
-                        <div className="fact"><span>Renewal window</span><strong>{DEMO_FINDING.renewalWindow}</strong></div>
-                        <div className="fact"><span>Evidence</span><strong>1 source</strong></div>
+                      <div className="evidence-preview">
+                        <span className="eyebrow">Source document</span>
+                        <div className="document-sheet">
+                          <div className="demo-document-heading"><strong>Business internet</strong><span>{DEMO_FINDING.sourcePage}</span></div>
+                          <div className="doc-line short" /><div className="doc-line" /><div className="doc-line blue" /><div className="doc-line" />
+                          <div className="demo-document-total"><span>Total</span><strong>{DEMO_FINDING.currentMonthlyCharge}</strong></div>
+                        </div>
+                        <button ref={sourceTriggerRef} className="button button-quiet" type="button" aria-haspopup="dialog" onClick={() => setDrawerOpen(true)}>View source <FileText aria-hidden="true" size={16} /></button>
                       </div>
                     </div>
-                    <div className="evidence-preview">
-                      <span className="eyebrow">Source document</span>
-                      <div className="document-sheet">
-                        <div className="demo-document-heading"><strong>Business internet</strong><span>{DEMO_FINDING.sourcePage}</span></div>
-                        <div className="doc-line short" /><div className="doc-line" /><div className="doc-line blue" /><div className="doc-line" />
-                        <div className="demo-document-total"><span>Total</span><strong>{DEMO_FINDING.currentMonthlyCharge}</strong></div>
-                      </div>
-                      <button ref={sourceTriggerRef} className="button button-quiet" type="button" aria-haspopup="dialog" onClick={() => setDrawerOpen(true)}>View source <FileText aria-hidden="true" size={16} /></button>
+                    <div className="approval-bar">
+                      <div><strong>{stage === "evidence" ? "Evidence ready for review" : "Requires approval"}</strong><div className="muted" style={{ fontSize: ".78rem", marginTop: 4 }}>{stageHints[stage]}</div></div>
+                      <button className="button button-primary" type="button" onClick={openApproval}>Review opportunity</button>
                     </div>
-                  </div>
-                  <div className="approval-bar">
-                    <div><strong>{stage === "evidence" ? "Evidence ready for review" : "Requires approval"}</strong><div className="muted" style={{ fontSize: ".78rem", marginTop: 4 }}>{stageHints[stage]}</div></div>
-                    <button className="button button-primary" type="button" onClick={openApproval}>Review opportunity</button>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

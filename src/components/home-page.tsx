@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowRight,
   Building2,
@@ -176,16 +176,7 @@ export function HomePage() {
           <ScrollReveal className="workflow-reveal">
             <h2 className="section-heading" style={{ maxWidth: "none", fontSize: "clamp(2.2rem, 3vw, 2.8rem)" }}>From scattered bills to a controlled cost base.</h2>
             <p className="section-lede">Costivra gives finance and operations one place to see what changed, why it matters, who owns the decision, and what the outcome proves.</p>
-            <div className="steps" aria-label="Workflow stages">
-              {steps.map(({ title, copy, artifact, icon: ArtifactIcon }, index) => (
-                <article className="step" key={title}>
-                  <span className="step-number">{index + 1}</span>
-                  <h3>{title}</h3>
-                  <p>{copy}</p>
-                  <span className="workflow-artifact"><ArtifactIcon aria-hidden="true" size={14} />{artifact}</span>
-                </article>
-              ))}
-            </div>
+            <WorkflowSteps />
           </ScrollReveal>
         </div>
       </section>
@@ -317,6 +308,54 @@ function EvidenceViewer({ category, current }: { category: EvidenceCategory; cur
           <div className="evidence-status"><Check aria-hidden="true" size={16} /><span><strong>{current.reconciliation}</strong><small>Reconciliation and rule status</small></span></div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function WorkflowSteps() {
+  const [progress, setProgress] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    let frame = 0;
+    const updateProgress = () => {
+      frame = 0;
+      const rect = node.getBoundingClientRect();
+      const start = window.innerHeight * 0.72;
+      const end = window.innerHeight * 0.32;
+      const travel = Math.max(rect.height + start - end, 1);
+      const nextProgress = Math.min(1, Math.max(0, (start - rect.top) / travel));
+      setProgress((current) => Math.abs(current - nextProgress) < 0.002 ? current : nextProgress);
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(updateProgress);
+    };
+
+    updateProgress();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  const stepsStyle = { "--steps-progress": `${Math.round(progress * 1000) / 10}%` } as CSSProperties;
+  return (
+    <div ref={ref} className="steps" aria-label="Workflow stages" style={stepsStyle}>
+      <span className="steps-progress" aria-hidden="true"><span className="steps-progress-fill" /></span>
+      {steps.map(({ title, copy, artifact, icon: ArtifactIcon }, index) => (
+        <article className="step" key={title}>
+          <span className="step-number">{index + 1}</span>
+          <h3>{title}</h3>
+          <p>{copy}</p>
+          <span className="workflow-artifact"><ArtifactIcon aria-hidden="true" size={14} />{artifact}</span>
+        </article>
+      ))}
     </div>
   );
 }

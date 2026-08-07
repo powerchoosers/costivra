@@ -1,6 +1,6 @@
 "use client";
 
-import { Minus, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 
 const questions = [
@@ -16,12 +16,20 @@ export function Faq() {
   return (
     <div className="faq-list">
       {questions.map(([question, answer], index) => (
-        <div className="faq-item" key={question}>
-          <button className="faq-question" type="button" aria-expanded={open === index} onClick={() => setOpen(open === index ? -1 : index)}>
+        <div className={`faq-item${open === index ? " is-open" : ""}`} key={question}>
+          <button
+            className="faq-question"
+            type="button"
+            aria-expanded={open === index}
+            aria-controls={`faq-answer-${index}`}
+            onClick={() => setOpen(open === index ? -1 : index)}
+          >
             {question}
-            {open === index ? <Minus aria-hidden="true" size={18} /> : <Plus aria-hidden="true" size={18} />}
+            <span className="faq-toggle" aria-hidden="true"><Plus size={18} /></span>
           </button>
-          {open === index ? <div className="faq-answer">{answer}</div> : null}
+          <div className="faq-answer-wrap" id={`faq-answer-${index}`}>
+            <div className="faq-answer">{answer}</div>
+          </div>
         </div>
       ))}
     </div>
