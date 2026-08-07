@@ -1,5 +1,16 @@
 # Costivra Status
 
+## August 7, 2026 — Global scroll performance polish
+
+- **Page scrolling**: Tuned Lenis interpolation from `0.09` to `0.12` so wheel and trackpad input settles sooner without losing the calm, eased motion.
+- **Nested surfaces**: Replaced Lenis' per-event automatic nested-scroll DOM walk with an explicit native-scroll selector and overflow check. Scrollable tables, drawers, modals, sidebars, and chat panels keep their native behavior while the page-level path does less work.
+- **Native/browser handoff**: Disabled the browser's second smooth-scroll interpolation while Lenis is active, preventing double-easing on anchors and programmatic scrolls. Reduced-motion behavior remains unchanged.
+- **Quality gate**:
+  - `npm run typecheck` PASS.
+  - `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`.
+  - `npm run build` PASS.
+  - Browser smoke check PASS at desktop and 390px viewport; Lenis initialized and page scrolling remained responsive.
+
 ## August 7, 2026 — Customer App IA Chunk 6: Global vs Vendor Scope, Linking, and Routes
 
 - **Shared scope language**: Added `PageScopeIndicator` for `Across all vendors`, `Vendor workspace`, and `Vendor account` states, with readable hierarchy and parent links.

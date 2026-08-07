@@ -22,6 +22,7 @@
 * { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; max-width: 100%; overflow-x: clip; }
+html.lenis.lenis-smooth { scroll-behavior: auto !important; }
 body { max-width: 100%; overflow-x: clip; }
 
 body {
