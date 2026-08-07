@@ -18,6 +18,7 @@ import {
   CalendarClock,
   Check,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Copy,
@@ -211,6 +212,7 @@ function PortalModal({
   onClose,
   onClosed,
   side = false,
+  className,
   children,
 }: {
   open: boolean;
@@ -219,6 +221,7 @@ function PortalModal({
   onClose: () => void;
   onClosed?: () => void;
   side?: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   const [mounted, setMounted] = useState(open);
@@ -227,6 +230,7 @@ function PortalModal({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   const closedRef = useRef(onClosed);
+  const modalClassName = className ? ` ${className}` : "";
   const titleId = useId();
   const descriptionId = useId();
   useEffect(() => {
@@ -315,7 +319,7 @@ function PortalModal({
     >
       <section
         ref={dialogRef}
-        className={`portal-modal${side ? " portal-modal--side" : ""}`}
+        className={`portal-modal${side ? " portal-modal--side" : ""}${modalClassName}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -537,6 +541,8 @@ export function PortalPage({
         className={
           page === "ask"
             ? "app-content app-content-chat motion-page"
+            : page === "vendors" && !detailId
+              ? "app-content app-content-table-page motion-page"
             : "app-content motion-page"
         }
       >
@@ -1839,8 +1845,20 @@ function Vendors({ data }: { data: PortalData }) {
       />
       <section className="portal-panel vendor-directory">
         {filteredAndSorted.length ? (
-          <div className="table-wrap">
+          <div className="table-wrap vendor-table-wrap">
             <table className="portal-table vendor-table">
+              <colgroup>
+                <col className="vendor-col-name" />
+                <col className="vendor-col-category" />
+                <col className="vendor-col-spend" />
+                <col className="vendor-col-accounts" />
+                <col className="vendor-col-latest" />
+                <col className="vendor-col-monitoring" />
+                <col className="vendor-col-attention" />
+                <col className="vendor-col-contract" />
+                <col className="vendor-col-relationship" />
+                <col className="vendor-col-action" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Vendor</th>
@@ -1931,6 +1949,14 @@ function Vendors({ data }: { data: PortalData }) {
             copy="Try a broader search or filter, or add a new vendor relationship."
           />
         )}
+        <footer className="vendor-table-footer">
+          <span>{filteredAndSorted.length} {filteredAndSorted.length === 1 ? "vendor" : "vendors"}</span>
+          <div className="vendor-table-footer-pagination" aria-label="Vendor table pagination">
+            <button type="button" disabled aria-label="Previous page"><ChevronLeft size={15} /></button>
+            <span>1 / 1</span>
+            <button type="button" disabled aria-label="Next page"><ChevronRight size={15} /></button>
+          </div>
+        </footer>
       </section>
     </>
   );
@@ -4327,6 +4353,24 @@ function VendorSidePanel({
   const [busy, setBusy] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [draft, setDraft] = useState<VendorDraft>(emptyVendorDraft);
+  const [mounted, setMounted] = useState(open);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    let closeTimer: number | undefined;
+    if (open) {
+      setMounted(true);
+      setLeaving(false);
+    } else if (mounted) {
+      setLeaving(true);
+      closeTimer = window.setTimeout(() => {
+        setMounted(false);
+        setLeaving(false);
+      }, 220);
+    }
+    return () => {
+      if (closeTimer) window.clearTimeout(closeTimer);
+    };
+  }, [open, mounted]);
   useEffect(() => {
     if (!open) return;
     try {
@@ -4352,7 +4396,7 @@ function VendorSidePanel({
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
   }, [open, onClose]);
-  if (!open || typeof document === "undefined") return null;
+  if (!mounted || typeof document === "undefined") return null;
   const q = draft.name.trim().toLowerCase();
   const suggestions = q ? data.vendorCatalog
     .filter(
@@ -4401,7 +4445,7 @@ function VendorSidePanel({
     }
   };
   return createPortal(
-    <aside className="vendor-side-panel" aria-labelledby="vendor-panel-title">
+    <aside className={`vendor-side-panel${leaving ? " is-leaving" : ""}`} aria-labelledby="vendor-panel-title">
       <header>
         <div>
           <span>New relationship</span>
@@ -4803,6 +4847,7 @@ function CreateModals({
       <PortalModal
         open={kind === "upload"}
         side
+        className="portal-modal--upload"
         title="Upload source document"
         description="PDF, DOCX, or text up to 20 MB. Every file passes a security scan before extraction."
         onClose={close}

@@ -68,6 +68,10 @@ function currentHref(pathname: string, search: string) {
   return `${pathname}${search ? `?${search}` : ""}${window.location.hash}`;
 }
 
+function isManageRecordDetail(pathname: string) {
+  return /^\/manage\/(?:accounts|contacts)\/[^/]+$/.test(pathname);
+}
+
 function defaultLabel(scope: NavigationScope) {
   return scope === "app" ? "Command Center" : "Client operations";
 }
@@ -111,13 +115,24 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
     const marker = (window.history.state?.[markerKey] ?? null) as { sessionId?: string; index?: number } | null;
     let next = stateRef.current ?? readState(scope) ?? { sessionId: makeSessionId(), entries: [] };
     const knownMarker = marker?.sessionId === next.sessionId && typeof marker.index === "number";
+    const activeEntry = next.entries.at(-1);
+    const isSameManageRecord = Boolean(
+      !isHistoryTraversal.current &&
+      activeEntry &&
+      activeEntry.href.split("?")[0] === pathname &&
+      isManageRecordDetail(pathname),
+    );
 
     if (knownMarker && isHistoryTraversal.current) {
       const position = next.entries.findIndex((entry) => entry.index === marker.index);
       if (position >= 0) next = { ...next, entries: next.entries.slice(0, position + 1) };
     } else if (!next.entries.length || next.entries[next.entries.length - 1].href !== href) {
-      const index = knownMarker ? marker.index! : (next.entries.at(-1)?.index ?? -1) + 1;
-      next = { ...next, entries: upsertNavigationEntry(next.entries, href, current.label, index) };
+      if (isSameManageRecord && activeEntry) {
+        next = { ...next, entries: [...next.entries.slice(0, -1), { ...activeEntry, href }] };
+      } else {
+        const index = knownMarker ? marker.index! : (next.entries.at(-1)?.index ?? -1) + 1;
+        next = { ...next, entries: upsertNavigationEntry(next.entries, href, current.label, index) };
+      }
     }
 
     next = { ...next, entries: upsertNavigationEntry(next.entries, href, current.label, next.entries.at(-1)?.index ?? 0) };

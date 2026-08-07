@@ -2827,8 +2827,8 @@ function AccountDetailPage({
   const active = ["overview", "vendors", "files", "activity", "work", "history"].includes(tabFromUrl ?? "") ? tabFromUrl! : "overview";
   const activityId = searchParams.get("activity");
   const selectedVendorId = searchParams.get("vendor");
-  const setActive = (tab: string) => router.push(`/manage/accounts/${accountId}?tab=${tab}${tab === "vendors" && selectedVendorId ? `&vendor=${selectedVendorId}` : ""}`);
-  const setSelectedVendorId = (vendorId: string | null) => router.push(`/manage/accounts/${accountId}?tab=vendors${vendorId ? `&vendor=${vendorId}` : ""}`);
+  const setActive = (tab: string) => router.replace(`/manage/accounts/${accountId}?tab=${tab}${tab === "vendors" && selectedVendorId ? `&vendor=${selectedVendorId}` : ""}`, { scroll: false });
+  const setSelectedVendorId = (vendorId: string | null) => router.replace(`/manage/accounts/${accountId}?tab=vendors${vendorId ? `&vendor=${vendorId}` : ""}`, { scroll: false });
 
   useEffect(() => {
     if (active !== "activity" || !activityId) return;
@@ -3530,7 +3530,7 @@ function ContactDetailPage({
 
   const requestedTab = searchParams.get("tab");
   const active = ["overview", "files", "activity", "work", "history"].includes(requestedTab ?? "") ? requestedTab! : "overview";
-  const setActive = (tab: string) => router.push(`/manage/contacts/${contactId}?tab=${tab}`);
+  const setActive = (tab: string) => router.replace(`/manage/contacts/${contactId}?tab=${tab}`, { scroll: false });
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [dangerMode, setDangerMode] = useState<"deactivate" | "remove">("deactivate");
