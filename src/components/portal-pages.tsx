@@ -65,6 +65,8 @@ import { RecordChangeHistory, type AuditHistoryItem } from "@/components/records
 import { recordDraftChanged } from "@/lib/records/draft-state";
 import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { getPlainLanguageReviewReasons, resolveBillsView } from "@/lib/portal/bills-workspace";
+import { PageBreadcrumbs, PageScopeIndicator } from "@/components/page-scope-indicator";
+import { getLegacyWorkspaceRedirect } from "@/lib/portal/scope-routing";
 import {
   actionAssignedToUser,
   actionIsCompleted,
@@ -148,19 +150,23 @@ const titleCase = (value: string) =>
 function PageHeader({
   title,
   description,
-  action,
+  scope,
+  breadcrumbs,
 }: {
   title: string;
   description: string;
   action?: ReactNode;
+  scope?: ReactNode;
+  breadcrumbs?: ReactNode;
 }) {
   return (
     <header className="portal-page-header">
       <div>
+        {breadcrumbs}
+        {scope}
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
-      {action}
     </header>
   );
 }
@@ -432,6 +438,11 @@ export function PortalPage({
     setModal(kind);
   };
   const action = searchParams?.get("action");
+  const legacyRedirect = getLegacyWorkspaceRedirect(page, Boolean(detailId));
+  useEffect(() => {
+    if (legacyRedirect) router.replace(legacyRedirect);
+  }, [legacyRedirect, router]);
+
   useEffect(() => {
     if (!action || detailId) return;
 
@@ -493,7 +504,7 @@ export function PortalPage({
     vendors: slug?.[1] ? (
       <VendorDetail data={data} vendorId={slug[1]} onAdd={openVendorModal} />
     ) : (
-      <Vendors data={data} onAdd={openVendorPanel} />
+      <Vendors data={data} />
     ),
     integrations: <Settings data={data} run={run} onInvite={() => openModal("invite")} initialTab="integrations" />,
     reports: <ResultsWorkspace data={data} initialView="reports" />,
@@ -594,7 +605,7 @@ function CommandCenter({ data }: { data: PortalData }) {
           <div className="portal-list">
             {data.opportunities.slice(0, 5).map((item) => (
               <a
-                href={`/app/findings#${item.id}`}
+                href={`/app/findings/${item.id}`}
                 className="portal-list-row"
                 key={item.id}
               >
@@ -636,8 +647,8 @@ function ActivationChecklist({ data }: { data: PortalData }) {
   const steps = [
     { id: "workspace", title: "Create workspace", done: true, copy: "Organization workspace created.", href: undefined },
     { id: "details", title: "Add company & location details", done: locationCount > 0, copy: locationCount > 0 ? `${locationCount} location(s) assigned.` : "Add your primary business location.", href: "/app/settings?tab=locations" },
-    { id: "documents", title: "Upload 3 bills or contracts", done: docCount >= 3, copy: docCount >= 3 ? `${docCount} documents uploaded.` : `${docCount} of 3 uploaded. Add your recurring bills.`, href: "/app/documents" },
-    { id: "review", title: "Review extracted facts & invoices", done: docCount > 0 && needsReviewInvoices === 0, copy: needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "No pending invoice exceptions.", href: "/app/documents" },
+    { id: "documents", title: "Upload 3 bills or contracts", done: docCount >= 3, copy: docCount >= 3 ? `${docCount} documents uploaded.` : `${docCount} of 3 uploaded. Add your recurring bills.`, href: "/app/bills?view=files" },
+    { id: "review", title: "Review extracted facts & invoices", done: docCount > 0 && needsReviewInvoices === 0, copy: needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "No pending invoice exceptions.", href: "/app/bills?view=review" },
     { id: "monitoring", title: "Select first vendor to monitor", done: monitoredCount > 0, copy: monitoredCount > 0 ? `${monitoredCount} vendor(s) monitored.` : "Set up continuous monitoring for one vendor.", href: "/app/vendors" },
   ];
 
@@ -863,6 +874,7 @@ function BillsWorkspace({
       <PageHeader
         title="Bills & Spend"
         description="Upload, review, track, and prove operating expenses across all vendor relationships."
+        scope={<PageScopeIndicator mode="global" />}
         action={
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
             {canWrite && (
@@ -1318,6 +1330,7 @@ function FindingsWorkspace({
       <PageHeader
         title="Findings"
         description="What Costivra discovered across every vendor, with evidence and limits visible."
+        scope={<PageScopeIndicator mode="global" />}
       />
       <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
         {([
@@ -1404,6 +1417,7 @@ function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
       <PageHeader
         title="Contracts & Renewals"
         description="Deadlines, notice periods, auto-renewals, and agreement risk across every vendor."
+        scope={<PageScopeIndicator mode="global" />}
         action={canWrite ? (
           <button className="button button-primary" onClick={onAdd}>
             <Plus size={16} /> Add contract
@@ -1526,6 +1540,7 @@ function Actions({
       <PageHeader
         title="Actions"
         description="Work across all vendor relationships that requires approval, execution, or follow-up, with ownership and evidence attached."
+        scope={<PageScopeIndicator mode="global" />}
       />
       <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
         {([
@@ -1634,6 +1649,7 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
       <PageHeader
         title="Results"
         description="See verified value, work still in progress, and reports across all vendor relationships."
+        scope={<PageScopeIndicator mode="global" />}
       />
       <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
         {([
@@ -1714,10 +1730,8 @@ function getVendorAttentionDetails(vendor: PortalVendor, data: PortalData) {
   return { attentionScore, reasons, needsReviewCount, isMonitoringAttention, openFindingsCount, pendingActionsCount };
 }
 
-function Vendors({ data, onAdd }: { data: PortalData; onAdd: (kind?: ModalState) => void }) {
-  const [query, setQuery] = useState("");
+function Vendors({ data }: { data: PortalData }) {
   const [filter, setFilter] = useState<"all" | "attention" | "active" | "monitored" | "inactive">("all");
-  const canAddVendor = ["owner", "admin", "member"].includes(data.currentUser.role);
 
   const enrichedVendors = useMemo(() => {
     return data.vendors.map((vendor) => {
@@ -1740,14 +1754,9 @@ function Vendors({ data, onAdd }: { data: PortalData; onAdd: (kind?: ModalState)
   }, [data]);
 
   const filteredAndSorted = useMemo(() => {
-    type EnrichedItem = typeof enrichedVendors[number];
+      type EnrichedItem = typeof enrichedVendors[number];
     return enrichedVendors
       .filter(({ vendor, details }: EnrichedItem) => {
-        const matchesQuery = `${vendor.name} ${vendor.category} ${vendor.website ?? ""}`
-          .toLowerCase()
-          .includes(query.toLowerCase());
-        if (!matchesQuery) return false;
-
         if (filter === "attention") return details.reasons.length > 0;
         if (filter === "active") return vendor.relationshipStatus === "active";
         if (filter === "monitored") return vendor.monitoringState && vendor.monitoringState !== "not_set_up";
@@ -1760,32 +1769,15 @@ function Vendors({ data, onAdd }: { data: PortalData; onAdd: (kind?: ModalState)
         }
         return a.vendor.name.localeCompare(b.vendor.name);
       });
-  }, [enrichedVendors, query, filter]);
+  }, [enrichedVendors, filter]);
 
   return (
     <>
       <PageHeader
         title="Vendors"
         description="Every supplier relationship, its source records, and the next important date."
-        action={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {canAddVendor && (
-              <button className="button button-primary" onClick={() => onAdd()}>
-                <Plus size={16} /> Add vendor
-              </button>
-            )}
-            <button className="button button-quiet" onClick={() => onAdd("upload")}>
-              <Upload size={16} /> Upload bill
-            </button>
-          </div>
-        }
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-        <Toolbar
-          query={query}
-          setQuery={setQuery}
-          placeholder="Search vendors, categories, or websites"
-        />
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)", fontWeight: 600, marginRight: 4 }}>Filter:</span>
           {(["all", "attention", "active", "monitored", "inactive"] as const).map((f) => (
@@ -2198,11 +2190,10 @@ export function VendorDetail({
 
   return (
     <div className="vendor-detail">
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+      <div className="vendor-scope-context">
         <GlobalBackControl className="vendor-back" />
-        <span className="vendor-scope-badge" style={{ fontSize: "0.74rem", padding: "2px 10px", borderRadius: 12, background: "rgba(0, 47, 167, 0.06)", color: "#002FA7", fontWeight: 600, border: "1px solid rgba(0, 47, 167, 0.18)" }}>
-          Vendor workspace · Scoped to {vendor.name}
-        </span>
+        <PageBreadcrumbs items={[{ label: "Vendors", href: "/app/vendors" }, { label: vendor.name }]} />
+        <PageScopeIndicator mode="vendor" vendorName={vendor.name} vendorHref={`/app/vendors/${vendor.id}`} />
       </div>
 
       <header className="vendor-detail-header" style={{ position: "relative" }}>
@@ -2684,7 +2675,7 @@ function VendorAccountsTab({
           </div>
           <div className="portal-list">
             {unmatchedInvoices.map((inv) => (
-              <Link key={inv.id} className="portal-list-row" href={`/app/documents/${inv.documentId}`}>
+              <Link key={inv.id} className="portal-list-row" href={`/app/bills/${inv.id}`}>
                 <div className="grow">
                   <strong>{inv.invoiceNumber ?? "Bill without invoice #"}</strong>
                   <div style={{ fontSize: "0.82rem", color: "var(--assistant-muted, #64748b)", marginTop: 2, display: "flex", gap: 12 }}>
@@ -2740,6 +2731,7 @@ function AccountDetailSheet({
 }) {
   const account = data.expenseAccounts.find((a) => a.id === accountId);
   const fallbackInvoice = !account ? data.invoices.find((i) => i.id === accountId) : null;
+  const vendor = data.vendors.find((item) => item.relationshipId === relationshipId);
   const location = account?.locationId ? data.locations.find((l) => l.id === account.locationId) : null;
 
   const label = account
@@ -2759,6 +2751,8 @@ function AccountDetailSheet({
       <div style={{ width: "100%", maxWidth: 540, background: "var(--card-bg, #ffffff)", height: "100%", overflowY: "auto", padding: 24, boxShadow: "-4px 0 24px rgba(0, 0, 0, 0.15)", display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid rgba(30, 41, 59, 0.1)", paddingBottom: 16 }}>
           <div>
+            <PageBreadcrumbs items={[{ label: "Vendors", href: "/app/vendors" }, ...(vendor ? [{ label: vendor.name, href: `/app/vendors/${vendor.id}` }] : []), { label }]} />
+            <PageScopeIndicator mode="account" vendorName={vendor?.name} vendorHref={vendor ? `/app/vendors/${vendor.id}` : undefined} accountLabel={label} />
             <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#002FA7", fontWeight: 700 }}>
               Vendor Account Detail
             </span>
@@ -2819,7 +2813,7 @@ function AccountDetailSheet({
           {accountInvoices.length ? (
             <div className="portal-list">
               {accountInvoices.map((inv) => (
-                <Link key={inv.id} className="portal-list-row" href={`/app/documents/${inv.documentId}`}>
+                <Link key={inv.id} className="portal-list-row" href={`/app/bills/${inv.id}`}>
                   <div className="grow">
                     <strong>{inv.invoiceNumber ?? "Bill"}</strong>
                     <span>Date: {date(inv.invoiceDate)}</span>
@@ -2860,7 +2854,7 @@ function AccountDetailSheet({
           {accountOpportunities.length ? (
             <div className="portal-list">
               {accountOpportunities.map((opp) => (
-                <Link key={opp.id} className="portal-list-row" href={`/app/findings#${opp.id}`}>
+                <Link key={opp.id} className="portal-list-row" href={`/app/findings/${opp.id}`}>
                   <div className="grow">
                     <strong>{opp.title}</strong>
                     <span>{opp.summary}</span>
@@ -4651,8 +4645,8 @@ function CreateModals({
       title: notice.title,
       message: notice.message,
       actionHref: notice.documentId
-        ? `/app/documents/${notice.documentId}`
-        : "/app/documents",
+        ? `/app/bills/${notice.documentId}`
+        : "/app/bills?view=files",
       actionLabel:
         completion.kind === "duplicate"
           ? "Open existing document"

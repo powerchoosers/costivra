@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useToast } from "@/components/toast-provider";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { GlobalBackControl } from "@/components/navigation-history";
+import { PageBreadcrumbs, PageScopeIndicator } from "@/components/page-scope-indicator";
 import type { PortalData } from "@/lib/portal/types";
 import {
   portalRecordContext,
@@ -191,9 +192,12 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     relatedDocumentIds.has(item.id) || (vendorId ? item.vendorId === vendorId : false),
   );
   const savingsOutcome = kind === "savings" ? data.savings.find((item) => item.id === id) ?? null : null;
+  const vendor = vendorId ? data.vendors.find((item) => item.id === vendorId) : null;
+  const parent = kind === "vendor" ? { label: "Vendors", href: "/app/vendors" } : kind === "contract" ? { label: "Contracts & Renewals", href: "/app/contracts" } : kind === "opportunity" ? { label: "Findings", href: "/app/findings" } : kind === "action" ? { label: "Actions", href: "/app/actions" } : kind === "savings" ? { label: "Results", href: "/app/results" } : { label: "Bills & Spend", href: "/app/bills" };
+  const breadcrumbs = [parent, ...(vendor && kind !== "vendor" ? [{ label: vendor.name, href: `/app/vendors/${vendor.id}` }] : []), { label: detail.title }];
   return <div className="record-detail">
     <GlobalBackControl className="record-back" />
-    <header className="record-detail-header"><div><span className="record-eyebrow">{meta.noun} record</span><h1>{detail.title}</h1><p>{detail.subtitle}</p></div><span className="record-status"><i />{text(detail.status)}</span></header>
+    <header className="record-detail-header"><div><PageBreadcrumbs items={breadcrumbs} />{vendor ? <PageScopeIndicator mode="vendor" vendorName={vendor.name} vendorHref={`/app/vendors/${vendor.id}`} /> : <PageScopeIndicator mode="global" />}<span className="record-eyebrow">{meta.noun} record</span><h1>{detail.title}</h1><p>{detail.subtitle}</p></div><span className="record-status"><i />{text(detail.status)}</span></header>
     <nav className="record-tabs" aria-label={`${meta.noun} detail sections`}>{savingsOutcome && <a href="#verification">Verification</a>}<a href="#overview">Overview</a>{lineItems.length > 0 && <a href="#line-items">Line items</a>}<a href="#files">Files</a><a href="#quality">Data quality</a><a href="#related">Related records</a>{evidence.length > 0 && <a href="#evidence">Evidence</a>}<a href="#history">History</a></nav>
     <div className="record-detail-layout"><main>
       {savingsOutcome && <SavingsReviewPanel outcome={savingsOutcome} canDecide={["owner", "admin"].includes(data.currentUser.role)} />}

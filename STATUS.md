@@ -1,5 +1,22 @@
 # Costivra Status
 
+## August 7, 2026 — Customer App IA Chunk 6: Global vs Vendor Scope, Linking, and Routes
+
+- **Shared scope language**: Added `PageScopeIndicator` for `Across all vendors`, `Vendor workspace`, and `Vendor account` states, with readable hierarchy and parent links.
+- **Breadcrumbs**: Added shared `PageBreadcrumbs` and applied it to vendor workspaces, account selection sheets, and record detail pages. Detail pages now show their canonical global parent and vendor context.
+- **Canonical linking**: Updated affected bill, Finding, Action, Result, Contract, vendor, account, and related-record links to use canonical customer routes. Source-file download links remain protected API links.
+- **Legacy redirects**: Added authenticated compatibility redirects for `/app/expenses`, `/app/documents`, `/app/opportunities`, `/app/savings`, and `/app/reports`. Legacy detail routes remain supported without redirecting away from the record.
+- **History and route state**: Preserved URL-backed tabs, filters, selected accounts, and existing navigation-history behavior; authenticated browser QA confirmed Back restores the prior Bills view.
+- **Quality gate**:
+  - `npx vitest run src/lib/portal/scope-routing.test.ts` PASS (3 tests).
+  - `npm test -- --run` PASS (123 test files, 524 tests passed, 4 files and 6 tests skipped).
+  - `npm run typecheck` PASS (also completed by the final production build).
+  - `npm run lint` PASS with 0 errors and 0 warnings.
+  - `npm run test:integration` PASS (4 files, 8 tests passed, 4 files and 6 tests skipped).
+  - `npm run build` PASS (Next.js production build generated successfully).
+  - Authenticated browser QA PASS for global, vendor, account, bill-detail, legacy-redirect, and browser-history journeys; no browser application errors observed.
+- **Remaining release scope**: Chunk 7 updates the remaining command center/search/notification/onboarding surfaces, and Chunk 8 provides final release evidence. No Git, branch, migration, or deployment actions were performed.
+
 ## August 7, 2026 — Customer App IA Chunk 5: Findings, Actions, Results, and Contracts
 
 - **Contracts & Renewals (`/app/contracts`)**: Added `Upcoming`, `All Contracts`, `Needs Details`, and `Expired` views with deadline classification, missing-detail visibility, vendor links, and assigned account/location links.
