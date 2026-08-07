@@ -86,6 +86,7 @@ export type PortalContract = {
   autoRenews: boolean;
   ownerName: string | null;
   documentId: string | null;
+  expenseAccountId: string | null;
   locationId: string | null;
   locationName: string | null;
   updatedAt: string;
@@ -99,12 +100,15 @@ export type PortalDocument = {
   mimeType: string;
   byteSize: number;
   status: string;
+  securityStatus: string;
+  extractionStatus: string;
   documentType: string | null;
   summary: string | null;
   confidence: number | null;
   createdAt: string;
   pageCount: number | null;
   sha256: string;
+  evidenceCount: number;
   updatedAt: string;
   sourcePurgedAt: string | null;
 };
@@ -344,6 +348,23 @@ export type PortalTeamMember = {
   permissions: string[];
 };
 
+export type PortalExpenseAccount = {
+  id: string;
+  vendorId: string | null;
+  relationshipId: string | null;
+  accountName: string | null;
+  externalAccountReference: string | null;
+  accountNumberLast4: string | null;
+  category: string;
+  status: string;
+  locationId: string | null;
+  locationName: string | null;
+  serviceStartDate: string | null;
+  serviceEndDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PortalLocation = {
   id: string;
   name: string;
@@ -357,6 +378,7 @@ export type PortalData = {
   locations: PortalLocation[];
   vendors: PortalVendor[];
   vendorCatalog: PortalVendorCatalogEntry[];
+  expenseAccounts: PortalExpenseAccount[];
   expenses: PortalExpense[];
   contracts: PortalContract[];
   documents: PortalDocument[];

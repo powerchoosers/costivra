@@ -111,6 +111,12 @@ export async function getPortalData(): Promise<PortalData> {
     : { data: [], error: null };
   if (evidenceReferencesResult.error) throw evidenceReferencesResult.error;
 
+  const evidenceCountByDocument = new Map<string, number>();
+  for (const evidence of rows(evidenceReferencesResult.data)) {
+    const documentId = stringValue(evidence.document_id);
+    evidenceCountByDocument.set(documentId, (evidenceCountByDocument.get(documentId) ?? 0) + 1);
+  }
+
   const organization = organizationResult.data as Row;
   const profile = profileResult.data as Row;
   const vendorById = new Map(rows(vendorsResult.data).map((vendor) => [stringValue(vendor.id), vendor]));
@@ -169,6 +175,27 @@ export async function getPortalData(): Promise<PortalData> {
     locations: rows(locationsResult.data).map((location) => ({
       id: stringValue(location.id), name: stringValue(location.name), status: stringValue(location.status), address: (location.address as Record<string, string>) ?? null,
     })),
+    expenseAccounts: rows(accountsResult.data).map((account) => {
+      const relationshipId = nullableString(account.organization_vendor_id);
+      const vendor = resolveVendor(relationshipId).vendor;
+      const location = account.location_id ? locationById.get(stringValue(account.location_id)) : undefined;
+      return {
+        id: stringValue(account.id),
+        vendorId: vendor ? stringValue(vendor.id) : null,
+        relationshipId,
+        accountName: nullableString(account.account_name),
+        externalAccountReference: nullableString(account.external_account_reference),
+        accountNumberLast4: nullableString(account.account_number_last4),
+        category: stringValue(account.category, "General"),
+        status: stringValue(account.status, "active"),
+        locationId: nullableString(account.location_id),
+        locationName: location ? stringValue(location.name) : null,
+        serviceStartDate: nullableString(account.service_start_date),
+        serviceEndDate: nullableString(account.service_end_date),
+        createdAt: stringValue(account.created_at),
+        updatedAt: stringValue(account.updated_at),
+      };
+    }),
     vendors: rows(relationshipsResult.data).map((relationship) => {
       const vendor = vendorById.get(stringValue(relationship.vendor_id));
       const displayNameOverride = nullableString(relationship.display_name_override);
@@ -212,12 +239,21 @@ export async function getPortalData(): Promise<PortalData> {
     contracts: rows(contractsResult.data).map((contract) => {
       const { vendor } = resolveVendor(stringValue(contract.organization_vendor_id));
       const location = locationById.get(stringValue(contract.location_id));
-      return { id: stringValue(contract.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), title: stringValue(contract.title), category: stringValue(contract.category), startDate: nullableString(contract.start_date), endDate: nullableString(contract.end_date), noticePeriodDays: contract.notice_period_days == null ? null : numberValue(contract.notice_period_days), annualValue: contract.annual_value == null ? null : numberValue(contract.annual_value), status: stringValue(contract.status), autoRenews: Boolean(contract.auto_renews), ownerName: nullableString(contract.owner_name), documentId: nullableString(contract.document_id), locationId: nullableString(contract.location_id), locationName: location ? stringValue(location.name) : null, updatedAt: stringValue(contract.updated_at) };
+      return { id: stringValue(contract.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), title: stringValue(contract.title), category: stringValue(contract.category), startDate: nullableString(contract.start_date), endDate: nullableString(contract.end_date), noticePeriodDays: contract.notice_period_days == null ? null : numberValue(contract.notice_period_days), annualValue: contract.annual_value == null ? null : numberValue(contract.annual_value), status: stringValue(contract.status), autoRenews: Boolean(contract.auto_renews), ownerName: nullableString(contract.owner_name), documentId: nullableString(contract.document_id), expenseAccountId: nullableString(contract.expense_account_id), locationId: nullableString(contract.location_id), locationName: location ? stringValue(location.name) : null, updatedAt: stringValue(contract.updated_at) };
     }),
     documents: rows(documentsResult.data).map((document) => {
       const { vendor } = resolveVendor(nullableString(document.organization_vendor_id));
       const extraction = extractionByDocument.get(stringValue(document.id));
-      return { id: stringValue(document.id), vendorId: vendor ? stringValue(vendor.id) : null, vendorName: stringValue(vendor?.canonical_name, "Unassigned"), originalFilename: stringValue(document.original_filename), mimeType: stringValue(document.mime_type), byteSize: numberValue(document.byte_size), status: stringValue(document.status), documentType: nullableString(document.document_type), summary: nullableString(document.extraction_summary), confidence: extraction?.confidence == null ? null : numberValue(extraction.confidence), createdAt: stringValue(document.created_at), pageCount: document.page_count == null ? null : numberValue(document.page_count), sha256: stringValue(document.sha256), updatedAt: stringValue(document.updated_at), sourcePurgedAt: nullableString(document.source_purged_at) };
+      const documentStatus = stringValue(document.status, "unknown");
+      const securityStatus = stringValue(document.security_scan_status, "not_recorded");
+      const extractionStatus = stringValue(extraction?.status) || (
+        documentStatus === "ready" ? "completed" :
+        documentStatus === "processing" ? "processing" :
+        documentStatus === "needs_review" ? "needs_review" :
+        documentStatus === "failed" ? "failed" :
+        "not_recorded"
+      );
+      return { id: stringValue(document.id), vendorId: vendor ? stringValue(vendor.id) : null, vendorName: stringValue(vendor?.canonical_name, "Unassigned"), originalFilename: stringValue(document.original_filename), mimeType: stringValue(document.mime_type), byteSize: numberValue(document.byte_size), status: documentStatus, securityStatus, extractionStatus, documentType: nullableString(document.document_type), summary: nullableString(document.extraction_summary), confidence: extraction?.confidence == null ? null : numberValue(extraction.confidence), createdAt: stringValue(document.created_at), pageCount: document.page_count == null ? null : numberValue(document.page_count), sha256: stringValue(document.sha256), evidenceCount: evidenceCountByDocument.get(stringValue(document.id)) ?? 0, updatedAt: stringValue(document.updated_at), sourcePurgedAt: nullableString(document.source_purged_at) };
     }),
     invoices: rows(invoicesResult.data).map((invoice) => {
       const { vendor } = resolveVendor(nullableString(invoice.organization_vendor_id));

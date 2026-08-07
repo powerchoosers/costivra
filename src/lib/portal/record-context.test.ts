@@ -9,6 +9,7 @@ function data(overrides: Partial<PortalData> = {}): PortalData {
     locations: [],
     vendors: [],
     vendorCatalog: [],
+    expenseAccounts: [],
     expenses: [],
     contracts: [],
     documents: [],
@@ -45,10 +46,10 @@ describe("portal record context", () => {
     expect(result.lineItems).toHaveLength(1);
     expect(result.evidence.map((item) => item.id)).toEqual(["evidence-1"]);
     expect(result.related.map((item) => item.href)).toEqual(expect.arrayContaining([
-      "/app/documents/doc-1",
+      "/app/bills/doc-1",
       "/app/vendors/vendor-1",
       "/app/contracts/contract-1",
-      "/app/opportunities/opportunity-1",
+      "/app/findings/opportunity-1",
     ]));
     expect(result.quality.every((item) => item.status === "ready")).toBe(true);
   });
@@ -63,8 +64,8 @@ describe("portal record context", () => {
     }), "action", "action-1");
 
     expect(result.related.map((item) => item.href)).toEqual(expect.arrayContaining([
-      "/app/opportunities/opportunity-1",
-      "/app/savings/savings-1",
+      "/app/findings/opportunity-1",
+      "/app/results/savings-1",
     ]));
     expect(result.evidence).toHaveLength(1);
     expect(result.quality.find((item) => item.label === "Approval")?.status).toBe("review");

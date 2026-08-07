@@ -53,7 +53,7 @@ export function portalRecordContext(
       add({
         type: "Source document",
         title: document.originalFilename,
-        href: `/app/documents/${document.id}`,
+        href: `/app/bills/${document.id}`,
         detail: document.status,
       });
   };
@@ -64,9 +64,9 @@ export function portalRecordContext(
     if (opportunity) {
       vendorId ??= opportunity.vendorId;
       add({
-        type: "Opportunity",
+        type: "Finding",
         title: opportunity.title,
-        href: `/app/opportunities/${opportunity.id}`,
+        href: `/app/findings/${opportunity.id}`,
         detail: opportunity.status,
       });
     }
@@ -100,7 +100,7 @@ export function portalRecordContext(
     addDocument(expense?.documentId);
     const invoice = data.invoices.find((item) => item.id === expense?.invoiceId);
     if (invoice) {
-      add({ type: "Invoice", title: invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : "Invoice awaiting number", href: `/app/documents/${invoice.id}`, detail: invoice.reviewStatus });
+      add({ type: "Bill", title: invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : "Bill awaiting number", href: `/app/bills/${invoice.id}`, detail: invoice.reviewStatus });
       addDocument(invoice.documentId);
     }
     quality.push(
@@ -181,7 +181,7 @@ export function portalRecordContext(
     for (const action of data.actions.filter((item) => item.opportunityId === opportunityId))
       add({ type: "Action", title: action.title, href: `/app/actions/${action.id}`, detail: action.status });
     for (const savings of data.savings.filter((item) => item.opportunityId === opportunityId))
-      add({ type: "Savings outcome", title: savings.title, href: `/app/savings/${savings.id}`, detail: savings.status });
+      add({ type: "Result", title: savings.title, href: `/app/results/${savings.id}`, detail: savings.status });
   }
 
   if (vendorId) {
@@ -191,7 +191,7 @@ export function portalRecordContext(
     for (const contract of data.contracts.filter((item) => item.vendorId === vendorId).slice(0, 3))
       if (!(kind === "contract" && contract.id === id)) add({ type: "Contract", title: contract.title, href: `/app/contracts/${contract.id}`, detail: contract.status });
     for (const invoice of data.invoices.filter((item) => item.vendorId === vendorId).slice(0, 4))
-      if (!(kind === "invoice" && invoice.id === id)) add({ type: "Invoice", title: invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : "Invoice awaiting number", href: `/app/documents/${invoice.id}`, detail: invoice.reviewStatus });
+      if (!(kind === "invoice" && invoice.id === id)) add({ type: "Bill", title: invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : "Bill awaiting number", href: `/app/bills/${invoice.id}`, detail: invoice.reviewStatus });
     const invoiceContext = kind === "invoice" ? data.invoices.find((item) => item.id === id) : null;
     const relatedOpportunities = data.opportunities.filter((item) => {
       if (item.vendorId !== vendorId) return false;
@@ -201,7 +201,7 @@ export function portalRecordContext(
       return !invoiceContext.locationId || item.locationId === invoiceContext.locationId;
     });
     for (const opportunity of relatedOpportunities.slice(0, 4))
-      if (!(kind === "opportunity" && opportunity.id === id)) add({ type: "Opportunity", title: opportunity.title, href: `/app/opportunities/${opportunity.id}`, detail: opportunity.status });
+      if (!(kind === "opportunity" && opportunity.id === id)) add({ type: "Finding", title: opportunity.title, href: `/app/findings/${opportunity.id}`, detail: opportunity.status });
   }
 
   const evidence = data.evidenceReferences.filter((item) =>

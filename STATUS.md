@@ -1,5 +1,102 @@
 # Costivra Status
 
+## August 7, 2026 — Customer App IA Chunk 5: Findings, Actions, Results, and Contracts
+
+- **Contracts & Renewals (`/app/contracts`)**: Added `Upcoming`, `All Contracts`, `Needs Details`, and `Expired` views with deadline classification, missing-detail visibility, vendor links, and assigned account/location links.
+- **Findings (`/app/findings`)**: Replaced the customer-facing Opportunities page with `Needs Review`, `Evidence Backed`, `Needs Evidence`, and `Dismissed` views. Rows show vendor scope, source bill, trust state, evidence count, status, and potential value without presenting it as verified.
+- **Actions (`/app/actions`)**: Added `Needs Approval`, `Assigned to Me`, `In Progress`, and `Completed` views while preserving the existing approval and execution controls. Action records link back to their Finding, vendor, and source bill when available.
+- **Results (`/app/results`)**: Combined the former Savings and Reports destinations into `Verified Value`, `In Progress`, `Reports`, and `Executive Summary`. Verified value requires the existing verified state and verification timestamp; pending values are labeled as pending.
+- **Record and vendor context**: Updated Finding/Result detail labels and canonical related-record links. Vendor Findings sections now link directly to canonical Finding, Action, and Result routes.
+- **Legacy compatibility**: `/app/opportunities`, `/app/savings`, and `/app/reports` continue to render compatible customer-facing views while the internal database/API names remain unchanged.
+- **Quality gate**:
+  - `npx vitest run src/lib/portal/workflow-workspaces.test.ts src/lib/portal/record-context.test.ts` PASS (7 tests).
+  - `npm test -- --run` PASS (122 test files, 521 tests passed, 4 files and 6 tests skipped).
+  - `npm run typecheck` PASS.
+  - `npm run lint` PASS.
+  - `npm run test:integration` PASS (4 files, 8 tests passed, 4 files and 6 tests skipped).
+  - `npm run build` PASS (Next.js production build generated successfully).
+  - Authenticated browser QA PASS for Contracts, Findings, Actions, Results, legacy Savings/Reports routes, desktop Results, and 390px mobile Findings layout; no browser application errors observed.
+- **Remaining release scope**: Final redirect/deep-link normalization belongs to Chunk 6, and release evidence belongs to Chunk 8. No Git, branch, migration, or deployment actions were performed.
+
+## August 7, 2026 — Customer App IA Chunk 4: Unified Bills & Spend Workspace
+
+- **Unified route and views (`/app/bills`)**: Completed the URL-backed `Needs Review`, `All Bills`, `Spend`, and `Source Files` workspace, including default review behavior and legacy `/app/expenses` / `/app/documents` view mappings.
+- **Review queue**: Shows unresolved vendor, workspace customer, account, location, reconciliation, extraction, and security-scan issues with plain-language reasons and direct bill links.
+- **Financial clarity**: Separates `Current Charges` from `Amount Due`; missing source values display as `Not recorded` rather than being silently substituted.
+- **Source-file provenance**: Displays document type, upload date, security state, extraction state, and evidence count, with safe `Not recorded` fallbacks when older records lack scan metadata.
+- **Filters and responsive behavior**: Added URL-persisted search, vendor/account/location/status/date/amount/type filters, a mobile-friendly tab strip, responsive review rows, and the existing permission-gated upload/actions.
+- **Quality gate**:
+  - `npx vitest run src/components/bills-workspace.test.ts` PASS (10 tests).
+  - `npm test -- --run` PASS (121 test files, 516 tests passed, 4 files and 6 tests skipped).
+  - `npm run typecheck` PASS.
+  - `npm run lint` PASS.
+  - `npm run test:integration` PASS (4 files, 8 tests passed, 4 files and 6 tests skipped).
+  - `npm run build` PASS (Next.js production build generated successfully).
+  - Authenticated browser QA PASS at desktop and 390px mobile widths, including tabs, filters, bill links, source-file metadata, and upload dialog states.
+- **Remaining release scope**: Final legacy deep-link/redirect cleanup belongs to Chunk 6, and full release evidence belongs to Chunk 8. No Git, branch, migration, or deployment actions were performed.
+
+## August 7, 2026 — Customer App IA Chunk 3: Vendor Accounts and Locations
+
+- **Data Model & Repository Layer (`src/lib/portal/types.ts` & `src/lib/portal/repository.ts`)**:
+  - Added `PortalExpenseAccount` type and mapped `expenseAccounts` from the Supabase `expense_accounts` table into `PortalData`.
+  - Added `expenseAccountId` to `PortalContract` type and mapped it from the `contracts` table.
+- **Vendor Accounts Tab (`/app/vendors/[vendorId]?tab=accounts`)**:
+  - Exposed service accounts, subscriptions, meters, and locations inside the central vendor workspace.
+  - Implemented `formatVendorAccountLabel` following strict label hierarchy: (1) Customer-entered label, (2) Location name, (3) Category + masked reference, (4) `Vendor account`.
+  - Implemented `maskAccountReference` ensuring full account numbers are never exposed (e.g. `Account ending ...5124`).
+  - Added **"Bills needing account match"** / **"Unmatched bills"** section for extracted invoices where `expense_account_id === null` or `expense_account_match_status !== 'matched'`, with badges for `Vendor matched`, `Account needs review`, and `Location needs review`.
+- **Account Detail Side Panel (`/app/vendors/[vendorId]?tab=accounts&account=[expenseAccountId]`)**:
+  - Rendered slide-out Account Detail panel supporting URL state persistence.
+  - Displays account identity, masked reference, assigned location, service dates (`serviceStartDate`, `serviceEndDate`), linked bill history, linked contracts, and linked findings.
+  - Provides primary actions: `"Upload bill for this account"` and `"Set monitoring"`.
+- **Vendor Overview Integration**:
+  - Updated relationship summary band Accounts card to show active accounts count, location count, and accounts needing review breakdown.
+  - Made card clickable to navigate directly to the Accounts tab.
+- **Quality Gate**:
+  - Unit tests: `src/components/vendor-accounts.test.ts` PASS (9 tests passed).
+  - Full test suite: `npm test -- --run` PASS (120 test files, 506 tests passed).
+  - `npm run typecheck` PASS (`tsc --noEmit` clean, exit code 0).
+  - `npm run lint` PASS (`eslint .` clean, 0 errors, 0 warnings).
+  - `npm run build` PASS (Next.js Turbopack production build clean).
+
+## August 7, 2026 — Customer App IA Chunk 2: Vendor Directory and Central Vendor Workspace
+
+- **Central Vendor Directory (`/app/vendors`)**:
+  - Restructured vendor index into a clear, scannable table directory with attention pills, account counts, annual spend, latest expense, next contract end, and monitoring state.
+  - Implemented 7-tier attention-sorting order: (1) Bills needing review, (2) Monitoring attention required, (3) Urgent contract deadline, (4) Open high-priority findings, (5) Pending actions, (6) Active healthy vendors, (7) Terminated/inactive vendors.
+  - Added filter pills (`All`, `Needs attention`, `Active`, `Monitored`, `Inactive`) for rapid operational filtering.
+  - Updated directory header with `"Add vendor"` primary action and `"Upload bill"` secondary action.
+- **Central Vendor Workspace (`/app/vendors/[vendorId]`)**:
+  - Added page header scope badge (`Vendor workspace · Scoped to ${vendor.name}`).
+  - Simplified vendor navigation to a 6-tab strip: `Overview`, `Accounts`, `Bills`, `Contracts`, `Findings`, `Activity`.
+  - Added graceful legacy URL parameter mapping (`actions` & `results` -> `findings`, `files` -> `bills`, `monitoring` -> `overview`, `history` -> `activity`).
+  - `Overview` tab: Spend summary band, Value summary card (Potential vs Verified value with explicit `ShieldCheck` disclosure note), `VendorMonitoringCard`, `DataCompletenessChecklist`.
+  - `Accounts` tab: Mapped service accounts and locations.
+  - `Bills` tab: `Bills & Spend` vs `Source Files` subview toggle.
+  - `Contracts` tab: Contract terms, notice windows, and renewal risk.
+  - `Findings` tab: 3 stacked sections (`Findings`, `Pending actions`, `Results`), each with an explicit cross-vendor link (`View all findings across vendors →`, `View all actions across vendors →`, `View all results across vendors →`).
+  - `Activity` tab: Full relationship audit history timeline.
+- **Quality Gate**:
+  - `npm test -- --run` PASS (119 test files, 497 tests passed; including new `vendor-workspace.test.ts`).
+  - `npm run typecheck` PASS (`tsc --noEmit` clean).
+  - `npm run lint` PASS (0 errors, 0 warnings).
+  - `npm run build` PASS (Next.js Turbopack production build clean).
+
+## August 6, 2026 — Customer App IA Chunk 1: Navigation, Terminology, and Sidebar
+
+- **Customer sidebar**: Replaced the 10 un-grouped record-type destinations with an 8-destination workflow navigation grouped under `MONITOR` (Vendors, Bills & Spend, Contracts), `OPTIMIZE` (Findings, Actions), and `PROVE` (Results), plus Command Center and Settings.
+- **Section labels**: `MONITOR`, `OPTIMIZE`, and `PROVE` labels appear only when the sidebar is expanded and hide cleanly in collapsed mode via `.sidebar-collapsed .nav-section-label { display: none; }`.
+- **Active route mapping**: Implemented `isRouteActive(navHref, pathname)` supporting primary routes (`/app`, `/app/vendors`, `/app/bills`, `/app/contracts`, `/app/findings`, `/app/actions`, `/app/results`, `/app/settings`) and active mapping for legacy routes (`/app/expenses`, `/app/documents`, `/app/opportunities`, `/app/savings`, `/app/reports`).
+- **Global action**: Updated topbar action to `"Upload bill or document"`.
+- **Search vocabulary & copy**: Updated global search categories to `Vendors`, `Bills`, `Contracts`, `Findings`, `Actions`, `Source files`, and `Spend records`. Updated finding result detail copy to use `opportunityTrustLabel`.
+- **Mobile navigation**: Added bottom navigation bar with 5 targets including a "Menu" button that toggles a mobile drawer overlay sheet containing the full grouped navigation.
+- **Route aliases**: Updated `portal-pages.tsx` page names map and routing map to render appropriate workspace views for `/app/bills`, `/app/findings`, and `/app/results`.
+- **Quality gate**:
+  - `npm test -- --run` PASS (118 test files, 493 tests passed; including new `app-navigation.test.ts`).
+  - `npm run typecheck` PASS (`tsc --noEmit` clean).
+  - `npm run lint` PASS (0 errors, 0 warnings).
+  - `npm run build` PASS (Next.js Turbopack build clean).
+
 ## August 6, 2026 — Live verification completed for bill upload repair
 
 - Applied and verified the five forward migrations required by the bill-upload repair in the Costivra Supabase project `skfocjrykyvsaviyhdea`. The recorded remote migration entries are documented in `08_LIVE_VERIFICATION_REPORT.md`.

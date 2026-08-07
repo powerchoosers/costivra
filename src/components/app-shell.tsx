@@ -10,12 +10,9 @@ import {
   ChevronsUpDown,
   FileStack,
   FileText,
-  Gauge,
-  Handshake,
   LayoutDashboard,
   MoreHorizontal,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Plus,
   ReceiptText,
   Settings,
   ShieldCheck,
@@ -28,47 +25,117 @@ import { CompanyLogo } from "@/components/company-logo";
 import { useToast } from "@/components/toast-provider";
 import type { PortalData } from "@/lib/portal/types";
 import { createClient } from "@/lib/supabase/client";
+import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 
 import { ClientAssistantProvider, useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { ClientAssistantTrigger } from "@/components/client-assistant/client-assistant-trigger";
 import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
 
-const navigation = [
-  ["Command Center", "/app", LayoutDashboard],
-  ["Expenses", "/app/expenses", ReceiptText],
-  ["Opportunities", "/app/opportunities", Target],
-  ["Contracts", "/app/contracts", FileText],
-  ["Documents", "/app/documents", FileStack],
-  ["Actions", "/app/actions", CheckSquare2],
-  ["Savings", "/app/savings", ChartNoAxesCombined],
-  ["Vendors", "/app/vendors", Building2],
-  ["Reports", "/app/reports", Gauge],
-  ["Settings", "/app/settings", Settings],
-] as const;
+import type { ElementType } from "react";
+
+export interface NavigationGroup {
+  section?: string;
+  items: readonly (readonly [string, string, ElementType])[];
+}
+
+export const navigationGroups: readonly NavigationGroup[] = [
+  {
+    items: [["Command Center", "/app", LayoutDashboard]],
+  },
+  {
+    section: "MONITOR",
+    items: [
+      ["Vendors", "/app/vendors", Building2],
+      ["Bills & Spend", "/app/bills", ReceiptText],
+      ["Contracts", "/app/contracts", FileText],
+    ],
+  },
+  {
+    section: "OPTIMIZE",
+    items: [
+      ["Findings", "/app/findings", Target],
+      ["Actions", "/app/actions", CheckSquare2],
+    ],
+  },
+  {
+    section: "PROVE",
+    items: [
+      ["Results", "/app/results", ChartNoAxesCombined],
+    ],
+  },
+  {
+    items: [["Settings", "/app/settings", Settings]],
+  },
+];
+
+export const primaryNavigationItems = navigationGroups.flatMap((g) => g.items);
+
+export function isRouteActive(navHref: string, pathname: string): boolean {
+  if (navHref === "/app") {
+    return pathname === "/app";
+  }
+  if (navHref === "/app/vendors") {
+    return pathname.startsWith("/app/vendors");
+  }
+  if (navHref === "/app/bills") {
+    return (
+      pathname.startsWith("/app/bills") ||
+      pathname.startsWith("/app/expenses") ||
+      pathname.startsWith("/app/documents")
+    );
+  }
+  if (navHref === "/app/contracts") {
+    return pathname.startsWith("/app/contracts");
+  }
+  if (navHref === "/app/findings") {
+    return (
+      pathname.startsWith("/app/findings") ||
+      pathname.startsWith("/app/opportunities")
+    );
+  }
+  if (navHref === "/app/actions") {
+    return pathname.startsWith("/app/actions");
+  }
+  if (navHref === "/app/results") {
+    return (
+      pathname.startsWith("/app/results") ||
+      pathname.startsWith("/app/savings") ||
+      pathname.startsWith("/app/reports")
+    );
+  }
+  if (navHref === "/app/settings") {
+    return pathname.startsWith("/app/settings");
+  }
+  return pathname.startsWith(navHref);
+}
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Search, X } from "lucide-react";
 
-interface AppSearchResult {
+export interface AppSearchResult {
   id: string;
-  category: "opportunities" | "vendors" | "contracts" | "documents" | "expenses";
+  category: "vendors" | "bills" | "contracts" | "findings" | "actions" | "documents" | "expenses";
   title: string;
   detail: string;
   href: string;
 }
 
-const searchCategoryLabels: Record<AppSearchResult["category"], string> = {
-  opportunities: "Cases & Opportunities",
+export const searchCategoryLabels: Record<AppSearchResult["category"], string> = {
   vendors: "Vendors",
+  bills: "Bills",
   contracts: "Contracts",
-  documents: "Documents",
-  expenses: "Expenses",
+  findings: "Findings",
+  actions: "Actions",
+  documents: "Source files",
+  expenses: "Spend records",
 };
 
-const searchCategoryIcons = {
-  opportunities: Target,
+export const searchCategoryIcons = {
   vendors: Building2,
+  bills: ReceiptText,
   contracts: FileText,
+  findings: Target,
+  actions: CheckSquare2,
   documents: FileStack,
   expenses: ReceiptText,
 };
@@ -79,24 +146,7 @@ function appSearchResults(data: PortalData, query: string) {
 
   const results: AppSearchResult[] = [];
 
-  // 1. Opportunities
-  for (const opp of data.opportunities) {
-    if (
-      opp.title.toLowerCase().includes(term) ||
-      opp.vendorName.toLowerCase().includes(term) ||
-      (opp.summary && opp.summary.toLowerCase().includes(term))
-    ) {
-      results.push({
-        id: opp.id,
-        category: "opportunities",
-        title: opp.title,
-        detail: `${opp.vendorName} • Case`,
-        href: `/app/opportunities/${opp.id}`,
-      });
-    }
-  }
-
-  // 2. Vendors
+  // 1. Vendors
   for (const v of data.vendors) {
     if (
       v.name.toLowerCase().includes(term) ||
@@ -106,8 +156,24 @@ function appSearchResults(data: PortalData, query: string) {
         id: v.id,
         category: "vendors",
         title: v.name,
-        detail: `${v.category || "Uncategorized"} • Vendor`,
+        detail: `${v.category || "Vendor relationship"} • Vendor`,
         href: `/app/vendors/${v.id}`,
+      });
+    }
+  }
+
+  // 2. Bills (Invoices)
+  for (const inv of data.invoices) {
+    if (
+      inv.vendorName.toLowerCase().includes(term) ||
+      (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(term))
+    ) {
+      results.push({
+        id: inv.id,
+        category: "bills",
+        title: `${inv.vendorName} bill ${inv.invoiceNumber || inv.id.slice(0, 8)}`,
+        detail: `${new Intl.NumberFormat("en-US", { style: "currency", currency: data.organization.currency }).format(inv.totalAmount ?? 0)} · ${inv.reviewStatus}`,
+        href: `/app/bills/${inv.id}`,
       });
     }
   }
@@ -129,7 +195,40 @@ function appSearchResults(data: PortalData, query: string) {
     }
   }
 
-  // 4. Documents
+  // 4. Findings (Opportunities)
+  for (const opp of data.opportunities) {
+    if (
+      opp.title.toLowerCase().includes(term) ||
+      opp.vendorName.toLowerCase().includes(term) ||
+      (opp.summary && opp.summary.toLowerCase().includes(term))
+    ) {
+      results.push({
+        id: opp.id,
+        category: "findings",
+        title: opp.title,
+        detail: `${opp.vendorName} · ${opportunityTrustLabel(opp.trustState)}`,
+        href: `/app/findings/${opp.id}`,
+      });
+    }
+  }
+
+  // 5. Actions
+  for (const act of data.actions) {
+    if (
+      act.title.toLowerCase().includes(term) ||
+      act.vendorName.toLowerCase().includes(term)
+    ) {
+      results.push({
+        id: act.id,
+        category: "actions",
+        title: act.title,
+        detail: `${act.vendorName} · ${act.status}`,
+        href: `/app/actions/${act.id}`,
+      });
+    }
+  }
+
+  // 6. Source Documents (optional secondary)
   for (const d of data.documents) {
     if (
       d.originalFilename.toLowerCase().includes(term) ||
@@ -139,13 +238,13 @@ function appSearchResults(data: PortalData, query: string) {
         id: d.id,
         category: "documents",
         title: d.originalFilename,
-        detail: `${d.vendorName} • Document`,
+        detail: `${d.vendorName} • Source file`,
         href: `/app/documents/${d.id}`,
       });
     }
   }
 
-  // 5. Expenses
+  // 7. Spend Records (optional secondary)
   for (const e of data.expenses) {
     if (
       e.vendorName.toLowerCase().includes(term) ||
@@ -155,7 +254,7 @@ function appSearchResults(data: PortalData, query: string) {
         id: e.id,
         category: "expenses",
         title: `${e.vendorName} - ${new Intl.NumberFormat("en-US", { style: "currency", currency: data.organization.currency }).format(e.amount)}`,
-        detail: `${e.category || "Uncategorized"} • Expense`,
+        detail: `${e.category || "Uncategorized"} • Spend record`,
         href: `/app/expenses/${e.id}`,
       });
     }
@@ -177,9 +276,24 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const createMenuRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
 
   const expandSidebar = (delay = 0) => {
     if (window.innerWidth <= 980) return;
@@ -200,7 +314,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     sidebarTimerRef.current = window.setTimeout(() => {
       setSidebarCollapsed(true);
       sidebarTimerRef.current = null;
-    }, 420);
+    }, 460);
   };
 
   const closeSearch = useCallback(() => {
@@ -215,6 +329,12 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     function handleClickOutside(event: MouseEvent) {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         closeSearch();
+      }
+      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
+        setCreateMenuOpen(false);
+      }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -234,6 +354,8 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         setOrgOpen(false);
         setNotificationsOpen(false);
         setProfileOpen(false);
+        setCreateMenuOpen(false);
+        setMobileMenuOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -253,9 +375,11 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
       grouped.set(result.category, categoryResults);
     }
     const categoriesOrder: AppSearchResult["category"][] = [
-      "opportunities",
       "vendors",
+      "bills",
       "contracts",
+      "findings",
+      "actions",
       "documents",
       "expenses",
     ];
@@ -271,9 +395,6 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     router.push(result.href);
   }
 
-  const filteredNav = navigation.filter(([label]) =>
-    label.toLowerCase().includes(searchQuery.toLowerCase())
-  );
   const unread = data.notifications.filter((item) => !item.readAt);
   const initials = data.currentUser.fullName.split(/\s+/).map((part) => part[0]).slice(0,2).join("").toUpperCase();
   const spend = data.vendors.reduce((sum, vendor) => sum + vendor.annualizedSpend, 0);
@@ -295,7 +416,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         <aside
           className="app-sidebar"
           onPointerEnter={(event) => {
-            if (event.pointerType === "mouse") expandSidebar(180);
+            if (event.pointerType === "mouse") expandSidebar(240);
           }}
           onPointerLeave={(event) => {
             if (event.pointerType === "mouse") collapseSidebar();
@@ -307,50 +428,84 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         >
           <div className="sidebar-brand-row">
             <Brand light compact={sidebarCollapsed} />
-            {!sidebarCollapsed && (
-              <button
-                className="sidebar-toggle"
-                type="button"
-                onClick={() => setSidebarCollapsed(true)}
-                aria-label="Collapse sidebar"
-                title="Collapse sidebar"
-              >
-                <PanelLeftClose aria-hidden="true" size={17} />
-              </button>
-            )}
           </div>
           <nav className="app-nav" aria-label="Customer application">
-            {navigation.map(([label, href, Icon]) => {
-              const active = href === "/app" ? pathname === href : pathname.startsWith(href);
-              return (
-                <Link className={active ? "active" : ""} href={href} key={href} aria-current={active ? "page" : undefined} aria-label={label}>
-                  <Icon aria-hidden="true" size={18} />
-                  <span className="nav-label">{label}</span>
-                </Link>
-              );
-            })}
+            {navigationGroups.slice(0, -1).map((group, groupIdx) => (
+              <div key={group.section ?? `group-${groupIdx}`} className="app-nav-group">
+                {group.section && (
+                  <div className="nav-section-label">{group.section}</div>
+                )}
+                {group.items.map(([label, href, Icon]) => {
+                  const active = isRouteActive(href, pathname);
+                  return (
+                    <Link
+                      className={active ? "active" : ""}
+                      href={href}
+                      key={href}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={`Open ${label}`}
+                    >
+                      <Icon aria-hidden="true" size={18} />
+                      <span className="nav-label">{label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
-          <div className="app-sidebar-bottom">
-            <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px", color: "#9eaaa5", fontSize: ".8rem" }}>
-              <Handshake aria-hidden="true" size={17} /> <span>Public site</span>
-            </Link>
+          <div className="app-sidebar-foot">
+            <nav className="app-sidebar-utility" aria-label="Workspace settings">
+              <Link
+                className={isRouteActive("/app/settings", pathname) ? "active" : ""}
+                href="/app/settings"
+                aria-label="Settings"
+              >
+                <Settings aria-hidden="true" size={18} />
+                <span className="nav-label">Settings</span>
+              </Link>
+            </nav>
+            <div className="app-sidebar-profile-wrap" ref={profileMenuRef}>
+              <button
+                className={`app-operator${profileOpen ? " is-open" : ""}`}
+                type="button"
+                aria-label={`${data.currentUser.fullName} account menu`}
+                aria-expanded={profileOpen}
+                aria-haspopup="menu"
+                onClick={() => {
+                  if (sidebarCollapsed) {
+                    expandSidebar();
+                    window.setTimeout(() => setProfileOpen(true), 220);
+                    return;
+                  }
+                  setProfileOpen((open) => !open);
+                  setNotificationsOpen(false);
+                }}
+              >
+                <span className="app-operator-avatar" aria-hidden="true">{initials}</span>
+                <span className="app-operator-copy">
+                  <strong>{data.currentUser.fullName}</strong>
+                  <small>{data.currentUser.role}</small>
+                </span>
+              </button>
+              {profileOpen && (
+                <div className="app-profile-menu" role="menu" aria-label="Account options">
+                  <div className="app-profile-menu-heading">
+                    <span className="app-operator-avatar" aria-hidden="true">{initials}</span>
+                    <span><strong>{data.currentUser.fullName}</strong><small>{data.currentUser.email}</small></span>
+                  </div>
+                  <button type="button" role="menuitem" className="is-danger" onClick={() => void signOut()}>
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </aside>
 
         <main className="app-main">
           <div className="app-topbar">
-            {sidebarCollapsed && (
-              <button
-                className="app-topbar-expand-toggle"
-                type="button"
-                onClick={() => setSidebarCollapsed(false)}
-                aria-label="Expand sidebar"
-                title="Expand sidebar"
-              >
-                <PanelLeftOpen aria-hidden="true" size={18} />
-              </button>
-            )}
-            <div className="app-organization" style={{ position: "relative" }}>
+            <div className="app-topbar-leading">
+              <div className="app-organization" style={{ position: "relative" }}>
               <button
                 className="org-switcher"
                 type="button"
@@ -412,11 +567,12 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                   </div>
                 </div>
               )}
+              </div>
             </div>
 
-            <div className="top-actions">
+            <div className="app-topbar-center">
               <div className="app-global-search-wrap" ref={searchContainerRef}>
-                <label className="global-search">
+                <label className="manage-search global-search">
                   <Search aria-hidden="true" size={15} style={{ color: "#64748b" }} />
                   <input
                     ref={searchInputRef}
@@ -434,9 +590,9 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                         event.currentTarget.blur();
                       }
                     }}
-                    placeholder="Search opportunities, vendors, contracts..."
+                    placeholder="Search bills, vendors, contracts, findings..."
                   />
-                  <span className="command-shortcut">⌘K</span>
+                  <span className="manage-kbd">⌘K</span>
                 </label>
                 {(searchFocused || searchClosing) && searchQuery.trim() && (
                   <div
@@ -478,26 +634,120 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                   </div>
                 )}
               </div>
+              <div className="app-create-wrap" ref={createMenuRef}>
+                <button
+                  className={`button button-primary app-create-trigger${createMenuOpen ? " is-active" : ""}`}
+                  type="button"
+                  onClick={() => setCreateMenuOpen((open) => !open)}
+                  aria-label="Add to workspace"
+                  aria-expanded={createMenuOpen}
+                  aria-haspopup="menu"
+                >
+                  <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
+                </button>
+                {createMenuOpen && (
+                  <div className="app-create-menu" role="menu" aria-label="Add to workspace">
+                    <Link href="/app/bills?action=upload" role="menuitem" onClick={() => setCreateMenuOpen(false)}>
+                      <span className="app-create-icon"><Upload aria-hidden="true" size={16} /></span>
+                      <span className="app-create-label"><strong>Upload document</strong><small>Bill, contract, or source file</small></span>
+                    </Link>
+                    <Link href="/app/vendors?action=add" role="menuitem" onClick={() => setCreateMenuOpen(false)}>
+                      <span className="app-create-icon"><Building2 aria-hidden="true" size={16} /></span>
+                      <span className="app-create-label"><strong>Add vendor</strong><small>Start a vendor relationship</small></span>
+                    </Link>
+                    <Link href="/app/contracts?action=add" role="menuitem" onClick={() => setCreateMenuOpen(false)}>
+                      <span className="app-create-icon"><FileText aria-hidden="true" size={16} /></span>
+                      <span className="app-create-label"><strong>Add contract</strong><small>Track renewal terms and dates</small></span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="top-actions app-top-actions">
               <ClientAssistantTrigger />
-              <Link className="button button-primary" href="/app/documents" style={{ borderRadius: 10, padding: "0 18px", fontSize: ".84rem" }}>
-                <Upload aria-hidden="true" size={16} /> Upload documents
-              </Link>
               <div className="topbar-popover-wrap"><button className="button button-quiet" type="button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setProfileOpen(false); }} style={{ position: "relative", borderRadius: "50%", width: 40, height: 40, padding: 0 }}>
                 <Bell aria-hidden="true" size={17} style={{ color: "#475569" }} />
                 {unread.length > 0 && <span style={{ position: "absolute", top: 9, right: 9, width: 7, height: 7, borderRadius: "50%", background: "#ef6b53" }} />}
               </button>{notificationsOpen && <div className="topbar-popover notifications-popover"><header><strong>Notifications</strong>{unread.length>0&&<button onClick={() => void markNotificationsRead()}>Mark all read</button>}</header>{data.notifications.length ? data.notifications.slice(0,5).map(item=><div className={`notification-item${item.readAt?"":" unread"}`} key={item.id}><strong>{item.title}</strong><span>{item.body}</span></div>) : <p className="popover-empty">You&apos;re all caught up.</p>}</div>}</div>
-              <div className="topbar-popover-wrap"><button type="button" className="avatar" aria-label={`${data.currentUser.fullName} account menu`} aria-expanded={profileOpen} onClick={() => { setProfileOpen((value)=>!value); setNotificationsOpen(false); }}>{initials}</button>{profileOpen&&<div className="topbar-popover profile-popover"><strong>{data.currentUser.fullName}</strong><span>{data.currentUser.email}</span><span className="portal-status">{data.currentUser.role}</span><button onClick={() => void signOut()}>Sign out</button></div>}</div>
             </div>
           </div>
 
           {children}
 
           <nav className="app-mobile-nav" aria-label="Mobile workspace navigation">
-            <Link className={pathname === "/app" ? "active" : ""} href="/app" aria-label="Overview"><LayoutDashboard aria-hidden="true" size={20} /><span>Overview</span></Link>
-            <Link className={pathname.startsWith("/app/opportunities") ? "active" : ""} href="/app/opportunities" aria-label="Opportunities"><Target aria-hidden="true" size={20} /><span>Cases</span></Link>
-            <Link className={pathname.startsWith("/app/actions") ? "active" : ""} href="/app/actions" aria-label="Actions"><CheckSquare2 aria-hidden="true" size={20} /><span>Actions</span></Link>
-            <Link className={pathname.startsWith("/app/settings") ? "active" : ""} href="/app/settings" aria-label="More"><MoreHorizontal aria-hidden="true" size={21} /><span>More</span></Link>
+            <Link className={isRouteActive("/app", pathname) ? "active" : ""} href="/app" aria-label="Open Command Center" onClick={() => setMobileMenuOpen(false)}>
+              <LayoutDashboard aria-hidden="true" size={20} />
+              <span>Overview</span>
+            </Link>
+            <Link className={isRouteActive("/app/bills", pathname) ? "active" : ""} href="/app/bills" aria-label="Open Bills & Spend" onClick={() => setMobileMenuOpen(false)}>
+              <ReceiptText aria-hidden="true" size={20} />
+              <span>Bills</span>
+            </Link>
+            <Link className={isRouteActive("/app/findings", pathname) ? "active" : ""} href="/app/findings" aria-label="Open Findings" onClick={() => setMobileMenuOpen(false)}>
+              <Target aria-hidden="true" size={20} />
+              <span>Findings</span>
+            </Link>
+            <Link className={isRouteActive("/app/actions", pathname) ? "active" : ""} href="/app/actions" aria-label="Open Actions" onClick={() => setMobileMenuOpen(false)}>
+              <CheckSquare2 aria-hidden="true" size={20} />
+              <span>Actions</span>
+            </Link>
+            <button
+              type="button"
+              className={`app-mobile-nav-toggle${mobileMenuOpen ? " active" : ""}`}
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              <MoreHorizontal aria-hidden="true" size={21} />
+              <span>Menu</span>
+            </button>
           </nav>
+          {mobileMenuOpen && (
+            <>
+              <div
+                className="app-mobile-drawer-overlay"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-hidden="true"
+              />
+              <div
+                className="app-mobile-drawer"
+                role="dialog"
+                aria-label="Navigation menu"
+              >
+                <div className="mobile-drawer-header">
+                  <strong>Navigation</strong>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(false)}
+                    aria-label="Close menu"
+                  >
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                </div>
+                {navigationGroups.map((group, groupIdx) => (
+                  <div key={group.section ?? `mobile-group-${groupIdx}`} className="mobile-nav-group">
+                    {group.section && <div className="nav-section-label">{group.section}</div>}
+                    {group.items.map(([label, href, Icon]) => {
+                      const active = isRouteActive(href, pathname);
+                      return (
+                        <Link
+                          key={href}
+                          className={active ? "active" : ""}
+                          href={href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          aria-current={active ? "page" : undefined}
+                        >
+                          <Icon aria-hidden="true" size={18} />
+                          <span>{label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </main>
       </div>
       <ClientAssistantSurface />

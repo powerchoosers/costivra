@@ -134,7 +134,7 @@ export function getDynamicPrimaryAction(vendor: {
     return { label: "Add first bill", actionKind: "upload" };
   }
   if (vendor.hasPendingReviewInvoice) {
-    return { label: "Review invoice", actionKind: "review_invoice", href: "/app/documents" };
+    return { label: "Review invoice", actionKind: "review_invoice", href: "/app/bills" };
   }
   if (normState === "not_set_up") {
     return { label: "Monitor this vendor", actionKind: "monitor" };
@@ -143,15 +143,15 @@ export function getDynamicPrimaryAction(vendor: {
     return { label: "Finish monitoring test", actionKind: "test_forwarding" };
   }
   if (normState === "review_required") {
-    return { label: "Resolve monitoring review", actionKind: "review_invoice", href: "/app/documents" };
+    return { label: "Resolve monitoring review", actionKind: "review_invoice", href: "/app/bills" };
   }
   if (vendor.hasOpenFinding) {
-    return { label: "Review finding", actionKind: "review_finding", href: "/app/opportunities" };
+    return { label: "Review finding", actionKind: "review_finding", href: "/app/findings" };
   }
   if (vendor.hasPendingAction) {
     return { label: "Review action", actionKind: "review_action", href: "/app/actions" };
   }
-  return { label: "View latest bill", actionKind: "view_bill", href: "/app/documents" };
+  return { label: "View latest bill", actionKind: "view_bill", href: "/app/bills" };
 }
 
 /**

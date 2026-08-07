@@ -18,7 +18,7 @@ type FieldOption = string | { value: string; label: string };
 type Field = { key: string; label: string; value: unknown; display?: string; editable?: boolean; type?: "text" | "textarea" | "date" | "datetime-local" | "number" | "checkbox" | "select"; options?: FieldOption[]; note?: string };
 
 const labels: Record<Kind, { plural: string; noun: string }> = {
-  vendor: { plural: "vendors", noun: "Vendor" }, expense: { plural: "expenses", noun: "Expense" }, contract: { plural: "contracts", noun: "Contract" }, document: { plural: "documents", noun: "Document" }, invoice: { plural: "documents", noun: "Invoice" }, opportunity: { plural: "opportunities", noun: "Opportunity" }, action: { plural: "actions", noun: "Action" }, savings: { plural: "savings", noun: "Savings outcome" },
+  vendor: { plural: "vendors", noun: "Vendor" }, expense: { plural: "expenses", noun: "Expense" }, contract: { plural: "contracts", noun: "Contract" }, document: { plural: "documents", noun: "Document" }, invoice: { plural: "documents", noun: "Invoice" }, opportunity: { plural: "findings", noun: "Finding" }, action: { plural: "actions", noun: "Action" }, savings: { plural: "results", noun: "Result" },
 };
 const money = (value: number | null | undefined, currency = "USD") => value == null ? "Not recorded" : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
 const date = (value: string | null | undefined) => value ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value.length === 10 ? `${value}T12:00:00Z` : value}`)) : "Not recorded";
@@ -140,8 +140,8 @@ function SavingsReviewPanel({ outcome, canDecide }: { outcome: PortalData["savin
         body: JSON.stringify({ operation: nextOperation, reason: nextOperation === "reject" ? reason.trim() : undefined }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "The savings decision could not be saved.");
-      toast.success(nextOperation === "accept_baseline" ? "Baseline accepted." : nextOperation === "verify" ? "Savings verified." : "Savings record rejected.");
+      if (!response.ok) throw new Error(payload.error || "The result decision could not be saved.");
+      toast.success(nextOperation === "accept_baseline" ? "Baseline accepted." : nextOperation === "verify" ? "Result verified." : "Result rejected.");
       setConfirmed(false);
       setRejecting(false);
       setReason("");
