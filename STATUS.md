@@ -3,7 +3,8 @@
 ## August 7, 2026 — Global scroll performance polish
 
 - **Page scrolling**: Tuned Lenis interpolation from `0.09` to `0.12` so wheel and trackpad input settles sooner without losing the calm, eased motion.
-- **Nested surfaces**: Replaced Lenis' per-event automatic nested-scroll DOM walk with an explicit native-scroll selector and overflow check. Scrollable tables, drawers, modals, sidebars, and chat panels keep their native behavior while the page-level path does less work.
+- **Nested surfaces**: Replaced Lenis' per-event automatic nested-scroll DOM walk with an explicit, direction-aware native-scroll handoff. Scrollable Accounts, Contacts, Vendors, tables, drawers, modals, sidebars, and chat panels keep their native behavior while vertical wheel input can still return to the page when a wide table has no vertical overflow.
+- **Table scrollbars**: Table wrappers keep their scrollbar chrome transparent until a real scroll event starts, then fade the thumb back out after the interaction settles.
 - **Native/browser handoff**: Disabled the browser's second smooth-scroll interpolation while Lenis is active, preventing double-easing on anchors and programmatic scrolls. Reduced-motion behavior remains unchanged.
 - **Quality gate**:
   - `npm run typecheck` PASS.

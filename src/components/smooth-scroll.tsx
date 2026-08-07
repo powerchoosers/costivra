@@ -27,8 +27,12 @@ const NATIVE_SCROLL_SELECTOR = [
   ".manage-record-right-rail",
   ".manage-compose-message-scroll",
   ".manage-assistant-body",
+  ".manage-table-wrap",
   ".table-scroll",
   ".table-wrap",
+  ".invoice-review-table-wrap",
+  ".record-line-items",
+  ".record-files-workspace__table",
   ".invoice-pdf-canvas",
   ".portal-modal-layer",
   ".portal-modal-body",
@@ -40,13 +44,30 @@ const NATIVE_SCROLL_SELECTOR = [
   ".bills-table-wrap",
 ].join(",");
 
-function hasNativeOverflow(element: Element) {
+function canNativeScroll(element: Element, deltaX: number, deltaY: number) {
   if (!(element instanceof HTMLElement)) return false;
 
   const style = window.getComputedStyle(element);
-  const canScrollVertically = ["auto", "overlay", "scroll"].includes(style.overflowY) && element.scrollHeight > element.clientHeight;
-  const canScrollHorizontally = ["auto", "overlay", "scroll"].includes(style.overflowX) && element.scrollWidth > element.clientWidth;
-  return canScrollVertically || canScrollHorizontally;
+  const horizontal = Math.abs(deltaX) > Math.abs(deltaY);
+
+  if (horizontal) {
+    if (!["auto", "overlay", "scroll"].includes(style.overflowX) || element.scrollWidth <= element.clientWidth) return false;
+    const maxScrollLeft = element.scrollWidth - element.clientWidth;
+    return deltaX < 0 ? element.scrollLeft > 0 : element.scrollLeft < maxScrollLeft;
+  }
+
+  if (!["auto", "overlay", "scroll"].includes(style.overflowY) || element.scrollHeight <= element.clientHeight) return false;
+  const maxScrollTop = element.scrollHeight - element.clientHeight;
+  return deltaY < 0 ? element.scrollTop > 0 : element.scrollTop < maxScrollTop;
+}
+
+function findNativeScroller(event: Event) {
+  for (const item of event.composedPath()) {
+    if (!(item instanceof HTMLElement)) continue;
+    const scroller = item.closest(NATIVE_SCROLL_SELECTOR);
+    if (scroller instanceof HTMLElement) return scroller;
+  }
+  return null;
 }
 
 /**
@@ -66,14 +87,36 @@ export function SmoothScroll() {
       smoothWheel: true,
       // Explicit native panels avoid Lenis' per-event nested-scroll DOM walk.
       allowNestedScroll: false,
-      prevent: (node) => {
-        const nativeScroller = node.closest(NATIVE_SCROLL_SELECTOR);
-        return nativeScroller !== null && hasNativeOverflow(nativeScroller);
+      prevent: (node) => node.hasAttribute("data-lenis-prevent"),
+      virtualScroll: ({ deltaX, deltaY, event }) => {
+        const nativeScroller = findNativeScroller(event);
+        return nativeScroller === null || !canNativeScroll(nativeScroller, deltaX, deltaY);
       },
       stopInertiaOnNavigate: true,
     });
 
-    return () => lenis.destroy();
+    const scrollTimers = new WeakMap<HTMLElement, number>();
+    const handleNativeScroll = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches(NATIVE_SCROLL_SELECTOR)) return;
+
+      target.classList.add("is-scroll-active");
+      const previousTimer = scrollTimers.get(target);
+      if (previousTimer !== undefined) window.clearTimeout(previousTimer);
+      scrollTimers.set(target, window.setTimeout(() => {
+        target.classList.remove("is-scroll-active");
+        scrollTimers.delete(target);
+      }, 450));
+    };
+
+    // Scroll events do not bubble from nested panels, so capture them once at
+    // the document rather than attaching a listener to every table instance.
+    document.addEventListener("scroll", handleNativeScroll, { capture: true, passive: true });
+
+    return () => {
+      document.removeEventListener("scroll", handleNativeScroll, true);
+      lenis.destroy();
+    };
   }, []);
 
   return null;
