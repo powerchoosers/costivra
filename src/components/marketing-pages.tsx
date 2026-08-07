@@ -44,7 +44,7 @@ import type { PublicSystemStatus } from "@/lib/status/public-status-types";
 type PageSpec = {
   title: string;
   lede: string;
-  blocks: { icon: typeof ShieldCheck; title: string; copy: string; href?: string }[];
+  blocks: { icon: typeof ShieldCheck; title: string; copy: string; href?: string; group?: string }[];
   kind?: "evidence" | "category" | "sequence" | "controls" | "rail" | "portfolio" | "manifesto" | "handoff" | "timeline" | "registry" | "consent";
   operating?: { eyebrow: string; title: string; copy: string; steps: { label: string; copy: string }[] };
   close?: { title: string; copy: string; action: string; href: string };
@@ -98,12 +98,12 @@ const specs: Record<string, PageSpec> = {
     title: "Protect the data behind every cost decision.",
     lede: "Bills and contracts reveal sensitive operational details. Costivra keeps customer data separated, documents private, permissions narrow, and consequential actions under explicit approval.",
     blocks: [
-      { icon: Building2, title: "Tenant isolation", copy: "Organization boundaries are enforced at the database and service layers, with tests proving customers cannot cross those boundaries." },
-      { icon: FileLock2, title: "Private documents", copy: "Original files stay in private storage and use short-lived signed access. Sensitive identifiers are masked when full display is unnecessary." },
-      { icon: KeyRound, title: "Least privilege", copy: "Users, services, agents, and integrations receive narrow permissions for the organization, resource, and action they need." },
-      { icon: ShieldCheck, title: "Human authorization", copy: "Consequential external actions require the configured approvals. Bank and payment instructions cannot be changed autonomously." },
-      { icon: FileCheck2, title: "Complete provenance", copy: "Corrections preserve the original extraction, editor, timestamp, reason, and evidence reference." },
-      { icon: LockKeyhole, title: "Untrusted content defense", copy: "Instructions found inside documents, email, or OCR text are treated as data and cannot change policy or expand tool access." },
+      { icon: Building2, title: "Tenant isolation", copy: "Organization boundaries are enforced at the database and service layers, with tests proving customers cannot cross those boundaries.", group: "Data boundary" },
+      { icon: FileLock2, title: "Private documents", copy: "Original files stay in private storage and use short-lived signed access. Sensitive identifiers are masked when full display is unnecessary.", group: "Data boundary" },
+      { icon: KeyRound, title: "Least privilege", copy: "Users, services, agents, and integrations receive narrow permissions for the organization, resource, and action they need.", group: "Access and authority" },
+      { icon: ShieldCheck, title: "Human authorization", copy: "Consequential external actions require the configured approvals. Bank and payment instructions cannot be changed autonomously.", group: "Access and authority" },
+      { icon: FileCheck2, title: "Complete provenance", copy: "Corrections preserve the original extraction, editor, timestamp, reason, and evidence reference.", group: "Evidence and accountability" },
+      { icon: LockKeyhole, title: "Untrusted content defense", copy: "Instructions found inside documents, email, or OCR text are treated as data and cannot change policy or expand tool access.", group: "Evidence and accountability" },
     ],
     operating: { eyebrow: "Security in practice", title: "Sensitive documents do not get a shortcut around control.", copy: "The product is designed so access is scoped by organization and role, important changes are attributable, and a document cannot tell the system to do something outside approved policy.", steps: [{ label: "Access", copy: "Private files and customer data are available only through authorized, narrowly scoped paths." }, { label: "Authority", copy: "Permission to view a record is separate from permission to approve or perform an external action." }, { label: "Accountability", copy: "Material corrections, approvals, and sharing decisions retain actor, time, reason, and evidence." }] },
     close: { title: "Bring your security questions to the product, not a sales script.", copy: "Use the contact channel for a specific workflow or data-handling question. We will be clear about what exists today and what is still planned.", action: "Contact Costivra", href: "/contact" },
@@ -319,9 +319,12 @@ function SignatureScene({ kind }: { kind: NonNullable<PageSpec["kind"]> }) {
 function SpecPage({ spec }: { spec: PageSpec }) {
   const operating = spec.operating ?? { eyebrow: "A practical operating model", title: "Make the next decision clearer.", copy: "Costivra connects source evidence, the question that needs an answer, the person responsible, and the record of what changed. The point is clarity—not another dashboard to maintain.", steps: spec.blocks.slice(0, 3).map((block) => ({ label: block.title, copy: block.copy })) };
   const close = spec.close ?? { title: "Start with a contained, evidence-backed review.", copy: "Choose one recurring-cost category and a small group of documents. You can evaluate the workflow before asking your team to change how it works.", action: "Scan three bills free", href: "/scan" };
-  return <PageFrame><div className={`spec-page spec-page--${spec.kind ?? "category"}`}><Reveal><header className="content-hero"><h1>{spec.title}</h1><p>{spec.lede}</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/app">View customer workspace</Link></div></header></Reveal><Reveal><SignatureScene kind={spec.kind ?? "category"} /></Reveal><Reveal><div className="content-grid">{spec.blocks.map(({ icon: Icon, title, copy, href }) => {
+  return <PageFrame><div className={`spec-page spec-page--${spec.kind ?? "category"}`}><Reveal><header className="content-hero"><h1>{spec.title}</h1><p>{spec.lede}</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/app">View customer workspace</Link></div></header></Reveal><Reveal><SignatureScene kind={spec.kind ?? "category"} /></Reveal><Reveal><div className="content-grid">{spec.blocks.map(({ icon: Icon, title, copy, href, group }, index) => {
     const card = <><div className="content-block-heading"><Icon aria-hidden="true" size={25} style={{ color: "var(--blue)" }} /><h2>{title}</h2>{href ? <ArrowUpRight className="content-block-link-arrow" aria-hidden="true" size={18} /> : null}</div><p>{copy}</p></>;
-    return href ? <Link className="content-block content-block-link" href={href} key={title}>{card}</Link> : <article className="content-block" key={title}>{card}</article>;
+    const previousGroup = index > 0 ? spec.blocks[index - 1].group : undefined;
+    const groupStart = spec.kind === "controls" && Boolean(group) && group !== previousGroup;
+    const groupAttributes = groupStart ? { "data-control-group": group, "data-control-group-start": "true" } : {};
+    return href ? <Link className="content-block content-block-link" href={href} key={title} {...groupAttributes}>{card}</Link> : <article className="content-block" key={title} {...groupAttributes}>{card}</article>;
   })}</div></Reveal><Reveal><section className="spec-operating"><div className="spec-operating-intro"><span className="eyebrow">{operating.eyebrow}</span><h2>{operating.title}</h2><p>{operating.copy}</p></div><ol className="spec-steps">{operating.steps.map((step, index) => <li key={step.label}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{step.label}</h3><p>{step.copy}</p></div></li>)}</ol></section></Reveal><Reveal><section className="spec-closure"><div><span className="eyebrow">A deliberate first step</span><h2>{close.title}</h2><p>{close.copy}</p></div><Link className="button button-primary" href={close.href}>{close.action} <ArrowRight aria-hidden="true" size={17} /></Link></section></Reveal></div></PageFrame>;
 }
 

@@ -5028,3 +5028,87 @@ body.modal-open .app-topbar { filter: blur(7px); }
     margin-left: 0;
   }
 }
+
+/* Long spec grids: keep the full desktop model, but give mobile visitors compact
+   rows instead of six tall, identical cards. Security adds three group labels. */
+@media (max-width: 760px) {
+  .spec-page--controls .content-grid,
+  .spec-page--evidence .content-grid,
+  .spec-page--sequence .content-grid {
+    display: block;
+    border-inline: 0;
+    background: transparent;
+  }
+
+  .spec-page--controls .content-grid .content-block,
+  .spec-page--evidence .content-grid .content-block,
+  .spec-page--sequence .content-grid .content-block {
+    min-height: 0;
+    padding: 19px 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .spec-page--controls .content-grid .content-block[data-control-group-start="true"] {
+    padding-top: 30px;
+  }
+
+  .spec-page--controls .content-grid .content-block[data-control-group-start="true"]::before {
+    display: block;
+    margin: 0 0 11px;
+    color: var(--blue);
+    content: attr(data-control-group);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: .62rem;
+    font-weight: 760;
+    letter-spacing: .13em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .spec-page--controls .content-grid .content-block-heading,
+  .spec-page--evidence .content-grid .content-block-heading,
+  .spec-page--sequence .content-grid .content-block-heading {
+    align-items: center;
+    gap: 11px;
+  }
+
+  .spec-page--controls .content-grid .content-block-heading svg,
+  .spec-page--evidence .content-grid .content-block-heading svg,
+  .spec-page--sequence .content-grid .content-block-heading svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .spec-page--controls .content-grid .content-block h2,
+  .spec-page--evidence .content-grid .content-block h2,
+  .spec-page--sequence .content-grid .content-block h2 {
+    font-size: 1rem;
+    letter-spacing: -.02em;
+  }
+
+  .spec-page--controls .content-grid .content-block-heading + p,
+  .spec-page--evidence .content-grid .content-block-heading + p,
+  .spec-page--sequence .content-grid .content-block-heading + p {
+    margin: 8px 0 0 32px;
+    max-width: 33rem;
+    font-size: .84rem;
+    line-height: 1.55;
+  }
+
+  .spec-page--controls .content-grid .content-block:hover,
+  .spec-page--controls .content-grid .content-block:focus-within,
+  .spec-page--evidence .content-grid .content-block:hover,
+  .spec-page--evidence .content-grid .content-block:focus-within,
+  .spec-page--sequence .content-grid .content-block:hover,
+  .spec-page--sequence .content-grid .content-block:focus-within {
+    z-index: 0;
+    background: transparent;
+    border-color: var(--line);
+    box-shadow: none;
+    transform: none;
+  }
+}
