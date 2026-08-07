@@ -14,6 +14,7 @@ Costivra is being built to become a billion-dollar company. Hold every interface
 - Prefer purposeful tables, comparisons, timelines, charts, and evidence views over decorative content. A visual must improve comprehension or decision-making.
 - Use restrained typography, whitespace, subtle neutral borders, and rounded/squircle surfaces, generally with 16–22px corners. Keep hierarchy strong and the number of competing elements low.
 - Design mobile, tablet, and desktop intentionally. Do not compress a desktop layout into a phone.
+- Animate every modal, popover, dropdown, drawer, and other transient surface in both directions. Use a short, calm opacity plus translate/scale transition for entry and exit; keep the closed state mounted when needed so the exit animation can finish. Respect `prefers-reduced-motion` by removing or shortening those transitions.
 
 ## Avoid generic AI UI
 

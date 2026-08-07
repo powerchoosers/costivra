@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeVendorName, normalizeDomain, normalizeCategorySlug } from "./normalize";
+import { normalizeVendorName, normalizeDomain, normalizeCategorySlug, resolveKnownVendorIdentity } from "./normalize";
 import { validateVendorCandidatePolicy } from "./candidate-policy";
 
 describe("Vendor Discovery and Normalization Suite", () => {
@@ -8,6 +8,14 @@ describe("Vendor Discovery and Normalization Suite", () => {
     expect(normalizeVendorName("Comcast Business Services LLC")).toBe("comcast business");
     expect(normalizeVendorName("Slack Technologies, Inc.")).toBe("slack");
     expect(normalizeVendorName("Acme Corp.")).toBe("acme");
+    expect(resolveKnownVendorIdentity("Reliant Energy Retail Services, LLC")).toEqual({
+      canonicalName: "Reliant Energy",
+      categoryName: "Commercial Energy",
+    });
+    expect(resolveKnownVendorIdentity("waste_management")).toEqual({
+      canonicalName: "Waste Management",
+      categoryName: "Waste Management",
+    });
   });
 
   it("normalizes domain URLs to registrable host domains", () => {

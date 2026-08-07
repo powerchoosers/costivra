@@ -395,6 +395,11 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     router.push(result.href);
   }
 
+  function openGlobalCreateAction(action: "upload" | "add-vendor" | "add-contract") {
+    setCreateMenuOpen(false);
+    window.dispatchEvent(new CustomEvent("costivra:global-action", { detail: action }));
+  }
+
   const unread = data.notifications.filter((item) => !item.readAt);
   const initials = data.currentUser.fullName.split(/\s+/).map((part) => part[0]).slice(0,2).join("").toUpperCase();
   const spend = data.vendors.reduce((sum, vendor) => sum + vendor.annualizedSpend, 0);
@@ -645,22 +650,20 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 >
                   <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
                 </button>
-                {createMenuOpen && (
-                  <div className="app-create-menu" role="menu" aria-label="Add to workspace">
-                    <Link href="/app/bills?action=upload" role="menuitem" onClick={() => setCreateMenuOpen(false)}>
+                <div className={`app-create-menu${createMenuOpen ? " is-open" : ""}`} role="menu" aria-label="Add to workspace" aria-hidden={!createMenuOpen}>
+                    <Link href={pathname} role="menuitem" onClick={(event) => { event.preventDefault(); openGlobalCreateAction("upload"); }}>
                       <span className="app-create-icon"><Upload aria-hidden="true" size={16} /></span>
                       <span className="app-create-label"><strong>Upload document</strong><small>Bill, contract, or source file</small></span>
                     </Link>
-                    <Link href="/app/vendors?action=add" role="menuitem" onClick={() => setCreateMenuOpen(false)}>
+                    <Link href={pathname} role="menuitem" onClick={(event) => { event.preventDefault(); openGlobalCreateAction("add-vendor"); }}>
                       <span className="app-create-icon"><Building2 aria-hidden="true" size={16} /></span>
                       <span className="app-create-label"><strong>Add vendor</strong><small>Start a vendor relationship</small></span>
                     </Link>
-                    <Link href="/app/contracts?action=add" role="menuitem" onClick={() => setCreateMenuOpen(false)}>
+                    <Link href={pathname} role="menuitem" onClick={(event) => { event.preventDefault(); openGlobalCreateAction("add-contract"); }}>
                       <span className="app-create-icon"><FileText aria-hidden="true" size={16} /></span>
                       <span className="app-create-label"><strong>Add contract</strong><small>Track renewal terms and dates</small></span>
                     </Link>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
 

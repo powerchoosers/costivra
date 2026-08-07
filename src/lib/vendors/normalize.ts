@@ -90,3 +90,19 @@ export function normalizeCategorySlug(rawCategory: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "other";
 }
+
+export type KnownVendorIdentity = {
+  canonicalName: string;
+  categoryName: string;
+};
+
+export function resolveKnownVendorIdentity(rawName: string): KnownVendorIdentity | null {
+  const normalized = normalizeVendorName(rawName);
+  if (normalized === "reliant energy" || normalized.startsWith("reliant energy retail")) {
+    return { canonicalName: "Reliant Energy", categoryName: "Commercial Energy" };
+  }
+  if (normalized === "waste management") {
+    return { canonicalName: "Waste Management", categoryName: "Waste Management" };
+  }
+  return null;
+}

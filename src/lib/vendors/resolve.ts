@@ -1,6 +1,6 @@
 import "server-only";
 
-import { normalizeVendorName, normalizeDomain, normalizeCategorySlug } from "./normalize";
+import { normalizeVendorName, normalizeDomain, normalizeCategorySlug, resolveKnownVendorIdentity } from "./normalize";
 import { validateVendorCandidatePolicy } from "./candidate-policy";
 import { OpenRouterVendorEnrichmentProvider, type VendorEnrichmentCandidate } from "./enrichment-provider";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -84,6 +84,9 @@ export async function resolveVendorAndCategory(
   } = input;
 
   const normalizedExtractedName = normalizeVendorName(extractedName);
+  const knownIdentity = resolveKnownVendorIdentity(extractedName);
+  const normalizedMatchName = normalizeVendorName(knownIdentity?.canonicalName ?? extractedName);
+  const resolvedCategoryHint = knownIdentity?.categoryName ?? categoryHint;
   const normalizedDomains = domainHints
     .map(normalizeDomain)
     .filter((d): d is string => Boolean(d));
@@ -96,7 +99,7 @@ export async function resolveVendorAndCategory(
       matchStatus: "unmatched",
       confidence: 0,
       resolutionMethod: "blocked_or_missing_vendor_name",
-      categoryName: categoryHint ?? null,
+      categoryName: resolvedCategoryHint ?? null,
       categoryId: null,
       isCandidate: false,
       needsReview: true,
@@ -118,13 +121,16 @@ export async function resolveVendorAndCategory(
         canonical_name?: string;
         category?: string | null;
       } | null;
+      if (knownIdentity || resolvedCategoryHint) {
+        await updateKnownRelationshipLabels(db, organizationId, rel.id, knownIdentity, resolvedCategoryHint);
+      }
       return {
         vendorId: rel.vendor_id,
         organizationVendorId: rel.id,
         matchStatus: "provided",
         confidence: 1.0,
         resolutionMethod: "provided_relationship_hint",
-        categoryName: vData?.category ?? categoryHint ?? null,
+        categoryName: resolvedCategoryHint ?? vData?.category ?? null,
         categoryId: null,
         isCandidate: false,
         needsReview: false,
@@ -151,23 +157,28 @@ export async function resolveVendorAndCategory(
         if (!v) continue;
 
         const normalizedCanonical = normalizeVendorName(v.canonical_name ?? "");
+        const knownCanonical = resolveKnownVendorIdentity(v.canonical_name ?? "");
         const normalizedNorm = v.normalized_name ? normalizeVendorName(v.normalized_name) : null;
         const aliasMatch = (v.search_aliases ?? []).some(
-          (a) => normalizeVendorName(a) === normalizedExtractedName,
+          (a) => normalizeVendorName(a) === normalizedMatchName,
         );
 
         if (
-          normalizedCanonical === normalizedExtractedName ||
-          (normalizedNorm && normalizedNorm === normalizedExtractedName) ||
+          normalizedCanonical === normalizedMatchName ||
+          (knownCanonical && normalizeVendorName(knownCanonical.canonicalName) === normalizedMatchName) ||
+          (normalizedNorm && normalizedNorm === normalizedMatchName) ||
           aliasMatch
         ) {
+          if (knownIdentity || resolvedCategoryHint) {
+            await updateKnownRelationshipLabels(db, organizationId, ov.id, knownIdentity, resolvedCategoryHint);
+          }
           return {
             vendorId: v.id,
             organizationVendorId: ov.id,
             matchStatus: "exact",
             confidence: 0.98,
             resolutionMethod: "organization_exact_name_match",
-            categoryName: v.category ?? categoryHint ?? null,
+            categoryName: resolvedCategoryHint ?? v.category ?? null,
             categoryId: null,
             isCandidate: false,
             needsReview: false,
@@ -183,17 +194,18 @@ export async function resolveVendorAndCategory(
       .from("vendors")
       .select("id, canonical_name, normalized_name, category, catalog_status, search_aliases")
       .or(
-        `canonical_name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName}`,
+        `canonical_name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName},normalized_name.eq.${normalizedMatchName}`,
       )
       .limit(5);
 
     // Also check alias array for the catalog
     const catalogMatch = (catalogVendors ?? []).find(
       (v) =>
-        normalizeVendorName(v.canonical_name) === normalizedExtractedName ||
-        (v.normalized_name && normalizeVendorName(v.normalized_name) === normalizedExtractedName) ||
+        normalizeVendorName(v.canonical_name) === normalizedMatchName ||
+        (resolveKnownVendorIdentity(v.canonical_name)?.canonicalName && normalizeVendorName(resolveKnownVendorIdentity(v.canonical_name)!.canonicalName) === normalizedMatchName) ||
+        (v.normalized_name && normalizeVendorName(v.normalized_name) === normalizedMatchName) ||
         ((v.search_aliases as string[] | null) ?? []).some(
-          (a) => normalizeVendorName(a) === normalizedExtractedName,
+          (a) => normalizeVendorName(a) === normalizedMatchName,
         ),
     );
 
@@ -206,7 +218,7 @@ export async function resolveVendorAndCategory(
         matchStatus: "catalog_exact",
         confidence: 0.92,
         resolutionMethod: "catalog_exact_name_match",
-        categoryName: v.category ?? categoryHint ?? null,
+        categoryName: resolvedCategoryHint ?? v.category ?? null,
         categoryId: null,
         isCandidate: v.catalog_status === "candidate",
         needsReview: v.catalog_status === "candidate",
@@ -243,7 +255,7 @@ export async function resolveVendorAndCategory(
           matchStatus: "domain",
           confidence: 0.9,
           resolutionMethod: "domain_exact_match",
-          categoryName: v.category ?? categoryHint ?? null,
+          categoryName: resolvedCategoryHint ?? v.category ?? null,
           categoryId: null,
           isCandidate: v.catalog_status === "candidate",
           needsReview: v.catalog_status === "candidate",
@@ -259,7 +271,7 @@ export async function resolveVendorAndCategory(
     const candidates = await provider.search({
       extractedName,
       domainHints: normalizedDomains,
-      categoryHint,
+      categoryHint: resolvedCategoryHint,
     });
     if (candidates.length > 0) {
       enrichmentCandidate = candidates[0] ?? null;
@@ -275,7 +287,7 @@ export async function resolveVendorAndCategory(
       matchStatus: "unmatched",
       confidence: 0,
       resolutionMethod: "failed_policy_check",
-      categoryName: categoryHint ?? null,
+      categoryName: resolvedCategoryHint ?? null,
       categoryId: null,
       isCandidate: false,
       needsReview: true,
@@ -297,7 +309,7 @@ export async function resolveVendorAndCategory(
       matchStatus: "unmatched",
       confidence: enrichmentConfidence,
       resolutionMethod: "enrichment_below_threshold",
-      categoryName: categoryHint ?? null,
+      categoryName: resolvedCategoryHint ?? null,
       categoryId: null,
       isCandidate: false,
       needsReview: true,
@@ -305,8 +317,8 @@ export async function resolveVendorAndCategory(
   }
 
   // 7. Atomic candidate creation
-  const targetName = enrichmentCandidate.canonicalName || policy.cleanName;
-  const targetCategory = enrichmentCandidate.categoryName || categoryHint || "Other";
+  const targetName = knownIdentity?.canonicalName || enrichmentCandidate.canonicalName || policy.cleanName;
+  const targetCategory = knownIdentity?.categoryName || enrichmentCandidate.categoryName || resolvedCategoryHint || "Other";
   const targetNormalized = normalizeVendorName(targetName);
   const targetDomains = enrichmentCandidate.domains.length > 0
     ? enrichmentCandidate.domains
@@ -319,7 +331,7 @@ export async function resolveVendorAndCategory(
       matchStatus: "unmatched",
       confidence: 0,
       resolutionMethod: "enrichment_resolved_to_blocked_name",
-      categoryName: categoryHint ?? null,
+      categoryName: resolvedCategoryHint ?? null,
       categoryId: null,
       isCandidate: false,
       needsReview: true,
@@ -457,6 +469,26 @@ async function ensureOrganizationRelationship(
     .single();
 
   return inserted?.id ?? "";
+}
+
+async function updateKnownRelationshipLabels(
+  db: SupabaseClient,
+  organizationId: string,
+  relationshipId: string,
+  knownIdentity: { canonicalName: string; categoryName: string } | null,
+  categoryHint: string | null | undefined,
+): Promise<void> {
+  const updates = {
+    ...(knownIdentity ? { display_name_override: knownIdentity.canonicalName } : {}),
+    ...(categoryHint ? { category_override: categoryHint } : {}),
+  };
+  if (Object.keys(updates).length === 0) return;
+
+  await db
+    .from("organization_vendors")
+    .update(updates)
+    .eq("id", relationshipId)
+    .eq("organization_id", organizationId);
 }
 
 async function ensureCategoryCandidate(

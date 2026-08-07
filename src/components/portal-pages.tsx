@@ -25,6 +25,7 @@ import {
   ExternalLink,
   FileText,
   Info,
+  ListFilter,
   LoaderCircle,
   Mail,
   MapPin,
@@ -150,6 +151,7 @@ const titleCase = (value: string) =>
 function PageHeader({
   title,
   description,
+  action,
   scope,
   breadcrumbs,
 }: {
@@ -167,6 +169,7 @@ function PageHeader({
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
+      {action ? <div className="portal-page-header-action">{action}</div> : null}
     </header>
   );
 }
@@ -207,6 +210,7 @@ function PortalModal({
   description,
   onClose,
   onClosed,
+  side = false,
   children,
 }: {
   open: boolean;
@@ -214,6 +218,7 @@ function PortalModal({
   description?: string;
   onClose: () => void;
   onClosed?: () => void;
+  side?: boolean;
   children: ReactNode;
 }) {
   const [mounted, setMounted] = useState(open);
@@ -302,7 +307,7 @@ function PortalModal({
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(
     <div
-      className={`portal-modal-layer${leaving ? " is-leaving" : ""}`}
+      className={`portal-modal-layer${side ? " portal-modal-layer--side" : ""}${leaving ? " is-leaving" : ""}`}
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) closeRef.current();
@@ -310,7 +315,7 @@ function PortalModal({
     >
       <section
         ref={dialogRef}
-        className="portal-modal"
+        className={`portal-modal${side ? " portal-modal--side" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -444,32 +449,45 @@ export function PortalPage({
   }, [legacyRedirect, router]);
 
   useEffect(() => {
-    if (!action || detailId) return;
+    if (!action) return;
 
-    let handled = false;
-    if (page === "bills" && action === "upload") {
-      handled = true;
-    } else if (page === "contracts" && action === "add") {
-      handled = true;
-    } else if (page === "vendors" && action === "add") {
-      handled = true;
-    }
+    const isUpload = action === "upload";
+    const isContract = action === "add-contract" || (page === "contracts" && action === "add");
+    const isVendor = action === "add-vendor" || (page === "vendors" && action === "add");
+    const handled = isUpload || isContract || isVendor;
 
     if (handled) {
+      const cleanHref = page === "home" ? "/app" : `/app/${page}${detailId ? `/${detailId}` : ""}`;
       queueMicrotask(() => {
-        if (page === "bills" && action === "upload") {
+        if (isUpload) {
           setPresetVendor(undefined);
           setModal("upload");
-        } else if (page === "contracts" && action === "add") {
+        } else if (isContract) {
           setPresetVendor(undefined);
           setModal("contract");
-        } else if (page === "vendors" && action === "add") {
+        } else if (isVendor) {
           openVendorPanel();
         }
       });
-      router.replace(`/app/${page}`);
+      window.setTimeout(() => router.replace(cleanHref), 80);
     }
   }, [action, detailId, page, router]);
+  useEffect(() => {
+    const handleGlobalAction = (event: Event) => {
+      const globalAction = (event as CustomEvent<"upload" | "add-vendor" | "add-contract">).detail;
+      if (globalAction === "upload") {
+        setPresetVendor(undefined);
+        setModal("upload");
+      } else if (globalAction === "add-contract") {
+        setPresetVendor(undefined);
+        setModal("contract");
+      } else if (globalAction === "add-vendor") {
+        openVendorPanel();
+      }
+    };
+    window.addEventListener("costivra:global-action", handleGlobalAction);
+    return () => window.removeEventListener("costivra:global-action", handleGlobalAction);
+  }, []);
   const run = async (
     work: () => Promise<unknown>,
     success: string,
@@ -497,7 +515,7 @@ export function PortalPage({
     ),
     opportunities: slug?.[1] ? <PortalRecordDetail data={data} kind="opportunity" id={slug[1]} /> : <FindingsWorkspace data={data} run={run} />,
     findings: slug?.[1] ? <PortalRecordDetail data={data} kind="opportunity" id={slug[1]} /> : <FindingsWorkspace data={data} run={run} />,
-    contracts: slug?.[1] ? <PortalRecordDetail data={data} kind="contract" id={slug[1]} /> : <Contracts data={data} onAdd={() => openModal("contract")} />,
+    contracts: slug?.[1] ? <PortalRecordDetail data={data} kind="contract" id={slug[1]} /> : <Contracts data={data} />,
     actions: slug?.[1] ? <PortalRecordDetail data={data} kind="action" id={slug[1]} /> : <Actions data={data} run={run} />,
     savings: slug?.[1] ? <PortalRecordDetail data={data} kind="savings" id={slug[1]} /> : <ResultsWorkspace data={data} />,
     results: slug?.[1] ? <PortalRecordDetail data={data} kind="savings" id={slug[1]} /> : <ResultsWorkspace data={data} />,
@@ -877,11 +895,6 @@ function BillsWorkspace({
         scope={<PageScopeIndicator mode="global" />}
         action={
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-            {canWrite && (
-              <button type="button" className="button button-primary" onClick={onUpload}>
-                <Upload size={16} /> Upload bill or document
-              </button>
-            )}
             <button
               type="button"
               className="button button-quiet"
@@ -1010,12 +1023,7 @@ function BillsWorkspace({
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
-        <div style={{ flex: 1 }}>
-          <Toolbar query={query} setQuery={(value) => updateParams({ q: value || null })} placeholder="Search bills, vendors, invoice #s, or files..." />
-        </div>
-        {hasFilters && <button type="button" className="button button-quiet button-sm" onClick={clearFilters}>Clear filters</button>}
-      </div>
+      {hasFilters && <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}><button type="button" className="button button-quiet button-sm" onClick={clearFilters}>Clear filters</button></div>}
 
       <div className="bills-filter-grid" aria-label="Bills and spend filters">
         <label><span>Vendor</span><select value={selectedVendorId} onChange={(event) => updateParams({ vendor: event.target.value === "all" ? null : event.target.value })}><option value="all">All vendors</option>{data.vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}</select></label>
@@ -1380,12 +1388,10 @@ function FindingsWorkspace({
     </>
   );
 }
-function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
+function Contracts({ data }: { data: PortalData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const query = searchParams?.get("q") ?? "";
   const activeView = resolveContractView(searchParams?.get("view"));
-  const canWrite = data.currentUser.role !== "viewer";
   const updateParams = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams?.toString() ?? "");
     for (const [key, value] of Object.entries(updates)) {
@@ -1394,7 +1400,6 @@ function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
     router.replace(`/app/contracts${next.toString() ? `?${next.toString()}` : ""}`);
   };
   const rows = data.contracts.filter((contract) => {
-    if (query && !`${contract.title} ${contract.vendorName} ${contract.category}`.toLowerCase().includes(query.toLowerCase())) return false;
     if (activeView === "upcoming") return isUpcomingContract(contract);
     if (activeView === "needs_details") return contractNeedsDetails(contract);
     if (activeView === "expired") return isExpiredContract(contract);
@@ -1417,12 +1422,6 @@ function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
       <PageHeader
         title="Contracts & Renewals"
         description="Deadlines, notice periods, auto-renewals, and agreement risk across every vendor."
-        scope={<PageScopeIndicator mode="global" />}
-        action={canWrite ? (
-          <button className="button button-primary" onClick={onAdd}>
-            <Plus size={16} /> Add contract
-          </button>
-        ) : null}
       />
       <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
         {([
@@ -1436,11 +1435,6 @@ function Contracts({ data, onAdd }: { data: PortalData; onAdd: () => void }) {
           </button>
         ))}
       </div>
-      <Toolbar
-        query={query}
-        setQuery={(value) => updateParams({ q: value || null })}
-        placeholder="Search contracts"
-      />
       <section className="portal-panel">
         {rows.length ? (
           <div className="table-wrap">
@@ -1730,8 +1724,73 @@ function getVendorAttentionDetails(vendor: PortalVendor, data: PortalData) {
   return { attentionScore, reasons, needsReviewCount, isMonitoringAttention, openFindingsCount, pendingActionsCount };
 }
 
+type VendorFilter = "all" | "attention" | "active" | "monitored" | "inactive";
+
+const vendorFilterOptions: Array<{ value: VendorFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "attention", label: "Needs attention" },
+  { value: "active", label: "Active" },
+  { value: "monitored", label: "Monitored" },
+  { value: "inactive", label: "Inactive" },
+];
+
+function VendorFilters({ value, onChange }: { value: VendorFilter; onChange: (value: VendorFilter) => void }) {
+  const [open, setOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!filterRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={filterRef} className={`vendor-filter-control${open ? " is-open" : ""}`}>
+      <button
+        className="vendor-filter-trigger"
+        type="button"
+        aria-label="Filter vendors"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <ListFilter size={16} strokeWidth={1.8} aria-hidden="true" />
+      </button>
+      <div className="vendor-filter-menu" role="menu" aria-label="Vendor status filters">
+        <div className="vendor-filter-menu-heading">Filter vendors</div>
+        {vendorFilterOptions.map((option) => (
+          <button
+            key={option.value}
+            className={`vendor-filter-option${value === option.value ? " is-active" : ""}`}
+            type="button"
+            role="menuitemradio"
+            aria-checked={value === option.value}
+            onClick={() => {
+              onChange(option.value);
+              setOpen(false);
+            }}
+          >
+            <span className="vendor-filter-option-check" aria-hidden="true" />
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Vendors({ data }: { data: PortalData }) {
-  const [filter, setFilter] = useState<"all" | "attention" | "active" | "monitored" | "inactive">("all");
+  const [filter, setFilter] = useState<VendorFilter>("all");
 
   const enrichedVendors = useMemo(() => {
     return data.vendors.map((vendor) => {
@@ -1776,32 +1835,8 @@ function Vendors({ data }: { data: PortalData }) {
       <PageHeader
         title="Vendors"
         description="Every supplier relationship, its source records, and the next important date."
+        action={<VendorFilters value={filter} onChange={setFilter} />}
       />
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)", fontWeight: 600, marginRight: 4 }}>Filter:</span>
-          {(["all", "attention", "active", "monitored", "inactive"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              style={{
-                padding: "4px 12px",
-                borderRadius: 20,
-                fontSize: "0.78rem",
-                fontWeight: filter === f ? 600 : 500,
-                border: "1px solid",
-                borderColor: filter === f ? "var(--assistant-accent, #002FA7)" : "rgba(30, 41, 59, 0.15)",
-                background: filter === f ? "rgba(0, 47, 167, 0.08)" : "transparent",
-                color: filter === f ? "var(--assistant-accent, #002FA7)" : "var(--assistant-text-secondary, #475569)",
-                cursor: "pointer",
-              }}
-            >
-              {f === "all" ? "All" : f === "attention" ? "Needs attention" : f === "active" ? "Active" : f === "monitored" ? "Monitored" : "Inactive"}
-            </button>
-          ))}
-        </div>
-      </div>
       <section className="portal-panel vendor-directory">
         {filteredAndSorted.length ? (
           <div className="table-wrap">
@@ -4688,6 +4723,7 @@ function CreateModals({
     <>
       <PortalModal
         open={kind === "contract"}
+        side
         title="Add contract"
         description="Track a signed agreement and its decision dates."
         onClose={close}
@@ -4766,6 +4802,7 @@ function CreateModals({
       </PortalModal>
       <PortalModal
         open={kind === "upload"}
+        side
         title="Upload source document"
         description="PDF, DOCX, or text up to 20 MB. Every file passes a security scan before extraction."
         onClose={close}

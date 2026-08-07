@@ -7,6 +7,7 @@ import { categoryIntelligence } from "@/lib/category-intelligence/service";
 import { resolveInvoiceIdentity, type InvoiceIdentityResolution } from "@/lib/domain/invoice-matching";
 import { lineItemEvidenceMap, type EvidenceReferenceForMapping } from "@/lib/documents/evidence-mapping";
 import { evaluateTariffReview } from "@/lib/domain/tariff-review";
+import { resolveKnownVendorIdentity } from "@/lib/vendors/normalize";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
 type SourceType = "manual_upload" | "email_forwarding" | "provider_integration";
@@ -45,11 +46,13 @@ export async function createInvoiceRecordFromExtraction(input: {
   }
 
   // Call shared 8-step vendor and category resolver
+  const knownVendor = resolveKnownVendorIdentity(input.intelligence.vendorName || "");
   const vendorResult = await resolveVendorAndCategory({
     db: input.db,
     organizationId: input.organizationId,
-    extractedName: input.intelligence.vendorName || "Unknown Vendor",
+    extractedName: knownVendor?.canonicalName || input.intelligence.vendorName || "Unknown Vendor",
     providedRelationshipId: input.providedRelationshipId,
+    categoryHint: knownVendor?.categoryName,
     documentId: input.documentId,
   });
 
