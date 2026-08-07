@@ -4835,12 +4835,15 @@ body.modal-open .app-topbar { filter: blur(7px); }
 :is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table) {
   scrollbar-color: transparent transparent;
   scrollbar-width: thin;
+  transition: scrollbar-color 220ms ease;
 }
 :is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table)::-webkit-scrollbar { width: 10px; height: 10px; }
 :is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table)::-webkit-scrollbar-track { background: transparent; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table)::-webkit-scrollbar-thumb { min-height: 40px; border: 3px solid transparent; border-radius: 999px; background: transparent; background-clip: padding-box; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-active { scrollbar-color: #6177a8 transparent; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-active::-webkit-scrollbar-thumb { background: #6177a8; background-clip: padding-box; }
+:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table)::-webkit-scrollbar-thumb { min-height: 40px; border: 3px solid transparent; border-radius: 999px; background: transparent; background-clip: padding-box; transition: background-color 220ms ease, box-shadow 220ms ease; }
+:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-x-active,
+:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-y-active { scrollbar-color: #6177a8 transparent; }
+:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-x-active::-webkit-scrollbar-thumb:horizontal { background: #6177a8; background-clip: padding-box; }
+:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-y-active::-webkit-scrollbar-thumb:vertical { background: #6177a8; background-clip: padding-box; }
 .bills-table { min-width: 1240px; table-layout: auto; }
 .bills-table th, .bills-table td { white-space: nowrap; }
 .bills-table th:first-child, .bills-table td:first-child { min-width: 190px; }
