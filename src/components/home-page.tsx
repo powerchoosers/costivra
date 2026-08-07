@@ -344,7 +344,10 @@ function WorkflowSteps() {
     };
   }, []);
 
-  const stepsStyle = { "--steps-progress": `${Math.round(progress * 1000) / 10}%` } as CSSProperties;
+  const stepsStyle = {
+    "--steps-progress": `${Math.round(progress * 1000) / 10}%`,
+    "--steps-progress-scale": `${progress}`,
+  } as CSSProperties;
   return (
     <div ref={ref} className="steps" aria-label="Workflow stages" style={stepsStyle}>
       <span className="steps-progress" aria-hidden="true"><span className="steps-progress-fill" /></span>

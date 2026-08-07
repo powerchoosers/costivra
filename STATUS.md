@@ -1,5 +1,17 @@
 # Costivra Status
 
+## August 7, 2026 — Desktop workflow rail smoothness
+
+- **Desktop motion**: Kept the existing scroll-linked progress calculation, but changed the horizontal rail from animated width to a compositor-friendly transform so it follows desktop scrolling without transition lag.
+- **Mobile preserved**: The vertical rail uses the same progress value and continues to animate smoothly with no horizontal overflow.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA passed at 1286px and 390px with no console errors.
+
+## August 7, 2026 — Mobile long-grid hierarchy
+
+- **Compact mobile treatment**: Kept all six facts on Security, Product, and How it works, but changed their phone layout from tall repeated cards into compact rows. Security rows are grouped under Data boundary, Access and authority, and Evidence and accountability.
+- **Desktop preserved**: The existing three-column desktop grids remain unchanged; shorter three-card industry pages keep their current layout.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `npm run build` PASS. Browser QA passed at 384px and 1280px with no horizontal overflow or console errors.
+
 ## August 7, 2026 — Mobile category orbit alignment
 
 - **Mobile composition**: Centered the Software / Telecom / Energy category orbit within the stacked mobile signature scene while leaving the desktop layout unchanged.
