@@ -1325,10 +1325,11 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
 .app-sidebar { position:sticky; top:0; isolation:isolate; height:100vh; overflow:hidden; padding:14px 10px 12px; color:#dce5f3; background:var(--portal-ink); box-shadow:1px 0 0 rgba(121,141,177,.14); }
 .app-sidebar::before { opacity:.025; background:linear-gradient(rgba(93,116,164,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(93,116,164,.3) 1px,transparent 1px); background-size:34px 34px; mask-image:linear-gradient(180deg,black,transparent 58%); }
 .sidebar-brand-row { display:flex; min-height:52px; align-items:center; justify-content:space-between; padding:0 5px 14px; }
-.app-sidebar .logo { min-width:0; padding:0 4px; color:#fff; font-size:1.17rem; font-weight:760; letter-spacing:-.055em; }
+.app-sidebar .logo { min-width:0; padding:0 4px; color:#fff; font-size:1.5rem; font-weight:760; letter-spacing:-.055em; }
 .app-sidebar .logo img { filter:none; }
 .app-sidebar .logo-light .logo-mark { width:36px; height:36px; flex:0 0 36px; border:0; border-radius:9px; background:#fff; padding:4px; box-shadow:0 6px 16px rgba(0,0,0,.2); }
 .app-sidebar .logo span { display:inline-block; max-width:150px; overflow:hidden; opacity:1; transform:translateX(0); transition:max-width 220ms var(--motion-ease),opacity 140ms ease,transform 220ms var(--motion-ease); white-space:nowrap; }
+.app-sidebar .logo span { font-family:var(--font-brand),"Space Grotesk",sans-serif; font-weight:600; letter-spacing:-.045em; }
 .app-sidebar .logo-compact span { max-width:0; opacity:0; transform:translateX(-6px); }
 .sidebar-toggle { display:grid; width:32px; height:32px; flex:0 0 32px; place-items:center; border:0; border-radius:6px; color:#b8c5da; background:transparent; transition:color 160ms ease,background 160ms ease; }
 .sidebar-toggle:hover { color:#fff; background:rgba(255,255,255,.07); }
@@ -5501,7 +5502,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 
 /* Keep the brand aligned with the shared work header. */
 .app-sidebar .sidebar-brand-row {
-  transform: translateY(8px);
+  transform: translateY(12px);
 }
 
 /* The navigation is the only scrolling region in the persistent rail. The
@@ -5534,8 +5535,22 @@ body.modal-open .app-topbar { filter: blur(7px); }
   margin-top: auto;
 }
 
-/* Keep collapsed separators quiet on the light textured rail. */
-.app-shell.sidebar-collapsed .app-nav-group + .app-nav-group,
+/* The navigation has a wider invisible hover stage, so its dividers need to
+   be drawn independently at the same short width as the settings divider. */
+.app-shell.sidebar-collapsed .app-nav-group + .app-nav-group {
+  position: relative;
+  border-top-color: transparent !important;
+}
+.app-shell.sidebar-collapsed .app-nav-group + .app-nav-group::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 48px;
+  border-top: 1px solid rgba(126,143,166,.24);
+  content: "";
+  pointer-events: none;
+  transform: translateX(-50%);
+}
 .app-shell.sidebar-collapsed .app-sidebar-utility {
   border-color: rgba(126,143,166,.24) !important;
 }
@@ -5545,7 +5560,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-sidebar .app-nav-scroll {
   min-height: 0;
   flex: 1 1 auto;
-  overflow-x: visible;
+  overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(116,131,153,.45) transparent;
@@ -5559,16 +5574,25 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-sidebar .app-nav-scroll::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: rgba(116,131,153,.45);
+  transition: background 220ms ease;
 }
 .app-sidebar .app-nav {
   min-height: 0;
+  flex: 0 0 auto;
   overflow: visible;
 }
 .app-shell.sidebar-collapsed .app-nav-scroll {
   width: 230px;
+  margin-left: -12px;
+  scrollbar-color: transparent transparent;
+}
+.app-shell.sidebar-collapsed .app-nav-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
 }
 .app-shell.sidebar-collapsed .app-nav {
-  width: 72px;
+  /* Match the actual 76px rail. The hover stage starts at the rail edge, so
+     a narrower icon column would pull tiles and group dividers left. */
+  width: 76px;
 }
 .app-shell.sidebar-collapsed .app-nav a {
   position: relative;
@@ -5602,6 +5626,111 @@ body.modal-open .app-topbar { filter: blur(7px); }
   transform: translate(0,-50%);
 }
 
+/* Collapsed navigation tiles are intentionally true squares, not stretched
+   rail-width rectangles. */
+.app-shell.sidebar-collapsed .app-nav a,
+.app-shell.sidebar-collapsed .app-sidebar-utility a {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  margin-right: auto;
+  margin-left: auto;
+  padding: 0;
+  border-radius: 12px;
+}
+
 .app-sidebar .sidebar-brand-row {
   border-bottom: 0 !important;
+}
+
+/* Coordinated customer rail open/close motion. Keep the workspace and search
+   mounted so they can fade and compress with the rail instead of snapping. */
+.app-sidebar,
+.app-main,
+.app-work-canvas {
+  transition: width 280ms cubic-bezier(.23,1,.32,1),
+    margin-left 280ms cubic-bezier(.23,1,.32,1),
+    border-radius 280ms cubic-bezier(.23,1,.32,1);
+}
+.app-sidebar-workspace,
+.app-sidebar-search,
+.app-sidebar .app-operator-copy {
+  transition: max-height 260ms cubic-bezier(.23,1,.32,1),
+    opacity 170ms ease,
+    transform 260ms cubic-bezier(.23,1,.32,1),
+    padding 260ms cubic-bezier(.23,1,.32,1);
+}
+.app-sidebar-workspace,
+.app-sidebar-search {
+  flex: 0 0 auto;
+}
+.app-sidebar-workspace {
+  max-height: 86px;
+  overflow: hidden;
+}
+.app-sidebar-search {
+  max-height: 58px;
+  overflow: hidden;
+}
+.app-sidebar .app-operator-copy {
+  max-width: 180px;
+  overflow: hidden;
+}
+.app-shell.sidebar-collapsed .app-sidebar-workspace,
+.app-shell.sidebar-collapsed .app-sidebar-search {
+  display: block;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+}
+.app-shell.sidebar-collapsed .app-operator-copy {
+  display: block;
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px);
+}
+.app-shell:not(.sidebar-collapsed) .app-sidebar-workspace,
+.app-shell:not(.sidebar-collapsed) .app-sidebar-search {
+  display: block;
+  max-height: 86px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.app-shell:not(.sidebar-collapsed) .app-sidebar-search {
+  max-height: 58px;
+}
+.app-sidebar .app-nav-scroll {
+  position: relative;
+  z-index: 1;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.app-shell.sidebar-collapsed .app-sidebar .logo span {
+  display: inline-block;
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px);
+  transition: max-width 250ms cubic-bezier(.23,1,.32,1), opacity 160ms ease, transform 250ms cubic-bezier(.23,1,.32,1);
+}
+.app-shell:not(.sidebar-collapsed) .app-sidebar .logo span {
+  max-width: 150px;
+  opacity: 1;
+  transform: translateX(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar,
+  .app-main,
+  .app-work-canvas,
+  .app-sidebar-workspace,
+  .app-sidebar-search,
+  .app-sidebar .app-operator-copy,
+  .app-sidebar .logo span {
+    transition: none !important;
+  }
 }

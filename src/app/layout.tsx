@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Sora, JetBrains_Mono } from "next/font/google";
+import { Sora, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/toast-provider";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import "./globals.css";
@@ -14,6 +14,12 @@ const sora = Sora({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-brand",
   display: "swap",
 });
 
@@ -39,7 +45,7 @@ export const viewport: Viewport = { themeColor: "#f4f1e8", colorScheme: "light" 
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${sora.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth">
+    <html lang="en" className={`${sora.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth">
       <body><SmoothScroll /><ToastProvider>{children}</ToastProvider></body>
     </html>
   );

@@ -1732,6 +1732,18 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   backgrounds.
 - Validation passed: `npm run typecheck` and `git diff --check`.
 
+# 2026-08-07 — Collapsed rail hover labels
+
+- Added a wider invisible hover stage around the collapsed navigation so icon
+  glow is not clipped at the 72px rail edge.
+- Added animated white label containers using each navigation item’s real label;
+  labels slide out to the right on hover/focus and retract on exit.
+- Kept the navigation scroll viewport separate from the fixed profile footer.
+- Validation passed: `npm run typecheck` and `git diff --check`.
+- Focused ESLint was attempted but exceeded the local command timeout; no lint
+  result is being claimed here. Browser verification also timed out while the
+  local route was loading.
+
 # 2026-08-07 — Customer sidebar rail behavior
 
 - Moved the customer sidebar navigation into its own scroll region while
@@ -1784,3 +1796,36 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   inside a 622px visible content area, while the document remains at viewport
   height.
 - Validation passed: `npm run typecheck` and `git diff --check`.
+
+# 2026-08-07 — Centered collapsed sidebar controls
+
+- Re-centered the square navigation controls inside the visible collapsed rail.
+- Preserved the wider hover stage so section labels can still animate out to the
+  right without shifting the settings/profile area.
+- Validation passed: `npm run typecheck` and `git diff --check`.
+
+# 2026-08-07 — Collapsed sidebar divider hierarchy
+
+- Shortened and centered the dividers between the collapsed navigation groups
+  so they match the restrained separator above Settings.
+- Kept the wider invisible hover stage for animated navigation labels.
+- Aligned the icon column to the full 76px rail so the navigation controls and
+  their dividers share the exact same center as the Settings separator.
+- Lowered the Costivra mark four pixels to align it with the shared header's
+  leading control.
+- Added Space Grotesk as a focused wordmark experiment for the customer sidebar;
+  the application UI typography remains unchanged.
+- Increased the sidebar wordmark size to 1.3rem for stronger brand presence.
+- Increased the sidebar wordmark again to 1.9rem at the user's request.
+- Adjusted the sidebar wordmark to 1.5rem for comparison.
+- Restored reliable sidebar scrolling by making `.app-nav-scroll` the sole
+  navigation scroll owner and removing competing inner-nav flex sizing.
+- Coordinated the customer rail open/close animation across sidebar width,
+  main content offset, workspace switcher, search bar, brand wordmark, and
+  profile copy, with a reduced-motion fallback.
+- Reserved the expanded workspace/search space explicitly and isolated the
+  navigation scroll region so it cannot cover or clip the search bar.
+- Added deterministic wheel handling to the navigation scroll container after
+  browser inspection showed overflow metrics were present but wheel movement
+  was not changing the container's scroll position.
+- Faded the wide hover-stage scrollbar out when the rail collapses.

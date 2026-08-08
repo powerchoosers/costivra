@@ -514,7 +514,15 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
           </div>
           {workspaceIdentity}
           {globalSearch}
-          <div className="app-nav-scroll">
+          <div
+            className="app-nav-scroll"
+            onWheel={(event) => {
+              const node = event.currentTarget;
+              if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
+              node.scrollTop += event.deltaY;
+              event.preventDefault();
+            }}
+          >
             <nav className="app-nav" aria-label="Customer application">
               {navigationGroups.slice(0, -1).map((group, groupIdx) => (
                 <div key={group.section ?? `group-${groupIdx}`} className="app-nav-group">
