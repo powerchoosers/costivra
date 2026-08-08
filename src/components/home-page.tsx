@@ -232,7 +232,7 @@ function HeroReviewPreview() {
   return (
     <aside className="hero-review-preview" aria-label="Illustrative bill review example">
       <div className="hero-review-topline">
-        <span>What a review looks like</span>
+        <span>Bill review</span>
         <span>Illustrative example</span>
       </div>
       <div className="hero-review-document">
@@ -240,26 +240,29 @@ function HeroReviewPreview() {
           <span className="hero-review-document-icon"><FileText aria-hidden="true" size={18} /></span>
           <div>
             <span>May internet bill</span>
-            <strong>Source document</strong>
+            <strong>Source bill attached</strong>
           </div>
           <small>Page 2</small>
         </div>
         <div className="hero-review-question">
           <CircleAlert aria-hidden="true" size={19} />
           <div>
-            <span>Question to review</span>
+            <span>Needs your review</span>
             <strong>Monthly circuit charge increased</strong>
           </div>
         </div>
-        <dl className="hero-review-details">
-          <div><dt>What changed</dt><dd>A higher recurring line item appears on the current bill.</dd></div>
-          <div><dt>What you see</dt><dd>The source, the change, and the next step in one place.</dd></div>
-          <div><dt>Your control</dt><dd>No vendor contact without the required approval.</dd></div>
-        </dl>
+        <div className="hero-review-change">
+          <span>Change from prior bill</span>
+          <strong>+$200 <small>/ month</small></strong>
+        </div>
+        <div className="hero-review-reason">
+          <span>Why it matters</span>
+          <p>This recurring charge is higher than expected.</p>
+        </div>
       </div>
       <div className="hero-review-footer">
-        <span>Potential question</span>
-        <strong>Not a verified saving</strong>
+        <Link href="#evidence">Review the bill <ArrowRight aria-hidden="true" size={15} /></Link>
+        <strong>Not savings yet</strong>
       </div>
     </aside>
   );
