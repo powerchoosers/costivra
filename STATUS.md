@@ -1829,3 +1829,48 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   browser inspection showed overflow metrics were present but wheel movement
   was not changing the container's scroll position.
 - Faded the wide hover-stage scrollbar out when the rail collapses.
+- Captured wheel input at the navigation container so the sidebar scrolls even
+  when the pointer is over a navigation link.
+- Aligned table-page filter actions with the shared back-control row, including
+  the Vendors filter.
+# 2026-08-07 — Vendor directory search
+
+- Added a local Vendors search field beside the existing filter control.
+- Search matches vendor name, category, website, relationship/monitoring status, and visible bill or contract dates.
+- Validation pending after this focused UI change.
+
+# 2026-08-07 — Settings internal scrolling
+
+- Applied the shared deterministic wheel handler to route content so Settings can scroll inside the fixed app frame.
+- Nested tables and popover result lists keep ownership of their own scrolling.
+- Validation pending after this focused UI change.
+
+# 2026-08-07 — Floating back control alignment
+
+- Repositioned the compact back button below the fixed app header and aligned it with the scrollable content inset.
+- Kept the mobile position tied to the mobile header height and content padding.
+
+# 2026-08-07 — Vendor detail header controls
+
+- Moved the vendor-detail floating back control closer to the fixed header.
+- Restyled the workspace create button as a circular white header control to match the adjacent actions.
+
+# 2026-08-07 — Header control spacing refinement
+
+- Matched the create button to the adjacent 40px controls.
+- Reduced its hover emphasis and tightened only the gap between the create control and the right-side actions.
+
+# 2026-08-07 — Header control dimensions
+
+- Normalized the create and notification controls to exact 40×40px dimensions, including their borders.
+
+# 2026-08-07 — Header control consistency
+
+- Normalized the assistant control to 40×40px as well.
+- Set the plus icon to the same muted slate color as the notification bell.
+- Restored equal 10px spacing between all three header controls and aligned their hover treatment.
+
+# 2026-08-07 — Plus-to-assistant spacing
+
+- Tightened only the gap between the plus control and the Ask Costivra group.
+- Preserved the existing Ask Costivra-to-notifications spacing.

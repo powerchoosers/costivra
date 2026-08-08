@@ -261,6 +261,11 @@ textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .faq-toggle, .faq-answer-wrap, .faq-answer-wrap > .faq-answer { transition: none !important; }
 }
+.app-mobile-organization .org-switcher span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width:760px) {
+  .vendor-list-controls { width: 100%; justify-content: stretch; }
+  .vendor-list-search { width: auto; flex: 1 1 auto; }
+}
 
 .marketing-footer { position: relative; z-index: 1; margin-top: 0; color: var(--paper); background: #edf0f4; padding: clamp(28px, 4vw, 56px) clamp(16px, 2.5vw, 36px) 0; }
 .marketing-footer > .container { width: min(1400px, 100%); border: 1px solid rgba(255, 255, 255, .12); border-bottom: 0; border-radius: 32px 32px 0 0; background: var(--ink); padding: clamp(38px, 5vw, 72px) clamp(24px, 5vw, 72px) 28px; overflow: hidden; }
@@ -4816,11 +4821,60 @@ html { scroll-padding-top: 92px; }
 .app-work-canvas .record-section,.app-work-canvas .record-side-section,.app-work-canvas .record-empty { border-color: #e1e6ed; box-shadow: none; }
 .app-work-canvas .invoice-detail-source { top: 96px; }
 .app-work-canvas .invoice-review-bulk { top: 96px; }
-.app-body .global-back-control__floating { top: 96px; left: 288px; }
+.app-body .global-back-control__floating { top: 120px; left: 288px; }
+.app-body .vendor-detail .global-back-control__floating { top: 96px; }
+.app-body .app-create-trigger {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid #dce3eb;
+  border-radius: 50%;
+  color: #1f4fd6;
+  background: #fff;
+  box-shadow: 0 2px 9px rgba(23,34,52,.05);
+}
+.app-body .app-top-actions .topbar-popover-wrap > .button {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  box-sizing: border-box;
+}
+.app-body .app-top-actions .assistant-trigger-btn-circle {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  box-sizing: border-box;
+  border-color: #dce3eb !important;
+  box-shadow: 0 2px 9px rgba(23,34,52,.05);
+}
+.app-body .app-create-trigger { color: #475569; }
+.app-body .app-create-trigger:hover,
+.app-body .app-top-actions .assistant-trigger-btn-circle:hover,
+.app-body .app-top-actions .topbar-popover-wrap > .button:hover {
+  border-color: #b9cbe3;
+  background: #fbfdff;
+  box-shadow: 0 3px 10px rgba(31,79,214,.07);
+}
+.app-body .app-create-trigger:hover,
+.app-body .app-create-trigger.is-active {
+  border-color: #b9cbe3;
+  color: #17458f;
+  background: #fbfdff;
+  box-shadow: 0 3px 10px rgba(31,79,214,.07);
+}
+@media (max-width: 760px) {
+  .app-body .app-create-trigger { width: 36px; min-width: 36px; height: 36px; min-height: 36px; }
+}
+.app-work-canvas > .app-topbar { gap: 2px; }
 @keyframes app-organization-menu-in { from { opacity: 0; transform: translateY(-6px) scale(.985); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .manage-sidebar { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .app-create-menu { transition: none; } }
-@media (max-width: 760px) { .app-sidebar { display: none; } .app-main { margin-left: 0; padding: 0; } .app-work-canvas { min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; } .app-work-canvas > .app-topbar { top: 0; border-radius: 0; } .app-work-canvas > .app-content { padding: 24px 16px 96px; } .app-work-canvas > .app-content-table-page { height: auto; min-height: calc(100dvh - 64px); padding-bottom: 96px; } .app-work-canvas .portal-page-header { margin-bottom: 22px; } .app-work-canvas .portal-metric,.app-work-canvas .portal-panel,.app-work-canvas .portal-card { border-radius: 16px; } .app-work-canvas .record-tabs { top: 64px; } .app-work-canvas .record-detail-layout > aside { position: static; } .app-body .global-back-control__floating { top: calc(72px + env(safe-area-inset-top)); left: 12px; } .app-mobile-utilities { display: flex; min-width: 0; flex: 1; align-items: center; gap: 7px; } .app-mobile-organization { position: relative; min-width: 0; flex: 0 1 auto; } .app-mobile-organization .org-switcher { display: flex; min-width: 0; max-width: 132px; align-items: center; gap: 7px; border: 1px solid #dce3eb; border-radius: 10px; color: #263244; background: #fff; padding: 6px 8px; font: 650 .72rem/1.2 Inter,ui-sans-serif,system-ui,sans-serif; cursor: pointer; } .app-mobile-organization .org-switcher span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .app-mobile-organization .app-organization-logo { width: 22px; height: 22px; border-radius: 7px; } .app-mobile-organization .app-organization-menu { position: fixed; z-index: 150; top: 70px; left: 10px; width: min(292px,calc(100vw - 20px)); } .app-mobile-utility-search { position: relative; min-width: 0; flex: 1; } .app-mobile-utility-search .global-search { display: flex; width: 100%; height: 36px; padding: 0 9px; border: 1px solid #dce3eb; border-radius: 10px; background: #fff; } .app-mobile-utility-search .global-search input { display: block; min-width: 0; font-size: .72rem; } .app-mobile-utility-search .manage-kbd { display: none; } .app-mobile-utility-search .app-global-results { position: fixed; z-index: 160; top: 68px; right: 10px; left: 10px; width: auto; max-height: calc(100dvh - 84px); } }
+@media (max-width: 760px) { .app-sidebar { display: none; } .app-main { margin-left: 0; padding: 0; } .app-work-canvas { min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; } .app-work-canvas > .app-topbar { top: 0; border-radius: 0; } .app-work-canvas > .app-content { padding: 24px 16px 96px; } .app-work-canvas > .app-content-table-page { height: auto; min-height: calc(100dvh - 64px); padding-bottom: 96px; } .app-work-canvas .portal-page-header { margin-bottom: 22px; } .app-work-canvas .portal-metric,.app-work-canvas .portal-panel,.app-work-canvas .portal-card { border-radius: 16px; } .app-work-canvas .record-tabs { top: 64px; } .app-work-canvas .record-detail-layout > aside { position: static; } .app-body .global-back-control__floating { top: calc(64px + 24px + env(safe-area-inset-top)); left: 16px; } .app-mobile-utilities { display: flex; min-width: 0; flex: 1; align-items: center; gap: 7px; } .app-mobile-organization { position: relative; min-width: 0; flex: 0 1 auto; } .app-mobile-organization .org-switcher { display: flex; min-width: 0; max-width: 132px; align-items: center; gap: 7px; border: 1px solid #dce3eb; border-radius: 10px; color: #263244; background: #fff; padding: 6px 8px; font: 650 .72rem/1.2 Inter,ui-sans-serif,system-ui,sans-serif; cursor: pointer; } .app-mobile-organization .app-organization span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .app-mobile-organization .app-organization-logo { width: 22px; height: 22px; border-radius: 7px; } .app-mobile-organization .app-organization-menu { position: fixed; z-index: 150; top: 70px; left: 10px; width: min(292px,calc(100vw - 20px)); } .app-mobile-utility-search { position: relative; min-width: 0; flex: 1; } .app-mobile-utility-search .global-search { display: flex; width: 100%; height: 36px; padding: 0 9px; border: 1px solid #dce3eb; border-radius: 10px; background: #fff; } .app-mobile-utility-search .global-search input { display: block; min-width: 0; font-size: .72rem; } .app-mobile-utility-search .manage-kbd { display: none; } .app-mobile-utility-search .app-global-results { position: fixed; z-index: 160; top: 68px; right: 10px; left: 10px; width: auto; max-height: calc(100dvh - 84px); } }
 
 /* Keep the product texture on the shared app background. The sidebar and work
    canvas provide structure, but they should not mask the texture between the
@@ -4845,6 +4899,12 @@ html { scroll-padding-top: 92px; }
   background: transparent;
 }
 .portal-page-header-action { flex: 0 0 auto; align-self: flex-end; }
+.vendor-list-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.vendor-list-search { display: flex; width: min(360px, 32vw); height: 40px; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid #dbe2eb; border-radius: 11px; color: #7a8799; background: #fff; box-shadow: 0 4px 14px rgba(23,34,52,.035); transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+.vendor-list-search:focus-within { border-color: #b9ccec; color: #4169a7; box-shadow: 0 0 0 3px rgba(64,112,197,.1), 0 5px 16px rgba(37,88,175,.08); }
+.vendor-list-search input { min-width: 0; flex: 1; border: 0; outline: 0; color: #26364f; background: transparent; font: 600 .76rem/1 inherit; }
+.vendor-list-search input::placeholder { color: #8a95a5; opacity: 1; }
+.vendor-list-search input::-webkit-search-cancel-button { cursor: pointer; }
 .vendor-filter-control { position: relative; display: flex; align-items: center; }
 .vendor-filter-trigger { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid #dbe2eb; border-radius: 11px; color: #5f6e82; background: #fff; box-shadow: 0 4px 14px rgba(23,34,52,.045); cursor: pointer; transition: color 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease; }
 .vendor-filter-trigger:hover,.vendor-filter-trigger:focus-visible,.vendor-filter-control.is-open .vendor-filter-trigger { border-color: #b9ccec; color: #17458f; background: #f7faff; box-shadow: 0 5px 16px rgba(37,88,175,.1); }
@@ -5407,6 +5467,21 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-work-canvas > .app-content > .portal-page-header.has-action > div:first-child {
   display: none;
 }
+.app-content-table-page {
+  position: relative;
+}
+.app-content-table-page > .portal-page-header.has-action {
+  position: absolute;
+  z-index: 5;
+  top: 28px;
+  right: 32px;
+  left: 32px;
+  align-items: center;
+  margin: 0;
+}
+.app-content-table-page > .portal-page-header.has-action .portal-page-header-action {
+  align-self: center;
+}
 .vendor-detail-status-group {
   display: flex;
   align-items: center;
@@ -5462,6 +5537,10 @@ body.modal-open .app-topbar { filter: blur(7px); }
 }
 
 @media (max-width: 760px) {
+  .app-content-table-page > .portal-page-header.has-action {
+    position: static;
+    margin-bottom: 22px;
+  }
   .app-mobile-utilities {
     display: none;
   }

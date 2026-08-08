@@ -516,11 +516,15 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
           {globalSearch}
           <div
             className="app-nav-scroll"
-            onWheel={(event) => {
+            onWheelCapture={(event) => {
               const node = event.currentTarget;
               if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
-              node.scrollTop += event.deltaY;
               event.preventDefault();
+              event.stopPropagation();
+              node.scrollTop = Math.max(
+                0,
+                Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
+              );
             }}
           >
             <nav className="app-nav" aria-label="Customer application">

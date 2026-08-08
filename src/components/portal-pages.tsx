@@ -545,8 +545,20 @@ export function PortalPage({
               ? "app-content app-content-table-page motion-page"
               : page === "vendors" && !detailId
                 ? "app-content app-content-table-page motion-page"
-            : "app-content motion-page"
+              : "app-content motion-page"
         }
+        onWheelCapture={(event) => {
+          const node = event.currentTarget;
+          const target = event.target as HTMLElement;
+          if (target.closest(".table-wrap, .vendor-filter-menu, .app-global-results")) return;
+          if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          node.scrollTop = Math.max(
+            0,
+            Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
+          );
+        }}
       >
         {data.organization.isSampleWorkspace && <SampleWorkspaceBanner />}
         {page !== "home" && !detailId && <GlobalBackControl className="app-global-back" />}
@@ -1795,6 +1807,7 @@ function VendorFilters({ value, onChange }: { value: VendorFilter; onChange: (va
 
 function Vendors({ data }: { data: PortalData }) {
   const [filter, setFilter] = useState<VendorFilter>("all");
+  const [query, setQuery] = useState("");
 
   const enrichedVendors = useMemo(() => {
     return data.vendors.map((vendor) => {
@@ -1817,9 +1830,25 @@ function Vendors({ data }: { data: PortalData }) {
   }, [data]);
 
   const filteredAndSorted = useMemo(() => {
-      type EnrichedItem = typeof enrichedVendors[number];
+    type EnrichedItem = typeof enrichedVendors[number];
+    const normalizedQuery = query.trim().toLocaleLowerCase();
     return enrichedVendors
-      .filter(({ vendor, details }: EnrichedItem) => {
+      .filter(({ vendor, details, latestExpense, nextContractEnd }: EnrichedItem) => {
+        if (normalizedQuery) {
+          const searchableText = [
+            vendor.name,
+            vendor.category,
+            vendor.website,
+            vendor.relationshipStatus,
+            vendor.monitoringState,
+            latestExpense?.periodStart,
+            latestExpense?.periodEnd,
+            latestExpense?.periodEnd ? date(latestExpense.periodEnd) : null,
+            nextContractEnd,
+            nextContractEnd ? date(nextContractEnd) : null,
+          ].filter(Boolean).join(" ").toLocaleLowerCase();
+          if (!searchableText.includes(normalizedQuery)) return false;
+        }
         if (filter === "attention") return details.reasons.length > 0;
         if (filter === "active") return vendor.relationshipStatus === "active";
         if (filter === "monitored") return vendor.monitoringState && vendor.monitoringState !== "not_set_up";
@@ -1832,14 +1861,29 @@ function Vendors({ data }: { data: PortalData }) {
         }
         return a.vendor.name.localeCompare(b.vendor.name);
       });
-  }, [enrichedVendors, filter]);
+  }, [enrichedVendors, filter, query]);
 
   return (
     <>
       <PageHeader
         title="Vendors"
         description="Every supplier relationship, its source records, and the next important date."
-        action={<VendorFilters value={filter} onChange={setFilter} />}
+        action={
+          <div className="vendor-list-controls">
+            <label className="vendor-list-search">
+              <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+              <span className="sr-only">Search vendors, categories, and dates</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search vendors, categories, dates…"
+                aria-label="Search vendors, categories, and dates"
+              />
+            </label>
+            <VendorFilters value={filter} onChange={setFilter} />
+          </div>
+        }
       />
       <section className="portal-panel vendor-directory">
         {filteredAndSorted.length ? (
