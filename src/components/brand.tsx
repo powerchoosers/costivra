@@ -19,7 +19,7 @@ export function Brand({ light = false, compact = false }: { light?: boolean; com
   return (
     <Link className={`${light ? "logo logo-light" : "logo"}${compact ? " logo-compact" : ""}`} href="/" aria-label="Costivra home">
       <Image className="logo-mark" src="/brand/costivra-circuit-mark-cropped.png" width={40} height={36} alt="" priority />
-      <span>Costivra</span>
+      <span className="logo-wordmark">Costivra</span>
     </Link>
   );
 }

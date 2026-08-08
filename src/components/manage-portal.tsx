@@ -141,6 +141,8 @@ const navGroups = [
   },
 ] as const;
 
+const MANAGE_SIDEBAR_PREFERENCE_KEY = "costivra.manage.sidebar-collapsed";
+
 const settingsNav = ["Settings", "/manage/settings", Settings] as const;
 
 type ManageSidebarViewport = "desktop" | "compact" | "mobile";
@@ -698,7 +700,9 @@ export function ManagePortal({
   const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : "Client operations";
   useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
-  const [mobileNav, setMobileNav] = useState(false);
+  const [mobileNav, setMobileNav] = useState(true);
+  const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
+  const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; left: number; top: number; closing?: boolean } | null>(null);
   const [sidebarViewport, setSidebarViewport] =
     useState<ManageSidebarViewport>("desktop");
   const [search, setSearch] = useState(routeSearch);
@@ -706,6 +710,7 @@ export function ManagePortal({
   const [searchClosing, setSearchClosing] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const sidebarTooltipCloseTimerRef = useRef<number | null>(null);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -721,7 +726,7 @@ export function ManagePortal({
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
-  const sidebarOpenTimerRef = useRef<number | null>(null);
+  const sidebarPointerDownRef = useRef(false);
   const sidebarCloseTimerRef = useRef<number | null>(null);
   const dialogCloseTimerRef = useRef<number | null>(null);
   const [dialog, setDialog] = useState<"account" | "contact" | "task" | "note" | "mailbox" | null>(null);
@@ -739,11 +744,22 @@ export function ManagePortal({
       const nextViewport: ManageSidebarViewport =
         window.innerWidth <= 780
           ? "mobile"
-          : window.innerWidth < 1200
+          : window.innerWidth <= 980
             ? "compact"
             : "desktop";
       setSidebarViewport(nextViewport);
-      if (nextViewport !== "mobile") setMobileNav(false);
+      if (nextViewport === "mobile" || nextViewport === "compact") {
+        setMobileNav(false);
+      } else {
+        let storedCollapsed = false;
+        try {
+          storedCollapsed = window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY) === "true";
+        } catch {
+          // Keep the expanded default when session storage is unavailable.
+        }
+        setMobileNav(!storedCollapsed);
+      }
+      setSidebarPreferenceLoaded(true);
     }
 
     const initializationFrame = window.requestAnimationFrame(() => {
@@ -764,6 +780,42 @@ export function ManagePortal({
 
   const sidebarUsesRail = sidebarViewport !== "mobile";
   const sidebarIsCollapsed = sidebarUsesRail && !mobileNav;
+
+  const showSidebarTooltip = useCallback((label: string, element: HTMLElement) => {
+    if (!sidebarIsCollapsed) return;
+    if (sidebarTooltipCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
+      sidebarTooltipCloseTimerRef.current = null;
+    }
+    const rect = element.getBoundingClientRect();
+    setSidebarTooltip({ label, left: rect.right + 2, top: rect.top + rect.height / 2 });
+  }, [sidebarIsCollapsed]);
+
+  const clearSidebarTooltip = useCallback(() => {
+    setSidebarTooltip((current) => {
+      if (!current || current.closing) return current;
+      return { ...current, closing: true };
+    });
+    if (sidebarTooltipCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
+    }
+    sidebarTooltipCloseTimerRef.current = window.setTimeout(() => {
+      setSidebarTooltip(null);
+      sidebarTooltipCloseTimerRef.current = null;
+    }, 190);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarPreferenceLoaded || sidebarViewport !== "desktop") return;
+    try {
+      window.sessionStorage.setItem(
+        MANAGE_SIDEBAR_PREFERENCE_KEY,
+        String(!mobileNav),
+      );
+    } catch {
+      // Sidebar state remains usable when session storage is unavailable.
+    }
+  }, [mobileNav, sidebarPreferenceLoaded, sidebarViewport]);
 
   const closeSearch = useCallback(() => {
     if (!searchFocused || searchClosing) return;
@@ -825,39 +877,22 @@ export function ManagePortal({
   }, [closeDialog, dialog, dialogClosing]);
 
   const clearSidebarIntent = useCallback(() => {
-    if (sidebarOpenTimerRef.current !== null) {
-      window.clearTimeout(sidebarOpenTimerRef.current);
-      sidebarOpenTimerRef.current = null;
-    }
     if (sidebarCloseTimerRef.current !== null) {
       window.clearTimeout(sidebarCloseTimerRef.current);
       sidebarCloseTimerRef.current = null;
     }
   }, []);
 
-  const openSidebarWithIntent = useCallback(() => {
-    if (sidebarViewport === "mobile") return;
-    if (sidebarCloseTimerRef.current !== null) {
-      window.clearTimeout(sidebarCloseTimerRef.current);
-      sidebarCloseTimerRef.current = null;
-    }
-    if (mobileNav || sidebarOpenTimerRef.current !== null) return;
-    sidebarOpenTimerRef.current = window.setTimeout(() => {
-      setMobileNav(true);
-      sidebarOpenTimerRef.current = null;
-    }, 240);
-  }, [mobileNav, sidebarViewport]);
-
   const closeSidebarWithIntent = useCallback(() => {
-    if (sidebarViewport === "mobile") return;
-    if (sidebarOpenTimerRef.current !== null) {
-      window.clearTimeout(sidebarOpenTimerRef.current);
-      sidebarOpenTimerRef.current = null;
-    }
+    if (sidebarViewport === "mobile" || !sidebarIsCollapsed) return;
     if (sidebarCloseTimerRef.current !== null) {
       window.clearTimeout(sidebarCloseTimerRef.current);
     }
     sidebarCloseTimerRef.current = window.setTimeout(() => {
+      if (!sidebarRef.current?.classList.contains("is-collapsed")) {
+        sidebarCloseTimerRef.current = null;
+        return;
+      }
       const focusedElement = document.activeElement;
       if (
         focusedElement instanceof HTMLElement &&
@@ -870,7 +905,7 @@ export function ManagePortal({
       setProfileMenuClosing(false);
       sidebarCloseTimerRef.current = null;
     }, 460);
-  }, [sidebarViewport]);
+  }, [sidebarIsCollapsed, sidebarViewport]);
 
   useEffect(() => () => clearSidebarIntent(), [clearSidebarIntent]);
 
@@ -946,8 +981,80 @@ export function ManagePortal({
       : section === "intake" ? "Intake operations"
         : section === "category-intelligence" ? "Category operations"
         : pretty(section);
+  const globalSearchControl = (
+    <div className="manage-global-search-wrap" ref={searchContainerRef}>
+      <label className="manage-search" title="Search all Costivra records">
+        <Search size={16} />
+        <input
+          ref={searchInputRef}
+          aria-label="Search all Costivra records"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          onFocus={() => {
+            if (sidebarIsCollapsed) {
+              clearSidebarIntent();
+              setMobileNav(true);
+            }
+            setSearchFocused(true);
+            setSearchClosing(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              closeSearch();
+              event.currentTarget.blur();
+            }
+          }}
+          placeholder={`Search ${searchCategoryLabels[currentSearchOrder(section)[0]].toLowerCase()} first, then everything`}
+          role="combobox"
+          aria-expanded={searchFocused && search.trim().length > 0}
+          aria-controls="manage-global-search-results"
+        />
+        <span className="manage-kbd">⌘K</span>
+      </label>
+      {(searchFocused || searchClosing) && search.trim() && (
+        <div
+          className={`manage-global-results${searchClosing ? " is-closing" : ""}`}
+          id="manage-global-search-results"
+          role="listbox"
+          aria-label="Global search results"
+        >
+          {resultsByCategory.length ? (
+            resultsByCategory.map(({ category, results: categoryResults }) => {
+              const Icon = searchCategoryIcons[category];
+              return (
+                <section className="manage-global-result-group" key={category}>
+                  <h2>
+                    <Icon aria-hidden="true" size={14} />
+                    {searchCategoryLabels[category]}
+                    {category === currentSearchOrder(section)[0] && <span>Current page</span>}
+                  </h2>
+                  {categoryResults.map((result) => (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      key={result.id}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        openSearchResult(result);
+                      }}
+                    >
+                      <strong>{result.title}</strong>
+                      <small>{result.detail}</small>
+                    </button>
+                  ))}
+                </section>
+              );
+            })
+          ) : (
+            <p className="manage-global-no-results">No records match “{search.trim()}”.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
   return (
-    <div className={`manage-app${assistantOpen ? " is-assistant-open" : ""}`}>
+    <div className={`manage-app manage-shell-v2${assistantOpen ? " is-assistant-open" : ""}`}>
       <ManageLiveNotifications soundEnabled={data.operator.notificationSoundEnabled} />
       <aside
         id="manage-owner-sidebar"
@@ -955,17 +1062,17 @@ export function ManagePortal({
         className={`manage-sidebar${mobileNav ? " is-open" : ""}${
           sidebarIsCollapsed ? " is-collapsed" : ""
         }`}
-        onPointerEnter={(event) => {
-          if (event.pointerType === "mouse") openSidebarWithIntent();
-        }}
-        onPointerLeave={(event) => {
-          if (event.pointerType === "mouse") closeSidebarWithIntent();
-        }}
         onFocusCapture={() => {
-          if (sidebarViewport !== "mobile") {
+          if (sidebarViewport !== "mobile" && !sidebarPointerDownRef.current) {
             clearSidebarIntent();
             setMobileNav(true);
           }
+        }}
+        onPointerDownCapture={() => {
+          sidebarPointerDownRef.current = true;
+          window.setTimeout(() => {
+            sidebarPointerDownRef.current = false;
+          }, 120);
         }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -991,7 +1098,21 @@ export function ManagePortal({
             <X size={18} />
           </button>
         </div>
-        <nav className="manage-primary-nav" aria-label="Owner portal">
+        <div className="manage-sidebar-search">{globalSearchControl}</div>
+        <nav
+          className="manage-primary-nav"
+          aria-label="Owner portal"
+          onWheelCapture={(event) => {
+            const node = event.currentTarget;
+            if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            node.scrollTop = Math.max(
+              0,
+              Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
+            );
+          }}
+        >
           {navGroups.map((group) => (
             <div className="manage-nav-group" key={group.label}>
               <span className="manage-nav-group-label">{group.label}</span>
@@ -1011,6 +1132,10 @@ export function ManagePortal({
                         ? `${label}, ${unreadCount} unread messages`
                         : label
                     }
+                    onMouseEnter={(event) => showSidebarTooltip(event.currentTarget.getAttribute("aria-label") ?? label, event.currentTarget)}
+                    onMouseLeave={clearSidebarTooltip}
+                    onFocus={(event) => showSidebarTooltip(unreadCount > 0 ? `${label}, ${unreadCount} unread messages` : label, event.currentTarget)}
+                    onBlur={clearSidebarTooltip}
                     onClick={() => setMobileNav(false)}
                   >
                     <Icon size={18} />
@@ -1024,12 +1149,25 @@ export function ManagePortal({
             </div>
           ))}
         </nav>
+        {sidebarTooltip && sidebarIsCollapsed && (
+          <div
+            className={`manage-sidebar-tooltip${sidebarTooltip.closing ? " is-closing" : ""}`}
+            aria-hidden="true"
+            style={{ left: sidebarTooltip.left, top: sidebarTooltip.top }}
+          >
+            {sidebarTooltip.label}
+          </div>
+        )}
         <div className="manage-sidebar-foot">
           <nav className="manage-sidebar-utility" aria-label="Workspace settings">
             <Link
               className={pathname.startsWith(settingsNav[1]) ? "active" : ""}
               href={settingsNav[1]}
               aria-label={settingsNav[0]}
+              onMouseEnter={(event) => showSidebarTooltip(settingsNav[0], event.currentTarget)}
+              onMouseLeave={clearSidebarTooltip}
+              onFocus={(event) => showSidebarTooltip(settingsNav[0], event.currentTarget)}
+              onBlur={clearSidebarTooltip}
               onClick={() => setMobileNav(false)}
             >
               <Settings size={18} />
@@ -1043,6 +1181,10 @@ export function ManagePortal({
               aria-label={`${data.operator.fullName} account menu`}
               aria-expanded={profileMenuOpen}
               aria-haspopup="menu"
+              onMouseEnter={(event) => showSidebarTooltip(`${data.operator.fullName} account menu`, event.currentTarget)}
+              onMouseLeave={clearSidebarTooltip}
+              onFocus={(event) => showSidebarTooltip(`${data.operator.fullName} account menu`, event.currentTarget)}
+              onBlur={clearSidebarTooltip}
               onClick={() => {
                 if (sidebarIsCollapsed) {
                   clearSidebarIntent();
@@ -1093,15 +1235,24 @@ export function ManagePortal({
           onClick={() => setMobileNav(false)}
         />
       )}
-      <main className={`manage-main${sidebarUsesRail ? " is-collapsed" : ""}`}>
+      <main className={`manage-main${sidebarIsCollapsed ? " is-collapsed" : ""}`}>
         <header className="manage-topbar">
           <div className="manage-topbar-leading">
             <button
               className="manage-menu"
-              onClick={() => setMobileNav(true)}
-              aria-label="Open menu"
+              onClick={() => {
+                if (sidebarViewport === "mobile") {
+                  setMobileNav(true);
+                  return;
+                }
+                clearSidebarIntent();
+                clearSidebarTooltip();
+                if (!sidebarIsCollapsed) closeSearch();
+                setMobileNav((current) => !current);
+              }}
+              aria-label={sidebarViewport === "mobile" ? "Open menu" : sidebarIsCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               aria-controls="manage-owner-sidebar"
-              aria-expanded={mobileNav}
+              aria-expanded={sidebarViewport === "mobile" ? mobileNav : !sidebarIsCollapsed}
             >
               <Menu size={20} />
             </button>
@@ -1111,74 +1262,6 @@ export function ManagePortal({
             </div>
           </div>
           <div className="manage-topbar-center">
-          <div className="manage-global-search-wrap" ref={searchContainerRef}>
-            <label className="manage-search">
-              <Search size={16} />
-              <input
-                ref={searchInputRef}
-                aria-label="Search all Costivra records"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onFocus={() => {
-                  setSearchFocused(true);
-                  setSearchClosing(false);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    closeSearch();
-                    event.currentTarget.blur();
-                  }
-                }}
-                placeholder={`Search ${searchCategoryLabels[currentSearchOrder(section)[0]].toLowerCase()} first, then everything`}
-                role="combobox"
-                aria-expanded={searchFocused && search.trim().length > 0}
-                aria-controls="manage-global-search-results"
-              />
-              <span className="manage-kbd">⌘K</span>
-            </label>
-            {(searchFocused || searchClosing) && search.trim() && (
-              <div
-                className={`manage-global-results${searchClosing ? " is-closing" : ""}`}
-                id="manage-global-search-results"
-                role="listbox"
-                aria-label="Global search results"
-              >
-                {resultsByCategory.length ? (
-                  resultsByCategory.map(({ category, results: categoryResults }) => {
-                    const Icon = searchCategoryIcons[category];
-                    return (
-                      <section className="manage-global-result-group" key={category}>
-                        <h2>
-                          <Icon aria-hidden="true" size={14} />
-                          {searchCategoryLabels[category]}
-                          {category === currentSearchOrder(section)[0] && (
-                            <span>Current page</span>
-                          )}
-                        </h2>
-                        {categoryResults.map((result) => (
-                          <button
-                            type="button"
-                            role="option"
-                            aria-selected={false}
-                            key={result.id}
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              openSearchResult(result);
-                            }}
-                          >
-                            <strong>{result.title}</strong>
-                            <small>{result.detail}</small>
-                          </button>
-                        ))}
-                      </section>
-                    );
-                  })
-                ) : (
-                  <p className="manage-global-no-results">No records match “{search.trim()}”.</p>
-                )}
-              </div>
-            )}
-          </div>
           {(["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") && (
             <div className="manage-create-wrap" ref={createMenuRef}>
               <button className={`manage-button manage-button--primary manage-create-trigger${createMenuOpen ? " is-active" : ""}`} type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
@@ -1239,7 +1322,29 @@ export function ManagePortal({
             )}
           </div>
         </header>
-        <div key={section} className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}>
+        <div
+          key={section}
+          className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}
+          onWheelCapture={(event) => {
+            const node = event.currentTarget;
+            const target = event.target as HTMLElement;
+            if (
+              target.closest(
+                ".manage-table-wrap, .manage-mail-list, .manage-message-stack, .manage-global-results, .manage-create-menu, .manage-profile-menu, .manage-assistant",
+              ) ||
+              node.scrollHeight <= node.clientHeight ||
+              event.deltaY === 0
+            ) {
+              return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            node.scrollTop = Math.max(
+              0,
+              Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
+            );
+          }}
+        >
           {section !== "overview" && !detailId && <GlobalBackControl className="manage-global-back" />}
           {section === "overview" && (
             <Overview data={data} />

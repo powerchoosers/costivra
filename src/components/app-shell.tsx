@@ -35,6 +35,8 @@ import { ClientAssistantSurface } from "@/components/client-assistant/client-ass
 
 import type { ElementType } from "react";
 
+const APP_SIDEBAR_PREFERENCE_KEY = "costivra.app.sidebar-collapsed";
+
 export interface NavigationGroup {
   section?: string;
   items: readonly (readonly [string, string, ElementType])[];
@@ -280,9 +282,32 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const initializationFrame = window.requestAnimationFrame(() => {
+      try {
+        setSidebarCollapsed(window.sessionStorage.getItem(APP_SIDEBAR_PREFERENCE_KEY) === "true");
+      } catch {
+        // Keep the expanded default when session storage is unavailable.
+      } finally {
+        setSidebarPreferenceLoaded(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(initializationFrame);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarPreferenceLoaded) return;
+    try {
+      window.sessionStorage.setItem(APP_SIDEBAR_PREFERENCE_KEY, String(sidebarCollapsed));
+    } catch {
+      // Sidebar state remains usable when session storage is unavailable.
+    }
+  }, [sidebarCollapsed, sidebarPreferenceLoaded]);
 
   const appHeader = useMemo(() => {
     const segments = pathname.split("/").filter(Boolean);

@@ -53,18 +53,18 @@ type PageSpec = {
 const specs: Record<string, PageSpec> = {
   product: {
     kind: "evidence",
-    title: "Turn recurring cost data into decisions your team can defend.",
-    lede: "Costivra connects bills, contracts, vendor accounts, approvals, and outcomes so finance and operations can see what changed, why it matters, and what to do next.",
+    title: "Review business bills. See what needs attention.",
+    lede: "Costivra organizes the bills and contracts you choose, flags questions worth reviewing, shows the source, and keeps the next decision with your team.",
     blocks: [
-      { icon: Upload, title: "Private document intake", copy: "Upload bills and agreements into private storage. Costivra preserves the original, validates the file, and records provenance." },
-      { icon: FileSearch, title: "Evidence-linked extraction", copy: "Every important field keeps its source page, text, coordinates when available, confidence, and extraction version." },
-      { icon: Gauge, title: "Opportunity cases", copy: "Findings become structured cases with value, severity, assumptions, missing information, assigned owners, and audit history." },
-      { icon: Users, title: "Policy-controlled approvals", copy: "Your rules decide who must approve external communication, vendor changes, referrals, and high-value actions." },
-      { icon: CircleDollarSign, title: "Savings verification", copy: "Approved baselines and post-action evidence separate potential value, recurring savings, and one-time recovery." },
-      { icon: FileCheck2, title: "Decision-ready reporting", copy: "Export evidence-backed reports for executives, finance teams, advisors, and auditors without relying on chat transcripts." },
+      { icon: Upload, title: "Choose the bills to review", copy: "Start with the current bills and agreements you want in your private workspace." },
+      { icon: FileSearch, title: "See the source beside the question", copy: "Important facts stay connected to the bill page or contract term that supports them." },
+      { icon: Gauge, title: "Focus on what changed", copy: "Review possible price increases, duplicate charges, unused services, and renewal deadlines in one place." },
+      { icon: Users, title: "Keep the decision with your team", copy: "Your rules determine who reviews or approves consequential next steps." },
+      { icon: CircleDollarSign, title: "Separate potential from verified", copy: "A possible issue is not called a saving until later evidence and the agreed method support it." },
+      { icon: FileCheck2, title: "Keep a clear record", copy: "The source, decision, and later outcome remain available without a spreadsheet scavenger hunt." },
     ],
-    operating: { eyebrow: "The product model", title: "One cost record. A traceable chain of custody.", copy: "Costivra keeps the original source, normalized facts, system reasoning, approvals, and verified outcome connected—so a decision does not become a scavenger hunt across inboxes and spreadsheets.", steps: [{ label: "Source", copy: "The original bill, agreement, or account record remains available beside the work." }, { label: "Judgment", copy: "Rules, assumptions, confidence, and missing information explain why a case exists." }, { label: "Outcome", copy: "The record closes only when an approved action and future evidence establish what actually changed." }] },
-    close: { title: "See the operating system in context.", copy: "Open the workspace to review how an opportunity, its source document, approval path, and expected value stay connected.", action: "View customer workspace", href: "/app" },
+    operating: { eyebrow: "How the record stays useful", title: "One bill review, with the context still attached.", copy: "Costivra keeps the source, the question, what is uncertain, the owner, and any later evidence together—so your team can make a decision without hunting through inboxes and spreadsheets.", steps: [{ label: "Source", copy: "The original bill, agreement, or account record stays beside the review." }, { label: "Question", copy: "The possible change, confidence, and missing information explain what needs attention." }, { label: "Decision", copy: "Your team chooses the next step, and later evidence establishes what actually changed." }] },
+    close: { title: "Start with a bill you already have.", copy: "Use a small, contained review to see how the source, question, and next decision stay connected.", action: "Start with 3 bills", href: "/scan" },
   },
   solutions: {
     kind: "category",
@@ -80,18 +80,16 @@ const specs: Record<string, PageSpec> = {
   },
   "how-it-works": {
     kind: "sequence",
-    title: "See how Costivra turns a bill into a better decision.",
-    lede: "Upload a bill or contract. Costivra extracts the facts, shows the evidence, flags what needs attention, routes the decision to the right person, and records what the outcome proves.",
+    title: "From current bill to clear next step.",
+    lede: "Choose a current bill. Costivra shows the source-backed question, and your team decides what to do next.",
     blocks: [
-      { icon: Upload, title: "1. Connect", copy: "Add a document, inbox, accounting source, vendor account, or approved export." },
-      { icon: FileSearch, title: "2. Extract and verify", copy: "Convert unstructured content into typed facts, preserve evidence, and escalate uncertainty." },
-      { icon: ScanSearch, title: "3. Detect", copy: "Apply category rules and explain why a potential cost leak or deadline deserves attention." },
-      { icon: Users, title: "4. Approve", copy: "Route a bounded action to the right people under the organization's policy." },
-      { icon: CheckCircle2, title: "5. Execute", copy: "Complete only the approved action, with idempotency and a record of every external effect." },
-      { icon: CircleDollarSign, title: "6. Verify", copy: "Compare future bills, credits, and approved baselines to prove the real outcome." },
+      { icon: Upload, title: "1. Choose current bills", copy: "Create a private workspace and add the supported bills or contracts you want reviewed." },
+      { icon: FileSearch, title: "2. Review the source-backed question", copy: "See what changed, what is uncertain, and the source document that supports the review." },
+      { icon: Users, title: "3. Choose the next step", copy: "Save, investigate, assign, export, or approve a bounded action. Costivra does not act outside your approval." },
+      { icon: CheckCircle2, title: "What happens later", copy: "Later bills, credits, or contract records can confirm or reject a possible result." },
     ],
     operating: { eyebrow: "What stays human", title: "Automation handles the record. People retain the decision.", copy: "Costivra can organize, compare, route, and prepare. Your team controls exceptions, approvals, vendor choices, and every consequential external action.", steps: [{ label: "System work", copy: "Collect facts, apply supported rules, prepare a clear case, and maintain the audit trail." }, { label: "Team judgment", copy: "Review uncertainty, approve scope, and decide whether the proposed next step is right." }, { label: "Proof of value", copy: "Use an agreed baseline and subsequent evidence before calling an outcome savings." }] },
-    close: { title: "Review the process against a real source document.", copy: "Start with a small, contained scan before connecting more systems or expanding to additional categories.", action: "Start a contained scan", href: "/scan" },
+    close: { title: "Review the process against a bill you already have.", copy: "Start with a small, contained review before connecting more systems or expanding to additional categories.", action: "Start with 3 bills", href: "/scan" },
   },
   security: {
     kind: "controls",
@@ -318,8 +316,8 @@ function SignatureScene({ kind }: { kind: NonNullable<PageSpec["kind"]> }) {
 
 function SpecPage({ spec }: { spec: PageSpec }) {
   const operating = spec.operating ?? { eyebrow: "A practical operating model", title: "Make the next decision clearer.", copy: "Costivra connects source evidence, the question that needs an answer, the person responsible, and the record of what changed. The point is clarity—not another dashboard to maintain.", steps: spec.blocks.slice(0, 3).map((block) => ({ label: block.title, copy: block.copy })) };
-  const close = spec.close ?? { title: "Start with a contained, evidence-backed review.", copy: "Choose one recurring-cost category and a small group of documents. You can evaluate the workflow before asking your team to change how it works.", action: "Scan three bills free", href: "/scan" };
-  return <PageFrame><div className={`spec-page spec-page--${spec.kind ?? "category"}`}><Reveal><header className="content-hero"><h1>{spec.title}</h1><p>{spec.lede}</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/scan">Scan three bills free <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/app">View customer workspace</Link></div></header></Reveal><Reveal><SignatureScene kind={spec.kind ?? "category"} /></Reveal><Reveal><div className="content-grid">{spec.blocks.map(({ icon: Icon, title, copy, href, group }, index) => {
+  const close = spec.close ?? { title: "Start with a contained, evidence-backed review.", copy: "Choose one recurring-cost category and a small group of documents. You can evaluate the workflow before asking your team to change how it works.", action: "Start with 3 bills", href: "/scan" };
+  return <PageFrame><div className={`spec-page spec-page--${spec.kind ?? "category"}`}><Reveal><header className="content-hero"><h1>{spec.title}</h1><p>{spec.lede}</p><div className="hero-actions" style={{ marginTop: 30 }}><Link className="button button-primary" href="/scan">Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/#evidence">See what a bill review looks like</Link></div></header></Reveal><Reveal><SignatureScene kind={spec.kind ?? "category"} /></Reveal><Reveal><div className="content-grid">{spec.blocks.map(({ icon: Icon, title, copy, href, group }, index) => {
     const card = <><div className="content-block-heading"><Icon aria-hidden="true" size={25} style={{ color: "var(--blue)" }} /><h2>{title}</h2>{href ? <ArrowUpRight className="content-block-link-arrow" aria-hidden="true" size={18} /> : null}</div><p>{copy}</p></>;
     const previousGroup = index > 0 ? spec.blocks[index - 1].group : undefined;
     const groupStart = spec.kind === "controls" && Boolean(group) && group !== previousGroup;
@@ -329,12 +327,64 @@ function SpecPage({ spec }: { spec: PageSpec }) {
 }
 
 function PricingPage() {
-  const plans = [["Starter", "$149", "One business", "Up to three active expense accounts", "Monthly monitoring", "Renewal reminders"], ["Growth", "$599", "Multiple locations", "Team and approval workflows", "Weekly monitoring", "Advanced reports"], ["Enterprise", "Custom", "SSO and custom roles", "Custom integrations", "Retention controls", "Dedicated support"]];
-  return <PageFrame><header className="content-hero"><h1>Pricing for recurring cost control.</h1><p>Start with a focused scan, then choose the monitoring and workflow depth your organization needs. Performance and referral fees, when used, require separate clear terms.</p></header><div className="content-grid">{plans.map(([name, price, ...features]) => <article className="content-block" style={{ minHeight: 390 }} key={name}><span style={{ color: "var(--blue)", fontWeight: 800 }}>{name}</span><div style={{ margin: "22px 0", fontSize: "2.5rem", fontWeight: 750, letterSpacing: "-.05em" }}>{price}{price.startsWith("$") ? <small style={{ fontSize: ".9rem", fontWeight: 400 }}> / month</small> : null}</div>{features.map((feature) => <p key={feature} style={{ display: "flex", gap: 8 }}><Check aria-hidden="true" size={16} style={{ color: "var(--mint-dark)", flex: "0 0 auto", marginTop: 5 }} /> {feature}</p>)}<Link className={`button ${name === "Growth" ? "button-primary" : "button-secondary"}`} href={name === "Enterprise" ? "/contact" : "/scan"} style={{ marginTop: 15 }}>{name === "Enterprise" ? "Talk to us" : "Start with a scan"}</Link></article>)}</div><Reveal><section className="pricing-decision"><div><h2>Pricing should map to the responsibility you are taking on.</h2><p>Costivra is priced around the scope of recurring-cost control you need—not around a vague promise of savings.</p></div><div className="pricing-decision-rows"><div><span>Monitoring</span><strong>How many accounts and locations need a continuing review?</strong></div><div><span>Decision flow</span><strong>How many people need to see, assign, or approve the work?</strong></div><div><span>Assurance</span><strong>What reporting, retention, and support level does your organization require?</strong></div></div></section></Reveal><section className="spec-operating pricing-detail"><div className="spec-operating-intro"><span className="eyebrow">Before you buy</span><h2>A paid plan should have a defined job.</h2><p>Choose the smallest plan that supports the number of active accounts, people, locations, and approval paths you need to manage. Expand only when the workflow has proven useful.</p></div><ol className="spec-steps"><li><span>01</span><div><h3>Start contained</h3><p>Use the scan to determine whether the documents and category have enough signal to justify ongoing monitoring.</p></div></li><li><span>02</span><div><h3>Agree the method</h3><p>For any value-based arrangement, define the baseline, evidence, verification method, and applicable fee in writing.</p></div></li><li><span>03</span><div><h3>Keep your options</h3><p>You retain control of vendors, advisors, external sharing, and all consequential approvals regardless of plan.</p></div></li></ol></section><p className="muted" style={{ marginTop: 30, lineHeight: 1.6 }}>Pilot pricing is a product concept and may change before commercial launch. No performance fee is charged until a customer accepts the baseline, verification method, result, and applicable fee terms.</p></PageFrame>;
+  const plans = [
+    { name: "Starter", price: "$149", fit: "One business with a contained set of recurring bills to monitor.", features: ["Up to three active expense accounts", "Monthly monitoring", "Renewal reminders"] },
+    { name: "Growth", price: "$599", fit: "Businesses managing vendors across multiple locations or decision owners.", features: ["Multiple locations", "Team and approval workflows", "Weekly monitoring", "Advanced reports"] },
+    { name: "Enterprise", price: "Custom", fit: "Organizations that need custom access, retention, and integration controls.", features: ["SSO and custom roles", "Custom integrations", "Retention controls", "Dedicated support"] },
+  ];
+
+  return (
+    <PageFrame>
+      <header className="content-hero">
+        <span className="eyebrow">Start contained</span>
+        <h1>Start with the cost control you actually need.</h1>
+        <p>Begin with up to three current bills. Ongoing monitoring is most useful when recurring vendors, locations, services, or renewal dates are hard to keep in view—not when you only have a few simple bills.</p>
+      </header>
+
+      <section className="pricing-fit" aria-label="Pricing fit guidance">
+        <div><span>First step</span><strong>Start with selected current bills before committing to ongoing monitoring.</strong></div>
+        <div><span>Active expense account</span><strong>One recurring vendor bill, service, meter, or contract your team wants Costivra to monitor.</strong></div>
+        <div><span>Not a fit yet</span><strong>If you manage only a handful of simple bills, a contained review may be the better starting point.</strong></div>
+      </section>
+
+      <div className="content-grid pricing-plan-grid">
+        {plans.map(({ name, price, fit, features }) => (
+          <article className="content-block pricing-plan-card" key={name}>
+            <span className="pricing-plan-name">{name}</span>
+            <div className="pricing-plan-price">{price}{price.startsWith("$") ? <small> / month</small> : null}</div>
+            <p className="pricing-plan-fit">{fit}</p>
+            {features.map((feature) => <p className="pricing-plan-feature" key={feature}><Check aria-hidden="true" size={16} /> {feature}</p>)}
+            <Link className={name === "Growth" ? "button button-primary" : "button button-secondary"} href={name === "Enterprise" ? "/contact" : "/scan"}>{name === "Enterprise" ? "Talk to us" : "Start with 3 bills"}</Link>
+          </article>
+        ))}
+      </div>
+
+      <Reveal>
+        <section className="pricing-decision">
+          <div><h2>Pay for ongoing attention, not a vague savings promise.</h2><p>Costivra pricing follows the recurring-cost work your team needs to keep current. The first step is meant to help you decide whether that ongoing work is worth it.</p></div>
+          <div className="pricing-decision-rows">
+            <div><span>Monitoring</span><strong>How many bills, services, contracts, or locations need a continuing review?</strong></div>
+            <div><span>Decision flow</span><strong>How many people need to see, assign, or approve the work?</strong></div>
+            <div><span>Assurance</span><strong>What reporting, retention, and support level does your organization require?</strong></div>
+          </div>
+        </section>
+      </Reveal>
+
+      <section className="spec-operating pricing-detail">
+        <div className="spec-operating-intro"><span className="eyebrow">Before you buy</span><h2>A paid plan should have a defined job.</h2><p>Choose the smallest plan that supports the active expense accounts, people, locations, and approval paths you need to manage. Expand only when ongoing monitoring proves useful.</p></div>
+        <ol className="spec-steps">
+          <li><span>01</span><div><h3>Start with current bills</h3><p>Use the first review to decide whether the documents and category have enough signal to justify ongoing monitoring.</p></div></li>
+          <li><span>02</span><div><h3>Agree the method</h3><p>For any value-based arrangement, define the baseline, evidence, verification method, and applicable fee in writing.</p></div></li>
+          <li><span>03</span><div><h3>Keep your options</h3><p>You retain control of vendors, advisors, external sharing, and all consequential approvals regardless of plan.</p></div></li>
+        </ol>
+      </section>
+      <p className="muted" style={{ marginTop: 30, lineHeight: 1.6 }}>Pilot pricing is a product concept and may change before commercial launch. Performance or referral fees, when used, require separate clear terms. No performance fee is charged until a customer accepts the baseline, verification method, result, and applicable fee terms.</p>
+    </PageFrame>
+  );
 }
 
 function ScanPage() {
-  return <PageFrame><div className="detail-layout scan-layout"><header className="content-hero"><h1>Start with three bills.</h1><p>Create a secure workspace, then upload your current bills or contracts. Costivra will store them privately, extract reviewable facts, and keep every finding tied to source evidence.</p><div className="scan-assurances"><p className="scan-assurance"><Check aria-hidden="true" size={17} />Private, organization-scoped storage</p><p className="scan-assurance"><Check aria-hidden="true" size={17} />Duplicate detection and structured extraction</p><p className="scan-assurance"><Check aria-hidden="true" size={17} />No vendor contact without approval</p></div></header><section className="panel scan-panel"><div className="panel-header"><h2>Free Cost Leak Scan</h2><span className="eyebrow">Secure account required</span></div><div className="panel-body scan-panel-body"><ShieldCheck aria-hidden="true" size={34} style={{ color: "var(--blue)", marginBottom: 18 }}/><h2 style={{marginTop:0}}>Your source documents deserve a real security boundary.</h2><p className="muted" style={{lineHeight:1.65}}>Create your organization workspace first. After email confirmation, you can upload PDF, DOCX, or text records directly into private Supabase storage and see their extraction status.</p><Link className="button button-primary" href="/signup?next=/app/documents" style={{width:"100%",marginTop:18}}>Create a secure workspace <ArrowRight size={16}/></Link><Link className="button button-secondary" href="/login?next=/app/documents" style={{width:"100%",marginTop:10}}>I already have an account</Link></div></section></div></PageFrame>;
+  return <PageFrame><div className="detail-layout scan-layout"><header className="content-hero"><h1>Start with three current bills.</h1><p>Create a private Costivra workspace, then choose up to three software, telecom/internet, or commercial-energy documents. The original source stays attached while your review begins.</p><div className="scan-assurances"><p className="scan-assurance"><Check aria-hidden="true" size={17} />Only the documents you choose</p><p className="scan-assurance"><Check aria-hidden="true" size={17} />Private workspace for your organization</p><p className="scan-assurance"><Check aria-hidden="true" size={17} />No vendor contact without approval</p></div></header><section className="panel scan-panel"><div className="panel-header"><h2>Start your 3-bill review</h2><span className="eyebrow">Account required before upload</span></div><div className="panel-body scan-panel-body"><ShieldCheck aria-hidden="true" size={34} style={{ color: "var(--blue)", marginBottom: 18 }}/><h2 style={{marginTop:0}}>Create your private workspace first.</h2><p className="muted" style={{lineHeight:1.65}}>Use a work email to create your organization workspace. After email confirmation, you can upload PDF, DOCX, or text records and see each document&apos;s status and next review step.</p><Link className="button button-primary" href="/signup?next=/app/documents" style={{width:"100%",marginTop:18}}>Create a private workspace <ArrowRight size={16}/></Link><Link className="button button-secondary" href="/login?next=/app/documents" style={{width:"100%",marginTop:10}}>I already have an account</Link></div></section></div></PageFrame>;
 }
 
 function AccountPage({ mode }: { mode: string }) {
@@ -413,7 +463,7 @@ function AccountPage({ mode }: { mode: string }) {
     // transition can otherwise race the cookie write and be sent back to login.
     window.location.assign(destination);
   }
-  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span>Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span></div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
+  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span className="account-brand-wordmark">Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span></div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
   <div className="account-provider-grid" aria-label="Sign-in providers">
     {googleEnabled && (
       <button className="account-provider" type="button" disabled={Boolean(oauthProvider)} onClick={() => void signInWithProvider("google")}>

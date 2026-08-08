@@ -1,5 +1,23 @@
 # Costivra Status
 
+## August 8, 2026 — Manage sidebar parity repair
+
+- **Responsive parity**: Matched Manage’s compact breakpoint to `/app` at 980px. At the same 1186px browser width, both products now use the full 256px sidebar instead of Manage switching to a 76px rail early.
+- **Stable default**: Manage now opens with the full sidebar above the compact breakpoint and stays open until the explicit header control collapses it. Pointer-leave no longer changes the default page geometry.
+- **Header alignment**: Raised the Manage brand row to align the Costivra mark with the main canvas header control, matching the customer shell’s visual baseline.
+- **Validation**: `npm run typecheck` PASS; the generated Next route-type file was regenerated after the local dev server restart. Browser comparison confirmed matching 256px sidebar widths for `/manage` and `/app` at 1186px. `git diff --check` remains clean.
+- **Next**: Continue checking the remaining visual details of the Manage rail against `/app`: search spacing, group separators, active-row treatment, compact icon alignment, and fixed footer rhythm.
+
+## August 7, 2026 — Manage shell redesign, Chunk 4 complete
+
+- **Shared frame**: Added the first `/manage` shell pass using the same family as `/app`: transparent textured sidebar, 256px expanded rail, 76px compact rail, rounded white work canvas, fixed canvas header, and internal route scrolling.
+- **Scroll ownership**: Gave the sidebar navigation and `.manage-page` explicit scroll ownership with nested table, mail, menu, profile, and assistant exceptions so one region does not steal another region’s wheel input.
+- **Controls and motion**: The header control now explicitly expands/collapses the desktop rail. Sidebar and canvas width changes use the same restrained ease curve, and Manage header controls are normalized to 40px with matching borders and hover states.
+- **Validation**: `npm run typecheck` PASS; `git diff --check` PASS. Browser checks passed on `/manage` at the default desktop viewport and a 1000px compact viewport: expanded/collapsed geometry stayed contained, the canvas retained a fixed header, and route content had an independent scroll range.
+- **Follow-up slice**: Moved Manage search beneath workspace identity. Compact mode keeps a visible search icon; clicking it expands the rail and focuses the real search field. Long settings/mail routes, navigation scroll with the profile anchored, assistant drawer containment, mobile drawer geometry, reduced-motion overrides, accessible shell labels, and the existing create menu have now been checked.
+- **Quality gate**: `npm run typecheck` PASS; `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`; `git diff --check` PASS. Browser checks covered `/manage`, `/manage/accounts`, `/manage/settings`, and `/manage/mail` at desktop, compact, and mobile widths with no body overflow beyond the viewport.
+- **Next**: Chunk 5 — harden route-specific dense tables, mail panes, settings content, and nested scroll exceptions inside the shared Manage canvas.
+
 ## August 7, 2026 — Application shell redesign, Chunk 3B complete
 
 - **Detail compatibility**: Aligned customer detail-route sticky regions with the in-canvas header. Record tabs, evidence/source areas, review bulk controls, and side rails now clear the canvas header instead of using the removed full-width top-bar offsets.
@@ -1874,3 +1892,61 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 
 - Tightened only the gap between the plus control and the Ask Costivra group.
 - Preserved the existing Ask Costivra-to-notifications spacing.
+
+# 2026-08-07 — Header grouping correction
+
+- Removed distributed `space-between` spacing from the fixed app header so the plus, assistant, and notification controls stay grouped at their intended gap.
+
+# 2026-08-08 — Manage compact rail interaction polish
+
+- Removed automatic mouse-hover expansion from the Manage sidebar so the rail opens only through the explicit header control or keyboard/search focus.
+- Added a smooth search-field contraction into the compact search icon, with the full field returning during expansion.
+- Added unclipped descriptive label chips for compact navigation, Settings, profile, and search controls while keeping the nav’s internal scroll behavior intact.
+- Validation: `npm run typecheck` passed; `git diff --check` passed; browser checks confirmed hover does not expand the rail, Accounts shows a visible label chip, and search hover leaves the rail collapsed.
+
+# 2026-08-08 — Manage compact rail spacing correction
+
+- Removed the visible search row from the collapsed rail so it no longer pushes the navigation downward.
+- Moved the compact hover label to a 2px gap from the rail edge and tightened the divider-to-Outreach spacing.
+- Browser verification confirmed the compact search area is 0px high, the Outreach label chip begins 2px beyond the 76px rail, and the icon remains centered.
+
+# 2026-08-08 — Manage and customer rail visual parity
+
+- Applied the shared Space Grotesk brand font to the Manage Costivra wordmark.
+- Matched the customer `/app` compact tile glow, 48px square tile geometry, white/blue hover chip, border radius, shadow, and hover easing.
+- Tightened the Manage hover chip to a 2px gap from the compact rail edge.
+- Browser verification confirmed the Manage wordmark resolves to Space Grotesk and the Outreach hover state uses the shared glow and chip treatment.
+
+# 2026-08-08 — Manage badge anchoring and exit motion
+
+- Anchored compact hover badges to the actual option tile’s right edge plus 2px, matching the customer rail’s visual relationship to its buttons.
+- Added a 190ms badge exit animation before removing the badge from the DOM.
+- Removed the divider below the Manage brand block.
+- Browser verification confirmed the badge starts at 64px for a 62px-wide tile and transitions through `manage-sidebar-tooltip-out` before removal.
+
+# 2026-08-08 — Sidebar state persistence across navigation
+
+- Persisted the collapsed/expanded sidebar preference separately for `/app` and `/manage` during the current browser session.
+- Prevented a mouse click on a collapsed Manage navigation option from expanding the rail through the link's focus event; keyboard focus can still expand it intentionally.
+- Browser verification confirmed `/app` stays collapsed after clicking Vendors and Manage stays collapsed while selecting a navigation option.
+- Validation: `npm run typecheck` passed and `git diff --check` passed. Full lint remains to be run after this focused change.
+
+# 2026-08-08 — Marketing clarity pass: home and review handoff
+
+- Rewrote the public home-page opening around a literal business outcome: reviewing selected software, internet, and energy bills for price increases, duplicate charges, unused services, and renewal deadlines.
+- Replaced the dense above-the-fold command-center demo with a calm, clearly labelled illustrative source-to-question example. It explicitly distinguishes a potential question from a verified saving.
+- Replaced public "Scan 3 bills free" calls to action with the more literal "Start with 3 bills" and added a plain next-step explanation.
+- Rewrote the /scan opening so visitors know that an account is required before upload, which categories are currently eligible, and that document status / the next review step appear in the private workspace.
+- Marked Insurance & Benefits and Facilities as planned in the public footer while retaining their routes for future development.
+- Moved source-linked examples ahead of the public value-methodology section and reduced the home-page sales story from five system stages to three plain review steps.
+- Reworked the pricing page around buyer fit: a contained first step, an explicit definition of active expense account, plan-level fit cues, and an honest "not a fit yet" explanation for businesses with only a handful of simple bills.
+- Kept the published price points unchanged and moved the commercial-fee explanation below the core pricing story.
+- Validation: npm run typecheck passed; targeted ESLint for the three edited TSX files passed; git diff --check passed; browser QA passed at 1440×900 and 390×844 with no console warnings/errors. The desktop and mobile primary CTA both reached /scan and rendered its account-required state. Mobile QA caught and corrected an initial workflow-column override before completion.
+- Known remaining work: define the exact free-offer result before using a "free review" promise; label planned categories consistently beyond the footer; simplify the lower home-page narrative, pricing, product, and solutions pages in the remaining marketing-plan chunks.
+
+# 2026-08-08 — Standalone Costivra wordmarks
+
+- Applied the selected Space Grotesk wordmark treatment to the shared Brand component used by the public header, public footer, and customer shell.
+- Applied the same treatment to the account-access lockups and the internal email-signature brand lockup.
+- Left ordinary paragraph mentions, assistant speaker labels, and descriptive product copy on their existing reading font.
+- Validation: `npm run typecheck` passed; `git diff --check` passed; browser inspection confirmed the public header wordmark resolves to Space Grotesk while the hero paragraph remains on the body font.

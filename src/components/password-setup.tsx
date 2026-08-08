@@ -41,7 +41,7 @@ function OwnerAccessIntro() {
         <span className="account-brand-mark">
           <CostivraMark size={34} />
         </span>
-        <span>Costivra owner access</span>
+        <span className="account-brand-wordmark">Costivra owner access</span>
       </div>
       <div>
         <p className="eyebrow">Private account setup</p>

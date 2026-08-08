@@ -7,7 +7,6 @@ import {
   Building2,
   Check,
   CircleAlert,
-  Clock3,
   ClipboardList,
   FileCheck2,
   FileLock2,
@@ -21,15 +20,12 @@ import {
   Zap,
 } from "lucide-react";
 import { Faq } from "@/components/faq";
-import { OpportunityDemo } from "@/components/marketing-demo/opportunity-demo";
 import { PublicProofSection } from "@/components/public-proof-section";
 
 const steps = [
-  { title: "Connect", copy: "Add selected bills, contracts, and vendor records.", artifact: "3 files ready · 1 vendor", icon: FileCheck2 },
-  { title: "Extract", copy: "Costivra reads the terms and keeps the source attached.", artifact: "Annual adjustment · page 3", icon: FileText },
-  { title: "Detect", copy: "Rules flag price changes, duplicate costs, unused services, and deadline risk.", artifact: "Potential change · $1,040 / mo", icon: CircleAlert },
-  { title: "Approve", copy: "The right person decides whether Costivra should help take the next step.", artifact: "Finance owner · pending", icon: UserCheck },
-  { title: "Verify", copy: "A later bill, credit, or contract confirms whether the result occurred.", artifact: "Later bill · awaiting", icon: Clock3 },
+  { title: "Choose current bills", copy: "Start with the software, internet, or energy documents you want reviewed.", artifact: "Selected documents", icon: FileCheck2 },
+  { title: "Review what changed", copy: "See possible price increases, duplicate charges, unused services, or renewal deadlines with the source attached.", artifact: "Source linked · review needed", icon: FileText },
+  { title: "Decide the next step", copy: "Your team can save, investigate, assign, or approve a bounded action. Later evidence determines what is verified.", artifact: "Your approval required", icon: UserCheck },
 ] as const;
 
 const trust = [
@@ -149,37 +145,38 @@ export function HomePage() {
       <section className="hero">
         <div className="container hero-inner">
           <div className="hero-copy">
-            <span className="hero-eyebrow">Recurring cost intelligence for finance and operations</span>
-            <h1>Put every recurring business cost under command.</h1>
-            <p>Costivra reviews bills and contracts for price increases, duplicate or unused services, and renewal risk. Every finding links to the source evidence, and your team approves what happens next.</p>
-            <p className="hero-fit">For owners, CFOs, controllers, and operations leaders managing recurring business spend.</p>
+            <span className="hero-eyebrow">Recurring bill review for growing businesses</span>
+            <h1>Find hidden waste in your business bills.</h1>
+            <p>Upload selected software, internet, and energy bills. Costivra flags price increases, duplicate charges, unused services, and renewal deadlines—then shows you the exact source.</p>
+            <p className="hero-fit">Built for teams managing recurring vendors across people, locations, services, or contracts.</p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/scan">Scan 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
-              <Link className="button button-secondary" href="#evidence">See a finding from source to result</Link>
+              <Link className="button button-primary" href="/scan">Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link>
+              <Link className="button button-secondary" href="#evidence">See what a bill review looks like</Link>
             </div>
+            <p className="hero-expectation">Create a private workspace, choose up to three bills, and see the next review step.</p>
             <div className="hero-assurance" aria-label="Costivra product assurances">
               <span><LockKeyhole aria-hidden="true" size={15} /> Only the documents you choose</span>
               <span><ShieldCheck aria-hidden="true" size={15} /> No broad inbox access</span>
               <span><Users aria-hidden="true" size={15} /> Human approval before outside action</span>
             </div>
           </div>
-          <OpportunityDemo />
+          <HeroReviewPreview />
         </div>
       </section>
-
-      <PublicProofSection />
 
       <EvidenceSection />
 
       <section className="workflow" id="how-it-works">
         <div className="container">
           <ScrollReveal className="workflow-reveal">
-            <h2 className="section-heading" style={{ maxWidth: "none", fontSize: "clamp(2.2rem, 3vw, 2.8rem)" }}>From scattered bills to a controlled cost base.</h2>
-            <p className="section-lede">Costivra gives finance and operations one place to see what changed, why it matters, who owns the decision, and what the outcome proves.</p>
+            <h2 className="section-heading" style={{ maxWidth: "none", fontSize: "clamp(2.2rem, 3vw, 2.8rem)" }}>Your first review in three clear steps.</h2>
+            <p className="section-lede">Start with a few documents. Costivra keeps the source, shows the question, and leaves the decision with your team.</p>
             <WorkflowSteps />
           </ScrollReveal>
         </div>
       </section>
+
+      <PublicProofSection />
 
       <section className="doctrine">
         <div className="container doctrine-layout">
@@ -217,7 +214,7 @@ export function HomePage() {
             <Plan name="Growth" price="$599" copy="Multiple locations, approvals, team access, advanced reports, and weekly monitoring." />
             <Plan name="Enterprise" price="Let's talk" copy="SSO, custom policies, integrations, retention controls, and dedicated support." />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Scan 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link></div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link></div>
         </div>
       </section>
 
@@ -228,6 +225,43 @@ export function HomePage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function HeroReviewPreview() {
+  return (
+    <aside className="hero-review-preview" aria-label="Illustrative bill review example">
+      <div className="hero-review-topline">
+        <span>What a review looks like</span>
+        <span>Illustrative example</span>
+      </div>
+      <div className="hero-review-document">
+        <div className="hero-review-document-heading">
+          <span className="hero-review-document-icon"><FileText aria-hidden="true" size={18} /></span>
+          <div>
+            <span>May internet bill</span>
+            <strong>Source document</strong>
+          </div>
+          <small>Page 2</small>
+        </div>
+        <div className="hero-review-question">
+          <CircleAlert aria-hidden="true" size={19} />
+          <div>
+            <span>Question to review</span>
+            <strong>Monthly circuit charge increased</strong>
+          </div>
+        </div>
+        <dl className="hero-review-details">
+          <div><dt>What changed</dt><dd>A higher recurring line item appears on the current bill.</dd></div>
+          <div><dt>What you see</dt><dd>The source, the change, and the next step in one place.</dd></div>
+          <div><dt>Your control</dt><dd>No vendor contact without the required approval.</dd></div>
+        </dl>
+      </div>
+      <div className="hero-review-footer">
+        <span>Potential question</span>
+        <strong>Not a verified saving</strong>
+      </div>
+    </aside>
   );
 }
 
