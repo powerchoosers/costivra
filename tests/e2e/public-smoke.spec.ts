@@ -72,6 +72,28 @@ test("mobile navigation opens without shifting or clipping the page", async ({ p
   expect(failures).toEqual([]);
 });
 
+test("mobile scan page stacks the intake story and workspace panel", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile-only layout");
+  const failures = failOnConsoleErrors(page);
+  await page.goto("/scan");
+  await expect(page.getByRole("heading", { level: 1, name: "Start with three bills." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Free Cost Leak Scan" })).toBeVisible();
+  const layout = await page.locator(".scan-layout").evaluate((element) => {
+    const hero = element.querySelector(".content-hero")?.getBoundingClientRect();
+    const panel = element.querySelector(".scan-panel")?.getBoundingClientRect();
+    return {
+      columns: getComputedStyle(element).gridTemplateColumns,
+      heroBottom: hero?.bottom ?? 0,
+      panelTop: panel?.top ?? 0,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(layout.columns.trim().split(/\s+/)).toHaveLength(1);
+  expect(layout.panelTop).toBeGreaterThan(layout.heroBottom);
+  expect(layout.overflow).toBeLessThanOrEqual(1);
+  expect(failures).toEqual([]);
+});
+
 test("hero evidence anchor respects reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");

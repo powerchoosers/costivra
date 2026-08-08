@@ -12,6 +12,8 @@ import {
   FileText,
   LayoutDashboard,
   MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   ReceiptText,
   Settings,
@@ -273,16 +275,77 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchClosing, setSearchClosing] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const sidebarTimerRef = useRef<number | null>(null);
+
+  const appHeader = useMemo(() => {
+    const segments = pathname.split("/").filter(Boolean);
+    const section = segments[1] ?? "home";
+    const detailId = segments[2];
+    const sectionTitles: Record<string, string> = {
+      home: "Command Center",
+      vendors: "Vendors",
+      bills: "Bills & Spend",
+      expenses: "Spend",
+      documents: "Source Files",
+      contracts: "Contracts",
+      findings: "Findings",
+      opportunities: "Findings",
+      actions: "Actions",
+      results: "Results",
+      savings: "Results",
+      reports: "Reports",
+      settings: "Settings",
+      integrations: "Integrations",
+      team: "Team & approvals",
+      ask: "Ask Costivra",
+    };
+    const descriptions: Record<string, string> = {
+      home: `A live operating view of ${data.organization.name}'s recurring costs.`,
+      vendors: "Vendor relationships, spend, renewals, and operating context.",
+      bills: "Upload, review, track, and prove operating expenses.",
+      expenses: "Spend records and source-backed operating expenses.",
+      documents: "Source files and extraction evidence.",
+      contracts: "Renewal terms, dates, and contract evidence.",
+      findings: "Evidence-backed cost issues and opportunities.",
+      opportunities: "Evidence-backed cost issues and opportunities.",
+      actions: "Approved work and decisions in progress.",
+      results: "Value created and outcomes supported by evidence.",
+      savings: "Value created and outcomes supported by evidence.",
+      settings: "Workspace configuration and operating controls.",
+      integrations: "Connected systems and data controls.",
+      team: "People, roles, and approval controls.",
+      ask: "Ask questions about the evidence in your workspace.",
+    };
+    const vendor = section === "vendors" && detailId
+      ? data.vendors.find((item) => item.id === detailId)
+      : undefined;
+    const detailTitle = detailId
+      ? vendor?.name
+        ?? (section === "bills" || section === "expenses"
+          ? data.expenses.find((item) => item.id === detailId)?.vendorName
+            ?? data.invoices.find((item) => item.id === detailId)?.invoiceNumber
+          : undefined)
+        ?? (section === "contracts" ? data.contracts.find((item) => item.id === detailId)?.title : undefined)
+        ?? (section === "findings" || section === "opportunities" ? data.opportunities.find((item) => item.id === detailId)?.title : undefined)
+        ?? (section === "actions" ? data.actions.find((item) => item.id === detailId)?.title : undefined)
+        ?? (section === "results" || section === "savings" ? data.savings.find((item) => item.id === detailId)?.title : undefined)
+        ?? sectionTitles[section]
+      : undefined;
+    return {
+      title: detailTitle ?? sectionTitles[section] ?? "Command Center",
+      description: detailId
+        ? vendor?.category ?? `${sectionTitles[section] ?? "Workspace"} detail`
+        : descriptions[section] ?? "Cost intelligence for your workspace.",
+      vendor,
+    };
+  }, [data, pathname]);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -294,28 +357,6 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
-
-  const expandSidebar = (delay = 0) => {
-    if (window.innerWidth <= 980) return;
-    if (sidebarTimerRef.current) window.clearTimeout(sidebarTimerRef.current);
-    if (!delay) {
-      sidebarTimerRef.current = null;
-      setSidebarCollapsed(false);
-      return;
-    }
-    sidebarTimerRef.current = window.setTimeout(() => {
-      setSidebarCollapsed(false);
-      sidebarTimerRef.current = null;
-    }, delay);
-  };
-  const collapseSidebar = () => {
-    if (window.innerWidth <= 980) return;
-    if (sidebarTimerRef.current) window.clearTimeout(sidebarTimerRef.current);
-    sidebarTimerRef.current = window.setTimeout(() => {
-      setSidebarCollapsed(true);
-      sidebarTimerRef.current = null;
-    }, 460);
-  };
 
   const closeSearch = useCallback(() => {
     setSearchClosing(true);
@@ -345,12 +386,12 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        document.querySelector<HTMLInputElement>(window.innerWidth <= 760 ? ".app-mobile-utilities input[aria-label='Search Costivra records']" : ".app-sidebar-search input[aria-label='Search Costivra records']")?.focus();
         setSearchFocused(true);
         setSearchClosing(false);
       } else if (e.key === "Escape") {
         closeSearch();
-        searchInputRef.current?.blur();
+        (document.activeElement instanceof HTMLInputElement ? document.activeElement : null)?.blur();
         setOrgOpen(false);
         setNotificationsOpen(false);
         setProfileOpen(false);
@@ -361,10 +402,6 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeSearch]);
-
-  useEffect(() => () => {
-    if (sidebarTimerRef.current) window.clearTimeout(sidebarTimerRef.current);
-  }, []);
 
   const results = useMemo(() => appSearchResults(data, searchQuery), [data, searchQuery]);
   const resultsByCategory = useMemo(() => {
@@ -415,49 +452,95 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
       toast.error("That didn’t work", error instanceof Error ? error.message : "Please try again.");
     }
   }
+  const workspaceIdentity = (
+    <div className="app-sidebar-workspace">
+      <div className="app-organization">
+        <button className="org-switcher" type="button" onClick={() => setOrgOpen(!orgOpen)}>
+          <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-logo" />
+          <span className="app-organization-copy"><strong>{data.organization.name}</strong><small>{data.locations.length} location{data.locations.length === 1 ? "" : "s"}</small></span>
+          <ChevronsUpDown aria-hidden="true" size={14} />
+        </button>
+        {orgOpen && (
+          <div className="app-organization-menu" role="dialog" aria-label="Workspace summary">
+            <div className="app-organization-menu-heading">
+              <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-menu-logo" />
+              <span><strong>{data.organization.name}</strong><small>{data.locations.length} location{data.locations.length === 1 ? "" : "s"}</small></span>
+            </div>
+            <div className="app-organization-menu-stat"><span>Source documents</span><strong>{data.documents.length}</strong></div>
+            <div className="app-organization-menu-stat"><span>Monitored spend</span><strong>{new Intl.NumberFormat("en-US", { style:"currency", currency:data.organization.currency, notation:"compact", maximumFractionDigits:1 }).format(spend)} / yr</strong></div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  const globalSearch = (
+    <div className="app-sidebar-search app-global-search-wrap" ref={searchContainerRef}>
+      <label className="manage-search global-search">
+        <Search aria-hidden="true" size={15} />
+        <input aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search..." />
+        <span className="manage-kbd">⌘K</span>
+      </label>
+      {(searchFocused || searchClosing) && searchQuery.trim() && (
+        <div className={`app-global-results${searchClosing ? " is-closing" : ""}`} id="app-global-search-results" role="listbox" aria-label="Search results">
+          {resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => {
+            const Icon = searchCategoryIcons[category];
+            return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>;
+          }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}
+        </div>
+      )}
+    </div>
+  );
+  const mobileUtilities = (
+    <div className="app-mobile-utilities">
+      <div className="app-mobile-organization">
+        <button className="org-switcher" type="button" onClick={() => setOrgOpen(!orgOpen)} aria-label="Open workspace summary">
+          <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-logo" />
+          <span>{data.organization.name}</span>
+        </button>
+        {orgOpen && <div className="app-organization-menu"><div className="app-organization-menu-heading"><CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-menu-logo" /><span><strong>{data.organization.name}</strong><small>{data.locations.length} location{data.locations.length === 1 ? "" : "s"}</small></span></div><div className="app-organization-menu-stat"><span>Source documents</span><strong>{data.documents.length}</strong></div><div className="app-organization-menu-stat"><span>Monitored spend</span><strong>{new Intl.NumberFormat("en-US", { style:"currency", currency:data.organization.currency, notation:"compact", maximumFractionDigits:1 }).format(spend)} / yr</strong></div></div>}
+      </div>
+      <div className="app-mobile-utility-search app-global-search-wrap">
+        <label className="manage-search global-search"><Search aria-hidden="true" size={15} /><input aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search..." /><span className="manage-kbd">⌘K</span></label>
+        {(searchFocused || searchClosing) && searchQuery.trim() && <div className={`app-global-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}</div>}
+      </div>
+    </div>
+  );
   return (
     <div className={`app-body${isDrawerOpen ? " has-assistant-drawer" : ""}`}>
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
-        <aside
-          className="app-sidebar"
-          onPointerEnter={(event) => {
-            if (event.pointerType === "mouse") expandSidebar(240);
-          }}
-          onPointerLeave={(event) => {
-            if (event.pointerType === "mouse") collapseSidebar();
-          }}
-          onFocusCapture={() => expandSidebar()}
-          onBlurCapture={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) collapseSidebar();
-          }}
-        >
+        <aside className="app-sidebar">
           <div className="sidebar-brand-row">
-            <Brand light compact={sidebarCollapsed} />
+            <Brand light />
           </div>
-          <nav className="app-nav" aria-label="Customer application">
-            {navigationGroups.slice(0, -1).map((group, groupIdx) => (
-              <div key={group.section ?? `group-${groupIdx}`} className="app-nav-group">
-                {group.section && (
-                  <div className="nav-section-label">{group.section}</div>
-                )}
-                {group.items.map(([label, href, Icon]) => {
-                  const active = isRouteActive(href, pathname);
-                  return (
-                    <Link
-                      className={active ? "active" : ""}
-                      href={href}
-                      key={href}
-                      aria-current={active ? "page" : undefined}
-                      aria-label={`Open ${label}`}
-                    >
-                      <Icon aria-hidden="true" size={18} />
-                      <span className="nav-label">{label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
-          </nav>
+          {workspaceIdentity}
+          {globalSearch}
+          <div className="app-nav-scroll">
+            <nav className="app-nav" aria-label="Customer application">
+              {navigationGroups.slice(0, -1).map((group, groupIdx) => (
+                <div key={group.section ?? `group-${groupIdx}`} className="app-nav-group">
+                  {group.section && (
+                    <div className="nav-section-label">{group.section}</div>
+                  )}
+                  {group.items.map(([label, href, Icon]) => {
+                    const active = isRouteActive(href, pathname);
+                    return (
+                      <Link
+                        className={active ? "active" : ""}
+                        href={href}
+                        key={href}
+                        aria-current={active ? "page" : undefined}
+                        aria-label={`Open ${label}`}
+                        data-nav-label={label}
+                      >
+                        <Icon aria-hidden="true" size={18} />
+                        <span className="nav-label">{label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+          </div>
           <div className="app-sidebar-foot">
             <nav className="app-sidebar-utility" aria-label="Workspace settings">
               <Link
@@ -477,11 +560,6 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 aria-expanded={profileOpen}
                 aria-haspopup="menu"
                 onClick={() => {
-                  if (sidebarCollapsed) {
-                    expandSidebar();
-                    window.setTimeout(() => setProfileOpen(true), 220);
-                    return;
-                  }
                   setProfileOpen((open) => !open);
                   setNotificationsOpen(false);
                 }}
@@ -508,137 +586,27 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         </aside>
 
         <main className="app-main">
-          <div className="app-topbar">
+          <div className="app-work-canvas">
+            <div className="app-topbar">
+            {mobileUtilities}
             <div className="app-topbar-leading">
-              <div className="app-organization" style={{ position: "relative" }}>
               <button
-                className="org-switcher"
+                className="app-topbar-expand-toggle"
                 type="button"
-                onClick={() => setOrgOpen(!orgOpen)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  cursor: "pointer",
-                  background: "#ffffff",
-                  border: "1px solid #e2e8f0",
-                  padding: "6px 14px",
-                  borderRadius: 10,
-                  boxShadow: "0 2px 6px rgba(15,23,42,0.03)",
-                  fontSize: ".88rem",
-                  fontWeight: 700,
-                  color: "#0f172a"
-                }}
+                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-pressed={sidebarCollapsed}
+                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
               >
-                <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-logo" />
-                {data.organization.name} <ChevronsUpDown aria-hidden="true" size={13} style={{ color: "#64748b" }} />
+                {sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" size={18} /> : <PanelLeftClose aria-hidden="true" size={18} />}
               </button>
-
-              {orgOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    left: 0,
-                    zIndex: 80,
-                    width: 290,
-                    background: "#0d1320",
-                    color: "#edf1fa",
-                    border: "1px solid #283448",
-                    borderRadius: 16,
-                    padding: 16,
-                    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
-                    animation: "riseIn 180ms ease-out",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 12, borderBottom: "1px solid #1e2838" }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--mint)", color: "var(--ink)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: ".95rem" }}>
-                      {data.organization.name.split(/\s+/).map((word) => word[0]).slice(0,2).join("").toUpperCase()}
-                    </div>
-                    <div>
-                      <strong style={{ display: "block", fontSize: ".92rem", color: "#ffffff" }}>{data.organization.name}</strong>
-                      <span className="mono" style={{ fontSize: ".7rem", color: "#8e9bb0" }}>{data.locations.length} location{data.locations.length === 1 ? "" : "s"}</span>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".78rem", color: "#9ca7b9" }}>
-                      <span>Source documents</span>
-                      <strong className="mono" style={{ color: "#10b981" }}>{data.documents.length}</strong>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".78rem", color: "#9ca7b9" }}>
-                      <span>Monitored Spend</span>
-                      <strong className="mono" style={{ color: "#ffffff" }}>{new Intl.NumberFormat("en-US", { style:"currency", currency:data.organization.currency, notation:"compact", maximumFractionDigits:1 }).format(spend)} / yr</strong>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <span className="app-topbar-divider" aria-hidden="true" />
+              {appHeader.vendor && <CompanyLogo entity="vendor" id={appHeader.vendor.id} name={appHeader.vendor.name} className="app-topbar-record-logo" />}
+              <div className="app-topbar-title">
+                <strong>{appHeader.title}</strong>
+                <small>{appHeader.description}</small>
               </div>
             </div>
-
             <div className="app-topbar-center">
-              <div className="app-global-search-wrap" ref={searchContainerRef}>
-                <label className="manage-search global-search">
-                  <Search aria-hidden="true" size={15} style={{ color: "#64748b" }} />
-                  <input
-                    ref={searchInputRef}
-                    aria-label="Search Costivra records"
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => {
-                      setSearchFocused(true);
-                      setSearchClosing(false);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") {
-                        closeSearch();
-                        event.currentTarget.blur();
-                      }
-                    }}
-                    placeholder="Search bills, vendors, contracts, findings..."
-                  />
-                  <span className="manage-kbd">⌘K</span>
-                </label>
-                {(searchFocused || searchClosing) && searchQuery.trim() && (
-                  <div
-                    className={`app-global-results${searchClosing ? " is-closing" : ""}`}
-                    id="app-global-search-results"
-                    role="listbox"
-                    aria-label="Search results"
-                  >
-                    {resultsByCategory.length ? (
-                      resultsByCategory.map(({ category, results: categoryResults }) => {
-                        const Icon = searchCategoryIcons[category];
-                        return (
-                          <section className="app-global-result-group" key={category}>
-                            <h2>
-                              <Icon aria-hidden="true" size={14} />
-                              {searchCategoryLabels[category]}
-                            </h2>
-                            {categoryResults.map((result) => (
-                              <button
-                                type="button"
-                                role="option"
-                                aria-selected={false}
-                                key={result.id}
-                                onMouseDown={(event) => {
-                                  event.preventDefault();
-                                  openSearchResult(result);
-                                }}
-                              >
-                                <strong>{result.title}</strong>
-                                <small>{result.detail}</small>
-                              </button>
-                            ))}
-                          </section>
-                        );
-                      })
-                    ) : (
-                      <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>
-                    )}
-                  </div>
-                )}
-              </div>
               <div className="app-create-wrap" ref={createMenuRef}>
                 <button
                   className={`button button-primary app-create-trigger${createMenuOpen ? " is-active" : ""}`}
@@ -674,9 +642,10 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 {unread.length > 0 && <span style={{ position: "absolute", top: 9, right: 9, width: 7, height: 7, borderRadius: "50%", background: "#ef6b53" }} />}
               </button>{notificationsOpen && <div className="topbar-popover notifications-popover"><header><strong>Notifications</strong>{unread.length>0&&<button onClick={() => void markNotificationsRead()}>Mark all read</button>}</header>{data.notifications.length ? data.notifications.slice(0,5).map(item=><div className={`notification-item${item.readAt?"":" unread"}`} key={item.id}><strong>{item.title}</strong><span>{item.body}</span></div>) : <p className="popover-empty">You&apos;re all caught up.</p>}</div>}</div>
             </div>
-          </div>
+            </div>
 
-          {children}
+            {children}
+          </div>
 
           <nav className="app-mobile-nav" aria-label="Mobile workspace navigation">
             <Link className={isRouteActive("/app", pathname) ? "active" : ""} href="/app" aria-label="Open Command Center" onClick={() => setMobileMenuOpen(false)}>

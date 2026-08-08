@@ -163,7 +163,7 @@ function PageHeader({
   breadcrumbs?: ReactNode;
 }) {
   return (
-    <header className="portal-page-header">
+    <header className={`portal-page-header${action ? " has-action" : ""}`}>
       <div>
         {breadcrumbs}
         {scope}
@@ -2255,27 +2255,14 @@ export function VendorDetail({
       </div>
 
       <header className="vendor-detail-header" style={{ position: "relative" }}>
-        <div>
-          <div className="vendor-detail-title">
-            <CompanyLogo entity="vendor" id={vendor.id} name={vendor.name} className="vendor-monogram large" />
-            <div>
-              <h1>{vendor.name}</h1>
-              <p>
-                {vendor.category}
-                {vendor.website && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <a href={vendor.website} target="_blank" rel="noreferrer">
-                      {new URL(vendor.website).hostname.replace(/^www\./, "")}
-                      <ExternalLink size={12} />
-                    </a>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
+        <div className="vendor-detail-status-group">
           <Status value={vendor.relationshipStatus} />
+          {vendor.website && (
+            <a href={vendor.website} target="_blank" rel="noreferrer">
+              {new URL(vendor.website).hostname.replace(/^www\./, "")}
+              <ExternalLink size={12} />
+            </a>
+          )}
         </div>
         <div className="vendor-detail-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {canWrite && (

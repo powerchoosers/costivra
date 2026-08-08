@@ -1,5 +1,45 @@
 # Costivra Status
 
+## August 7, 2026 — Application shell redesign, Chunk 3B complete
+
+- **Detail compatibility**: Aligned customer detail-route sticky regions with the in-canvas header. Record tabs, evidence/source areas, review bulk controls, and side rails now clear the canvas header instead of using the removed full-width top-bar offsets.
+- **Back navigation**: Repositioned the floating return control to the customer canvas rather than the former 72px rail; mobile retains its compact safe-area position.
+- **Evidence and overlays**: Kept record evidence, confidence, assumptions, actions, and navigation behavior unchanged. The real vendor contract sheet continues to render above the canvas through the existing portal layer.
+- **Validation**: Browser checks passed on a real vendor route at 1280×800 and 390×844. The detail, summary, back control, and canvas stayed contained; opening the existing Add contract sheet produced a full overlay with no console errors or horizontal overflow.
+- **Next**: Chunk 4 — apply the same persistent-sidebar and single-canvas structure to `/manage`, while preserving its denser workflow and assistant rail.
+
+## August 7, 2026 — Application shell redesign, Chunk 3A complete
+
+- **Customer page composition**: Made the work canvas the clear page-level surface. Overview metrics, panels, and list-route cards now use restrained borders, 18px corners, and no heavy shadows or hover lift.
+- **Page rhythm**: Standardized route-header spacing and content padding inside the canvas without changing titles, descriptions, evidence, amounts, or route-specific actions.
+- **List workspace compatibility**: Recalculated customer table pages against the in-canvas header. Desktop vendor directory pages now fill the available canvas area and preserve local table scrolling; mobile returns to normal document scrolling.
+- **Validation**: Browser checks passed for `/app` and `/app/vendors` at 1280×800 and `/app/vendors` at 390×844: no horizontal overflow, correct local/normal scrolling, and no console errors. `git diff --check` PASS. `npx eslint src/components/app-shell.tsx` PASS. The repository-wide `npm run lint` exceeded the two-minute local command limit without output; it remains to be rerun in the final release gate.
+- **Next**: Chunk 3B — verify and refine customer detail routes, sticky sections, and overlay behavior inside the canvas before beginning the Manage shell.
+
+## August 7, 2026 — Application shell redesign, Chunk 2 complete
+
+- **Sidebar hierarchy**: Moved the existing workspace summary and global record search into the customer sidebar. The desktop order is now Brand → Workspace → Search → Navigation → Settings → User.
+- **Quiet canvas header**: Removed workspace identity and search from the canvas header. It now contains only the existing create/upload control, Ask Costivra, and notifications; route titles remain the responsibility of the existing route-level header.
+- **Preserved behavior**: Organization summary, search results, `Ctrl/Cmd + K`, create actions, notifications, profile menu, Escape handling, and result navigation retain their existing behavior. The organization visual treatment now uses named CSS classes instead of inline style objects.
+- **Mobile compatibility**: Restored workspace access and global search in the compact header below 760px, avoiding a desktop-only sidebar dependency.
+- **Validation**: `npm run typecheck` PASS; focused navigation coverage PASS (6 tests); `git diff --check` PASS. Local browser checks passed at 1280×800 and 390×844: menus were not clipped, keyboard search focused the visible field, no horizontal overflow, and no console errors.
+- **Next**: Chunk 3A — normalize page-header spacing and remove route-level outer surfaces that compete with the new customer canvas, beginning with overview and list routes.
+
+## August 7, 2026 — Application shell redesign, Chunk 1 complete
+
+- **Customer desktop frame**: Replaced the hover-expanded 72px navigation rail with a stable 256px desktop sidebar. All navigation and group labels remain visible without pointer hover or focus changing the page geometry.
+- **Single workspace canvas**: Added `.app-work-canvas` inside `AppShell`; it contains the existing customer top bar and every normal route page. The sidebar is now the only standard application surface outside the canvas.
+- **Scope restraint**: Kept organization switching, global search, create/upload actions, notifications, profile controls, route headings, page content, data loading, and authorization behavior unchanged. Mobile remains full-width below 760px; the explicit tablet strategy is reserved for the responsive chunk.
+- **Validation**: `npm run typecheck` PASS; focused navigation coverage PASS (6 tests); `git diff --check` PASS. Local authenticated browser checks passed at 1440×900, 1280×800, 1024×768, and 390×844 with no horizontal overflow. `/app/vendors` and a real vendor detail route remained inside the canvas; no browser console errors were reported.
+- **Next**: Chunk 2 — move the existing workspace selector and search into the sidebar, then simplify the in-canvas header without duplicating route titles.
+
+## August 7, 2026 — Mobile scan intake composition
+
+- **Mobile layout**: Removed the desktop-only two-column override from the scan page so the intake story and secure workspace panel stack into a readable, intentional sequence on phones.
+- **Panel treatment**: Added mobile-safe spacing, type sizing, full-width actions, and a compact header while preserving the desktop two-column composition.
+- **Responsive QA**: Checked 360x800, 390x844, 430x800, and 1280x800; no horizontal overflow or browser console errors.
+- **Quality gate**: Mobile layout coverage added to `tests/e2e/public-smoke.spec.ts`; `npm run typecheck` PASS, `npm run lint` PASS with 1 existing warning in `src/components/navigation-history.tsx`, and `npm run build` PASS. The focused Playwright run was not started because the existing local Next server already owns the repository's dev lock; equivalent browser QA passed at all four target widths with no console errors or horizontal overflow.
+
 ## August 7, 2026 — Desktop workflow rail smoothness
 
 - **Desktop motion**: Kept the existing scroll-linked progress calculation, but changed the horizontal rail from animated width to a compositor-friendly transform so it follows desktop scrolling without transition lag.
@@ -1666,3 +1706,81 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added `docs/testing/id-pages.md`, mapping vendor, account, and contact record-page acceptance areas to unit, route, integration, live, Playwright, and manual browser evidence. It also documents the required disposable-record screenshot policy and the conditions for the final release verdict.
 - Quality checks passed in the current workspace: `npm test` (442 passed, 6 skipped), `npm run test:integration` (8 passed, 6 skipped), and `npm run eval:invoices -- --manifest tests/fixtures/invoices/golden-manifest.smoke.json --predictions tests/fixtures/invoices/golden-predictions.smoke.json` (all smoke metrics 100%).
 - Current verdict: `INTERNAL_TESTING_ONLY`. The repository is a mixed, unmerged worktree; authenticated record-page screenshot capture, live Supabase advisor checks, production smoke journeys, exact-main CI, and deployment verification must precede `ID_PAGES_COMPLETE`.
+# 2026-08-07 — Application shell redesign, Chunk 0 complete
+
+- Established and documented the before-state for the requested `/app` and
+  `/manage` shell redesign in `docs/qa/app-manage-shell-chunk-0-baseline.md`.
+- Confirmed the customer application currently renders a 72px hover-expanded
+  rail over document-scrolling content, while Manage has a fixed sidebar plus
+  a separate 72px top bar and page wrapper. Neither shell has the requested
+  single rounded work canvas.
+- Mapped the effective late customer CSS rules, Manage height calculations,
+  document/local scroll owners, and overlay stacking dependencies.
+- Recorded the desktop-shell architecture decision in `DECISIONS.md`. No
+  production UI, tenant data, authorization behavior, or scan-page work was
+  changed in this chunk.
+- Next: Chunk 1 — make the customer sidebar persistent at supported desktop
+  widths and add the one named work-canvas wrapper around the existing header
+  and route content.
+
+# 2026-08-07 — Application shell texture correction
+
+- Moved the customer shell texture to the shared `.app-body` background so it
+  remains visible continuously behind the sidebar and working area.
+- Removed the opaque sidebar, main-area, and work-canvas fills and canvas shadow;
+  individual controls and content panels remain surfaced with their own white
+  backgrounds.
+- Validation passed: `npm run typecheck` and `git diff --check`.
+
+# 2026-08-07 — Customer sidebar rail behavior
+
+- Moved the customer sidebar navigation into its own scroll region while
+  keeping the utility and profile controls fixed at the bottom.
+- Lowered the Costivra mark to align with the work-header controls and softened
+  collapsed-rail separators to match the light textured surface.
+- Validation passed: `npm run typecheck` and `git diff --check`.
+
+# 2026-08-07 — White customer work surface
+
+- Restored a solid white background across the customer work canvas, fixed
+  header, and scrollable content area.
+- Kept the customer sidebar transparent so the shared texture remains visible
+  there.
+- Validation passed: `npm run typecheck` and `git diff --check`.
+- The browser connection timed out during the final visual reload, so no new
+  screenshot was captured for this CSS-only adjustment.
+
+# 2026-08-07 — Removed customer sidebar divider
+
+- Removed the hard vertical border between the customer sidebar and the work
+  area so the shared texture reads continuously across the shell.
+- Validation passed: `npm run typecheck` and `git diff --check`.
+- A fresh browser reload timed out during this CSS-only follow-up, so the
+  source rule was verified but a new visual screenshot was not captured here.
+
+# 2026-08-07 — Application shared page header
+
+- Moved customer route identity into the shared top bar: manual sidebar
+  expand/collapse control, divider, route title, short context, and real vendor
+  logo on vendor detail routes.
+- Removed the repeated large page title block from customer page bodies while
+  preserving page-specific actions, breadcrumbs, tabs, and data workflows.
+- Browser-checked Command Center, Bills & Spend, vendor detail, collapsed and
+  expanded sidebar states, and the mobile Command Center header. Mobile has no
+  horizontal overflow.
+- Validation passed: `npm run typecheck`, focused ESLint for
+  `app-shell.tsx` and `portal-pages.tsx`, and `git diff --check`.
+- `/manage` was intentionally not edited in this correction.
+
+# 2026-08-07 — Application shell internal scrolling
+
+- Made the customer application a fixed-height viewport frame. The rounded
+  work canvas and top action bar stay in place while route content scrolls
+  inside `.app-content`.
+- Removed document-level scrolling from the customer shell and applied the
+  same scroll ownership to overview, table, and detail routes.
+- Browser-checked `/app`, `/app/vendors`, `/app/bills`, and a real vendor detail
+  route. The detail route reports an internal content scroll height of 1,356px
+  inside a 622px visible content area, while the document remains at viewport
+  height.
+- Validation passed: `npm run typecheck` and `git diff --check`.

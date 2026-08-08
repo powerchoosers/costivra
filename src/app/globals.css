@@ -4704,11 +4704,10 @@ html { scroll-padding-top: 92px; }
   .page-breadcrumbs { margin-bottom: 8px; }
   .page-scope-indicator { margin-bottom: 9px; }
 }
-/* Customer rail overlay: quiet off-white navigation with restrained blue states. */
+/* Customer desktop frame: persistent navigation plus one contained work canvas. */
 .app-shell { display: block; min-height: 100vh; }
-.app-sidebar { position: fixed; z-index: 110; inset: 0 auto 0 0; width: 238px; height: 100vh; overflow: visible; border-right: 1px solid #dde3eb; color: #263244; background: #f7f8fa; box-shadow: 12px 0 30px rgba(23,34,52,.08); transition: width 240ms cubic-bezier(.23,1,.32,1), box-shadow 220ms ease; }
+.app-sidebar { position: fixed; z-index: 110; inset: 0 auto 0 0; width: 256px; height: 100vh; overflow: visible; border-right: 1px solid #dde3eb; color: #263244; background: #f7f8fa; box-shadow: 1px 0 0 rgba(23,34,52,.04); }
 .app-sidebar::before,.app-sidebar::after { display: none; }
-.app-shell.sidebar-collapsed .app-sidebar { width: 72px; box-shadow: 1px 0 0 rgba(23,34,52,.03); }
 .app-sidebar .sidebar-brand-row { border-bottom-color: #e1e6ed; }
 .app-sidebar .logo,.app-sidebar .logo-light { color: #182231; }
 .app-sidebar .logo-light .logo-mark { border: 1px solid #dfe5ed; box-shadow: 0 2px 7px rgba(23,34,52,.08); }
@@ -4765,13 +4764,85 @@ html { scroll-padding-top: 92px; }
 .manage-sidebar.is-collapsed .manage-nav-group { gap: 2px; }
 .manage-sidebar.is-collapsed .manage-nav-group + .manage-nav-group { padding-top: 10px; }
 .manage-sidebar.is-collapsed nav a { height: 40px; }
-.app-main { width: auto; min-height: 100vh; margin-left: 72px; transition: margin-left 240ms cubic-bezier(.23,1,.32,1); }
-.app-shell.sidebar-collapsed .app-nav-group + .app-nav-group { border-top-color: #e1e6ed; }
-.app-shell.sidebar-collapsed .sidebar-brand-row { justify-content: center; padding-right: 0; padding-left: 0; }
-.app-shell.sidebar-collapsed .sidebar-brand-row .logo { transform: translateX(4px); }
-@media (prefers-reduced-motion: reduce) { .app-sidebar,.manage-sidebar { transition: none; } }
+.app-main { min-width: 0; min-height: 100vh; margin-left: 256px; padding: 12px 12px 12px 0; }
+.app-work-canvas { display: flex; min-height: calc(100dvh - 24px); flex-direction: column; overflow: visible; border: 1px solid #e1e6ed; border-radius: 26px; background: #fff; box-shadow: 0 12px 30px rgba(23,34,52,.045); }
+.app-work-canvas > .app-topbar { position: sticky; top: 12px; z-index: 40; flex: 0 0 auto; min-height: 72px; border-radius: 26px 26px 0 0; background: rgba(255,255,255,.94); }
+.app-work-canvas > .app-content { min-width: 0; }
+.app-sidebar-workspace { position: relative; padding: 14px 0 8px; }
+.app-sidebar .app-organization { position: relative; }
+.app-sidebar .org-switcher { display: grid; width: 100%; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 10px; border: 1px solid #e0e6ed; border-radius: 13px; color: #1d2939; background: #fff; padding: 9px 10px; font: 650 .78rem/1.2 Inter,ui-sans-serif,system-ui,sans-serif; text-align: left; cursor: pointer; }
+.app-sidebar .org-switcher:hover,.app-sidebar .org-switcher:focus-visible { border-color: #bfd0ed; background: #f7faff; outline: 0; }
+.app-sidebar .org-switcher > svg { color: #718096; }
+.app-sidebar .app-organization-logo { width: 28px; height: 28px; border-radius: 8px; }
+.app-organization-copy { display: grid; min-width: 0; gap: 3px; }
+.app-organization-copy strong { overflow: hidden; color: #1d2939; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.app-organization-copy small { overflow: hidden; color: #7a8799; font-size: .64rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.app-organization-menu { position: absolute; z-index: 150; top: calc(100% + 8px); left: 0; width: 292px; border: 1px solid #dce3eb; border-radius: 16px; color: #273244; background: #fff; padding: 12px; box-shadow: 0 20px 48px rgba(23,34,52,.16); animation: app-organization-menu-in 180ms cubic-bezier(.23,1,.32,1) both; }
+.app-organization-menu-heading { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e5e9ef; padding: 2px 2px 12px; }
+.app-organization-menu-heading > span { display: grid; gap: 3px; min-width: 0; }
+.app-organization-menu-heading strong { overflow: hidden; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.app-organization-menu-heading small { color: #758196; font-size: .67rem; }
+.app-organization-menu-logo { width: 34px; height: 34px; border-radius: 10px; }
+.app-organization-menu-stat { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 2px 0; color: #6f7c90; font-size: .69rem; }
+.app-organization-menu-stat strong { color: #233d77; font-size: .72rem; font-variant-numeric: tabular-nums; }
+.app-sidebar-search { position: relative; z-index: 120; padding: 0 0 12px; }
+.app-sidebar .global-search.manage-search { display: flex; width: 100%; height: 40px; padding: 0 11px; border: 1px solid #e0e6ed; border-radius: 12px; color: #77859a; background: #fff; box-shadow: none; }
+.app-sidebar .global-search.manage-search:focus-within { border-color: #7da4ef; box-shadow: 0 0 0 3px rgba(37,88,175,.1); }
+.app-sidebar .global-search.manage-search input { min-width: 0; color: #1d2939; font-size: .75rem; }
+.app-sidebar .app-global-results { left: 0; right: auto; width: min(520px, calc(100vw - 300px)); }
+.app-work-canvas > .app-topbar { display: flex; justify-content: flex-end; gap: 10px; padding: 0 28px; }
+.app-work-canvas > .app-topbar .app-topbar-center { flex: 0 0 auto; }
+.app-work-canvas > .app-topbar .app-top-actions { margin-left: 0; }
+.app-mobile-utilities { display: none; }
+.app-work-canvas > .app-content { width: 100%; max-width: none; margin: 0; padding: 28px 32px 40px; }
+.app-work-canvas > .app-content-table-page { height: calc(100dvh - 98px); min-height: 0; padding-bottom: 24px; }
+.app-work-canvas .portal-page-header { gap: 20px; margin-bottom: 24px; }
+.app-work-canvas .portal-page-header h1 { font-size: clamp(1.85rem,2.5vw,2.55rem); }
+.app-work-canvas .portal-page-header p { max-width: 620px; font-size: .9rem; }
+.app-work-canvas .portal-metrics { gap: 12px; margin-bottom: 16px; }
+.app-work-canvas .portal-metric { min-height: 140px; border-color: #e1e6ed; border-radius: 18px; padding: 18px; box-shadow: none; }
+.app-work-canvas .portal-metric strong { font-size: 1.8rem; }
+.app-work-canvas .portal-metric-icon { width: 32px; height: 32px; border-radius: 10px; }
+.app-work-canvas .portal-panel { border-color: #e1e6ed; border-radius: 18px; box-shadow: none; }
+.app-work-canvas .portal-panel-heading { min-height: 70px; padding: 14px 18px; }
+.app-work-canvas .portal-card-grid { gap: 12px; }
+.app-work-canvas .portal-card { min-height: 0; border-color: #e1e6ed; border-radius: 18px; padding: 18px; box-shadow: none; }
+.app-work-canvas .portal-panel:hover,.app-work-canvas .portal-metric:hover { transform: none; box-shadow: none; }
+.app-work-canvas .record-detail { width: min(1240px,100%); padding-top: 6px; }
+.app-work-canvas .record-detail-header { border-color: #e1e6ed; background: #fff; }
+.app-work-canvas .record-tabs { top: 84px; border-color: #e1e6ed; background: rgba(255,255,255,.96); }
+.app-work-canvas .record-detail-layout > aside { top: 104px; }
+.app-work-canvas .record-section,.app-work-canvas .record-side-section,.app-work-canvas .record-empty { border-color: #e1e6ed; box-shadow: none; }
+.app-work-canvas .invoice-detail-source { top: 96px; }
+.app-work-canvas .invoice-review-bulk { top: 96px; }
+.app-body .global-back-control__floating { top: 96px; left: 288px; }
+@keyframes app-organization-menu-in { from { opacity: 0; transform: translateY(-6px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .manage-sidebar { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .app-create-menu { transition: none; } }
-@media (max-width: 760px) { .app-sidebar { display: none; } .app-main { margin-left: 0; } }
+@media (max-width: 760px) { .app-sidebar { display: none; } .app-main { margin-left: 0; padding: 0; } .app-work-canvas { min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; } .app-work-canvas > .app-topbar { top: 0; border-radius: 0; } .app-work-canvas > .app-content { padding: 24px 16px 96px; } .app-work-canvas > .app-content-table-page { height: auto; min-height: calc(100dvh - 64px); padding-bottom: 96px; } .app-work-canvas .portal-page-header { margin-bottom: 22px; } .app-work-canvas .portal-metric,.app-work-canvas .portal-panel,.app-work-canvas .portal-card { border-radius: 16px; } .app-work-canvas .record-tabs { top: 64px; } .app-work-canvas .record-detail-layout > aside { position: static; } .app-body .global-back-control__floating { top: calc(72px + env(safe-area-inset-top)); left: 12px; } .app-mobile-utilities { display: flex; min-width: 0; flex: 1; align-items: center; gap: 7px; } .app-mobile-organization { position: relative; min-width: 0; flex: 0 1 auto; } .app-mobile-organization .org-switcher { display: flex; min-width: 0; max-width: 132px; align-items: center; gap: 7px; border: 1px solid #dce3eb; border-radius: 10px; color: #263244; background: #fff; padding: 6px 8px; font: 650 .72rem/1.2 Inter,ui-sans-serif,system-ui,sans-serif; cursor: pointer; } .app-mobile-organization .org-switcher span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .app-mobile-organization .app-organization-logo { width: 22px; height: 22px; border-radius: 7px; } .app-mobile-organization .app-organization-menu { position: fixed; z-index: 150; top: 70px; left: 10px; width: min(292px,calc(100vw - 20px)); } .app-mobile-utility-search { position: relative; min-width: 0; flex: 1; } .app-mobile-utility-search .global-search { display: flex; width: 100%; height: 36px; padding: 0 9px; border: 1px solid #dce3eb; border-radius: 10px; background: #fff; } .app-mobile-utility-search .global-search input { display: block; min-width: 0; font-size: .72rem; } .app-mobile-utility-search .manage-kbd { display: none; } .app-mobile-utility-search .app-global-results { position: fixed; z-index: 160; top: 68px; right: 10px; left: 10px; width: auto; max-height: calc(100dvh - 84px); } }
+
+/* Keep the product texture on the shared app background. The sidebar and work
+   canvas provide structure, but they should not mask the texture between the
+   real white controls and content surfaces. */
+.app-body {
+  background-color: #f7f8fa;
+  background-image: radial-gradient(rgba(16,24,40,.025) 0.65px, transparent 0.65px), linear-gradient(180deg, rgba(255,255,255,.5), transparent 40%);
+  background-size: 6px 6px, 100% 100%;
+}
+.app-sidebar {
+  background: transparent;
+  box-shadow: none;
+}
+.app-main {
+  background: transparent;
+}
+.app-work-canvas {
+  background: transparent;
+  box-shadow: none;
+}
+.app-work-canvas > .app-topbar {
+  background: transparent;
+}
 .portal-page-header-action { flex: 0 0 auto; align-self: flex-end; }
 .vendor-filter-control { position: relative; display: flex; align-items: center; }
 .vendor-filter-trigger { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid #dbe2eb; border-radius: 11px; color: #5f6e82; background: #fff; box-shadow: 0 4px 14px rgba(23,34,52,.045); cursor: pointer; transition: color 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease; }
@@ -4840,6 +4911,61 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .app-content-table-page .vendor-table-footer {
     margin-top: auto;
   }
+}
+
+/* Scan page: make the intake path a deliberate stack on phones instead of
+   squeezing the hero and account panel into two unreadable columns. */
+.scan-layout {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+  align-items: start;
+  gap: clamp(28px, 6vw, 84px);
+}
+.scan-layout .content-hero { margin-bottom: 0; }
+.scan-panel .panel-header {
+  min-height: 72px;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 18px 22px 16px;
+}
+.scan-panel .panel-header h2 { font-size: 1.05rem; }
+.scan-panel-body { padding: 36px; }
+.scan-panel-body > h2 { max-width: 27ch; line-height: 1.08; }
+
+@media (max-width: 760px) {
+  .scan-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .scan-layout .content-hero h1 {
+    max-width: 10ch;
+    font-size: clamp(3rem, 14vw, 4.6rem);
+    line-height: .92;
+  }
+  .scan-layout .content-hero > p {
+    max-width: 34rem;
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  .scan-assurances { gap: 14px; margin-top: 30px; }
+  .scan-assurance { font-size: .9rem; }
+  .scan-panel { border-radius: 20px; }
+  .scan-panel .panel-header {
+    min-height: 0;
+    gap: 14px;
+    padding: 18px 18px 16px;
+  }
+  .scan-panel .panel-header h2 { font-size: 1rem; }
+  .scan-panel .panel-header .eyebrow {
+    max-width: 10rem;
+    font-size: .58rem;
+    line-height: 1.25;
+    text-align: right;
+  }
+  .scan-panel-body { padding: 24px 20px 22px; }
+  .scan-panel-body > svg { margin-bottom: 14px !important; }
+  .scan-panel-body > h2 { font-size: 1.45rem; line-height: 1.15; }
+  .scan-panel-body > p { font-size: .92rem; line-height: 1.6 !important; }
+  .scan-panel-body .button { min-height: 48px; width: 100%; }
 }
 
 .bills-tab-toolbar { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
@@ -5111,4 +5237,371 @@ body.modal-open .app-topbar { filter: blur(7px); }
     box-shadow: none;
     transform: none;
   }
+}
+
+/* Final app-shell layering: texture belongs to the shared background, not to
+   separate opaque sidebar and canvas blocks. */
+.app-body {
+  background-color: #f7f8fa !important;
+  background-image: radial-gradient(rgba(16,24,40,.025) 0.65px, transparent 0.65px), linear-gradient(180deg, rgba(255,255,255,.5), transparent 40%) !important;
+  background-size: 6px 6px, 100% 100% !important;
+}
+.app-sidebar {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.app-main {
+  background: transparent !important;
+}
+.app-work-canvas {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.app-work-canvas > .app-topbar {
+  background: transparent !important;
+}
+
+/* The app is a fixed frame. Route content owns the scroll position so the
+   outer viewport, rounded work surface, and action bar stay in place. */
+.app-body {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-shell {
+  height: 100dvh;
+  min-height: 0;
+}
+.app-main {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.app-work-canvas {
+  height: calc(100dvh - 24px);
+  min-height: 0;
+  overflow: hidden;
+}
+.app-work-canvas > .app-topbar {
+  position: relative;
+  top: auto;
+  flex: 0 0 72px;
+  min-height: 72px;
+}
+.app-work-canvas > .app-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.app-work-canvas > .app-content-table-page {
+  height: auto;
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .app-work-canvas {
+    height: 100dvh;
+  }
+  .app-work-canvas > .app-topbar {
+    flex-basis: 64px;
+    min-height: 64px;
+  }
+  .app-work-canvas > .app-content {
+    min-height: 0;
+  }
+  .app-work-canvas > .app-content-table-page {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/* Shared page header: the shell owns route identity; page bodies keep only
+   their data, tabs, and page-specific actions. */
+.app-work-canvas > .app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.app-topbar-leading {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+}
+.app-topbar-expand-toggle {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 9px;
+  color: #53647d;
+  background: rgba(255,255,255,.72);
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.app-topbar-expand-toggle:hover,
+.app-topbar-expand-toggle:focus-visible {
+  border-color: #a9bfe7;
+  color: #1f4fd6;
+  background: #fff;
+  outline: 0;
+}
+.app-topbar-divider {
+  width: 1px;
+  height: 28px;
+  flex: 0 0 1px;
+  background: #dfe5ee;
+}
+.app-topbar-record-logo {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 9px;
+}
+.app-topbar-title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.app-topbar-title strong {
+  overflow: hidden;
+  color: #172033;
+  font: 700 .94rem/1.15 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-topbar-title small {
+  overflow: hidden;
+  max-width: min(520px, 42vw);
+  color: #718096;
+  font: 500 .67rem/1.2 Inter, ui-sans-serif, system-ui, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-work-canvas > .app-topbar .app-topbar-center {
+  flex: 0 0 auto;
+}
+.app-work-canvas > .app-topbar .app-top-actions {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+.app-work-canvas > .app-content > .portal-page-header {
+  min-height: 0;
+  margin: 0 0 12px;
+}
+.app-work-canvas > .app-content > .portal-page-header:not(.has-action) {
+  display: none;
+}
+.app-work-canvas > .app-content > .portal-page-header.has-action {
+  justify-content: flex-end;
+}
+.app-work-canvas > .app-content > .portal-page-header.has-action > div:first-child {
+  display: none;
+}
+.vendor-detail-status-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.vendor-detail-header > div:first-child > .portal-status {
+  margin: 0;
+}
+.vendor-detail-status-group a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #536b9e;
+  font-size: .72rem;
+}
+
+/* The header toggle is manual: desktop labels collapse into the compact rail,
+   but the rail never expands itself on hover. */
+.app-shell.sidebar-collapsed .app-sidebar {
+  width: 76px;
+}
+.app-shell.sidebar-collapsed .app-main {
+  margin-left: 76px;
+}
+.app-shell.sidebar-collapsed .app-sidebar-workspace,
+.app-shell.sidebar-collapsed .app-sidebar-search,
+.app-shell.sidebar-collapsed .app-operator-copy {
+  display: none;
+}
+.app-shell.sidebar-collapsed .sidebar-brand-row {
+  justify-content: center;
+}
+.app-shell.sidebar-collapsed .app-sidebar .logo span {
+  display: none;
+}
+.app-shell.sidebar-collapsed .app-sidebar .logo {
+  justify-content: center;
+}
+.app-shell.sidebar-collapsed .app-nav a,
+.app-shell.sidebar-collapsed .app-sidebar-utility a {
+  justify-content: center;
+  gap: 0;
+  padding-right: 0;
+  padding-left: 0;
+}
+.app-shell.sidebar-collapsed .app-nav .nav-label,
+.app-shell.sidebar-collapsed .app-sidebar-utility .nav-label {
+  display: none;
+}
+.app-shell.sidebar-collapsed .app-operator {
+  justify-content: center;
+  padding: 6px;
+}
+
+@media (max-width: 760px) {
+  .app-mobile-utilities {
+    display: none;
+  }
+  .app-topbar-leading {
+    flex: 1 1 auto;
+    gap: 8px;
+  }
+  .app-topbar-expand-toggle,
+  .app-topbar-divider,
+  .app-topbar-record-logo {
+    display: none;
+  }
+  .app-topbar-title small {
+    display: none;
+  }
+  .app-topbar-title strong {
+    max-width: 150px;
+    font-size: .78rem;
+  }
+  .app-work-canvas > .app-content > .portal-page-header.has-action {
+    margin-bottom: 8px;
+  }
+}
+
+/* The texture provides the transition between the persistent sidebar and the
+   work canvas; a hard vertical rule is unnecessary here. */
+.app-sidebar {
+  border-right: 0 !important;
+}
+
+/* The sidebar stays transparent; the application work surface is the white
+   container that holds the fixed header and scrollable page content. */
+.app-work-canvas,
+.app-work-canvas > .app-topbar,
+.app-work-canvas > .app-content {
+  background: #fff !important;
+}
+
+/* Keep the brand aligned with the shared work header. */
+.app-sidebar .sidebar-brand-row {
+  transform: translateY(8px);
+}
+
+/* The navigation is the only scrolling region in the persistent rail. The
+   utility/profile area remains in view at the bottom. */
+.app-sidebar {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+.app-sidebar .app-nav {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(116,131,153,.45) transparent;
+}
+.app-sidebar .app-nav::-webkit-scrollbar {
+  width: 5px;
+}
+.app-sidebar .app-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-sidebar .app-nav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(116,131,153,.45);
+}
+.app-sidebar .app-sidebar-foot {
+  flex: 0 0 auto;
+  margin-top: auto;
+}
+
+/* Keep collapsed separators quiet on the light textured rail. */
+.app-shell.sidebar-collapsed .app-nav-group + .app-nav-group,
+.app-shell.sidebar-collapsed .app-sidebar-utility {
+  border-color: rgba(126,143,166,.24) !important;
+}
+
+/* Give the collapsed rail a wider, invisible hover stage while keeping the
+   actual icon column narrow. This lets the label and glow clear the rail edge. */
+.app-sidebar .app-nav-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: visible;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(116,131,153,.45) transparent;
+}
+.app-sidebar .app-nav-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.app-sidebar .app-nav-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-sidebar .app-nav-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(116,131,153,.45);
+}
+.app-sidebar .app-nav {
+  min-height: 0;
+  overflow: visible;
+}
+.app-shell.sidebar-collapsed .app-nav-scroll {
+  width: 230px;
+}
+.app-shell.sidebar-collapsed .app-nav {
+  width: 72px;
+}
+.app-shell.sidebar-collapsed .app-nav a {
+  position: relative;
+  z-index: 1;
+}
+.app-shell.sidebar-collapsed .app-nav a:hover,
+.app-shell.sidebar-collapsed .app-nav a:focus-visible {
+  z-index: 3;
+  box-shadow: 0 0 0 3px rgba(43,104,208,.12), 0 8px 20px rgba(43,104,208,.14);
+}
+.app-shell.sidebar-collapsed .app-nav a::after {
+  top: 50%;
+  left: calc(100% + 10px);
+  display: block !important;
+  border: 1px solid #d8e1ef;
+  border-radius: 10px;
+  color: #1e3f77;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(23,34,52,.14), 0 0 0 3px rgba(43,104,208,.08);
+  content: attr(data-nav-label);
+  opacity: 0;
+  padding: 8px 11px;
+  pointer-events: none;
+  transform: translate(-8px,-50%);
+  transition: opacity 150ms ease, transform 190ms cubic-bezier(.23,1,.32,1);
+  white-space: nowrap;
+}
+.app-shell.sidebar-collapsed .app-nav a:hover::after,
+.app-shell.sidebar-collapsed .app-nav a:focus-visible::after {
+  opacity: 1;
+  transform: translate(0,-50%);
+}
+
+.app-sidebar .sidebar-brand-row {
+  border-bottom: 0 !important;
 }

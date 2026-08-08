@@ -845,3 +845,69 @@ Render each message in an iframe using `srcDoc`, a restrictive Content Security 
 ### Consequences
 
 Operators can read real HTML emails, including conventional table-based designs, while normal tracking pixels are not contacted on open. The iframe is intentionally scrollable rather than dynamically measuring its document height, avoiding a broader same-origin interaction surface and keeping long emails usable.
+# 2026-08-07 — Desktop application shells use a persistent sidebar and one work canvas
+
+## Context
+
+Both authenticated Costivra areas evolved into a narrow hover-expanded rail,
+a separate top bar, and a route surface directly on the application
+background. That makes navigation unstable and leaves the page composition
+less calm than the intended finance-product experience.
+
+## Decision
+
+At supported desktop widths, `/app` and `/manage` will use a persistent light
+sidebar and one rounded white work canvas. The sidebar is the only normal
+surface outside that canvas. The existing header controls and all normal route
+content live inside the canvas. Drawers, dialogs, menus, toasts, and assistant
+surfaces remain overlays above it.
+
+The customer and Manage shells share this structural rule but keep their
+separate components and density: Manage stays denser for internal operations.
+At compact widths navigation remains an explicit rail or drawer; hover is not
+required for access.
+
+## Alternatives considered
+
+- Keep the hover-expanded rails: rejected because labels are hidden by
+  default, keyboard navigation changes the page geometry, and the content
+  still sits outside a stable work surface.
+- Build one new generic shell component for both applications immediately:
+  rejected because the existing customer and Manage workflows have different
+  headers, assistant behavior, and viewport-dependent workspaces. A shared
+  visual contract with focused per-shell changes is safer.
+- Add a rounded card around each route: rejected because it would create
+  nested page containers and fail the requirement that the whole normal
+  workspace is inside one canvas.
+
+## Consequences
+
+- CSS height calculations tied to the current 72px or 64px top bars must be
+  revisited route by route.
+- Search, create, profile, notification, dialog, composer, and assistant
+  overlays must be checked for clipping and stacking order.
+- The implementation proceeds in customer-first chunks before the denser
+  Manage shell is changed.
+# 2026-08-07 — Customer shell owns route identity
+
+## Context
+
+The customer application repeated large route titles inside each page body,
+while the shared top bar only held global actions. That consumed the first
+viewport and made `/app`, `/app/bills`, and detail pages feel like separate
+layouts.
+
+## Decision
+
+The shared customer top bar now owns the current route title and short context
+line. It also provides the manual sidebar expand/collapse control separated by
+a divider. Page bodies retain only data, tabs, breadcrumbs, and route-specific
+actions. Vendor detail identity uses the real vendor logo in the shared header.
+
+## Consequences
+
+- Route identity is consistent across customer pages and detail routes.
+- The main work area starts closer to the user’s data without hiding actions.
+- The sidebar can be manually collapsed into a compact rail; it never expands
+  on hover.
+- Mobile keeps a compact route title and hides the desktop rail control.
