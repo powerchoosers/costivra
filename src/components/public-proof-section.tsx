@@ -1,12 +1,11 @@
-import { ArrowRight, BadgeCheck, Check, ClipboardCheck, FileClock, FileSearch } from "lucide-react";
+import { ArrowRight, Check, FileClock, FileSearch } from "lucide-react";
 import Link from "next/link";
 import { METHODOLOGY_PROOF, publicProofStageLabel, resolvePublicProof, type ApprovedPublicProof, type PublicProof } from "@/lib/public-proof";
 
 const methodologySteps = [
-  { title: "Finding identified", copy: "A source-backed change or risk is separated from the rest of the bill.", icon: FileSearch },
-  { title: "Customer approves the method", copy: "The owner agrees what action and comparison will count before work begins.", icon: ClipboardCheck },
-  { title: "Later evidence arrives", copy: "A later bill, credit, contract, or vendor record supplies the comparison.", icon: FileClock },
-  { title: "Result is confirmed or rejected", copy: "The evidence either supports the result or keeps it unverified.", icon: BadgeCheck },
+  { title: "We spot something to check", copy: "For example, a bill went up, a charge looks duplicated, or a service may no longer be needed.", icon: FileSearch },
+  { title: "You choose what to do", copy: "Review it, ask the vendor a question, or leave it alone. Costivra does not make the decision for you.", icon: Check },
+  { title: "The result is proved later", copy: "A lower bill or vendor credit is what turns a possible saving into a real one.", icon: FileClock },
 ] as const;
 
 export function PublicProofSection({ proof }: { proof?: PublicProof | null }) {
@@ -29,22 +28,28 @@ function MethodologyFallback() {
   return (
     <div className="public-proof-narrative">
       <div className="public-proof-intro">
-        <span className="eyebrow">Value methodology · no approved public case yet</span>
+        <span className="eyebrow">A simple promise</span>
         <h2 id="public-proof-title">{METHODOLOGY_PROOF.title}</h2>
         <p>{METHODOLOGY_PROOF.summary}</p>
-        <Link className="public-proof-link" href="#evidence">See the evidence chain <ArrowRight aria-hidden="true" size={16} /></Link>
+        <Link className="public-proof-link" href="#evidence">See an example from a bill <ArrowRight aria-hidden="true" size={16} /></Link>
       </div>
       <div className="public-proof-status-rail" aria-label="Value status">
         <div className="public-proof-status public-proof-status--potential">
-          <span>Potential</span>
-          <strong>Finding identified</strong>
-          <small>What the source and deterministic calculation suggest.</small>
+          <span>Possible savings</span>
+          <strong>Something looks worth checking.</strong>
+          <small>We show the charge and why it stood out. It is not money saved yet.</small>
         </div>
         <div className="public-proof-status public-proof-status--verified">
-          <span>Verified</span>
-          <strong>Not claimed yet</strong>
-          <small>Requires later evidence and the approved method.</small>
+          <span>Real savings</span>
+          <strong>A lower bill or credit proves it.</strong>
+          <small>Only then do we count it as savings.</small>
         </div>
+      </div>
+      <div className="public-proof-example" aria-label="Example of possible and real savings">
+        <div className="public-proof-example-label">Example</div>
+        <p><strong>Your internet bill goes up by $200 a month.</strong> Costivra points it out and shows the bill.</p>
+        <div className="public-proof-example-outcome"><span>Possible savings</span><strong>The increase is worth questioning.</strong></div>
+        <div className="public-proof-example-outcome public-proof-example-outcome--verified"><span>Real savings</span><strong>Your provider lowers the bill or gives you a credit.</strong></div>
       </div>
       <ol className="public-proof-sequence">
         {methodologySteps.map(({ title, copy, icon: Icon }, index) => (

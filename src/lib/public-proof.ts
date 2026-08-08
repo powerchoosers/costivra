@@ -32,8 +32,8 @@ export type PublicProof = ApprovedPublicProof | MethodologyPublicProof;
 
 export const METHODOLOGY_PROOF: PublicProof = {
   kind: "methodology",
-  title: "Value is not verified until later evidence proves it.",
-  summary: "Costivra keeps potential value separate from confirmed results. A finding becomes verified only after the approved method and a later bill, credit, contract, or vendor record support the outcome.",
+  title: "We only count savings after they happen.",
+  summary: "Costivra shows you charges worth checking. A saving becomes real only when a lower bill, credit, or vendor record proves the result.",
   stage: "potential",
 };
 
