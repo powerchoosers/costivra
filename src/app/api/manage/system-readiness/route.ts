@@ -11,7 +11,9 @@ const privateHeaders = { "Cache-Control": "private, no-store" };
 export async function GET() {
   try {
     const owner = await requireInternalOwner();
-    const readiness = await checkSystemReadiness(owner.db);
+    // Dashboard reads must not consume a billable/provider-limited scanner
+    // request. Explicit probes run through the dedicated ops verifier.
+    const readiness = await checkSystemReadiness(owner.db, { runLiveMalwareProbe: false });
     return NextResponse.json(readiness, {
       headers: privateHeaders,
     });

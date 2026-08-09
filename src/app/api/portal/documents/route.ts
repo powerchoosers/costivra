@@ -38,6 +38,14 @@ export async function POST(request: Request) {
         organizationId,
         payload: { documentName: file.name, sourceRecordId: result.documentId, scanStatus },
       });
+      if ("status" in result && result.status === "needs_review") {
+        await sendLifecycleEmailToWorkspace({
+          db,
+          kind: "review_needed",
+          organizationId,
+          payload: { documentName: file.name, sourceRecordId: `${result.documentId}:review-needed` },
+        });
+      }
     } catch (emailError) {
       console.error("upload lifecycle email failed", emailError);
     }

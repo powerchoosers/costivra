@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { validatePasswordUpdate } from "@/lib/auth/password-policy";
+import { sendLifecycleEmail } from "@/lib/email/lifecycle";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type PasswordPayload = {
   password: string;
@@ -152,6 +154,31 @@ export async function POST(request: NextRequest) {
         "save_failed",
         updateError.message || "We could not save your password. Try again.",
       );
+    }
+
+    // Password activation is the first reliable customer lifecycle boundary.
+    // Send once per user, and never let an email failure block account access.
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const welcomeSentAt = typeof metadata.costivra_welcome_sent_at === "string" ? metadata.costivra_welcome_sent_at : null;
+    if (!welcomeSentAt && user.email && metadata.internal_owner_invite !== true) {
+      try {
+        const db = createServerSupabaseClient();
+        const { data: membership } = await db.from("organization_memberships").select("organization_id").eq("user_id", user.id).limit(1).maybeSingle();
+        if (membership?.organization_id) {
+          const result = await sendLifecycleEmail(db, {
+            kind: "welcome_activation",
+            organizationId: membership.organization_id as string,
+            recipientEmail: user.email,
+            recipientName: typeof metadata.full_name === "string" ? metadata.full_name : undefined,
+            payload: { eventKey: `welcome-activation:${user.id}` },
+          });
+          if (result.deliveryStatus !== "failed") {
+            await supabase.auth.updateUser({ data: { ...metadata, costivra_welcome_sent_at: new Date().toISOString() } });
+          }
+        }
+      } catch (emailError) {
+        console.error("welcome lifecycle email failed", emailError);
+      }
     }
 
     console.info("auth.password_update.completed", {

@@ -3,6 +3,7 @@ import {
   calculateNextExpectedInvoiceDate,
   getDynamicPrimaryAction,
   getMonitoringStateLabel,
+  isValidMonitoringEmailAddress,
 } from "./monitoring";
 
 describe("Vendor Monitoring Domain", () => {
@@ -70,5 +71,17 @@ describe("Vendor Monitoring Domain", () => {
         hasPendingAction: false,
       }).label,
     ).toBe("Review finding");
+  });
+});
+
+describe("monitoring sender validation", () => {
+  it("accepts a normal email address and trims whitespace", () => {
+    expect(isValidMonitoringEmailAddress("  invoices@example.com ")).toBe(true);
+  });
+
+  it("rejects missing or malformed addresses", () => {
+    expect(isValidMonitoringEmailAddress(null)).toBe(false);
+    expect(isValidMonitoringEmailAddress("invoices@example")).toBe(false);
+    expect(isValidMonitoringEmailAddress("invoices example.com")).toBe(false);
   });
 });

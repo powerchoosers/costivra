@@ -31,7 +31,7 @@ describe("GET /api/manage/system-readiness", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     await expect(response.json()).resolves.toEqual(readiness);
-    expect(checkSystemReadiness).toHaveBeenCalledWith(db);
+    expect(checkSystemReadiness).toHaveBeenCalledWith(db, { runLiveMalwareProbe: false });
   });
 
   it("uses the protected API error mapping when owner authorization fails", async () => {

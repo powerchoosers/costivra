@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
-import { getDurableMonitoringConfig, saveDurableMonitoringConfig, MonitoringSourceMethod } from "@/lib/vendors/monitoring";
+import { getDurableMonitoringConfig, isValidMonitoringEmailAddress, saveDurableMonitoringConfig, MonitoringSourceMethod } from "@/lib/vendors/monitoring";
+import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 
 const sourceMethods = new Set<MonitoringSourceMethod>(["email_forwarding", "manual_forwarding", "manual_upload"]);
 
@@ -45,6 +46,12 @@ export async function POST(
     const expectedCadenceDays = Number(body.expectedCadenceDays);
     if (!sourceMethods.has(sourceMethod)) return NextResponse.json({ error: "Choose a valid monitoring method." }, { status: 400 });
     if (!Number.isInteger(expectedCadenceDays) || expectedCadenceDays < 1 || expectedCadenceDays > 366) return NextResponse.json({ error: "Choose an expected billing cadence between 1 and 366 days." }, { status: 400 });
+    if (sourceMethod === "email_forwarding" && !isValidMonitoringEmailAddress(forwardingEmail)) {
+      return NextResponse.json({ error: "Enter the approved forwarding email address that will send the monitoring test." }, { status: 400 });
+    }
+    if (forwardingEmail && !isValidMonitoringEmailAddress(forwardingEmail)) {
+      return NextResponse.json({ error: "Enter a valid approved forwarding email address." }, { status: 400 });
+    }
 
     // Verify vendor relationship belongs to organization
     const { data: relationship, error: relError } = await db
@@ -74,6 +81,24 @@ export async function POST(
       approvedSenderAddress: forwardingEmail,
       expectedCadenceDays,
     });
+
+    if (record.privateIntakeAddress) {
+      const { data: vendor } = await db.from("vendors").select("canonical_name").eq("id", relationship.vendor_id).maybeSingle();
+      try {
+        await sendLifecycleEmailToWorkspace({
+          db,
+          kind: "forwarding_instructions",
+          organizationId,
+          payload: {
+            vendorName: typeof vendor?.canonical_name === "string" ? vendor.canonical_name : undefined,
+            intakeAddress: record.privateIntakeAddress,
+            eventKey: `monitoring-configured:${record.id ?? relationshipId}:${record.privateIntakeAddress}:${record.approvedSenderAddress ?? ""}`,
+          },
+        });
+      } catch (emailError) {
+        console.error("monitoring instructions lifecycle email failed", emailError);
+      }
+    }
 
     return NextResponse.json({
       ok: true,

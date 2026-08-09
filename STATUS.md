@@ -42,7 +42,7 @@
 - **Packet 05:** draft-first Outreach sequence tables, steps, pending enrollments, events, suppressions, origin linkage, RLS restrictions, database contact-tenant validation, server validation, and operator APIs are implemented in migrations and routes. Sequence activation and execution remain disabled by design.
 - **Packet 06:** the existing `/manage/outreach` page now has Tasks, Sequences, and Enrollments tabs. The sequence workspace supports draft creation, timeline steps, safety-control visibility, preview text, schedule/cap editing, and pending enrollment staging without adding a sidebar item or new page.
 - **Validation:** `npm run typecheck` PASS; focused ESLint on the changed Packet 4–6 files PASS; `npm test` PASS (534 passed, 6 skipped); `npm run build` PASS. Full `npm run lint` exceeded the local two-minute command limit without output. `supabase db lint --local --schema public --fail-on error` is currently blocked by the repository's existing Supabase config keys (`experimental.pgdelta` and `config.local_smtp`) being rejected by the installed CLI 2.76.6; no live migration was applied in this slice.
-- **Known follow-up:** Packet 04 still needs real scheduled-delivery proof and report preference controls. Packet 05/06 still need execution workflow, pause/stop actions, and browser verification at desktop/mobile sizes. No production deployment or payment charge was attempted.
+- **Historical follow-up (superseded by the entries below):** Packet 04–06 needed scheduled-delivery proof, preference controls, execution workflow, and pause/stop actions. Those local implementation gaps are now addressed; external provider/database proof and authenticated browser QA remain separate release gates. No production deployment or payment charge was attempted.
 
 ## August 8, 2026 — Packets 1–3 current release verdict
 
@@ -2042,5 +2042,78 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added a test-mode guard: live billing is rejected unless `STRIPE_BILLING_LIVEMODE_ENABLED=1` is explicitly set after the live launch controls are approved.
 - Added the sequence `daily_send_limit` enforcement before automatic sends, with a deterministic next-window deferral and a supporting partial index. A retry with an already accepted provider message advances before the cap check, so the cap cannot strand a completed step.
 - Hardened report schedules so only owners/admins can create or change outbound schedules, and the cron re-checks current workspace membership before every delivery.
+- Wired lifecycle email triggers for password activation, document receipt/review-needed states, monitoring instructions, forwarding-test success, deterministic findings, approval requests, verification-ready outcomes, and overdue monitoring cycles. Added `/api/cron/vendor-monitoring` with an atomic `attention_needed` transition so each missed cycle notifies once, plus `/api/cron/approval-notifications` for assigned approvers.
 - Validation: full `npm run lint` passed with two existing warnings (home-page `<img>` and navigation-history dependency); `npm run typecheck` passed; billing catalog and Stripe webhook tests passed (5/5); full unit suite passed (548 passed, 6 skipped); `npm run build` passed and emitted the billing, Mail Sequence, cron, and webhook routes. Supabase migration lint remains blocked when Docker/Postgres is not running. Authenticated Mail and billing browser QA remains pending because the local browser is currently redirected to `/login`.
 - Release blockers: apply and verify the billing migration, create and test Costivra test-mode Prices and webhook endpoint in Stripe, configure Vercel test-mode secrets, prove checkout → webhook → entitlement → portal lifecycle, and keep the sequence flag disabled until provider proof is complete.
+
+# 2026-08-09 — Packet 04–06 lifecycle hardening pass
+
+- Kept vendor monitoring fail-closed: a forwarding test or recurring bill only advances monitoring after the inbound event is fully processed. Mixed, quarantined, and review-needed messages remain pending for human review.
+- Added explicit forwarding-test result notifications for success, review-required, and failed outcomes, using the same idempotent branded lifecycle email path.
+- Corrected the vendor-monitoring audit write to use the schema's `safe_metadata` field.
+- Validation: `npm test` passed (552 tests passed, 6 skipped); `npm run lint` passed with the two existing warnings; `npm run typecheck` passed; `npm run build` passed; `git diff --check` passed.
+- Remaining proof gates are external/manual: apply the pending Supabase billing migration, create Costivra test Prices and a Stripe webhook endpoint, configure Vercel test-mode secrets, and complete authenticated browser checkout/mail QA.
+
+# 2026-08-09 — Packet 04 verification and report retry correction
+
+- Moved the `verification_ready` lifecycle trigger from comparison attachment to the owner/admin verification route. A `ready_for_review` savings outcome no longer produces verification language; the email is sent only after the workflow RPC returns `verified`.
+- Hardened scheduled report retries: a failed delivery run can be reclaimed on a later cron invocation, while already accepted/sent/delivered recipient side effects are skipped by their stable idempotency keys.
+- Validation after these edits: `npm test` passed (552 passed, 6 skipped), `npm run typecheck` passed, `npm run lint` passed with the two existing warnings, `npm run build` passed, and `git diff --check` passed.
+
+# 2026-08-09 — Lifecycle communication preferences enforced
+
+- Connected the existing workspace communication-preference controls to lifecycle delivery. Finding, review-needed, approval-request, and missed-bill alerts now honor the corresponding owner/admin setting; account-critical and operational messages remain enabled.
+- Added recipient-resolution tests for opt-out behavior, current membership lookup, and duplicate email addresses.
+- Validation: `npm test` passed (554 passed, 6 skipped); `npm run typecheck` passed; full `npm run lint` passed with the two existing warnings; `npm run build` passed; `git diff --check` passed.
+
+# 2026-08-09 — Finding alert evidence gate
+
+- Hardened the deterministic finding lifecycle trigger: source evidence must be linked before `finding_ready` can send. Hidden, manual-note, sample, and deprecated findings remain silent; ordinary deterministic findings are promoted to `evidence_backed` only after evidence is present.
+- Validation: full `npm test` passed (554 passed, 6 skipped); `npm run typecheck` passed; full `npm run lint` passed with the two existing warnings; `npm run build` passed; `git diff --check` passed.
+
+# 2026-08-09 — Billing setup readiness guard
+
+- Billing status now reports non-secret readiness facts for the billing database, Stripe server configuration, and each configured plan Price. Settings disables Checkout until the selected test Price exists and explains the missing setup state.
+- Added route tests for missing billing tables and missing Price IDs.
+- Validation: full `npm test` passed (556 passed, 6 skipped); `npm run typecheck` passed; full `npm run lint` passed with the two existing warnings; `npm run build` passed; `git diff --check` passed.
+
+# 2026-08-09 — Activation checklist truthfulness
+
+- Extracted activation progress into `src/lib/portal/activation.ts` with tests. The checklist now excludes quarantined, rejected, failed, and processing documents; requires an approved invoice or reviewed contract; and does not treat a pending monitoring test as complete.
+- Validation: full `npm test` passed (559 passed, 6 skipped); `npm run typecheck` passed; full `npm run lint` passed with the two existing warnings; `npm run build` passed; `git diff --check` passed.
+
+# 2026-08-09 — Report delivery history surface
+
+- Added tenant-scoped `/api/portal/reports/deliveries` and connected it to the existing Reports tab. Customers can now see recent accepted, delivered, skipped, and failed scheduled runs with safe error text and completion times.
+- No new customer navigation page was added; the history remains in the existing Reports surface.
+- Validation: full `npm test` passed (554 passed, 6 skipped); `npm run typecheck` passed; full `npm run lint` passed with the two existing warnings; `npm run build` passed; `git diff --check` passed.
+
+# 2026-08-09 — Durable onboarding state
+
+- Added migration `20260809061921_packet_10_organization_onboarding.sql` with deny-by-default browser access and service-role-only writes.
+- Added pure onboarding projection rules and tests. Incomplete, quarantined, or blocked work cannot silently become activated.
+- Added tenant-scoped GET/sync endpoints and owner/admin block-resume controls; the existing activation checklist syncs its durable state without adding a new page.
+- Stripe remains read-only and unconfigured in the Costivra Test account: 0 products, 0 prices, 0 customers, 0 subscriptions.
+- Validation: onboarding tests passed (3/3); `npm run typecheck` passed; `npm run lint` passed with the two existing warnings; `git diff --check` passed. Full unit suite and production build should be rerun after this slice.
+
+# 2026-08-09 — Readiness probe side-effect guard
+
+- Private Manage readiness and public status reads no longer run a live malware provider scan. A live probe requires the explicit `runLiveMalwareProbe: true` option used by the operational verification path.
+- Added regression coverage for the explicit probe contract and updated the Manage route test.
+- Targeted validation: system-readiness and Manage readiness tests passed after the change.
+
+# 2026-08-09 — Approved-sender monitoring guard
+
+- Pending vendor-monitoring tests now require an exact normalized sender match; display names are supported, substring/spoof matches are rejected, and missing approval cannot activate monitoring.
+- Added focused sender-authorization tests and reused the guard in inbound reconciliation.
+
+# 2026-08-09 — Monitoring setup validation and clean lint gate
+
+- Email-forwarding monitoring now requires a valid approved sender at both the API and persistence boundaries; manual methods are unaffected.
+- Replaced the public hero preview's raw remote image with the configured Next image path and removed the unnecessary navigation hook dependency.
+- Validation: full `npm test` passed (568 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed with zero warnings; `npm run build` passed; `git diff --check` passed.
+
+# 2026-08-09 — Sequence enrollment consistency hardening
+
+- Added `20260809063214_packet_05_enrollment_consistency.sql` to enforce sequence/contact organization matching, current-step ownership, and active send-capable mailbox state for direct service-role writes.
+- API suppression and authorization checks remain in place; this migration adds the database backstop.

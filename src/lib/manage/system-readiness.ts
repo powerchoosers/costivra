@@ -417,16 +417,17 @@ function overallStatus(services: ReadinessService[]): ReadinessStatus {
 
 export async function checkSystemReadiness(
   db: SupabaseClient,
-  options: { includeOptionalServices?: boolean; includeOperatorServices?: boolean } = {},
+  options: { includeOptionalServices?: boolean; includeOperatorServices?: boolean; runLiveMalwareProbe?: boolean } = {},
 ): Promise<SystemReadiness> {
   const includeOptionalServices = options.includeOptionalServices !== false;
   const includeOperatorServices = options.includeOperatorServices !== false;
+  const runLiveMalwareProbe = options.runLiveMalwareProbe === true;
   const [database, resend, worker, openrouter, malware, retention, apollo] = await Promise.all([
     databaseReadiness(db),
     resendReadiness(),
     workerReadiness(db),
     openRouterReadiness(),
-    malwareReadiness(includeOperatorServices),
+    malwareReadiness(runLiveMalwareProbe),
     includeOperatorServices ? retentionReadiness(db) : Promise.resolve(null),
     includeOptionalServices ? apolloReadiness() : Promise.resolve(null),
   ]);

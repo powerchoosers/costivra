@@ -1,6 +1,7 @@
 import { calculateVerifiedAnnualSavings, evaluateExpenseChange, EXPENSE_CHANGE_RULE_VERSION, SAVINGS_METHOD_VERSION } from "@/lib/domain/value-engine";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { resolveCategoryTrace, withCategoryTrace } from "./category-trace";
+import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
 type Row = Record<string, unknown>;
@@ -71,7 +72,7 @@ export async function evaluateApprovedExpense(input: {
         generated_by: "deterministic_rule",
         last_evaluated_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }, { onConflict: "organization_id,rule_key,source_expense_id" }).select("id").single();
+      }, { onConflict: "organization_id,rule_key,source_expense_id" }).select("id,trust_state,customer_visible").single();
       if (opportunityError) throw opportunityError;
       opportunityId = opportunity.id as string;
 
@@ -85,6 +86,19 @@ export async function evaluateApprovedExpense(input: {
           { onConflict: "opportunity_id,evidence_reference_id" },
         );
         if (linkError) throw linkError;
+
+        // Deterministic, source-linked findings can be promoted to the
+        // evidence-backed trust state. Preserve explicit operator labels and
+        // customer hiding decisions instead of overwriting them.
+        const trustState = typeof opportunity.trust_state === "string" ? opportunity.trust_state : null;
+        if (trustState === "needs_evidence") {
+          const { error: trustError } = await input.db.from("opportunities")
+            .update({ trust_state: "evidence_backed", customer_visible: opportunity.customer_visible !== false, updated_at: new Date().toISOString() })
+            .eq("id", opportunity.id)
+            .eq("organization_id", input.organizationId)
+            .eq("trust_state", "needs_evidence");
+          if (trustError) throw trustError;
+        }
       }
       await input.db.from("audit_events").insert({
         organization_id: input.organizationId,
@@ -94,6 +108,39 @@ export async function evaluateApprovedExpense(input: {
         resource_type: "opportunity",
         resource_id: opportunity.id,
       });
+
+      // The opportunity is evidence-linked and deterministic at this point.
+      // Email failure must not roll back the financial workflow; the durable
+      // side-effect ledger makes retries safe.
+      const trustState = typeof opportunity.trust_state === "string" ? opportunity.trust_state : null;
+      const customerVisible = opportunity.customer_visible !== false;
+      const canNotify = Boolean(evidence?.length)
+        && customerVisible
+        && !["manual_note", "demo_example", "deprecated"].includes(trustState ?? "");
+      if (canNotify) try {
+        const { data: vendor } = current.organization_vendor_id
+          ? await input.db.from("organization_vendors").select("display_name_override,vendors(canonical_name)").eq("id", current.organization_vendor_id).eq("organization_id", input.organizationId).maybeSingle()
+          : { data: null };
+        const vendorName = typeof vendor?.display_name_override === "string" && vendor.display_name_override.trim()
+          ? vendor.display_name_override
+          : typeof (vendor?.vendors as unknown as { canonical_name?: unknown } | null)?.canonical_name === "string"
+            ? (vendor?.vendors as unknown as { canonical_name: string }).canonical_name
+            : undefined;
+        const amountCents = finding.estimatedAnnualValue == null ? undefined : Math.round(Number(finding.estimatedAnnualValue) * 100);
+        await sendLifecycleEmailToWorkspace({
+          db: input.db,
+          kind: "finding_ready",
+          organizationId: input.organizationId,
+          payload: {
+            vendorName,
+            findingTitle: finding.title,
+            amountCents: Number.isFinite(amountCents) ? amountCents : undefined,
+            sourceRecordId: opportunity.id as string,
+          },
+        });
+      } catch (emailError) {
+        console.error("finding lifecycle email failed", emailError);
+      }
     }
   }
 

@@ -12,6 +12,8 @@ import {
   shouldYieldInboundEmailProcessing,
 } from "@/lib/email/inbound-budget";
 import { inboundEmailOutcomeMessage } from "@/lib/email/inbound-outcome";
+import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
+import { isApprovedMonitoringSender } from "@/lib/email/monitoring-sender";
 import { getResendClient } from "@/lib/email/resend";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
@@ -338,8 +340,10 @@ export async function processInboundEmailJob(
     .eq("provider", "resend_inbound");
   if (integrationError) throw integrationError;
 
-  // Reconcile durable vendor monitoring state transitions
-  if (processedCount > 0) {
+  // Only a completely processed message is evidence that a monitoring test
+  // passed or that the recurring bill cycle should advance. A mixed,
+  // quarantined, or review-needed message must stay visible for human review.
+  if (processedCount > 0 && finalStatus === "processed") {
     await reconcileVendorMonitoringIntake(db, job);
   }
 
@@ -373,6 +377,62 @@ export async function processInboundEmailJob(
     .maybeSingle();
   if (finishError) throw finishError;
   if (!finished) throw new Error("Inbound email job lock expired before completion.");
+  try {
+    const documentName = attachments.map((attachment) => attachment.filename || `attachment-${attachment.id}`).join(", ");
+    await sendLifecycleEmailToWorkspace({
+      db,
+      kind: "upload_received",
+      organizationId: job.organization_id,
+      payload: {
+        documentName: documentName || "Forwarded document",
+        sourceRecordId: job.id,
+        scanStatus: hasQuarantine ? "quarantined" : "processing",
+      },
+    });
+    if (finalStatus === "needs_review") {
+      await sendLifecycleEmailToWorkspace({
+        db,
+        kind: "review_needed",
+        organizationId: job.organization_id,
+        payload: { documentName: documentName || "Forwarded document", sourceRecordId: `${job.id}:review-needed` },
+      });
+    }
+
+    // A pending forwarding test needs an explicit failure/review result too;
+    // otherwise the customer only sees a generic upload notice and cannot tell
+    // whether monitoring became active.
+    if (finalStatus !== "processed") {
+      const { data: pendingTests, error: pendingTestError } = await db
+        .from("vendor_monitoring_configs")
+        .select("id,organization_vendor_id,state,test_completed_at")
+        .eq("organization_id", job.organization_id)
+        .or("state.eq.pending_test,test_completed_at.is.null");
+      if (pendingTestError) throw pendingTestError;
+      for (const config of pendingTests ?? []) {
+        const { data: relationship } = await db
+          .from("organization_vendors")
+          .select("vendors(canonical_name)")
+          .eq("id", config.organization_vendor_id)
+          .eq("organization_id", job.organization_id)
+          .maybeSingle();
+        const vendorName = typeof (relationship?.vendors as unknown as { canonical_name?: unknown } | null)?.canonical_name === "string"
+          ? (relationship?.vendors as unknown as { canonical_name: string }).canonical_name
+          : undefined;
+        await sendLifecycleEmailToWorkspace({
+          db,
+          kind: "forwarding_test_result",
+          organizationId: job.organization_id,
+          payload: {
+            vendorName,
+            reason: finalStatus === "needs_review" ? "review_required" : "failed",
+            eventKey: `monitoring-test-result:${config.id}:${job.id}:${finalStatus}`,
+          },
+        });
+      }
+    }
+  } catch (emailError) {
+    console.error("inbound lifecycle email failed", emailError);
+  }
   return { status: finalStatus, processedAttachmentCount: processedCount };
 }
 
@@ -391,16 +451,17 @@ export async function reconcileVendorMonitoringIntake(
   if (!configs?.length) return;
 
   for (const config of configs) {
-    const senderMatches =
-      config.approved_sender_address &&
-      job.sender_address.toLowerCase().includes(config.approved_sender_address.toLowerCase());
+    const senderMatches = isApprovedMonitoringSender(job.sender_address, config.approved_sender_address);
 
     const isPendingTest = config.state === "pending_test" || !config.test_completed_at;
 
-    if (senderMatches || isPendingTest) {
+    // A pending test is not an authorization bypass. It must come from the
+    // exact sender the workspace approved; otherwise unrelated inbound mail
+    // must not activate monitoring.
+    if (senderMatches) {
       const { data: relationship } = await db
         .from("organization_vendors")
-        .select("category_override,vendors(category)")
+        .select("category_override,vendors(canonical_name,category)")
         .eq("id", config.organization_vendor_id)
         .eq("organization_id", job.organization_id)
         .maybeSingle();
@@ -435,7 +496,7 @@ export async function reconcileVendorMonitoringIntake(
         action: isPendingTest ? "vendor_monitoring.test_passed" : "vendor_monitoring.bill_received",
         resource_type: "vendor_monitoring_configs",
         resource_id: config.id,
-        payload: {
+        safe_metadata: {
           eventId: job.id,
           senderAddress: job.sender_address,
           state: "active",
@@ -443,6 +504,25 @@ export async function reconcileVendorMonitoringIntake(
           categoryMonitoring,
         },
       });
+
+      if (isPendingTest) {
+        const vendorName = typeof (relationship?.vendors as unknown as { canonical_name?: unknown } | null)?.canonical_name === "string"
+          ? (relationship?.vendors as unknown as { canonical_name: string }).canonical_name
+          : undefined;
+        try {
+          await sendLifecycleEmailToWorkspace({
+            db,
+            kind: "forwarding_test_result",
+            organizationId: job.organization_id,
+            payload: {
+              vendorName,
+              eventKey: `monitoring-test:${config.id}:${job.id}`,
+            },
+          });
+        } catch (emailError) {
+          console.error("monitoring test lifecycle email failed", emailError);
+        }
+      }
     }
   }
 }

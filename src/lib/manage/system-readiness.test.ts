@@ -108,7 +108,7 @@ describe("owner system readiness", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await checkSystemReadiness(database() as never);
+    const result = await checkSystemReadiness(database() as never, { runLiveMalwareProbe: true });
 
     expect(result.services.map(({ id, status }) => ({ id, status }))).toEqual([
       { id: "database", status: "ready" },
@@ -164,7 +164,7 @@ describe("owner system readiness", () => {
       return response({ healthy: true, is_logged_in: true });
     }));
 
-    const result = await checkSystemReadiness(database() as never);
+    const result = await checkSystemReadiness(database() as never, { runLiveMalwareProbe: true });
 
     expect(result.services).toContainEqual(expect.objectContaining({
       id: "malware",

@@ -14,6 +14,12 @@ export type MonitoringSourceMethod =
   | "manual_forwarding"
   | "manual_upload";
 
+const emailAddressPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidMonitoringEmailAddress(value: string | null | undefined) {
+  return typeof value === "string" && emailAddressPattern.test(value.trim());
+}
+
 // Backward compatibility alias for UI views
 export type MonitoringState =
   | "not_set_up"
@@ -227,6 +233,13 @@ export async function saveDurableMonitoringConfig(
   },
 ): Promise<VendorMonitoringRecord> {
   const { organizationId, actorId, organizationVendorId, sourceMethod, approvedSenderAddress, expectedCadenceDays } = params;
+  const normalizedApprovedSender = approvedSenderAddress?.trim() || null;
+  if (sourceMethod === "email_forwarding" && !isValidMonitoringEmailAddress(normalizedApprovedSender)) {
+    throw new Error("An approved forwarding email address is required for email forwarding monitoring.");
+  }
+  if (normalizedApprovedSender && !isValidMonitoringEmailAddress(normalizedApprovedSender)) {
+    throw new Error("Enter a valid approved forwarding email address.");
+  }
 
   // 1. Fetch active intake address
   const { data: intakeAddr } = await db
@@ -245,7 +258,7 @@ export async function saveDurableMonitoringConfig(
     inbound_email_address_id: intakeAddr?.id ?? null,
     source_method: sourceMethod,
     state: initialState,
-    approved_sender_address: approvedSenderAddress || null,
+    approved_sender_address: normalizedApprovedSender,
     expected_cadence_days: expectedCadenceDays,
     grace_period_days: 7,
     updated_by: actorId,

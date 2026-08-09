@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requirePortalContext = vi.hoisted(() => vi.fn());
 const getDurableMonitoringConfig = vi.hoisted(() => vi.fn());
 const saveDurableMonitoringConfig = vi.hoisted(() => vi.fn());
+const isValidMonitoringEmailAddress = vi.hoisted(() => vi.fn((value: string | null | undefined) => Boolean(value && value.includes("@"))));
 
 vi.mock("@/lib/portal/repository", () => ({ requirePortalContext }));
-vi.mock("@/lib/vendors/monitoring", () => ({ getDurableMonitoringConfig, saveDurableMonitoringConfig }));
+vi.mock("@/lib/vendors/monitoring", () => ({ getDurableMonitoringConfig, isValidMonitoringEmailAddress, saveDurableMonitoringConfig }));
 
 import { GET, PATCH, POST } from "@/app/api/portal/vendors/[id]/monitoring/route";
 
@@ -33,6 +34,13 @@ describe("vendor monitoring route", () => {
   it("rejects an unsupported monitoring method and cadence before writing", async () => {
     const response = await POST(new Request(`http://localhost/api/portal/vendors/${relationshipId}/monitoring`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sourceMethod: "monthly", expectedCadenceDays: 0 }) }), { params: Promise.resolve({ id: relationshipId }) });
     expect(response.status).toBe(400);
+    expect(saveDurableMonitoringConfig).not.toHaveBeenCalled();
+  });
+
+  it("requires an approved sender for email forwarding", async () => {
+    const response = await POST(new Request(`http://localhost/api/portal/vendors/${relationshipId}/monitoring`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sourceMethod: "email_forwarding", expectedCadenceDays: 30 }) }), { params: Promise.resolve({ id: relationshipId }) });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Enter the approved forwarding email address that will send the monitoring test." });
     expect(saveDurableMonitoringConfig).not.toHaveBeenCalled();
   });
 

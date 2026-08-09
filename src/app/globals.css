@@ -6664,3 +6664,4 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .pricing-plan-card { min-height: auto !important; }
   .pricing-plan-fit { min-height: auto; }
 }
+.manage-inline-alert--warning{display:flex;gap:8px;align-items:flex-start;border:1px solid #e8d8a8;border-radius:12px;background:#fffaf0;color:#735c1f;padding:11px 13px;font-size:.76rem;line-height:1.45}.manage-inline-alert--warning strong{white-space:nowrap}

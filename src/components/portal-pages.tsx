@@ -52,6 +52,7 @@ import { formatMoneyInput } from "@/lib/vendors/spend";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
+import { getActivationProgress } from "@/lib/portal/activation";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
@@ -673,20 +674,26 @@ function CommandCenter({ data }: { data: PortalData }) {
 }
 
 function ActivationChecklist({ data }: { data: PortalData }) {
-  const docCount = data.documents.length;
-  const locationCount = data.locations.length;
-  const monitoredCount = data.vendors.filter((v) =>
-    ["active", "test_needed"].includes(String((v as unknown as Record<string, unknown>).monitoringState ?? "")),
-  ).length;
-  const needsReviewInvoices = data.invoices.filter(
-    (i) => i.reviewStatus === "needs_review",
-  ).length;
+  const { documentCount: docCount, locationCount, monitoredCount, needsReviewInvoices, authoritativeReview } = getActivationProgress(data);
+  const [durableState, setDurableState] = useState<{ status: string; current_step: string } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/portal/onboarding", { method: "POST", headers: { "Content-Type": "application/json" } })
+      .then((response) => response.ok ? response.json() as Promise<{ onboarding?: { status?: string; current_step?: string } }> : null)
+      .then((payload) => {
+        if (!active || !payload?.onboarding) return;
+        setDurableState({ status: payload.onboarding.status ?? "not_started", current_step: payload.onboarding.current_step ?? "account_confirmed" });
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   const steps = [
     { id: "workspace", title: "Create workspace", done: true, copy: "Organization workspace created.", href: undefined },
     { id: "details", title: "Add company & location details", done: locationCount > 0, copy: locationCount > 0 ? `${locationCount} location(s) assigned.` : "Add your primary business location.", href: "/app/settings?tab=locations" },
     { id: "documents", title: "Upload 3 bills or contracts", done: docCount >= 3, copy: docCount >= 3 ? `${docCount} documents uploaded.` : `${docCount} of 3 uploaded. Add your recurring bills.`, href: "/app/bills?view=files" },
-    { id: "review", title: "Review extracted facts & invoices", done: docCount > 0 && needsReviewInvoices === 0, copy: needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "No pending invoice exceptions.", href: "/app/bills?view=review" },
+    { id: "review", title: "Review one invoice or contract", done: authoritativeReview, copy: authoritativeReview ? "At least one source record has an authorized review." : needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "Review one source record before calling activation complete.", href: "/app/bills?view=review" },
     { id: "monitoring", title: "Select first vendor to monitor", done: monitoredCount > 0, copy: monitoredCount > 0 ? `${monitoredCount} vendor(s) monitored.` : "Set up continuous monitoring for one vendor.", href: "/app/vendors" },
   ];
 
@@ -697,7 +704,7 @@ function ActivationChecklist({ data }: { data: PortalData }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0 }}>Activation Checklist</h2>
-          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.85rem" }}>Complete these steps to set up cost control and bill monitoring.</p>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.85rem" }}>Complete these steps to set up cost control and bill monitoring.{durableState?.status === "blocked" ? " An administrator has paused activation." : ""}</p>
         </div>
         <span style={{ fontSize: "0.82rem", fontWeight: 700, padding: "4px 12px", borderRadius: 12, background: completedCount === steps.length ? "rgba(16,185,129,0.12)" : "rgba(0,47,167,0.08)", color: completedCount === steps.length ? "#059669" : "#002FA7" }}>
           {completedCount} of {steps.length} completed
@@ -1651,6 +1658,7 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   const searchParams = useSearchParams();
   const toast = useToast();
   const [schedules, setSchedules] = useState<Array<{ id: string; report_definition_id: string; status: string; cadence: string; recipient_emails: string[]; next_run_at: string | null }>>([]);
+  const [deliveryRuns, setDeliveryRuns] = useState<Array<{ id: string; report_definition_id: string; report_schedule_id: string | null; scheduled_for: string; status: string; provider_message_id: string | null; generated_at: string | null; completed_at: string | null; safe_error: string | null; report_name: string }>>([]);
   const [reportPreferences, setReportPreferences] = useState({ ...DEFAULT_REPORT_PREFERENCES });
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [scheduleReportId, setScheduleReportId] = useState<string | null>(null);
@@ -1665,6 +1673,7 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   useEffect(() => {
     if (activeView !== "reports") return;
     void fetch("/api/portal/reports/schedules").then(async (response) => response.ok ? (await response.json() as { schedules?: typeof schedules }).schedules ?? [] : []).then(setSchedules).catch(() => setSchedules([]));
+    void fetch("/api/portal/reports/deliveries").then(async (response) => response.ok ? (await response.json() as { deliveries?: typeof deliveryRuns }).deliveries ?? [] : []).then(setDeliveryRuns).catch(() => setDeliveryRuns([]));
     void fetch("/api/portal/reports/preferences").then(async (response) => response.ok ? (await response.json() as { preferences?: typeof reportPreferences }).preferences ?? DEFAULT_REPORT_PREFERENCES : DEFAULT_REPORT_PREFERENCES).then(setReportPreferences).catch(() => undefined);
   }, [activeView]);
   const updateReportPreference = async (key: keyof typeof reportPreferences, value: boolean) => {
@@ -1716,6 +1725,7 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
         <div className="portal-panel-heading"><div><h2>Reports</h2><p>Send evidence-backed summaries to people already authorized in this workspace.</p></div></div>
         <div className="portal-card-grid">{data.reports.map((item) => <article className="portal-card" key={item.id}><FileText className="card-icon" /><h2>{item.name}</h2><p>{item.description}</p><small>{item.lastGeneratedAt ? `Last generated ${date(item.lastGeneratedAt)}` : "Not generated yet"}</small><footer><a className="button button-primary" href={`/api/portal/reports/${item.id}`}><Download size={16} /> Download</a><button className="button button-secondary" type="button" onClick={() => void emailReportNow(item.id)} disabled={sendingReportId === item.id}><Mail size={16} /> {sendingReportId === item.id ? "Sending…" : "Email now"}</button><button className="button button-secondary" type="button" onClick={() => setScheduleReportId(item.id)}><CalendarClock size={16} /> Schedule</button></footer><div className="report-delivery-history">{schedules.filter((schedule) => schedule.report_definition_id === item.id).map((schedule) => <div key={schedule.id}><small>Scheduled {schedule.cadence} · next {schedule.next_run_at ? date(schedule.next_run_at) : "paused"} · {schedule.status}</small><button type="button" className="button button-secondary" onClick={() => void toggleSchedule(schedule.id, schedule.status === "active" ? "paused" : "active")}>{schedule.status === "active" ? "Pause" : "Resume"}</button></div>)}</div></article>)}</div>
         <section className="portal-panel report-preferences-panel"><div className="portal-panel-heading"><div><h2>Communication preferences</h2><p>Account-critical messages remain on. These controls manage recurring report noise.</p></div><small>{savingPreferences ? "Saving…" : "Workspace administrators can change these."}</small></div><div className="report-preferences-grid">{([ ["immediate_finding_alerts", "Immediate finding alerts"], ["review_alerts", "Review alerts"], ["approval_requests", "Approval requests"], ["missed_bill_alerts", "Missed-bill alerts"], ["weekly_digest", "Weekly digest"], ["monthly_executive_report", "Monthly executive report"], ["allow_empty_reports", "Send empty reports"] ] as Array<[keyof typeof reportPreferences, string]>).map(([key, label]) => <label key={key}><input type="checkbox" checked={reportPreferences[key]} onChange={(event) => void updateReportPreference(key, event.target.checked)} /><span>{label}</span></label>)}</div></section>
+        <section className="portal-panel report-preferences-panel"><div className="portal-panel-heading"><div><h2>Delivery history</h2><p>See whether a scheduled report was accepted, delivered, skipped, or needs attention.</p></div><small>{deliveryRuns.length ? `${deliveryRuns.length} recent run${deliveryRuns.length === 1 ? "" : "s"}` : "No runs yet"}</small></div>{deliveryRuns.length ? <div className="portal-list report-delivery-list">{deliveryRuns.map((run) => <div className="portal-list-row" key={run.id}><FileText size={16} /><div className="grow"><strong>{run.report_name}</strong><span>Scheduled {date(run.scheduled_for)}{run.completed_at ? ` · completed ${date(run.completed_at)}` : ""}</span>{run.safe_error && <small>{run.safe_error}</small>}</div><Status value={run.status} /></div>)}</div> : <Empty title="No delivery runs yet" copy="Scheduled report attempts will appear here after the first run." />}</section>
         {!data.reports.length && <Empty title="No reports configured" copy="Report definitions created for this organization will appear here." />}
       </section>}
       {scheduleReportId && <ReportScheduleSheet reportId={scheduleReportId} reportName={data.reports.find((report) => report.id === scheduleReportId)?.name ?? "Report"} onClose={() => setScheduleReportId(null)} onSaved={(schedule) => { setSchedules((current) => [schedule, ...current]); setScheduleReportId(null); toast.success("Schedule saved", "The next report run is queued for the selected window."); }} />}
@@ -4071,7 +4081,7 @@ function Settings({
 }
 
 function BillingPanel() {
-  const [status, setStatus] = useState<{ status?: string; subscriptions: Array<{ plan_key: string; status: string; cancel_at_period_end: boolean; current_period_end: string | null }>; entitlements: Array<{ feature_key: string; enabled: boolean }> } | null>(null);
+  const [status, setStatus] = useState<{ status?: string; providerConfigured?: boolean; plans?: Array<{ key: string; name: string; checkoutEnabled: boolean }>; subscriptions: Array<{ plan_key: string; status: string; cancel_at_period_end: boolean; current_period_end: string | null }>; entitlements: Array<{ feature_key: string; enabled: boolean }> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [planKey, setPlanKey] = useState("starter");
@@ -4084,6 +4094,8 @@ function BillingPanel() {
 
   const current = status?.subscriptions?.[0];
   const billingSetupPending = status?.status === "unconfigured";
+  const selectedPlan = status?.plans?.find((plan) => plan.key === planKey);
+  const checkoutReady = !billingSetupPending && selectedPlan?.checkoutEnabled === true;
   const startCheckout = async () => {
     setBusy(true); setError(null);
     try {
@@ -4104,7 +4116,9 @@ function BillingPanel() {
     <div className="settings-section-header"><div><span className="eyebrow">Subscription</span><h2 id="billing-settings-title">Costivra billing</h2><p>Choose a plan through Stripe. Your workspace becomes active only after Stripe confirms the subscription.</p></div><CircleDollarSign size={22} aria-hidden="true" /></div>
     {error && <p role="alert" className="form-error">{error}</p>}
     {billingSetupPending && <p className="form-note">Billing is present in the application but the database migration still needs to be applied.</p>}
-    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><select id="billing-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)}><option value="starter">Starter · $149/month</option><option value="growth">Growth · $599/month</option></select><button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy}>{busy ? "Opening checkout…" : "Continue to secure checkout"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
+    {!billingSetupPending && status && !status.providerConfigured && <p className="form-note">Stripe is not configured in this server environment yet. Checkout remains disabled.</p>}
+    {!billingSetupPending && status?.providerConfigured && selectedPlan && !selectedPlan.checkoutEnabled && <p className="form-note">The {selectedPlan.name} test price is not configured yet. Checkout remains disabled until it is added in Stripe.</p>}
+    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><select id="billing-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)}><option value="starter">Starter · $149/month</option><option value="growth">Growth · $599/month</option></select><button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
   </section>;
 }
 

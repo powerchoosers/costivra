@@ -19,20 +19,39 @@ export async function GET(request: Request) {
   for (const schedule of schedules ?? []) {
     const scheduledFor = schedule.next_run_at as string;
     const claim = await db.from("report_delivery_runs").insert({ organization_id: schedule.organization_id, report_definition_id: schedule.report_definition_id, report_schedule_id: schedule.id, scheduled_for: scheduledFor, status: "claimed" }).select("id").maybeSingle();
-    if (claim.error?.code === "23505") continue;
-    if (claim.error || !claim.data) { results.push({ scheduleId: schedule.id, status: "claim_failed", recipients: 0 }); continue; }
+    let deliveryRunId = claim.data?.id as string | undefined;
+    if (claim.error?.code === "23505") {
+      // A failed run may be retried safely. Accepted/delivered runs remain
+      // immutable so a duplicate cron invocation cannot send the period twice.
+      const { data: previous } = await db.from("report_delivery_runs")
+        .select("id,status")
+        .eq("report_schedule_id", schedule.id)
+        .eq("scheduled_for", scheduledFor)
+        .maybeSingle();
+      if (previous?.status !== "failed") continue;
+      const { data: reclaimed, error: reclaimError } = await db.from("report_delivery_runs")
+        .update({ status: "claimed", safe_error: null, completed_at: null })
+        .eq("id", previous.id)
+        .eq("status", "failed")
+        .select("id")
+        .maybeSingle();
+      if (reclaimError || !reclaimed) continue;
+      deliveryRunId = reclaimed.id as string;
+    }
+    if (claim.error && claim.error.code !== "23505") { results.push({ scheduleId: schedule.id, status: "claim_failed", recipients: 0 }); continue; }
+    if (!deliveryRunId) { results.push({ scheduleId: schedule.id, status: "claim_failed", recipients: 0 }); continue; }
     try {
       const { data: preferences } = await db.from("report_communication_preferences").select("weekly_digest,monthly_executive_report,allow_empty_reports").eq("organization_id", schedule.organization_id).maybeSingle();
       const cadenceEnabled = schedule.cadence === "monthly" ? preferences?.monthly_executive_report !== false : preferences?.weekly_digest !== false;
       const next = nextReportRun({ cadence: schedule.cadence, timezone: schedule.timezone, weekday: schedule.weekday, dayOfMonth: schedule.day_of_month, sendTimeLocal: String(schedule.send_time_local).slice(0, 5) }, now);
       if (!cadenceEnabled) {
-        await db.from("report_delivery_runs").update({ status: "skipped", safe_error: "REPORT_TYPE_DISABLED", completed_at: new Date().toISOString() }).eq("id", claim.data.id);
+        await db.from("report_delivery_runs").update({ status: "skipped", safe_error: "REPORT_TYPE_DISABLED", completed_at: new Date().toISOString() }).eq("id", deliveryRunId);
         await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);
         results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 }); continue;
       }
       const report = await generateReport(db, schedule.report_definitions);
       if (!report.values.length && preferences?.allow_empty_reports !== true) {
-        await db.from("report_delivery_runs").update({ status: "skipped", generated_at: report.generatedAt, safe_error: "NO_MEANINGFUL_CHANGES", completed_at: new Date().toISOString() }).eq("id", claim.data.id);
+        await db.from("report_delivery_runs").update({ status: "skipped", generated_at: report.generatedAt, safe_error: "NO_MEANINGFUL_CHANGES", completed_at: new Date().toISOString() }).eq("id", deliveryRunId);
         await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);
         results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 }); continue;
       }
@@ -44,7 +63,7 @@ export async function GET(request: Request) {
       const scheduledRecipients = Array.isArray(schedule.recipient_emails) ? schedule.recipient_emails as string[] : [];
       const recipients = scheduledRecipients.map((recipient) => recipient.trim().toLowerCase()).filter((recipient) => authorized.has(recipient));
       if (!recipients.length) {
-        await db.from("report_delivery_runs").update({ status: "skipped", generated_at: report.generatedAt, safe_error: "NO_AUTHORIZED_RECIPIENTS", completed_at: new Date().toISOString() }).eq("id", claim.data.id);
+        await db.from("report_delivery_runs").update({ status: "skipped", generated_at: report.generatedAt, safe_error: "NO_AUTHORIZED_RECIPIENTS", completed_at: new Date().toISOString() }).eq("id", deliveryRunId);
         await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);
         results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 }); continue;
       }
@@ -52,17 +71,29 @@ export async function GET(request: Request) {
       let sent = 0;
       for (const recipient of recipients) {
         const idempotencyKey = `report/${schedule.id}/${scheduledFor}/${recipient}`; const requestHash = emailRequestHash({ to: recipient, subject: `${report.definition.name} is ready`, text: rendered.text });
-        const ledger = await db.from("external_side_effects").upsert({ organization_id: schedule.organization_id, type: "report_email", destination: recipient, idempotency_key: idempotencyKey, request_hash: requestHash, status: "approved", provider: "resend", authorization_method: "report_schedule_v1", sanitized_request_metadata: { report_schedule_id: schedule.id, report_delivery_run_id: claim.data.id, report_definition_id: report.definition.id }, updated_at: new Date().toISOString() }, { onConflict: "idempotency_key" }).select("id").single();
+        const { data: existingEffect } = await db.from("external_side_effects")
+          .select("id,status,provider_reference")
+          .eq("organization_id", schedule.organization_id)
+          .eq("idempotency_key", idempotencyKey)
+          .maybeSingle();
+        if (existingEffect && ["sent", "accepted", "delivered"].includes(String(existingEffect.status))) {
+          sent += 1;
+          if (sent === 1) await db.from("report_delivery_runs").update({ external_side_effect_id: existingEffect.id, provider_message_id: existingEffect.provider_reference, generated_at: report.generatedAt }).eq("id", deliveryRunId);
+          continue;
+        }
+        const ledger = existingEffect
+          ? { data: { id: existingEffect.id }, error: null }
+          : await db.from("external_side_effects").upsert({ organization_id: schedule.organization_id, type: "report_email", destination: recipient, idempotency_key: idempotencyKey, request_hash: requestHash, status: "approved", provider: "resend", authorization_method: "report_schedule_v1", sanitized_request_metadata: { report_schedule_id: schedule.id, report_delivery_run_id: deliveryRunId, report_definition_id: report.definition.id }, updated_at: new Date().toISOString() }, { onConflict: "idempotency_key" }).select("id").single();
         if (ledger.error) throw ledger.error;
         const result = await sendTransactionalEmail({ to: recipient, subject: `${report.definition.name} is ready`, text: rendered.text, html: rendered.html, idempotencyKey });
         await db.from("external_side_effects").update(result.ok ? { status: "sent", provider_reference: result.providerId, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() } : { status: "failed", last_error: result.error, updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
         if (!result.ok) throw new Error(result.error); sent += 1;
-        if (sent === 1) await db.from("report_delivery_runs").update({ external_side_effect_id: ledger.data.id, provider_message_id: result.providerId, generated_at: report.generatedAt }).eq("id", claim.data.id);
+        if (sent === 1) await db.from("report_delivery_runs").update({ external_side_effect_id: ledger.data.id, provider_message_id: result.providerId, generated_at: report.generatedAt }).eq("id", deliveryRunId);
       }
-      await db.from("report_delivery_runs").update({ status: "accepted", completed_at: new Date().toISOString(), safe_error: null }).eq("id", claim.data.id); await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: now.toISOString() }).eq("id", schedule.id);
+      await db.from("report_delivery_runs").update({ status: "accepted", completed_at: new Date().toISOString(), safe_error: null }).eq("id", deliveryRunId); await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: now.toISOString() }).eq("id", schedule.id);
       results.push({ scheduleId: schedule.id, status: "accepted", recipients: sent });
     } catch (runError) {
-      const safeError = runError instanceof Error ? runError.message.slice(0, 240) : "REPORT_DELIVERY_FAILED"; await db.from("report_delivery_runs").update({ status: "failed", safe_error: safeError, completed_at: new Date().toISOString() }).eq("id", claim.data.id); results.push({ scheduleId: schedule.id, status: "failed", recipients: 0 });
+      const safeError = runError instanceof Error ? runError.message.slice(0, 240) : "REPORT_DELIVERY_FAILED"; await db.from("report_delivery_runs").update({ status: "failed", safe_error: safeError, completed_at: new Date().toISOString() }).eq("id", deliveryRunId); results.push({ scheduleId: schedule.id, status: "failed", recipients: 0 });
     }
   }
   return NextResponse.json({ checkedAt: now.toISOString(), processed: results.length, results }, { headers: { "Cache-Control": "private, no-store" } });

@@ -161,7 +161,7 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
       return;
     }
     router.push(current.fallbackHref);
-  }, [current.fallbackHref, previous, router, updateState]);
+  }, [current.fallbackHref, previous, router]);
 
   const value = useMemo<NavigationContextValue>(() => ({
     label: previous?.label ?? current.fallbackLabel,

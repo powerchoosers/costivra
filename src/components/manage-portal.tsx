@@ -4289,6 +4289,20 @@ function Outreach({
     if (tab === "tasks") next.delete("tab"); else next.set("tab", tab);
     router.replace(`/manage/outreach${next.toString() ? `?${next.toString()}` : ""}`);
   };
+  const handleOutreachTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const tabs = ["tasks", "sequences", "enrollments"] as const;
+    const currentIndex = tabs.indexOf(outreachTab);
+    const nextIndex = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? tabs.length - 1
+        : (currentIndex + (event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1) + tabs.length) % tabs.length;
+    const nextTab = tabs[nextIndex];
+    setOutreachTab(nextTab);
+    window.requestAnimationFrame(() => document.getElementById(`outreach-tab-${nextTab}`)?.focus());
+  };
 
   const tasks = data.tasks.filter((task) => {
     const matchesPriority =
@@ -4316,12 +4330,12 @@ function Outreach({
 
   return (
     <>
-      <nav className="manage-tabs manage-outreach-tabs" aria-label="Outreach workspace">
-        <button className={outreachTab === "tasks" ? "active" : ""} onClick={() => setOutreachTab("tasks")}>Tasks <span>{data.tasks.length}</span></button>
-        <button className={outreachTab === "sequences" ? "active" : ""} onClick={() => setOutreachTab("sequences")}>Sequences</button>
-        <button className={outreachTab === "enrollments" ? "active" : ""} onClick={() => setOutreachTab("enrollments")}>Enrollments</button>
+      <nav className="manage-tabs manage-outreach-tabs" role="tablist" aria-label="Outreach workspace">
+        <button id="outreach-tab-tasks" role="tab" aria-selected={outreachTab === "tasks"} aria-controls="outreach-panel-tasks" tabIndex={outreachTab === "tasks" ? 0 : -1} className={outreachTab === "tasks" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("tasks")}>Tasks <span>{data.tasks.length}</span></button>
+        <button id="outreach-tab-sequences" role="tab" aria-selected={outreachTab === "sequences"} aria-controls="outreach-panel-sequences" tabIndex={outreachTab === "sequences" ? 0 : -1} className={outreachTab === "sequences" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("sequences")}>Sequences</button>
+        <button id="outreach-tab-enrollments" role="tab" aria-selected={outreachTab === "enrollments"} aria-controls="outreach-panel-enrollments" tabIndex={outreachTab === "enrollments" ? 0 : -1} className={outreachTab === "enrollments" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("enrollments")}>Enrollments</button>
       </nav>
-      {outreachTab !== "tasks" ? <SequenceWorkspace data={data} query={query} mode={outreachTab === "enrollments" ? "enrollments" : "sequences"} /> : <>
+      {outreachTab !== "tasks" ? <div id={`outreach-panel-${outreachTab}`} role="tabpanel" aria-labelledby={`outreach-tab-${outreachTab}`} tabIndex={0}><SequenceWorkspace data={data} query={query} mode={outreachTab === "enrollments" ? "enrollments" : "sequences"} /></div> : <div id="outreach-panel-tasks" role="tabpanel" aria-labelledby="outreach-tab-tasks" tabIndex={0}>
       <section className="manage-page-heading">
         <div>
           <h2>Outreach</h2>
@@ -4444,7 +4458,7 @@ function Outreach({
           </div>
         ))}
       </section>
-      </>}
+      </div>}
     </>
   );
 }

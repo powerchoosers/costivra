@@ -16,6 +16,14 @@
     {
       "path": "/api/cron/outreach-sequences",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/vendor-monitoring",
+      "schedule": "13 6 * * *"
+    },
+    {
+      "path": "/api/cron/approval-notifications",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

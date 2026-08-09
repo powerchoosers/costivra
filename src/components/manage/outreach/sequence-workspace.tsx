@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Check, ChevronRight, LoaderCircle, Plus, Trash2, Users, X } from "lucide-react";
 import type { ManageData } from "@/lib/manage/types";
 import type { Sequence, SequenceStep, SequenceStepType, Enrollment } from "@/lib/manage/sequences/types";
-import { renderTemplate } from "@/lib/manage/sequences/validation";
+import { renderTemplate, validateSequenceDraft } from "@/lib/manage/sequences/validation";
 
 type Props = { data: ManageData; query: string; mode?: "sequences" | "enrollments" };
 
@@ -45,6 +45,36 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
   const [organizationId, setOrganizationId] = useState(data.accounts[0]?.id ?? "");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [mailboxId, setMailboxId] = useState(data.mail.mailboxes.find((item) => item.canSend && item.status === "active")?.id ?? "");
+  const activeSheet = showNew ? "new" : showEnroll ? "enroll" : null;
+
+  useEffect(() => {
+    if (!activeSheet) return;
+    const focusableSelector = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])";
+    const getFocusable = () => Array.from(document.querySelector<HTMLElement>(".portal-sheet")?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
+    getFocusable()[0]?.focus();
+    const handleSheetKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setShowNew(false);
+        setShowEnroll(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = getFocusable();
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleSheetKeyDown);
+    return () => document.removeEventListener("keydown", handleSheetKeyDown);
+  }, [activeSheet]);
 
   const selected = sequences.find((item) => item.id === selectedId) ?? null;
   const visibleSequences = useMemo(() => sequences.filter((item) => `${item.name} ${item.description ?? ""}`.toLowerCase().includes(query.toLowerCase())), [query, sequences]);
@@ -113,9 +143,10 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
 
 function SequenceEditor({ sequence, busy, onAdd, onSave, onReorder, onDelete }: { sequence: Sequence; busy: boolean; onAdd: (type: SequenceStepType) => void; onSave: (patch: Record<string, unknown>) => void; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void }) {
   const sample = { first_name: "Jordan", full_name: "Jordan Lee", company_name: "Northstar Foods", sender_name: "Costivra team" };
+  const validation = validateSequenceDraft(sequence, { forActivation: true });
   const saveStep = async (stepId: string, patch: Record<string, unknown>) => { await requestJson(`/api/manage/outreach/sequences/${sequence.id}/steps/${stepId}`, { method: "PATCH", body: JSON.stringify(patch) }); };
   const move = (index: number, direction: -1 | 1) => { const ids = sequence.steps.map((item) => item.id); const target = index + direction; if (target < 0 || target >= ids.length) return; [ids[index], ids[target]] = [ids[target], ids[index]]; onReorder(ids); };
-  return <div><div className="sequence-editor__header"><div><span className="manage-eyebrow">{sequence.status} · {sequence.steps.length} steps</span><h3>{sequence.name}</h3><p>{sequence.description || "Add a short description so another operator understands the intent."}</p></div><span className="sequence-disabled-badge">Activation unavailable</span></div><div className="sequence-safety"><div><strong>Safety controls</strong><span>Stop on reply, bounce, and unsubscribe are always required.</span></div><div className="sequence-safety__checks"><span><Check size={14} /> Reply</span><span><Check size={14} /> Bounce</span><span><Check size={14} /> Unsubscribe</span></div></div><div className="sequence-timeline">{sequence.steps.map((step, index) => <SequenceStepCard key={step.id} step={step} index={index} total={sequence.steps.length} sample={sample} onSave={saveStep} onMove={(direction) => move(index, direction)} onDelete={() => onDelete(step.id)} />)}{!sequence.steps.length && <div className="manage-empty"><strong>Add the first step.</strong><span>Use an immediate manual email, call task, or general task.</span></div>}</div><div className="sequence-add-row"><button className="manage-button manage-button--quiet" onClick={() => onAdd("manual_email")} disabled={busy}><Plus size={15} /> Manual email</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("call_task")} disabled={busy}><Plus size={15} /> Call task</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("general_task")} disabled={busy}><Plus size={15} /> General task</button></div><div className="sequence-editor__footer"><label>Send window<select defaultValue={`${sequence.sendStartLocal}-${sequence.sendEndLocal}`} onChange={(event) => { const [sendStartLocal, sendEndLocal] = event.target.value.split("-"); onSave({ sendStartLocal, sendEndLocal }); }}><option value="09:00-17:00">09:00–17:00</option><option value="08:00-16:00">08:00–16:00</option><option value="10:00-18:00">10:00–18:00</option></select></label><label>Daily cap<input type="number" min={1} max={100} defaultValue={sequence.dailySendLimit} onBlur={(event) => onSave({ dailySendLimit: Number(event.target.value) })} /></label><button className="manage-button manage-button--primary" disabled><Check size={15} /> Activation requires proof</button></div></div>;
+  return <div><div className="sequence-editor__header"><div><span className="manage-eyebrow">{sequence.status} · {sequence.steps.length} steps</span><h3>{sequence.name}</h3><p>{sequence.description || "Add a short description so another operator understands the intent."}</p></div><span className="sequence-disabled-badge">Activation unavailable</span></div><div className="sequence-safety"><div><strong>Safety controls</strong><span>Stop on reply, bounce, and unsubscribe are always required.</span></div><div className="sequence-safety__checks"><span><Check size={14} /> Reply</span><span><Check size={14} /> Bounce</span><span><Check size={14} /> Unsubscribe</span></div></div>{!validation.valid && <div className="manage-inline-alert manage-inline-alert--warning" role="status"><strong>Execution setup required.</strong><span>{validation.errors.slice(0, 3).join(" ")}{validation.errors.length > 3 ? ` +${validation.errors.length - 3} more.` : ""}</span></div>}<div className="sequence-timeline">{sequence.steps.map((step, index) => <SequenceStepCard key={step.id} step={step} index={index} total={sequence.steps.length} sample={sample} onSave={saveStep} onMove={(direction) => move(index, direction)} onDelete={() => onDelete(step.id)} />)}{!sequence.steps.length && <div className="manage-empty"><strong>Add the first step.</strong><span>Use an immediate manual email, automatic email, call task, or general task.</span></div>}</div><div className="sequence-add-row"><button className="manage-button manage-button--quiet" onClick={() => onAdd("manual_email")} disabled={busy}><Plus size={15} /> Manual email</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("automatic_email")} disabled={busy}><Plus size={15} /> Automatic email</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("call_task")} disabled={busy}><Plus size={15} /> Call task</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("general_task")} disabled={busy}><Plus size={15} /> General task</button></div><div className="sequence-editor__footer"><label>Send window<select defaultValue={`${sequence.sendStartLocal}-${sequence.sendEndLocal}`} onChange={(event) => { const [sendStartLocal, sendEndLocal] = event.target.value.split("-"); onSave({ sendStartLocal, sendEndLocal }); }}><option value="09:00-17:00">09:00–17:00</option><option value="08:00-16:00">08:00–16:00</option><option value="10:00-18:00">10:00–18:00</option></select></label><label>Daily cap<input type="number" min={1} max={100} defaultValue={sequence.dailySendLimit} onBlur={(event) => onSave({ dailySendLimit: Number(event.target.value) })} /></label><button className="manage-button manage-button--primary" disabled><Check size={15} /> Activation requires proof</button></div></div>;
 }
 
 function SequenceStepCard({ step, index, total, sample, onSave, onMove, onDelete }: { step: SequenceStep; index: number; total: number; sample: Record<string, string>; onSave: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onMove: (direction: -1 | 1) => void; onDelete: () => void }) {

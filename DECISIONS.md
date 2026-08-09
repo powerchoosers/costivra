@@ -1105,3 +1105,171 @@ Count already accepted sequence messages for the bounded UTC day before an autom
 ## Consequences
 
 The first worker slice is conservative across regions and may defer a message slightly around local midnight, but it cannot exceed the configured cap. The partial index keeps the count query bounded as the mailbox grows.
+
+# 2026-08-09 — Send lifecycle email from durable state transitions
+
+## Context
+
+The shared lifecycle email renderer and idempotent side-effect ledger existed, but most production transitions did not call it. A catalog without triggers would leave customers unaware of uploads, monitoring setup, findings, or missed bills.
+
+## Decision
+
+Resolve current owner/admin membership at send time through one recipient helper and call the existing lifecycle sender after durable transitions. Email failures are logged and do not roll back the financial or document workflow. Monitoring misses atomically move to `attention_needed` and clear `next_expected_at`, so the same cycle cannot send repeatedly; a later accepted bill can restore active monitoring through the existing intake reconciliation.
+
+## Consequences
+
+Lifecycle messages remain branded, source-linked, and idempotent without creating a parallel email system. Welcome activation is sent once per user metadata marker, while workspace notifications are scoped to current authorized members. Remaining lifecycle states that depend on approval-assignment internals still require a dedicated trigger at their database workflow boundary.
+
+# 2026-08-09 — Verification email follows the verified state transition
+
+## Context
+
+The value engine creates a `ready_for_review` savings outcome when a later invoice is attached. That state is not verified value and must not trigger a message that sounds like verification is complete.
+
+## Decision
+
+Send `verification_ready` only from the authenticated savings operation route after the authoritative workflow RPC returns `verified`. The comparison stage remains silent until an owner or administrator completes the verification action.
+
+## Consequences
+
+Customer email language and the savings state machine now agree. A workflow RPC failure cannot create a false verification notification; an email-provider failure is logged and can be retried idempotently.
+
+# 2026-08-09 — Retry failed report delivery runs without replaying accepted recipients
+
+## Context
+
+A cron invocation can fail after one report recipient has already been accepted. A unique delivery-run claim prevents duplicate periods, but without a failed-run reclaim path the remaining recipients would never be retried.
+
+## Decision
+
+Reclaim only a delivery run whose status is `failed`, and skip existing side effects already marked `accepted`, `sent`, or `delivered` before sending. Concurrent claims and completed runs remain untouched.
+
+## Consequences
+
+Transient report failures can recover on a later cron invocation without replaying accepted provider sends. The run ledger remains the source of truth for each schedule period.
+
+# 2026-08-09 — Finding alerts require evidence-backed trust
+
+## Context
+
+The deterministic value engine could create an opportunity before evidence references were linked. Sending a customer alert at that point would make a potential issue look customer-ready even when the source evidence was missing or an operator had hidden/sample-labeled the record.
+
+## Decision
+
+Link source evidence first, promote only ordinary deterministic findings from `needs_evidence` to `evidence_backed`, and send `finding_ready` only when evidence exists, the record is customer-visible, and it is not labeled manual, sample, or deprecated.
+
+## Consequences
+
+Customers receive finding alerts only for source-linked records. Operator trust labels and hidden records remain authoritative, and missing evidence produces no outbound message.
+
+# 2026-08-09 — Delivery history stays inside the Reports surface
+
+## Context
+
+The report worker and schedule controls existed, but customers could see only the next scheduled time. That was not enough to distinguish an accepted delivery, a provider failure, or a skipped run.
+
+## Decision
+
+Expose a tenant-scoped read API for the latest report delivery runs and render it below the existing Reports controls. Do not add a new navigation page or allow customer edits to delivery history.
+
+## Consequences
+
+Customers can verify report outcomes without inspecting provider dashboards, while organization filtering and the existing server authorization boundary remain the source of access control.
+
+# 2026-08-09 — Billing UI fails closed until test configuration exists
+
+## Context
+
+Stripe Checkout can be implemented in the application before the Costivra test Price IDs and billing tables exist. Showing an active checkout button in that state creates a confusing failure and makes an incomplete pilot setup look ready.
+
+## Decision
+
+Have the billing status route return only non-secret readiness facts: database readiness, Stripe server-key presence, and per-plan Price configuration. Disable the Settings checkout button until the selected plan is configured.
+
+## Consequences
+
+Lewis can add test Prices and see the UI become ready without code changes, while missing provider or database setup remains explicit and no checkout request is attempted prematurely.
+
+# 2026-08-09 — Activation progress counts durable evidence, not upload rows
+
+## Context
+
+The activation checklist previously treated any document row as progress, treated an empty review queue as a completed review, and counted a pending monitoring test as active. Those signals could make an incomplete workspace appear activated.
+
+## Decision
+
+Compute activation progress from clean, supported, durably stored documents; an approved invoice or documented active contract linked to that evidence; and monitoring states that are either truly active or explicitly manual. Pending, quarantined, rejected, failed, and processing states do not complete a step.
+
+## Consequences
+
+The checklist is conservative and resumable. Customers see the next real action instead of a false completion state, and the same pure progress rules can be reused by future onboarding APIs.
+
+# 2026-08-09 — Persist onboarding progress without replacing authoritative records
+
+## Context
+
+The activation checklist was truthful but page-derived. A refresh or a blocked pilot handoff had no durable state, and manually treating a checklist as complete would weaken the evidence rules.
+
+## Decision
+
+Store a tenant-scoped onboarding projection with explicit status, current step, completion timestamps, and an operator-entered blocked reason. The server sync endpoint derives it only from the same clean-document, authoritative-review, and real-monitoring rules as the checklist. Only owners/admins may block or resume it, and activation cannot be manually set.
+
+## Consequences
+
+Onboarding can resume across sessions and can show a real blocked state, while documents, reviews, and monitoring records remain the source of truth for whether activation is actually earned.
+
+# 2026-08-09 — Readiness pages never spend scanner quota
+
+## Context
+
+The private Manage readiness endpoint was invoking a live clean-file malware probe on every dashboard read. That could consume provider quota and was not an appropriate side effect for a normal GET request.
+
+## Decision
+
+`checkSystemReadiness` now requires an explicit `runLiveMalwareProbe: true` option for a provider probe. Public status and private dashboard reads use persisted/configuration readiness only; the dedicated operational verifier remains the explicit probe path.
+
+## Consequences
+
+Opening a status page is now read-only with respect to the malware provider. Operators still receive an honest warning until the separately run clean and inert-file exercises establish live proof.
+
+# 2026-08-09 — Monitoring tests require an exact approved sender
+
+## Context
+
+The inbound monitoring reconciler treated every successfully processed message as a valid pending test. That allowed unrelated inbound mail to activate a vendor's monitoring configuration.
+
+## Decision
+
+Normalize display-name addresses and require an exact match between the inbound sender and the configured approved forwarding address before advancing a pending test or recurring monitoring cycle. Missing approval never authorizes activation.
+
+## Consequences
+
+A real approved forwarding test still activates monitoring after clean processing, while unrelated or spoofed mail remains in the normal intake record without changing monitoring state.
+
+# 2026-08-09 — Email-forwarding monitoring requires a configured sender
+
+## Context
+
+An email-forwarding monitor cannot safely complete its test without knowing which sender is authorized. Allowing an empty sender would create a configuration that can never activate, or tempt a later fallback to accept unrelated mail.
+
+## Decision
+
+The monitoring API and persistence helper require a valid approved email address whenever the source method is `email_forwarding`. Manual forwarding and manual upload remain available without that sender constraint.
+
+## Consequences
+
+The setup flow fails early with a plain-language error instead of creating a permanently pending monitor. Exact sender matching remains the only path that activates recurring monitoring.
+
+# 2026-08-09 — Enforce sequence enrollment consistency in the database
+
+## Context
+
+The sequence APIs already checked that contacts belonged to the sequence organization, but a service-role worker or repair script could bypass the API and create a cross-organization enrollment or attach a step from another sequence.
+
+## Decision
+
+Add a trigger-backed database guard for sequence organization, contact organization, current-step ownership, and active send-capable mailbox state. The server APIs remain responsible for user authorization and suppression checks.
+
+## Consequences
+
+Direct internal writes fail closed at the database boundary instead of relying only on application callers. Manual mail and customer tables remain outside the sequence write path.
