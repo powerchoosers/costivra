@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const isMalwareScannerConfigured = vi.hoisted(() => vi.fn());
+const getMalwareScannerConfig = vi.hoisted(() => vi.fn());
 const scanFileForMalware = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/security/malware-scanner", () => ({
-  isMalwareScannerConfigured,
+  getMalwareScannerConfig,
   scanFileForMalware,
 }));
 
@@ -78,8 +78,12 @@ describe("owner system readiness", () => {
     vi.stubEnv("OPEN_ROUTER_API_KEY", "openrouter-secret-for-test");
     vi.stubEnv("APOLLO_API_KEY", "apollo-secret-for-test");
     vi.stubEnv("RETENTION_ENFORCEMENT_ENABLED", "0");
-    isMalwareScannerConfigured.mockReset();
-    isMalwareScannerConfigured.mockReturnValue(true);
+    getMalwareScannerConfig.mockReset();
+    getMalwareScannerConfig.mockReturnValue({
+      provider: "generic",
+      endpoint: "https://scanner.example.com/scan",
+      timeoutMs: 30_000,
+    });
     scanFileForMalware.mockReset();
     scanFileForMalware.mockResolvedValue({ status: "clean" });
   });
@@ -176,7 +180,11 @@ describe("owner system readiness", () => {
     vi.stubEnv("CRON_SECRET", "");
     vi.stubEnv("OPEN_ROUTER_API_KEY", "");
     vi.stubEnv("APOLLO_API_KEY", "");
-    isMalwareScannerConfigured.mockReturnValue(false);
+    getMalwareScannerConfig.mockReturnValue({
+      provider: "unavailable",
+      code: "not_configured",
+      detail: "No malware scanner provider key or URL is configured.",
+    });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -199,7 +207,11 @@ describe("owner system readiness", () => {
     vi.stubEnv("CRON_SECRET", "[placeholder]");
     vi.stubEnv("OPEN_ROUTER_API_KEY", "placeholder-token");
     vi.stubEnv("APOLLO_API_KEY", "placeholder-apollo");
-    isMalwareScannerConfigured.mockReturnValue(true);
+    getMalwareScannerConfig.mockReturnValue({
+      provider: "generic",
+      endpoint: "https://scanner.example.com/scan",
+      timeoutMs: 30_000,
+    });
 
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

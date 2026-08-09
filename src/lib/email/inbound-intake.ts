@@ -14,6 +14,7 @@ import {
 import { inboundEmailOutcomeMessage } from "@/lib/email/inbound-outcome";
 import { getResendClient } from "@/lib/email/resend";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
+import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCategoryMonitoringGuidance } from "@/lib/vendors/category-monitoring";
 
@@ -240,6 +241,14 @@ export async function processInboundEmailJob(
     const sha256 = createHash("sha256").update(buffer).digest("hex");
     const scan = await scanFileForMalware({ buffer, filename, mimeType: contentType });
     if (scan.status !== "clean") {
+      await persistDocumentSecurityScan({
+        db,
+        organizationId: job.organization_id,
+        documentId: null,
+        sha256,
+        sourceType: "email_forwarding",
+        scan,
+      });
       if (scan.status === "infected") {
         const { error } = await db
           .from("inbound_email_attachments")

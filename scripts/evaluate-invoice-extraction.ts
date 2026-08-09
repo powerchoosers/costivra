@@ -119,6 +119,7 @@ async function main() {
     telecomInternet: manifest.cases.filter(
       (item) => item.segment === "telecom_internet",
     ).length,
+    utility: manifest.cases.filter((item) => item.segment === "utility").length,
     scanned: manifest.cases.filter((item) => item.scanned).length,
   };
 
@@ -127,6 +128,7 @@ async function main() {
     console.log(
       `Coverage: software ${coverage.software}/${manifest.coverageRequirements.software}, ` +
         `telecom/internet ${coverage.telecomInternet}/${manifest.coverageRequirements.telecomInternet}, ` +
+        `utility ${coverage.utility}/${manifest.coverageRequirements.utility}, ` +
         `scanned ${coverage.scanned}/${manifest.coverageRequirements.scanned}.`,
     );
     return;

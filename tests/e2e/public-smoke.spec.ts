@@ -18,12 +18,12 @@ test("public site navigates without runtime errors", async ({ page }, testInfo) 
   test.skip(testInfo.project.name.startsWith("mobile"), "Desktop navigation has its own interaction model");
   const failures = failOnConsoleErrors(page);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Put every recurring business cost under command." })).toBeVisible();
-  await expect(page.getByText("Recurring cost intelligence for finance and operations", { exact: true })).toBeVisible();
-  await expect(page.getByText("For owners, CFOs, controllers, and operations leaders managing recurring business spend.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Scan 3 bills free", exact: true }).first()).toHaveAttribute("href", "/scan");
-  await expect(page.getByRole("link", { name: "See a finding from source to result", exact: true })).toHaveAttribute("href", "#evidence");
-  await page.getByRole("link", { name: "See a finding from source to result", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Find hidden waste in your business bills." })).toBeVisible();
+  await expect(page.getByText("Recurring bill review for growing businesses", { exact: true })).toBeVisible();
+  await expect(page.getByText("Built for owners, finance teams, and operators managing recurring costs across locations, services, and contracts.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Review 3 bills free", exact: true })).toHaveAttribute("href", "/scan");
+  await expect(page.getByRole("link", { name: "See a sample review", exact: true })).toHaveAttribute("href", "#evidence");
+  await page.getByRole("link", { name: "See a sample review", exact: true }).click();
   await expect(page).toHaveURL(/\/#evidence$/);
   await expect(page.locator("#evidence")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -76,8 +76,8 @@ test("mobile scan page stacks the intake story and workspace panel", async ({ pa
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile-only layout");
   const failures = failOnConsoleErrors(page);
   await page.goto("/scan");
-  await expect(page.getByRole("heading", { level: 1, name: "Start with three bills." })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 2, name: "Free Cost Leak Scan" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Start with three current bills." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Start your 3-bill review" })).toBeVisible();
   const layout = await page.locator(".scan-layout").evaluate((element) => {
     const hero = element.querySelector(".content-hero")?.getBoundingClientRect();
     const panel = element.querySelector(".scan-panel")?.getBoundingClientRect();
@@ -97,78 +97,43 @@ test("mobile scan page stacks the intake story and workspace panel", async ({ pa
 test("hero evidence anchor respects reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await page.getByRole("link", { name: "See a finding from source to result", exact: true }).click();
+  await page.getByRole("link", { name: "See a sample review", exact: true }).click();
   await expect(page).toHaveURL(/\/#evidence$/);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 });
 
-test("interactive hero demo supports stages, source evidence, approval, and result states", async ({ page }) => {
+test("hero review preview keeps source evidence and potential value explicit", async ({ page }) => {
   await page.goto("/");
-  const sourceStage = page.getByRole("button", { name: "Stage 01: Source received" });
-  const changeStage = page.getByRole("button", { name: "Stage 02: Change detected" });
-  const evidenceStage = page.getByRole("button", { name: "Stage 03: Evidence linked" });
-  const approvalStage = page.getByRole("button", { name: "Stage 04: Approval required" });
-  const resultStage = page.getByRole("button", { name: "Stage 05: Later result checked" });
-
-  await expect(sourceStage).toHaveAttribute("aria-pressed", "true");
-  await page.waitForTimeout(5000);
-  await expect(changeStage).toHaveAttribute("aria-pressed", "true");
-
-  await evidenceStage.focus();
-  await page.keyboard.press("Enter");
-  await expect(evidenceStage).toHaveAttribute("aria-pressed", "true");
-  await page.waitForTimeout(4400);
-  await expect(evidenceStage).toHaveAttribute("aria-pressed", "true");
-
-  await page.getByRole("button", { name: "View source" }).click();
-  const dialog = page.getByRole("dialog", { name: "Why this finding exists" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Synthetic demonstration data", { exact: false })).toBeVisible();
-  await expect(dialog.getByText("EV-ILL-003", { exact: false })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Close source evidence" })).toBeFocused();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "View source" })).toBeFocused();
-
-  await approvalStage.click();
-  await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "Costivra has not acted yet." })).toBeVisible();
-  await page.getByRole("button", { name: "Approve example" }).click();
-  await expect(page.getByRole("status")).toContainText("Example action approved");
-
-  await resultStage.click();
-  await expect(page.getByRole("heading", { name: "The example result is checked against a later bill." })).toBeVisible();
-  await expect(page.getByText("Example later invoice confirms the changed charge.", { exact: false })).toBeVisible();
+  const preview = page.getByRole("complementary", { name: "Illustrative bill review example" });
+  await expect(preview).toBeVisible();
+  await expect(preview.getByText("Source evidence", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Potential impact · not verified", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Monthly circuit charge increased", { exact: true })).toBeVisible();
 });
 
 test("interactive hero demo respects reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  const sourceStage = page.getByRole("button", { name: "Stage 01: Source received" });
-  await expect(sourceStage).toHaveAttribute("aria-pressed", "true");
-  await page.waitForTimeout(5000);
-  await expect(sourceStage).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("complementary", { name: "Illustrative bill review example" })).toBeVisible();
 });
 
 test("homepage uses the honest methodology proof fallback", async ({ page }) => {
   await page.goto("/");
   const proof = page.locator('[data-proof-mode="methodology"]');
   await expect(proof).toBeVisible();
-  await expect(proof.getByRole("heading", { name: "Value is not verified until later evidence proves it." })).toBeVisible();
-  await expect(proof.getByText("Costivra keeps potential value separate from confirmed results.", { exact: false })).toBeVisible();
+  await expect(proof.getByRole("heading", { name: "We only count savings after they happen." })).toBeVisible();
+  await expect(proof.getByText("A saving becomes real only when a lower bill, credit, or vendor record proves the result.", { exact: false })).toBeVisible();
   const sequence = proof.getByRole("list");
-  await expect(sequence.getByText("Finding identified", { exact: true })).toBeVisible();
-  await expect(sequence.getByText("Customer approves the method", { exact: true })).toBeVisible();
-  await expect(sequence.getByText("Later evidence arrives", { exact: true })).toBeVisible();
-  await expect(sequence.getByText("Result is confirmed or rejected", { exact: true })).toBeVisible();
-  await expect(proof.getByText("No approved public case yet", { exact: false })).toBeVisible();
+  await expect(sequence.getByText("We spot something to check", { exact: true })).toBeVisible();
+  await expect(sequence.getByText("You choose what to do", { exact: true })).toBeVisible();
+  await expect(sequence.getByText("The result is proved later", { exact: true })).toBeVisible();
   await expect(proof.getByText("trusted by leading companies", { exact: false })).toHaveCount(0);
 });
 
 test("evidence categories synchronize the source-linked viewer", async ({ page }) => {
   await page.goto("/");
   const sectionOrder = await page.locator("main > section").evaluateAll((sections) => sections.slice(0, 4).map((section) => section.className));
-  expect(sectionOrder).toEqual(["hero", "public-proof-section", "evidence-section", "workflow"]);
+  expect(sectionOrder).toEqual(["hero", "evidence-section", "workflow", "public-proof-section"]);
 
   const evidence = page.locator("#evidence");
   await evidence.scrollIntoViewIfNeeded();
@@ -200,28 +165,24 @@ test("evidence categories synchronize the source-linked viewer", async ({ page }
   await expect(evidence.getByRole("link", { name: "Explore" }).nth(2)).toHaveAttribute("href", "/solutions/energy");
 });
 
-test("workflow keeps five stages concrete and compact", async ({ page }, testInfo) => {
+test("workflow keeps three review steps concrete and compact", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   const workflow = page.locator("#how-it-works");
   const stages = workflow.locator(".step");
-  await expect(stages).toHaveCount(5);
-  await expect(stages.locator("h3")).toHaveText(["Connect", "Extract", "Detect", "Approve", "Verify"]);
+  await expect(stages).toHaveCount(3);
+  await expect(stages.locator("h3")).toHaveText(["Choose current bills", "Review what changed", "Decide the next step"]);
   for (const copy of [
-    "Add selected bills, contracts, and vendor records.",
-    "Costivra reads the terms and keeps the source attached.",
-    "Rules flag price changes, duplicate costs, unused services, and deadline risk.",
-    "The right person decides whether Costivra should help take the next step.",
-    "A later bill, credit, or contract confirms whether the result occurred.",
+    "Start with the software, internet, or energy documents you want reviewed.",
+    "See possible price increases, duplicate charges, unused services, or renewal deadlines with the source attached.",
+    "Your team can save, investigate, assign, or approve a bounded action. Later evidence determines what is verified.",
   ]) {
     await expect(workflow.getByText(copy, { exact: true })).toBeVisible();
   }
-  await expect(workflow.locator(".workflow-artifact")).toHaveCount(5);
-  await expect(workflow.getByText("3 files ready · 1 vendor", { exact: true })).toBeVisible();
-  await expect(workflow.getByText("Annual adjustment · page 3", { exact: true })).toBeVisible();
-  await expect(workflow.getByText("Potential change · $1,040 / mo", { exact: true })).toBeVisible();
-  await expect(workflow.getByText("Finance owner · pending", { exact: true })).toBeVisible();
-  await expect(workflow.getByText("Later bill · awaiting", { exact: true })).toBeVisible();
+  await expect(workflow.locator(".workflow-artifact")).toHaveCount(3);
+  await expect(workflow.getByText("Selected documents", { exact: true })).toBeVisible();
+  await expect(workflow.getByText("Source linked · review needed", { exact: true })).toBeVisible();
+  await expect(workflow.getByText("Your approval required", { exact: true })).toBeVisible();
   await expect(workflow.locator(".doctrine-line")).toHaveCount(0);
 
   if (testInfo.project.name.startsWith("mobile")) {
@@ -277,8 +238,8 @@ test("homepage CTA and public navigation route matrix stays consistent", async (
   const scanLinks = page.locator('a[href="/scan"]');
   const scanLabels = (await scanLinks.allTextContents()).map((label) => label.replace(/\s+/g, " ").trim());
   expect(scanLabels.length).toBeGreaterThanOrEqual(4);
-  expect(scanLabels.every((label) => label === "Scan 3 bills free")).toBe(true);
-  await expect(page.getByRole("heading", { name: "Start with three bills. Keep the evidence." })).toBeVisible();
+  expect(scanLabels.every((label) => ["Review 3 bills free", "Start with 3 bills"].includes(label))).toBe(true);
+  await expect(page.getByRole("heading", { name: "Start with three bills.", exact: true })).toBeVisible();
   await expect(page.getByText("Pilot pricing shown for product evaluation.", { exact: true })).toHaveCount(0);
 
   const desktopNav = await page.locator('header nav[aria-label="Primary navigation"] a').evaluateAll((links) => links.map((link) => ({ label: link.textContent?.trim(), href: link.getAttribute("href") })));
@@ -303,7 +264,7 @@ test("homepage CTA and public navigation route matrix stays consistent", async (
   if (testInfo.project.name.startsWith("mobile")) {
     await page.getByRole("button", { name: /open navigation/i }).click();
     await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Scan 3 bills free", exact: true })).toHaveAttribute("href", "/scan");
+    await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Start with 3 bills", exact: true })).toHaveAttribute("href", "/scan");
   }
 });
 

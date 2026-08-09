@@ -28,6 +28,15 @@ const steps = [
   { title: "Decide the next step", copy: "Your team can save, investigate, assign, or approve a bounded action. Later evidence determines what is verified.", artifact: "Your approval required", icon: UserCheck },
 ] as const;
 
+const heroReviewExample = {
+  previousMonthlyCents: 131000,
+  currentMonthlyCents: 151000,
+} as const;
+
+const heroReviewMonthlyChangeCents = heroReviewExample.currentMonthlyCents - heroReviewExample.previousMonthlyCents;
+const heroReviewAnnualImpactCents = heroReviewMonthlyChangeCents * 12;
+const formatHeroReviewCurrency = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+
 const trust = [
   [FileLock2, "Private documents", "Files remain private and use controlled access."],
   [Building2, "Tenant-isolated records", "Customer records are separated by organization boundaries and database policies."],
@@ -147,13 +156,12 @@ export function HomePage() {
           <div className="hero-copy">
             <span className="hero-eyebrow">Recurring bill review for growing businesses</span>
             <h1>Find hidden waste in your business bills.</h1>
-            <p>Upload selected software, internet, and energy bills. Costivra flags price increases, duplicate charges, unused services, and renewal deadlines—then shows you the exact source.</p>
-            <p className="hero-fit">Built for teams managing recurring vendors across people, locations, services, or contracts.</p>
+            <p>Upload up to three software, internet, or energy bills. Costivra flags price increases, duplicate charges, unused services, and renewal risks, then links every finding to the exact source.</p>
+            <p className="hero-fit">Built for owners, finance teams, and operators managing recurring costs across locations, services, and contracts.</p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/scan">Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link>
-              <Link className="button button-secondary" href="#evidence">See what a bill review looks like</Link>
+              <Link className="button button-primary" href="/scan">Review 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
+              <Link className="button button-secondary" href="#evidence">See a sample review</Link>
             </div>
-            <p className="hero-expectation">Create a private workspace, choose up to three bills, and see the next review step.</p>
             <div className="hero-assurance" aria-label="Costivra product assurances">
               <span><LockKeyhole aria-hidden="true" size={15} /> Only the documents you choose</span>
               <span><ShieldCheck aria-hidden="true" size={15} /> No broad inbox access</span>
@@ -237,10 +245,10 @@ function HeroReviewPreview() {
       </div>
       <div className="hero-review-document">
         <div className="hero-review-document-heading">
-          <span className="hero-review-document-icon"><FileText aria-hidden="true" size={18} /></span>
+          <span className="hero-review-document-icon"><img src="https://img.logo.dev/business.att.com?size=128&format=png&fallback=404" alt="AT&amp;T Business" /></span>
           <div>
-            <span>May internet bill</span>
-            <strong>Source bill attached</strong>
+            <span>AT&amp;T Business</span>
+            <strong>May internet bill</strong>
           </div>
           <small>Page 2</small>
         </div>
@@ -251,18 +259,29 @@ function HeroReviewPreview() {
             <strong>Monthly circuit charge increased</strong>
           </div>
         </div>
+        <div className="hero-review-comparison" aria-label="Illustrative monthly bill comparison">
+          <div><span>Previous bill</span><strong>{formatHeroReviewCurrency(heroReviewExample.previousMonthlyCents)} <small>/ month</small></strong></div>
+          <div><span>Current bill</span><strong>{formatHeroReviewCurrency(heroReviewExample.currentMonthlyCents)} <small>/ month</small></strong></div>
+        </div>
         <div className="hero-review-change">
           <span>Change from prior bill</span>
-          <strong>+$200 <small>/ month</small></strong>
+          <strong>+{formatHeroReviewCurrency(heroReviewMonthlyChangeCents)} <small>/ month</small></strong>
+          <em>{formatHeroReviewCurrency(heroReviewExample.currentMonthlyCents)} − {formatHeroReviewCurrency(heroReviewExample.previousMonthlyCents)} = {formatHeroReviewCurrency(heroReviewMonthlyChangeCents)}</em>
         </div>
-        <div className="hero-review-reason">
-          <span>Why it matters</span>
-          <p>This recurring charge is higher than expected.</p>
+        <div className="hero-review-impact">
+          <span>Potential annual impact</span>
+          <strong>+{formatHeroReviewCurrency(heroReviewAnnualImpactCents)}</strong>
+          <small>If the new charge continues for 12 months.</small>
+        </div>
+        <div className="hero-review-evidence">
+          <span>Source evidence</span>
+          <strong>May internet bill · Page 2</strong>
+          <q>Monthly circuit charge: $1,510.00</q>
         </div>
       </div>
       <div className="hero-review-footer">
-        <Link href="#evidence">Review the bill <ArrowRight aria-hidden="true" size={15} /></Link>
-        <strong>Not savings yet</strong>
+        <Link href="#evidence">Review the source <ArrowRight aria-hidden="true" size={15} /></Link>
+        <strong>Potential impact · not verified</strong>
       </div>
     </aside>
   );

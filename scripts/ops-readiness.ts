@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { isConfiguredSecret } from "../src/lib/env/secrets";
+import { getMalwareScannerConfig } from "../src/lib/security/malware-scanner-core";
 
 type EnvStatus = "ok" | "missing" | "placeholder";
 type JsonRecord = Record<string, unknown>;
@@ -154,14 +155,21 @@ async function openRouterReadiness() {
 async function scannerReadiness() {
   const url = process.env.MALWARE_SCANNER_URL?.trim();
   const apiKey = process.env.CLOUDMERSIVE_API_KEY?.trim();
+  const config = getMalwareScannerConfig();
   console.log("\nMalware scanner checks:");
   console.log(`  MALWARE_SCANNER_URL: ${hasRealValue(url)}`);
   console.log(`  CLOUDMERSIVE_API_KEY: ${hasRealValue(apiKey)}`);
 
-  if (hasRealValue(url) === "ok" || hasRealValue(apiKey) === "ok") {
-    console.log("  - Malware scanner configured. Production intake will perform live virus scanning.");
+  if (config.provider === "unavailable") {
+    console.log(`  - blocked: ${config.detail}`);
+    return;
+  }
+  if (config.provider === "cloudmersive") {
+    console.log("  - configured: Cloudmersive request boundary is server-only.");
+    console.log(`  - monthly limit: ${config.monthlyLimit}; operational reserve: ${config.monthlyReserve}`);
+    console.log(`  - minimum interval: ${config.minIntervalMs}ms; provider file limit: ${config.maxFileBytes} bytes`);
   } else {
-    console.log("  - Malware scanner unavailable. Private intake will quarantine files until scanning is active.");
+    console.log("  - configured: generic scanner request boundary is server-only.");
   }
 }
 

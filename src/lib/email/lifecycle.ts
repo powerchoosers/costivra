@@ -1,163 +1,92 @@
-import { createHash } from "node:crypto";
+import "server-only";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getResendClient } from "./resend";
+import { brandedEmailHtml, escapeEmailHtml } from "./brand";
+import { emailRequestHash, sendTransactionalEmail } from "./resend";
 
 export type LifecycleEmailKind =
-  | "welcome_activation"
-  | "upload_received"
-  | "review_needed"
-  | "finding_ready"
-  | "approval_requested"
-  | "forwarding_instructions"
-  | "forwarding_test_result"
-  | "expected_bill_missed"
-  | "verification_ready";
+  | "welcome_activation" | "upload_received" | "review_needed" | "finding_ready"
+  | "approval_requested" | "forwarding_instructions" | "forwarding_test_result"
+  | "expected_bill_missed" | "verification_ready";
+
+export type LifecycleEmailPayload = {
+  vendorName?: string;
+  documentName?: string;
+  findingTitle?: string;
+  amountCents?: number;
+  actionTitle?: string;
+  intakeAddress?: string;
+  reason?: string;
+  scanStatus?: "processing" | "quarantined" | "duplicate" | "rejected";
+  sourceRecordId?: string;
+  eventKey?: string;
+};
 
 export interface SendLifecycleEmailInput {
   kind: LifecycleEmailKind;
   organizationId: string;
   recipientEmail: string;
   recipientName?: string;
-  payload: {
-    vendorName?: string;
-    documentName?: string;
-    findingTitle?: string;
-    amountCents?: number;
-    actionTitle?: string;
-    intakeAddress?: string;
-    reason?: string;
-  };
+  payload: LifecycleEmailPayload;
 }
 
-export function buildLifecycleEmailContent(kind: LifecycleEmailKind, payload: SendLifecycleEmailInput["payload"]) {
+type Content = { subject: string; text: string; html: string };
+const money = (cents?: number) => cents == null ? "See details" : `$${(cents / 100).toFixed(2)}`;
+const safe = (value: string | undefined, fallback: string) => escapeEmailHtml(value?.trim() || fallback);
+const link = (path: string) => `https://costivra.ai${path}`;
+
+export function buildLifecycleEmailContent(kind: LifecycleEmailKind, payload: LifecycleEmailPayload, recipientName?: string): Content {
+  const name = safe(recipientName, "there");
+  const vendor = safe(payload.vendorName, "your vendor");
+  const document = safe(payload.documentName, "your document");
+  const body = (heading: string, bodyHtml: string, cta?: { label: string; href: string }, subject = heading) => ({
+    subject,
+    text: `${heading}\n\n${bodyHtml.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&")}\n\nCostivra`,
+    html: brandedEmailHtml({ preview: subject, heading, bodyHtml, cta, footer: "This message was sent by Costivra because of activity in your private workspace." }),
+  });
   switch (kind) {
-    case "welcome_activation":
-      return {
-        subject: "Welcome to Costivra – Your 3-Bill Activation Checklist",
-        text: `Welcome to Costivra.\n\nYour workspace is ready. To complete activation and begin cost monitoring:\n1. Upload 3 recent recurring bills\n2. Review extracted line items\n3. Configure automatic bill forwarding\n\nAccess your workspace: https://costivra.ai/app`,
-      };
-    case "upload_received":
-      return {
-        subject: `Document Received: ${payload.documentName ?? "Source File"}`,
-        text: `Costivra received "${payload.documentName ?? "your file"}". It is undergoing malware scanning and deterministic line-item extraction.\n\nView documents: https://costivra.ai/app/documents`,
-      };
-    case "review_needed":
-      return {
-        subject: `Extraction Review Needed: ${payload.vendorName ?? "Vendor Document"}`,
-        text: `A document from ${payload.vendorName ?? "a vendor"} requires human review due to low extraction confidence or missing totals.\n\nReview now: https://costivra.ai/app/documents`,
-      };
-    case "finding_ready":
-      return {
-        subject: `New Finding: ${payload.findingTitle ?? "Cost Opportunity Identified"}`,
-        text: `Costivra identified a potential cost opportunity: ${payload.findingTitle}.\nEstimated value: ${payload.amountCents ? `$${(payload.amountCents / 100).toFixed(2)}` : "See details"}.\n\nView finding evidence: https://costivra.ai/app/opportunities`,
-      };
-    case "approval_requested":
-      return {
-        subject: `Approval Required: ${payload.actionTitle ?? "Vendor Action Plan"}`,
-        text: `An action plan requires authorized human approval: ${payload.actionTitle}.\n\nReview and authorize: https://costivra.ai/app/actions`,
-      };
-    case "forwarding_instructions":
-      return {
-        subject: `Monitoring Setup: Forwarding Instructions for ${payload.vendorName ?? "Vendor"}`,
-        text: `To monitor bills from ${payload.vendorName ?? "your vendor"}, set up an automatic email forwarding rule to your private intake address:\n\n${payload.intakeAddress ?? "inbox@costivra.ai"}\n\nInstructions: https://costivra.ai/app/vendors`,
-      };
-    case "forwarding_test_result":
-      return {
-        subject: `Monitoring Activated: ${payload.vendorName ?? "Vendor"} Test Invoice Received`,
-        text: `Forwarding test succeeded! Costivra successfully received and verified a forwarded bill from ${payload.vendorName ?? "your vendor"}. Continuous monitoring is now active.`,
-      };
-    case "expected_bill_missed":
-      return {
-        subject: `Bill Missed: Expected recurring bill from ${payload.vendorName ?? "Vendor"} not received`,
-        text: `Costivra did not receive the expected recurring bill from ${payload.vendorName ?? "a monitored vendor"} within the expected billing window and grace period. Please verify forwarding or upload the missing statement.`,
-      };
-    case "verification_ready":
-      return {
-        subject: `Savings Verified: ${payload.findingTitle ?? "Cost Recovery Outcome"}`,
-        text: `Savings outcome verified! Verified financial savings: ${payload.amountCents ? `$${(payload.amountCents / 100).toFixed(2)}` : "Confirmed"}.\n\nView savings proof: https://costivra.ai/app/savings`,
-      };
+    case "welcome_activation": return body("Your Costivra workspace is ready.", `<p>Hi ${name},</p><p>Your private workspace is ready. Start with up to three current bills, review the source-linked findings, and decide what deserves attention.</p>`, { label: "Open your workspace", href: link("/app") }, "Welcome to Costivra");
+    case "upload_received": {
+      const state = payload.scanStatus ?? "processing";
+      const copy = state === "quarantined" ? "The file is safely quarantined while security review completes." : state === "duplicate" ? "Costivra recognized this as a duplicate and kept the original record authoritative." : state === "rejected" ? "The file was rejected before downstream processing. Open the workspace for the reason." : "The file is being scanned and prepared for source-linked review.";
+      return body("Your document reached Costivra.", `<p><strong>${document}</strong></p><p>${copy}</p>`, { label: "View document status", href: link("/app/documents") }, `Document received · ${payload.documentName ?? "Source file"}`);
+    }
+    case "review_needed": return body("A document needs your review.", `<p>The ${vendor} document needs attention because extraction confidence is low, required totals are missing, or the arithmetic needs review.</p>`, { label: "Review the document", href: link("/app/documents") }, `Review needed · ${payload.vendorName ?? "Vendor document"}`);
+    case "finding_ready": return body("A potential cost issue is ready to review.", `<p><strong>${safe(payload.findingTitle, "A potential cost issue")}</strong></p><p>Potential value: <strong>${money(payload.amountCents)}</strong>. This is a potential value, not verified savings. The source evidence and calculation are attached in your workspace.</p>`, { label: "Review the evidence", href: link("/app/opportunities") }, `Potential value ready · ${payload.findingTitle ?? "Cost issue"}`);
+    case "approval_requested": return body("An action is waiting for approval.", `<p><strong>${safe(payload.actionTitle, "A bounded action")}</strong> needs an authorized decision. Review the scope, evidence, and outside effect before approving.</p>`, { label: "Review approval", href: link("/app/actions") }, `Approval requested · ${payload.actionTitle ?? "Action"}`);
+    case "forwarding_instructions": return body("Your bill-monitoring intake is ready.", `<p>Forward future ${vendor} bills to:</p><p style="font-size:20px;font-weight:700;color:#111927">${safe(payload.intakeAddress, "your private intake address")}</p><p>Only use the address shown in your workspace. Costivra will keep the source attached and show the scan result.</p>`, { label: "View monitoring", href: link("/app/vendors") }, `Monitoring setup · ${payload.vendorName ?? "Vendor"}`);
+    case "forwarding_test_result": return body("Your monitoring test completed.", `<p>Costivra received and checked a forwarded ${vendor} document. Open the workspace to see the intake and scan result.</p>`, { label: "View monitoring", href: link("/app/vendors") }, `Monitoring test result · ${payload.vendorName ?? "Vendor"}`);
+    case "expected_bill_missed": return body("An expected bill did not arrive.", `<p>Costivra did not receive the expected recurring bill from ${vendor} during the configured window. Check forwarding or upload the missing statement.</p>`, { label: "Review monitoring", href: link("/app/vendors") }, `Expected bill missed · ${payload.vendorName ?? "Vendor"}`);
+    case "verification_ready": return body("A result is ready for verification.", `<p><strong>${safe(payload.findingTitle, "A cost outcome")}</strong> has later evidence available. Review the baseline, comparison record, and method before treating the outcome as verified.</p>`, { label: "Review verification", href: link("/app/savings") }, `Verification ready · ${payload.findingTitle ?? "Cost outcome"}`);
   }
 }
 
-export async function sendLifecycleEmail(
-  db: SupabaseClient,
-  input: SendLifecycleEmailInput,
-): Promise<{ sent: boolean; messageId?: string; reason?: string }> {
-  const { kind, organizationId, recipientEmail, payload } = input;
-  const content = buildLifecycleEmailContent(kind, payload);
+function stableIdempotencyKey(input: SendLifecycleEmailInput) {
+  const source = input.payload.sourceRecordId || input.payload.eventKey || input.payload.documentName || input.payload.findingTitle || "workspace-event";
+  return `lifecycle/${input.organizationId}/${input.kind}/${source}/${input.recipientEmail.trim().toLowerCase()}`;
+}
 
-  // Compute idempotency key
-  const idempotencyKey = createHash("sha256")
-    .update(`${organizationId}:${kind}:${recipientEmail}:${payload.vendorName ?? ""}:${payload.documentName ?? ""}`)
-    .digest("hex");
+export async function sendLifecycleEmail(db: SupabaseClient, input: SendLifecycleEmailInput): Promise<{ sent: boolean; messageId?: string; reason?: string; deliveryStatus?: "accepted" | "duplicate" | "failed" }> {
+  const content = buildLifecycleEmailContent(input.kind, input.payload, input.recipientName);
+  const idempotencyKey = stableIdempotencyKey(input);
+  const requestHash = emailRequestHash({ to: input.recipientEmail, subject: content.subject, text: content.text });
+  const { data: existing, error: lookupError } = await db.from("external_side_effects").select("id,status,provider_reference").eq("organization_id", input.organizationId).eq("idempotency_key", idempotencyKey).maybeSingle();
+  if (lookupError) return { sent: false, reason: "SIDE_EFFECT_LOOKUP_FAILED", deliveryStatus: "failed" };
+  if (existing) return { sent: false, messageId: existing.provider_reference || undefined, reason: "Already attempted (idempotent duplicate)", deliveryStatus: "duplicate" };
 
-  const requestHash = createHash("sha256")
-    .update(`${content.subject}:${content.text}`)
-    .digest("hex");
+  const { error: ledgerError } = await db.from("external_side_effects").upsert({
+    organization_id: input.organizationId, type: "lifecycle_email", destination: input.recipientEmail.trim().toLowerCase(), idempotency_key: idempotencyKey,
+    request_hash: requestHash, status: "approved", provider: "resend", authorized_at: new Date().toISOString(), authorization_method: "lifecycle_event_policy_v1",
+    sanitized_request_metadata: { kind: input.kind, source_record_id: input.payload.sourceRecordId ?? null, event_key: input.payload.eventKey ?? null, subject: content.subject },
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "idempotency_key" });
+  if (ledgerError) return { sent: false, reason: "SIDE_EFFECT_LEDGER_FAILED", deliveryStatus: "failed" };
 
-  // Check side-effects ledger
-  const { data: existing } = await db
-    .from("external_side_effects")
-    .select("id, status, provider_reference")
-    .eq("organization_id", organizationId)
-    .eq("idempotency_key", idempotencyKey)
-    .maybeSingle();
-
-  if (existing) {
-    return {
-      sent: false,
-      messageId: existing.provider_reference || undefined,
-      reason: "Already attempted (idempotent duplicate)",
-    };
+  const result = await sendTransactionalEmail({ to: input.recipientEmail.trim().toLowerCase(), subject: content.subject, text: content.text, html: content.html, idempotencyKey });
+  if (!result.ok) {
+    await db.from("external_side_effects").update({ status: "failed", last_error: result.error, updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
+    return { sent: false, reason: result.error, deliveryStatus: "failed" };
   }
-
-  const resend = getResendClient();
-  try {
-    const response = await resend.emails.send({
-      from: "Costivra <notifications@costivra.ai>",
-      to: [recipientEmail],
-      subject: content.subject,
-      text: content.text,
-    });
-
-    const messageId = response.data?.id ?? "mock-resend-id";
-
-    // Persist in side-effects ledger
-    await db.from("external_side_effects").upsert(
-      {
-        organization_id: organizationId,
-        type: "email_sent",
-        destination: recipientEmail,
-        idempotency_key: idempotencyKey,
-        request_hash: requestHash,
-        status: "sent",
-        provider: "resend",
-        provider_reference: messageId,
-        sanitized_request_metadata: { kind, recipientEmail, subject: content.subject },
-        completed_at: new Date().toISOString(),
-      },
-      { onConflict: "idempotency_key" },
-    );
-
-    return { sent: true, messageId };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Email delivery failed";
-    try {
-      await db.from("external_side_effects").insert({
-        organization_id: organizationId,
-        type: "email_sent",
-        destination: recipientEmail,
-        idempotency_key: idempotencyKey,
-        request_hash: requestHash,
-        status: "failed",
-        provider: "resend",
-        last_error: errorMessage,
-        sanitized_request_metadata: { kind, recipientEmail, subject: content.subject },
-      });
-    } catch {
-      // best-effort; ignore insert errors on failure path
-    }
-
-    return { sent: false, reason: errorMessage };
-  }
+  await db.from("external_side_effects").update({ status: "sent", provider_reference: result.providerId, completed_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
+  return { sent: true, messageId: result.providerId, deliveryStatus: "accepted" };
 }

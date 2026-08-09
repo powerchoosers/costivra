@@ -76,6 +76,14 @@ export async function ingestManualUpload(input: {
   });
   const decision = manualUploadScanDecision(scan);
   if (decision.action === "reject") {
+    await persistDocumentSecurityScan({
+      db: input.db,
+      organizationId: input.organizationId,
+      documentId: null,
+      sha256,
+      sourceType: "manual_upload",
+      scan,
+    });
     await recordAudit(input.db, {
       organizationId: input.organizationId,
       actorId: input.actorId,

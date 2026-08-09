@@ -23,7 +23,7 @@ function safeCode(scan: MalwareScanResult) {
 export async function persistDocumentSecurityScan(input: {
   db: DatabaseClient;
   organizationId: string;
-  documentId: string;
+  documentId: string | null;
   sha256: string;
   sourceType: DocumentScanSourceType;
   scan: MalwareScanResult;

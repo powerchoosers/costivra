@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { requireMailbox } from "@/lib/manage/mailbox-access";
 import { DOCUMENT_MIME_TYPES, ingestDocumentBuffer } from "@/lib/documents/intake";
 import { cleanUuid } from "@/lib/portal/http";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
+import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 
 export const runtime = "nodejs";
 
@@ -96,8 +98,19 @@ export async function POST(
     if (stored.error || !stored.data) throw new Error("The stored attachment is unavailable.");
     const buffer = Buffer.from(await stored.data.arrayBuffer());
     if (buffer.length !== Number(attachment.byte_size)) throw new Error("The stored attachment did not pass its integrity check.");
+    const sha256 = createHash("sha256").update(buffer).digest("hex");
     const scan = await scanFileForMalware({ buffer, filename: attachment.filename, mimeType: attachment.content_type });
     if (scan.status !== "clean") {
+      if (attachment.organization_id) {
+        await persistDocumentSecurityScan({
+          db: operator.db,
+          organizationId: attachment.organization_id,
+          documentId: null,
+          sha256,
+          sourceType: "email_forwarding",
+          scan,
+        });
+      }
       await operator.db.from("crm_email_attachments").update({ scan_status: scan.status, scanned_at: new Date().toISOString(), error_message: scan.status === "infected" ? "Malware scanning blocked this attachment." : scan.detail || "The security scan could not complete.", updated_at: new Date().toISOString() }).eq("id", id);
       return NextResponse.json({ error: scan.status === "infected" ? "This attachment was blocked by malware scanning." : "The security scan could not complete. Try again later." }, { status: 409 });
     }
@@ -105,6 +118,15 @@ export async function POST(
     if (attachment.organization_id && DOCUMENT_MIME_TYPES.has(attachment.content_type)) {
       const document = await ingestDocumentBuffer({ db: operator.db, organizationId: attachment.organization_id, actorType: "service", filename: attachment.filename, mimeType: attachment.content_type, buffer, sourceType: "email_forwarding", auditAction: "document.received_by_owner_mail", malwareScan: scan });
       documentId = document.documentId;
+    } else if (attachment.organization_id) {
+      await persistDocumentSecurityScan({
+        db: operator.db,
+        organizationId: attachment.organization_id,
+        documentId: null,
+        sha256,
+        sourceType: "email_forwarding",
+        scan,
+      });
     }
     await operator.db.from("crm_email_attachments").update({ scan_status: "clean", scanned_at: new Date().toISOString(), document_id: documentId, error_message: null, updated_at: new Date().toISOString() }).eq("id", id);
     await operator.db.from("internal_audit_events").insert({ actor_id: operator.userId, organization_id: attachment.organization_id, action: "crm.email_attachment_scanned", resource_type: "crm_email_message", resource_id: attachment.message_id, safe_metadata: { attachment_id: id, document_id: documentId } });

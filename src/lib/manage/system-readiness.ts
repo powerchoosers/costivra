@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  isMalwareScannerConfigured,
+  getMalwareScannerConfig,
   scanFileForMalware,
 } from "@/lib/security/malware-scanner";
 import { getConfiguredEnv, isConfiguredSecret } from "@/lib/env/secrets";
@@ -263,19 +263,28 @@ async function openRouterReadiness(): Promise<ReadinessService> {
 }
 
 async function malwareReadiness(runLiveProbe: boolean): Promise<ReadinessService> {
-  if (!isMalwareScannerConfigured())
+  const config = getMalwareScannerConfig();
+  if (config.provider === "unavailable") {
+    const message = config.code === "ambiguous_configuration"
+      ? "Both malware scanner providers are configured. Remove one before processing files."
+      : config.code === "invalid_configuration"
+        ? "Malware scanner configuration is invalid. Files remain safely quarantined."
+        : "No scanner is configured; source files remain safely quarantined.";
     return {
       id: "malware",
       name: "Malware scanning",
       status: "blocked",
-      message: "No scanner is configured; source files remain safely quarantined.",
+      message,
     };
+  }
   if (!runLiveProbe)
     return {
       id: "malware",
       name: "Malware scanning",
       status: "warning",
-      message: "A scanner is configured; an owner can run the live readiness probe.",
+      message: config.provider === "cloudmersive"
+        ? `Cloudmersive is configured (${config.monthlyLimit} monthly calls, ${config.minIntervalMs}ms minimum interval, ${(config.maxFileBytes / 1024 / 1024).toFixed(2)} MB provider limit); an owner must run the live clean and inert-file probes.`
+        : "A scanner is configured; an owner can run the live readiness probe.",
     };
 
   const probe = await scanFileForMalware({

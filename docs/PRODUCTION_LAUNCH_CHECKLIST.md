@@ -24,11 +24,11 @@ This is the short list of work that cannot be completed honestly with code alone
   - open `/api/manage/cron-auth` and check `configuredLength`/`configuredFingerprint` and `requestSignals`,
   - compare the fingerprint with the production Vercel environment value and redeploy after any correction.
 - Optional external verification before pilot:
-  - configure a malware scanner (`MALWARE_SCANNER_URL` + `MALWARE_SCANNER_TOKEN` or `CLOUDMERSIVE_API_KEY`) and rerun full `npm run build` + `npm run test:e2e`.
+  - configure exactly one malware scanner (`MALWARE_SCANNER_URL` + `MALWARE_SCANNER_TOKEN` or `CLOUDMERSIVE_API_KEY`), confirm the Cloudmersive 800-call / 1100ms plan controls and provider file limit, then run `npm run ops:cloudmersive` and the deliberate `npm run ops:cloudmersive:eicar` exercise. Provider failures, malformed responses, quota exhaustion, and over-plan files remain privately quarantined.
 
 ## Lewis must provide or decide
 
-- [ ] Choose and fund a malware scanner. The existing Cloudmersive adapter is the fastest path; a provider-neutral HTTP adapter is also supported. Until configured, inbound and uploaded source files remain safely quarantined and cannot be processed.
+- [ ] Choose and fund a malware scanner. The existing Cloudmersive adapter is the fastest path; a provider-neutral HTTP adapter is also supported. Configure exactly one provider. Until configured, inbound and uploaded source files remain safely quarantined and cannot be processed.
 - [ ] Supply a de-identified evaluation set: at least 20 software invoices, 20 telecom/internet invoices, and 10 scanned examples, including clean, incomplete, contradictory, and arithmetic-error cases. Do not send real customer files without permission and de-identification. The evaluator, private ignored directory, strict manifest parser, and operator instructions are ready in `docs/INVOICE_EXTRACTION_EVALUATION.md`.
 - [ ] Ask qualified counsel to approve the Privacy Policy, Terms, UCEP relationship disclosure, consent wording, retention/deletion policy, and performance-fee method before charging customers or sharing an energy case.
 - [ ] Upgrade Supabase if leaked-password protection is required for launch, then enable it in Authentication settings. The current plan does not expose that control.
@@ -40,7 +40,7 @@ This is the short list of work that cannot be completed honestly with code alone
 
 ## Configuration to complete
 
-- [ ] Add the selected malware-scanner secret to local, Vercel Preview, and Vercel Production environments. Never use a `NEXT_PUBLIC_` name for it.
+- [ ] Add the selected malware-scanner secret to local, Vercel Preview, and Vercel Production environments. Never use a `NEXT_PUBLIC_` name for it. For Cloudmersive, keep `MALWARE_SCANNER_URL` and `MALWARE_SCANNER_TOKEN` empty; the endpoint is fixed server-side and the key is never returned through readiness, logs, audit payloads, or browser code.
 - [ ] Confirm Vercel has server-only OpenRouter, Supabase secret, Resend API, and Resend webhook secrets plus browser-safe Supabase URL/publishable key in each intended environment.
 - [ ] Replace the redacted `SUPABASE_SECRET_KEY` placeholder in the ignored local `.env.local` file with the Costivra project secret, then run `npm run test:integration:live`. Vercel intentionally does not reveal shared sensitive values through `vercel env pull`, so this one local setup step must be completed from the Supabase dashboard; never paste the value into chat or commit it.
 - [x] Owners have a manual production-readiness check in **Manage → Settings**. Run it after changing a key, domain, webhook, worker, or provider. It reports service state without returning secret values; it does not replace the live clean/infected scanner exercise or the golden invoice evaluation.

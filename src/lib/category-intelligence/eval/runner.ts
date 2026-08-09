@@ -17,7 +17,7 @@ export type CategoryEvaluationSuite =
 export type CategoryEvaluationReport = {
   suite: CategoryEvaluationSuite;
   suiteVersion: string;
-  dataClassification: "synthetic";
+  dataClassification: "synthetic_smoke";
   coverageLevel: "structural";
   caseCount: number;
   passed: boolean;
@@ -54,7 +54,7 @@ function report(input: Omit<CategoryEvaluationReport, "suiteVersion" | "dataClas
   return {
     ...input,
     suiteVersion: CATEGORY_EVALUATION_SUITE_VERSION,
-    dataClassification: "synthetic",
+    dataClassification: "synthetic_smoke",
     coverageLevel: "structural",
     packVersions: packVersions(),
     sourceRegistryHash: sourceRegistryHash(),

@@ -44,7 +44,7 @@ function manifest(): GoldenInvoiceManifest {
   return parseGoldenInvoiceManifest({
     schemaVersion: "costivra-golden-invoice-v1",
     name: "Unit evaluation",
-    coverageRequirements: { software: 0, telecomInternet: 1, scanned: 0 },
+    coverageRequirements: { software: 0, telecomInternet: 1, utility: 0, scanned: 0 },
     thresholds: {
       classificationAccuracy: 1,
       criticalFieldPrecision: 1,
@@ -63,6 +63,9 @@ function manifest(): GoldenInvoiceManifest {
         file: "telecom-clean-1.txt",
         mimeType: "text/plain",
         scanned: false,
+        dataClassification: "synthetic_smoke",
+        reviewReference: "unit-fixture-review",
+        provenanceReference: "unit-fixture-provenance",
         segment: "telecom_internet",
         expected: {
           classification: "invoice",
@@ -171,6 +174,36 @@ describe("golden invoice evaluation", () => {
     expect(() => parseGoldenInvoiceManifest(raw)).toThrow(
       "every required evidence field needs an evidenceSnippets entry",
     );
+  });
+
+  it("requires an explicit data classification and review reference", () => {
+    const raw = JSON.parse(JSON.stringify(manifest())) as Record<string, unknown>;
+    const cases = raw.cases as Array<Record<string, unknown>>;
+    delete cases[0].dataClassification;
+    expect(() => parseGoldenInvoiceManifest(raw)).toThrow("dataClassification must be a non-empty string");
+
+    cases[0].dataClassification = "deidentified_real";
+    delete cases[0].reviewReference;
+    expect(() => parseGoldenInvoiceManifest(raw)).toThrow("reviewReference must be a non-empty string");
+
+    cases[0].reviewReference = "unit-fixture-review";
+    delete cases[0].provenanceReference;
+    expect(() => parseGoldenInvoiceManifest(raw)).toThrow("provenanceReference must be a non-empty string");
+  });
+
+  it("rejects absolute source paths and impossible expected totals", () => {
+    const absolute = JSON.parse(JSON.stringify(manifest())) as Record<string, unknown>;
+    const absoluteCase = (absolute.cases as Array<Record<string, unknown>>)[0];
+    absoluteCase.file = "C:\\private\\invoice.pdf";
+    expect(() => parseGoldenInvoiceManifest(absolute)).toThrow("absolute paths are not allowed");
+
+    const impossible = JSON.parse(JSON.stringify(manifest())) as Record<string, unknown>;
+    const impossibleCase = (impossible.cases as Array<Record<string, unknown>>)[0];
+    const impossibleExpected = impossibleCase.expected as Record<string, unknown>;
+    const invoice = impossibleExpected.invoice as Record<string, unknown>;
+    invoice.totalAmount = "999.00";
+    invoice.amountDue = "999.00";
+    expect(() => parseGoldenInvoiceManifest(impossible)).toThrow("totals do not reconcile");
   });
 
   it("validates saved predictions through the production output parser", () => {

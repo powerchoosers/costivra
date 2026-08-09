@@ -60,6 +60,9 @@ export type GoldenInvoiceCase = {
   file: string;
   mimeType: string;
   scanned: boolean;
+  dataClassification: "synthetic_smoke" | "deidentified_real" | "consented_real" | "adversarial" | "scanned_real";
+  reviewReference: string;
+  provenanceReference: string;
   segment: "software" | "telecom_internet" | "utility" | "other";
   expected: {
     classification: DocumentClassification;
@@ -89,6 +92,7 @@ export type InvoiceEvaluationThresholds = {
 export type InvoiceEvaluationCoverageRequirements = {
   software: number;
   telecomInternet: number;
+  utility: number;
   scanned: number;
 };
 
@@ -167,6 +171,7 @@ const defaultThresholds: InvoiceEvaluationThresholds = {
 const defaultCoverageRequirements: InvoiceEvaluationCoverageRequirements = {
   software: 20,
   telecomInternet: 20,
+  utility: 20,
   scanned: 10,
 };
 
@@ -525,6 +530,8 @@ export function evaluateGoldenInvoices(input: {
     telecomInternet: input.manifest.cases.filter(
       (item) => item.segment === "telecom_internet",
     ).length,
+    utility: input.manifest.cases.filter((item) => item.segment === "utility")
+      .length,
     scanned: input.manifest.cases.filter((item) => item.scanned).length,
   };
   const metrics = {
@@ -744,6 +751,22 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
   }
   const scanned = value.scanned;
   if (typeof scanned !== "boolean") throw new Error(`${location}.scanned must be a boolean.`);
+  const dataClassification = requiredString(value, "dataClassification", location);
+  const allowedClassifications = [
+    "synthetic_smoke",
+    "deidentified_real",
+    "consented_real",
+    "adversarial",
+    "scanned_real",
+  ];
+  if (!allowedClassifications.includes(dataClassification)) {
+    throw new Error(`${location}.dataClassification is invalid.`);
+  }
+  const reviewReference = requiredString(value, "reviewReference", location);
+  const provenanceReference = requiredString(value, "provenanceReference", location);
+  if (dataClassification === "scanned_real" && !scanned) {
+    throw new Error(`${location}.scanned_real cases must set scanned=true.`);
+  }
   const reconciliationStatus = expected.reconciliationStatus;
   if (
     reconciliationStatus !== null &&
@@ -791,6 +814,9 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
     file: requiredString(value, "file", location),
     mimeType: requiredString(value, "mimeType", location),
     scanned,
+    dataClassification: dataClassification as GoldenInvoiceCase["dataClassification"],
+    reviewReference,
+    provenanceReference,
     segment: segment as GoldenInvoiceCase["segment"],
     expected: {
       classification: classification as DocumentClassification,
@@ -810,6 +836,9 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
         : {}),
     },
   };
+  if (/^(?:[A-Za-z]:[\\/]|[\\/]{1,2})/.test(parsedCase.file)) {
+    throw new Error(`${location}.file must be relative; absolute paths are not allowed.`);
+  }
   const invoiceClassification = ["invoice", "statement"].includes(
     parsedCase.expected.classification,
   );
@@ -832,6 +861,25 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
     throw new Error(
       `${location} invoice cases require reconciliationStatus and needsReview truth.`,
     );
+  }
+  const expectedInvoice = parsedCase.expected.invoice;
+  if (expectedInvoice) {
+    const arithmeticFields = [
+      expectedInvoice.subtotal,
+      expectedInvoice.taxTotal,
+      expectedInvoice.feeTotal,
+      expectedInvoice.creditTotal,
+      expectedInvoice.totalAmount,
+    ];
+    if (arithmeticFields.every((field) => field !== null)) {
+      const [subtotal, tax, fees, credits, total] = arithmeticFields.map(Number);
+      if ([subtotal, tax, fees, credits, total].every(Number.isFinite)) {
+        const calculated = subtotal + tax + fees - credits;
+        if (Math.abs(calculated - total) > 0.01) {
+          throw new Error(`${location}.expected.invoice totals do not reconcile.`);
+        }
+      }
+    }
   }
   const required =
     parsedCase.expected.requiredEvidenceFields ??
@@ -870,6 +918,10 @@ export function parseGoldenInvoiceManifest(value: unknown): GoldenInvoiceManifes
   }
   if (!Array.isArray(value.cases) || !value.cases.length) {
     throw new Error("The golden manifest must contain at least one case.");
+  }
+  const serialized = JSON.stringify(value);
+  if (/-----BEGIN .*PRIVATE KEY-----|\b(?:sk|rk)_(?:live|test)_|\bsb_secret_|\bsk-or-v1-/.test(serialized)) {
+    throw new Error("The golden manifest contains a likely secret or private key.");
   }
   const cases = value.cases.map(parseCase);
   const ids = new Set<string>();

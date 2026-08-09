@@ -13,6 +13,7 @@ import { DOCUMENT_MIME_TYPES, ingestDocumentBuffer } from "@/lib/documents/intak
 import { normalizeSubject, safeSnippet } from "@/lib/manage/mail";
 import { isConfiguredSecret } from "@/lib/env/secrets";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
+import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -121,6 +122,17 @@ async function recordDeliveryEvent(
       .from("crm_email_messages")
       .update(updates)
       .eq("provider_message_id", providerMessageId);
+
+    // Resend acceptance is not delivery truth. Lifecycle and scheduled-report
+    // side effects are reconciled here from the signed provider event.
+    const sideEffectStatus = status === "delivered" ? "delivered" : status === "bounced" ? "bounced" : status === "complained" ? "complained" : status === "suppressed" ? "suppressed" : status === "failed" ? "failed" : status;
+    const sideEffectUpdate: Record<string, unknown> = { status: sideEffectStatus, updated_at: new Date().toISOString() };
+    if (["bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus)) sideEffectUpdate.last_error = `RESEND_${sideEffectStatus.toUpperCase()}`;
+    const { data: sideEffects } = await db.from("external_side_effects").select("id").eq("provider_reference", providerMessageId);
+    if (sideEffects?.length) {
+      await db.from("external_side_effects").update(sideEffectUpdate).in("id", sideEffects.map((row) => row.id));
+      await db.from("report_delivery_runs").update({ status: sideEffectStatus, provider_message_id: providerMessageId, completed_at: ["delivered", "bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus) ? new Date().toISOString() : null }).eq("external_side_effect_id", sideEffects[0].id);
+    }
   }
 
   if (!["email.opened", "email.clicked", "email.bounced", "email.failed"].includes(event.type))
@@ -235,6 +247,16 @@ async function persistOwnerMailboxAttachments(
     const sha256 = createHash("sha256").update(buffer).digest("hex");
     const scan = await scanFileForMalware({ buffer, filename, mimeType: contentType });
     if (scan.status !== "clean") {
+      if (input.organizationId) {
+        await persistDocumentSecurityScan({
+          db,
+          organizationId: input.organizationId,
+          documentId: null,
+          sha256,
+          sourceType: "email_forwarding",
+          scan,
+        });
+      }
       await db.from("crm_email_attachments").update({
         sha256,
         scan_status: scan.status,
@@ -264,6 +286,15 @@ async function persistOwnerMailboxAttachments(
     if (input.organizationId && DOCUMENT_MIME_TYPES.has(contentType)) {
       const document = await ingestDocumentBuffer({ db, organizationId: input.organizationId, actorType: "service", filename, mimeType: contentType, buffer, sourceType: "email_forwarding", auditAction: "document.received_by_owner_mail", malwareScan: scan });
       await db.from("crm_email_attachments").update({ document_id: document.documentId, updated_at: new Date().toISOString() }).eq("id", attachmentId);
+    } else if (input.organizationId) {
+      await persistDocumentSecurityScan({
+        db,
+        organizationId: input.organizationId,
+        documentId: null,
+        sha256,
+        sourceType: "email_forwarding",
+        scan,
+      });
     }
   }
   const { data: stored, error: storedError } = await db

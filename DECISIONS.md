@@ -1,5 +1,33 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-09 — Keep report scheduling tenant-scoped and recipient-authorized
+
+### Context
+
+Automated findings reports need durable schedules, idempotent delivery claims, and provider delivery reconciliation. A browser-submitted email list cannot be trusted as authorization.
+
+### Decision
+
+Store schedules and delivery runs in service-role-only tables. The portal API verifies that every recipient is an email address belonging to a member of the report's organization, creates a stable delivery idempotency key, and records the external side effect before calling Resend. Resend webhook events reconcile the side-effect and delivery-run state.
+
+### Consequences
+
+Reports can be retried without duplicate provider sends, and delivery history remains auditable. Time-zone calculation and customer-level report preferences remain follow-up work before broad self-serve rollout.
+
+## 2026-08-09 — Sequence builder is draft-first and execution-disabled
+
+### Context
+
+Outreach needs a useful planning surface without introducing autonomous acquisition behavior before suppression, approval, mailbox ownership, and delivery proof are complete.
+
+### Decision
+
+Sequences, steps, enrollments, events, and suppressions are isolated in internal operator tables with server-side validation and tenant checks. The `/manage/outreach` workspace adds Tasks, Sequences, and Enrollments tabs; it can create drafts and stage pending enrollments, but activation and sending are disabled.
+
+### Consequences
+
+Operators can review timing, copy, stop controls, and eligible contacts in the existing Outreach workspace. A later execution packet must add explicit approvals, provider-side idempotency, reply/bounce/unsubscribe state transitions, and end-to-end proof before `execution_enabled` can become true.
+
 ## 2026-08-06 — Gate customer-facing finding claims on trust provenance
 
 ### Context

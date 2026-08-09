@@ -73,7 +73,7 @@ describe("sanitized public system status", () => {
     ]));
   });
 
-  it("reports operational only when every customer-facing dependency is available", async () => {
+  it("keeps document processing limited until scanner proof is complete", async () => {
     checkSystemReadiness.mockResolvedValue({
       checkedAt: "2026-08-02T22:00:00.000Z",
       overall: "warning",
@@ -83,6 +83,26 @@ describe("sanitized public system status", () => {
         service("worker", "ready"),
         service("openrouter", "ready"),
         service("malware", "warning"),
+      ],
+    });
+
+    const result = await getPublicSystemStatus({} as never);
+
+    expect(result.overall).toBe("limited");
+    expect(result.services).toContainEqual(expect.objectContaining({ id: "intake", state: "limited" }));
+    expect(result.services).toContainEqual(expect.objectContaining({ id: "extraction", state: "limited" }));
+  });
+
+  it("reports operational only after scanner readiness is proven", async () => {
+    checkSystemReadiness.mockResolvedValue({
+      checkedAt: "2026-08-02T22:00:00.000Z",
+      overall: "ready",
+      services: [
+        service("database", "ready"),
+        service("resend", "ready"),
+        service("worker", "ready"),
+        service("openrouter", "ready"),
+        service("malware", "ready"),
       ],
     });
 

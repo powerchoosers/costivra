@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const scanFileForMalware = vi.hoisted(() => vi.fn());
 const ingestDocumentBuffer = vi.hoisted(() => vi.fn());
+const persistDocumentSecurityScan = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/security/malware-scanner", () => ({ scanFileForMalware }));
 vi.mock("@/lib/documents/intake", () => ({ ingestDocumentBuffer }));
+vi.mock("@/lib/security/document-scan-provenance", () => ({ persistDocumentSecurityScan }));
 
 import { releaseQuarantinedInboundAttachments } from "@/lib/email/quarantine-release";
 

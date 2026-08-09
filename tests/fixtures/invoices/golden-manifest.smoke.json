@@ -1,7 +1,7 @@
 {
   "schemaVersion": "costivra-golden-invoice-v1",
   "name": "Costivra deterministic evaluator smoke test",
-  "coverageRequirements": { "software": 0, "telecomInternet": 0, "scanned": 0 },
+  "coverageRequirements": { "software": 0, "telecomInternet": 0, "utility": 0, "scanned": 0 },
   "thresholds": {
     "classificationAccuracy": 1,
     "criticalFieldPrecision": 1,
@@ -20,6 +20,9 @@
       "file": "adversarial-invoice-prompt-injection.txt",
       "mimeType": "text/plain",
       "scanned": false,
+      "dataClassification": "synthetic_smoke",
+      "reviewReference": "synthetic-fixture-review",
+      "provenanceReference": "synthetic-fixture-provenance",
       "segment": "other",
       "expected": {
         "classification": "invoice",

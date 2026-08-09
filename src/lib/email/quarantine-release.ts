@@ -1,8 +1,10 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { ingestDocumentBuffer } from "@/lib/documents/intake";
 import { summarizeInboundAttachmentStates } from "@/lib/email/quarantine-release-policy";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
+import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type ServerDatabase = ReturnType<typeof createServerSupabaseClient>;
@@ -53,11 +55,22 @@ export async function releaseQuarantinedInboundAttachments(input: {
       continue;
     }
     const buffer = Buffer.from(await stored.data.arrayBuffer());
+    const sha256 = createHash("sha256").update(buffer).digest("hex");
     const scan = await scanFileForMalware({
       buffer,
       filename: attachment.filename,
       mimeType: attachment.content_type,
     });
+    if (scan.status !== "clean") {
+      await persistDocumentSecurityScan({
+        db,
+        organizationId,
+        documentId: null,
+        sha256,
+        sourceType: "quarantine_rescan",
+        scan,
+      });
+    }
     if (scan.status === "infected") {
       const { error: infectedUpdateError } = await db.from("inbound_email_attachments").update({
         scan_status: "infected",

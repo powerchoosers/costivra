@@ -1647,6 +1647,10 @@ function Actions({
 function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData; initialView?: "verified" | "in_progress" | "reports" | "summary" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToast();
+  const [schedules, setSchedules] = useState<Array<{ id: string; report_definition_id: string; status: string; cadence: string; recipient_emails: string[]; next_run_at: string | null }>>([]);
+  const [scheduleReportId, setScheduleReportId] = useState<string | null>(null);
+  const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const activeView = resolveResultsView(searchParams?.get("view"), initialView);
   const updateView = (view: string) => router.replace(`/app/results?view=${view}`);
   const verified = data.savings.filter(resultIsVerified).reduce((sum, item) => sum + item.amount, 0);
@@ -1654,6 +1658,17 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   const potentialValue = data.opportunities.filter((item) => item.monetaryClaimAllowed && item.estimatedAnnualValue != null).reduce((sum, item) => sum + (item.estimatedAnnualValue ?? 0), 0);
   const actionsInProgress = data.actions.filter(actionIsInProgress).length;
   const renewalsApproaching = data.contracts.filter((contract) => isUpcomingContract(contract)).length;
+  useEffect(() => {
+    if (activeView !== "reports") return;
+    void fetch("/api/portal/reports/schedules").then(async (response) => response.ok ? (await response.json() as { schedules?: typeof schedules }).schedules ?? [] : []).then(setSchedules).catch(() => setSchedules([]));
+  }, [activeView]);
+  const emailReportNow = async (reportId: string) => {
+    setSendingReportId(reportId);
+    const response = await fetch(`/api/portal/reports/${reportId}/email`, { method: "POST" });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    setSendingReportId(null);
+    if (!response.ok) toast.error("Report could not be sent", payload.error || "Try again shortly."); else toast.success("Report sent", "It was sent to your authorized workspace email.");
+  };
   return (
     <>
       <PageHeader
@@ -1681,13 +1696,37 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
         <div className="portal-panel-heading"><div><h2>Results in progress</h2><p>These values are not verified yet. Each row shows what evidence is still missing.</p></div></div>
         {inProgress.length ? <div className="portal-list">{inProgress.map((item) => <div className="portal-list-row savings-workflow-row" key={item.id}><CircleDollarSign /><div className="grow"><Link className="record-link" href={`/app/results/${item.id}`}><strong>{item.title}</strong></Link><span>{item.status === "baseline_review" ? "Baseline awaiting acceptance" : item.comparisonAmount == null ? "Awaiting comparison" : "Awaiting verification"}</span><small>Potential result only · Method: {item.method}</small></div><strong className="money-value">{money(item.amount)}</strong><Status value={item.status} /></div>)}</div> : <Empty title="No results in progress" copy="Accepted baselines and pending comparisons will appear here." />}
       </section>}
-      {activeView === "reports" && <section className="portal-card-grid">{data.reports.map((item) => <article className="portal-card" key={item.id}><FileText className="card-icon" /><h2>{item.name}</h2><p>{item.description}</p><small>{item.lastGeneratedAt ? `Last generated ${date(item.lastGeneratedAt)}` : "Not generated yet"}</small><footer><a className="button button-primary" href={`/api/portal/reports/${item.id}`}><Download size={16} /> Download report</a></footer></article>)}{!data.reports.length && <Empty title="No reports configured" copy="Report definitions created for this organization will appear here." />}</section>}
+      {activeView === "reports" && <section className="portal-panel reports-surface">
+        <div className="portal-panel-heading"><div><h2>Reports</h2><p>Send evidence-backed summaries to people already authorized in this workspace.</p></div></div>
+        <div className="portal-card-grid">{data.reports.map((item) => <article className="portal-card" key={item.id}><FileText className="card-icon" /><h2>{item.name}</h2><p>{item.description}</p><small>{item.lastGeneratedAt ? `Last generated ${date(item.lastGeneratedAt)}` : "Not generated yet"}</small><footer><a className="button button-primary" href={`/api/portal/reports/${item.id}`}><Download size={16} /> Download</a><button className="button button-secondary" type="button" onClick={() => void emailReportNow(item.id)} disabled={sendingReportId === item.id}><Mail size={16} /> {sendingReportId === item.id ? "Sending…" : "Email now"}</button><button className="button button-secondary" type="button" onClick={() => setScheduleReportId(item.id)}><CalendarClock size={16} /> Schedule</button></footer><div className="report-delivery-history">{schedules.filter((schedule) => schedule.report_definition_id === item.id).map((schedule) => <small key={schedule.id}>Scheduled {schedule.cadence} · next {schedule.next_run_at ? date(schedule.next_run_at) : "pending"} · {schedule.status}</small>)}</div></article>)}</div>
+        {!data.reports.length && <Empty title="No reports configured" copy="Report definitions created for this organization will appear here." />}
+      </section>}
+      {scheduleReportId && <ReportScheduleSheet reportId={scheduleReportId} reportName={data.reports.find((report) => report.id === scheduleReportId)?.name ?? "Report"} onClose={() => setScheduleReportId(null)} onSaved={(schedule) => { setSchedules((current) => [schedule, ...current]); setScheduleReportId(null); toast.success("Schedule saved", "The next report run is queued for the selected window."); }} />}
       {activeView === "summary" && <>
         <div className="portal-metrics"><Metric label="Recorded spend" value={money(data.vendors.reduce((sum, item) => sum + item.annualizedSpend, 0), true)} note="Annualized vendor relationship records" icon={<ReceiptText />} /><Metric label="Potential value" value={money(potentialValue, true)} note="Rule-based estimate, not verified" icon={<CircleDollarSign />} /><Metric label="Actions in progress" value={String(actionsInProgress)} note="Active work items" icon={<CalendarClock />} /><Metric label="Verified value" value={money(verified, true)} note="Supported by later source evidence" icon={<ShieldCheck />} /></div>
         <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Executive summary</h2><p>A concise operating view across all vendor relationships.</p></div></div><dl className="record-summary-list"><div><dt>Recorded spend</dt><dd>{money(data.vendors.reduce((sum, item) => sum + item.annualizedSpend, 0), true)}</dd></div><div><dt>Potential value</dt><dd>{money(potentialValue, true)} <small>Estimate only</small></dd></div><div><dt>Actions in progress</dt><dd>{actionsInProgress}</dd></div><div><dt>Verified value</dt><dd>{money(verified, true)}</dd></div><div><dt>Renewals approaching</dt><dd>{renewalsApproaching}</dd></div></dl></section>
       </>}
     </>
   );
+}
+
+function ReportScheduleSheet({ reportId, reportName, onClose, onSaved }: { reportId: string; reportName: string; onClose: () => void; onSaved: (schedule: { id: string; report_definition_id: string; status: string; cadence: string; recipient_emails: string[]; next_run_at: string | null }) => void }) {
+  const [cadence, setCadence] = useState<"weekly" | "monthly">("weekly");
+  const [recipientEmails, setRecipientEmails] = useState("");
+  const [weekday, setWeekday] = useState("1");
+  const [dayOfMonth, setDayOfMonth] = useState("1");
+  const [sendTimeLocal, setSendTimeLocal] = useState("08:00");
+  const [timezone, setTimezone] = useState("America/Chicago");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault(); setSaving(true); setError(null);
+    const response = await fetch("/api/portal/reports/schedules", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ reportDefinitionId: reportId, cadence, recipientEmails: recipientEmails.split(",").map((value) => value.trim()).filter(Boolean), weekday: Number(weekday), dayOfMonth: Number(dayOfMonth), sendTimeLocal, timezone }) });
+    const payload = await response.json().catch(() => ({})) as { error?: string; id?: string; nextRunAt?: string };
+    setSaving(false); if (!response.ok || !payload.id) { setError(payload.error || "The schedule could not be saved."); return; }
+    onSaved({ id: payload.id, report_definition_id: reportId, status: "active", cadence, recipient_emails: recipientEmails.split(",").map((value) => value.trim()).filter(Boolean), next_run_at: payload.nextRunAt ?? null });
+  };
+  return <div className="portal-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="portal-sheet" role="dialog" aria-modal="true" aria-labelledby="report-schedule-title"><header className="portal-sheet-header"><div><span className="eyebrow">Report schedule</span><h2 id="report-schedule-title">{reportName}</h2></div><button type="button" className="icon-button" aria-label="Close schedule" onClick={onClose}><X size={18} /></button></header><form className="portal-sheet-body" onSubmit={submit}><p className="muted">Reports go only to authorized members of this Costivra workspace. No outside recipients can be added.</p><label><span>Cadence</span><select value={cadence} onChange={(event) => setCadence(event.target.value as "weekly" | "monthly")}><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>{cadence === "weekly" ? <label><span>Weekday</span><select value={weekday} onChange={(event) => setWeekday(event.target.value)}><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option></select></label> : <label><span>Day of month</span><input type="number" min="1" max="28" value={dayOfMonth} onChange={(event) => setDayOfMonth(event.target.value)} /></label>}<label><span>Time</span><input type="time" value={sendTimeLocal} onChange={(event) => setSendTimeLocal(event.target.value)} /></label><label><span>Timezone</span><input value={timezone} onChange={(event) => setTimezone(event.target.value)} /></label><label><span>Authorized recipient emails</span><input required value={recipientEmails} onChange={(event) => setRecipientEmails(event.target.value)} placeholder="you@company.com" /><small>Separate multiple workspace member emails with commas.</small></label>{error && <p className="form-error" role="alert">{error}</p>}<footer className="portal-sheet-actions"><button type="button" className="button button-secondary" onClick={onClose}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? "Saving…" : "Save schedule"}</button></footer></form></section></div>;
 }
 
 function getVendorAttentionDetails(vendor: PortalVendor, data: PortalData) {

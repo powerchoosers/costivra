@@ -1,5 +1,33 @@
 # Costivra Status
 
+## August 9, 2026 — Packets 4–6 implementation checkpoint
+
+- **Packet 04:** lifecycle emails now use the branded Costivra shell, configured Resend sender, stable source-based idempotency, and an external-side-effect record before provider send. Reports share one generator for CSV and email output. Tenant-owned report schedules, delivery runs, the protected `/api/cron/reports` route, portal Email now/Schedule/history controls, and Resend delivery reconciliation are implemented locally.
+- **Packet 05:** draft-first Outreach sequence tables, steps, pending enrollments, events, suppressions, origin linkage, RLS restrictions, database contact-tenant validation, server validation, and operator APIs are implemented in migrations and routes. Sequence activation and execution remain disabled by design.
+- **Packet 06:** the existing `/manage/outreach` page now has Tasks, Sequences, and Enrollments tabs. The sequence workspace supports draft creation, timeline steps, safety-control visibility, preview text, schedule/cap editing, and pending enrollment staging without adding a sidebar item or new page.
+- **Validation:** `npm run typecheck` PASS; focused ESLint on the changed Packet 4–6 files PASS; `npm test` PASS (534 passed, 6 skipped); `npm run build` PASS. Full `npm run lint` exceeded the local two-minute command limit without output. `supabase db lint --local --schema public --fail-on error` is currently blocked by the repository's existing Supabase config keys (`experimental.pgdelta` and `config.local_smtp`) being rejected by the installed CLI 2.76.6; no live migration was applied in this slice.
+- **Known follow-up:** Packet 04 still needs real scheduled-delivery proof and report preference controls. Packet 05/06 still need execution workflow, pause/stop actions, and browser verification at desktop/mobile sizes. No production deployment or payment charge was attempted.
+
+## August 8, 2026 — Packets 1–3 current release verdict
+
+- **Working commit:** `5d861f888b90f55d81f4ebea863defaf5da8e130`; the worktree is intentionally dirty because Lewis is collecting these packet changes for one manual commit/push.
+- **Packet 01:** release hardening is implemented locally: Node 24 is pinned to match Vercel, CI concurrency is enabled, dependency and secret gates are active, and `release:verify` produces a fail-closed machine-readable verdict. `npm audit --omit=dev` and `npm audit` both report zero vulnerabilities after safe `nanoid` and `js-yaml` overrides.
+- **Packet 02:** synthetic smoke evaluation is explicitly classified and separated from pilot evidence. Private manifests must live under ignored `private-evaluation/`, include review provenance and data classification, meet software/telecom/utility/scanned/adversarial coverage minimums, and run through `npm run eval:pilot` without logging private text. No approved real corpus is present yet, so no real-accuracy claim is made.
+- **Packet 03:** scanner provenance, fail-closed Cloudmersive controls, live Supabase migration, and four-path clean/EICAR proof are complete; see `docs/PACKET_03_LIVE_PROOF.md`.
+- **Current production deployment:** the last audited Vercel deployment for the working commit was `READY`, but that deployment is not treated as a release verdict because CI was red and deployment was not gated. A new deployment has not been made from these uncommitted changes.
+- **Known blockers:** Lewis must revoke the previously exposed provider credential, decide whether the public repository is intentional, and supply/approve the private evaluation corpus before a paid pilot can be called evaluation-proven. These are deliberate human-controlled gates, not claims hidden by automation.
+- **Latest local release verdict:** `release:verify` **PASS** (`2026-08-09T00-50-41-665Z`): typecheck, lint, both dependency audits, unit tests, invoice smoke evaluation, integration tests, build, secret scanning, and the full 34-test desktop/mobile browser suite passed (27 passed, 7 intentional skips). The ignored JSON/Markdown report is under `artifacts/release/`.
+
+## August 8, 2026 — Packet 03 scanner boundary hardening (historical snapshot; superseded above)
+
+- Tightened the Cloudmersive adapter to use only the fixed official endpoint, `Apikey` authentication, the `inputFile` multipart field, and the documented boolean `CleanResult` response. Generic scanner fields are no longer accepted as Cloudmersive proof of clean.
+- Scanner configuration now hides provider secrets from returned config, rejects invalid numeric settings and ambiguous providers, adds the configured free-plan controls to `.env.example`, and fails closed when the distributed Supabase request-budget reservation is unavailable.
+- Added a forward-safe migration for concurrent first-use budget reservations, explicit browser-role denial, service-role-only function execution, and nullable provenance for scans that finish before a document row exists (for example, infected email attachments).
+- Manual, forwarded-email, quarantine-rescan, and internal-mail scan failures now record durable structured scan attempts without storing provider responses or secrets.
+- Validation baseline before this packet: `npm run typecheck` PASS; `npm run lint` PASS with two existing warnings (`home-page.tsx` image optimization and `navigation-history.tsx` hook dependency); `npm test` PASS (524 passed, 6 skipped). The combined baseline command exceeded its timeout and was rerun individually.
+- **Still open:** live clean/EICAR verification, real four-path intake proof, Supabase migration/advisor verification against the Costivra project, browser QA, and final packet release verdict. The connected Supabase session must be corrected before live database checks.
+- **Additional validation:** `npm run ops:readiness` PASS against the local Costivra credentials; `npm run ops:smoke` PASS against `https://costivra.ai`; `npm run ops:cloudmersive` PASS (one clean probe); `npm run ops:cloudmersive:eicar` PASS (one official inert infected probe); `npm run build` PASS; authenticated E2E was skipped because its explicit opt-in is disabled. The full public E2E suite timed out after 3m59s with 16 existing marketing-copy/layout failures from the dirty worktree, so Packet 03 is not release-green.
+
 ## August 8, 2026 — Manage sidebar parity repair
 
 - **Responsive parity**: Matched Manage’s compact breakpoint to `/app` at 980px. At the same 1186px browser width, both products now use the full 256px sidebar instead of Manage switching to a 76px rail early.
@@ -1944,9 +1972,25 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Validation: npm run typecheck passed; targeted ESLint for the three edited TSX files passed; git diff --check passed; browser QA passed at 1440×900 and 390×844 with no console warnings/errors. The desktop and mobile primary CTA both reached /scan and rendered its account-required state. Mobile QA caught and corrected an initial workflow-column override before completion.
 - Known remaining work: define the exact free-offer result before using a "free review" promise; label planned categories consistently beyond the footer; simplify the lower home-page narrative, pricing, product, and solutions pages in the remaining marketing-plan chunks.
 
+# 2026-08-08 — Homepage hero precision pass
+
+- Kept the existing hero composition while tightening the audience copy and free three-bill review CTA.
+- Rebuilt the illustrative review card around a deterministic comparison: $1,310 previous bill, $1,510 current bill, $200 monthly change, and $2,400 potential annual impact.
+- Added a compact source-evidence reference and clarified the financial state as “Potential impact · not verified.”
+- Validation: `npm run typecheck` and `npm run test` passed (524 tests passed, 6 skipped); desktop and mobile browser checks passed, including the working “Review the source” link. Full lint and production build exceeded the 120-second command window and remain to be rerun.
+
 # 2026-08-08 — Standalone Costivra wordmarks
 
 - Applied the selected Space Grotesk wordmark treatment to the shared Brand component used by the public header, public footer, and customer shell.
 - Applied the same treatment to the account-access lockups and the internal email-signature brand lockup.
 - Left ordinary paragraph mentions, assistant speaker labels, and descriptive product copy on their existing reading font.
 - Validation: `npm run typecheck` passed; `git diff --check` passed; browser inspection confirmed the public header wordmark resolves to Space Grotesk while the hero paragraph remains on the body font.
+
+# 2026-08-08 — Packet 03 scanner provenance and budget hardening
+
+- Enforced the Cloudmersive contract server-side, including strict `CleanResult` handling, bounded provider responses, fail-closed configuration/quota/rate-limit states, and secret-safe readiness output.
+- Added durable scan provenance for manual uploads, forwarded attachments, quarantine rescans, Resend intake, and Manage attachment actions, including pre-document attempts.
+- Applied and registered Supabase migration `20260808231254_packet_03_scanner_budget_hardening` on the Costivra project. Production verification confirms nullable pre-document provenance, RLS enabled, one deny-all browser policy, and execution granted only to `service_role` for the reservation function.
+- Corrected public status so configured-but-unproven malware scanning reports limited document processing instead of full operational readiness.
+- Validation: focused scanner/readiness/status tests passed; full unit, integration, typecheck, lint, build, clean probe, EICAR probe, readiness, and smoke checks passed. Full browser E2E still contains unrelated marketing-copy/layout failures from the existing dirty worktree; the four authenticated intake proof paths remain the final launch evidence to capture.
+- Live proof completed afterward in the dedicated authenticated E2E organization: clean and EICAR manual uploads plus clean and EICAR forwarded attachments all produced durable `document_security_scan_attempts`, correct document/attachment states, audit events, and customer/Manage feedback. Details are recorded in `docs/PACKET_03_LIVE_PROOF.md`.

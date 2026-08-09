@@ -33,7 +33,7 @@ export type PublicProof = ApprovedPublicProof | MethodologyPublicProof;
 export const METHODOLOGY_PROOF: PublicProof = {
   kind: "methodology",
   title: "We only count savings after they happen.",
-  summary: "Costivra shows you charges worth checking. A saving becomes real only when a lower bill, credit, or vendor record proves the result.",
+  summary: "Costivra shows you charges worth checking. A saving becomes real only when a lower bill, credit, or vendor record proves the result. It becomes verified only after that later evidence supports the result.",
   stage: "potential",
 };
 

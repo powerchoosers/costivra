@@ -46,8 +46,7 @@ function MethodologyFallback() {
         </div>
       </div>
       <div className="public-proof-example" aria-label="Example of possible and real savings">
-        <div className="public-proof-example-label">Example</div>
-        <p><strong>Your internet bill goes up by $200 a month.</strong> Costivra points it out and shows the bill.</p>
+        <div className="public-proof-example-story"><span>What happened</span><p><strong>Your internet bill goes up by $200 a month.</strong> Costivra points it out and shows the bill.</p></div>
         <div className="public-proof-example-outcome"><span>Possible savings</span><strong>The increase is worth questioning.</strong></div>
         <div className="public-proof-example-outcome public-proof-example-outcome--verified"><span>Real savings</span><strong>Your provider lowers the bill or gives you a credit.</strong></div>
       </div>

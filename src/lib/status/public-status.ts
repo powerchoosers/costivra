@@ -36,7 +36,10 @@ export async function getPublicSystemStatus(db: SupabaseClient): Promise<PublicS
     resend.status === "blocked" ||
     !worker ||
     worker.status === "blocked";
-  const secureProcessingPaused = !malware || malware.status === "blocked";
+  // A configured scanner is not proven safe until the owner has completed the
+  // live clean and inert-file exercises. Keep document processing limited for
+  // both blocked and warning states so public status never overstates readiness.
+  const secureProcessingPaused = !malware || malware.status !== "ready";
   const extractionUnavailable = !openrouter || openrouter.status === "blocked";
 
   const services: PublicServiceStatus[] = [

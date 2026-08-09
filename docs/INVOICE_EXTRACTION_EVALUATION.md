@@ -16,18 +16,18 @@ A wrong non-empty value counts as both a false positive and a false negative. Th
 
 ## Required private dataset
 
-Before broad launch, create `tests/golden-private/` with:
+Before broad launch, create the ignored `private-evaluation/` directory with:
 
 - at least 20 de-identified software invoices;
 - at least 20 de-identified telecom or internet invoices;
 - at least 10 genuinely scanned examples;
 - clean, incomplete, contradictory, credit, tax, fee, multi-page, arithmetic-error, and low-quality cases.
 
-Only use documents the business is allowed to test. Remove names, addresses, account numbers, payment details, and other customer information while preserving layout and arithmetic. `tests/golden-private/` and generated reports are ignored by Git.
+Only use documents the business is allowed to test. Remove names, addresses, account numbers, payment details, and other customer information while preserving layout and arithmetic. `private-evaluation/` and generated reports are ignored by Git. Every case must include an explicit data classification and review reference.
 
 ## Manifest rules
 
-Start from `tests/fixtures/invoices/golden-manifest.smoke.json`, but do not copy its zero coverage requirements into the production manifest. If `coverageRequirements` is omitted, the evaluator enforces the production minimums of 20 software, 20 telecom/internet, and 10 scanned cases.
+Start from `tests/fixtures/invoices/golden-manifest.smoke.json`, but do not copy its zero coverage requirements into the production manifest. If `coverageRequirements` is omitted, the evaluator enforces the production minimums of 20 software, 20 telecom/internet, 20 utility, and 10 scanned cases. The pilot wrapper additionally requires 10 adversarial cases and refuses synthetic smoke cases.
 
 Every invoice field must be present in expected truth. Use `null` only when the source truly does not show the field. Omitting a field is rejected because it could hide a weak extraction result.
 
@@ -40,13 +40,13 @@ Line items are optional. Omit `lineItems` to leave them unscored for that case. 
 Validate the manifest and every source file without using the AI provider:
 
 ```powershell
-npm run eval:invoices -- --manifest tests/golden-private/manifest.json --validate-only
+npm run eval:invoices -- --manifest private-evaluation/manifests/approved.json --validate-only
 ```
 
 Run the live production extraction path and write ignored prediction/report artifacts:
 
 ```powershell
-npm run eval:invoices -- --manifest tests/golden-private/manifest.json
+npm run eval:pilot -- --manifest private-evaluation/manifests/approved.json
 ```
 
 Replay a saved prediction set without paying for another model run:

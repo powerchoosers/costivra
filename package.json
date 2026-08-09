@@ -2,6 +2,9 @@
   "name": "costivra",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbo",
@@ -15,6 +18,7 @@
     "test:e2e": "playwright test",
     "test:e2e:authenticated": "node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/authenticated-workspace.spec.ts --project=desktop-chromium",
     "eval:invoices": "tsx --env-file-if-exists=.env.local scripts/evaluate-invoice-extraction.ts",
+    "eval:pilot": "tsx --env-file-if-exists=.env.local scripts/evaluate-pilot.ts",
     "eval:categories": "tsx --env-file-if-exists=.env.local scripts/evaluate-category-intelligence.ts categories",
     "eval:line-items": "tsx --env-file-if-exists=.env.local scripts/evaluate-category-intelligence.ts line_items",
     "eval:benchmarks": "tsx --env-file-if-exists=.env.local scripts/evaluate-category-intelligence.ts benchmarks",
@@ -23,7 +27,9 @@
     "ops:smoke": "tsx --env-file-if-exists=.env.local scripts/ops-smoke.ts",
     "ops:verify": "npm run ops:readiness && npm run ops:smoke",
     "ops:cloudmersive": "tsx --env-file-if-exists=.env.local scripts/verify-cloudmersive.ts",
-    "ops:cloudmersive:eicar": "tsx --env-file-if-exists=.env.local scripts/verify-cloudmersive.ts --eicar"
+    "ops:cloudmersive:eicar": "tsx --env-file-if-exists=.env.local scripts/verify-cloudmersive.ts --eicar",
+    "security:secrets": "tsx scripts/secret-scan.ts",
+    "release:verify": "tsx scripts/release-verdict.ts"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",
@@ -37,7 +43,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-pdf": "^10.4.1",
-    "resend": "6.18.1"
+    "resend": "6.18.1",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
@@ -54,6 +61,8 @@
     "vitest": "4.1.10"
   },
   "overrides": {
+    "js-yaml": "4.3.1",
+    "nanoid": "3.3.17",
     "postcss": "8.5.25",
     "sharp": "0.35.3"
   }

@@ -101,6 +101,7 @@ import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { ManageLiveNotifications } from "@/components/manage-live-notifications";
+import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspace";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
@@ -4279,6 +4280,14 @@ function Outreach({
   onNote: () => void;
 }) {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const outreachTab = searchParams.get("tab") === "sequences" || searchParams.get("tab") === "enrollments" ? searchParams.get("tab") : "tasks";
+  const setOutreachTab = (tab: "tasks" | "sequences" | "enrollments") => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (tab === "tasks") next.delete("tab"); else next.set("tab", tab);
+    router.replace(`/manage/outreach${next.toString() ? `?${next.toString()}` : ""}`);
+  };
 
   const tasks = data.tasks.filter((task) => {
     const matchesPriority =
@@ -4306,6 +4315,12 @@ function Outreach({
 
   return (
     <>
+      <nav className="manage-tabs manage-outreach-tabs" aria-label="Outreach workspace">
+        <button className={outreachTab === "tasks" ? "active" : ""} onClick={() => setOutreachTab("tasks")}>Tasks <span>{data.tasks.length}</span></button>
+        <button className={outreachTab === "sequences" ? "active" : ""} onClick={() => setOutreachTab("sequences")}>Sequences</button>
+        <button className={outreachTab === "enrollments" ? "active" : ""} onClick={() => setOutreachTab("enrollments")}>Enrollments</button>
+      </nav>
+      {outreachTab !== "tasks" ? <SequenceWorkspace data={data} query={query} mode={outreachTab === "enrollments" ? "enrollments" : "sequences"} /> : <>
       <section className="manage-page-heading">
         <div>
           <h2>Outreach</h2>
@@ -4428,6 +4443,7 @@ function Outreach({
           </div>
         ))}
       </section>
+      </>}
     </>
   );
 }

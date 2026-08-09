@@ -27,9 +27,12 @@ qa-server.*.log
 /docs/qa/
 /artifacts/invoice-evaluation/
 /artifacts/category-intelligence-evaluation/
+/artifacts/pilot-evaluation/
+/artifacts/release/
 /artifacts/status*.png
 /artifacts/ui-audit/
 /tests/golden-private/
+/private-evaluation/
 
 .vercel
 .env*

@@ -1,0 +1,69 @@
+export type SequenceStatus = "draft" | "active" | "paused" | "archived";
+export type SequenceStepType = "manual_email" | "automatic_email" | "call_task" | "general_task";
+export type SequenceDelayUnit = "minutes" | "hours" | "business_days" | "calendar_days";
+export type EnrollmentState = "pending" | "active" | "paused" | "waiting_for_task" | "replied" | "bounced" | "unsubscribed" | "stopped" | "completed" | "failed";
+
+export type SequenceStep = {
+  id: string;
+  sequenceId: string;
+  position: number;
+  stepType: SequenceStepType;
+  delayValue: number;
+  delayUnit: SequenceDelayUnit;
+  threadMode: "new_thread" | "reply_to_previous" | null;
+  subjectTemplate: string | null;
+  bodyHtml: string | null;
+  bodyText: string | null;
+  taskTitleTemplate: string | null;
+  taskNotesTemplate: string | null;
+  taskPriority: "low" | "normal" | "high" | null;
+  pauseUntilTaskComplete: boolean;
+};
+
+export type Sequence = {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  status: SequenceStatus;
+  ownerId: string;
+  ownerName: string | null;
+  timezone: string;
+  businessDays: number[];
+  sendStartLocal: string;
+  sendEndLocal: string;
+  dailySendLimit: number;
+  stopOnReply: boolean;
+  stopOnBounce: boolean;
+  stopOnUnsubscribe: boolean;
+  stopCompanyOnReply: boolean;
+  executionEnabled: boolean;
+  activatedAt: string | null;
+  pausedAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  steps: SequenceStep[];
+  activeEnrollments: number;
+  scheduledNext24Hours: number;
+  sent: number;
+  replies: number;
+};
+
+export type Enrollment = {
+  id: string;
+  sequenceId: string;
+  sequenceName: string;
+  organizationId: string;
+  contactId: string;
+  contactName: string;
+  contactEmail: string;
+  accountName: string;
+  mailboxId: string;
+  mailboxAddress: string;
+  state: EnrollmentState;
+  currentStepPosition: number;
+  nextActionAt: string | null;
+  stopReason: string | null;
+  createdAt: string;
+};
