@@ -7,6 +7,20 @@
 - Current pricing copy is Starter $149/month, Growth $599/month, and Enterprise custom. Stripe product creation is intentionally blocked until Lewis confirms the billing catalog, annual/trial policy, currency, taxes, and entitlements.
 - Recommended next implementation handoff is **Chunk 07A**, then 07B, 08, 09A approval, 09B, 10, and 11. No live sends, billing charges, migrations, deployments, or external state changes were performed in this staging step.
 
+## August 8, 2026 — Chunk 07A implemented locally
+
+- **Outbound mail:** added the server-only `src/lib/manage/outbound-email.ts` service and rewired the manual Manage Mail send route to use it. The service owns the Resend mutation, idempotency check, external-side-effect ledger, CRM thread/message linkage, activity, and audit record. Sequence origin/linkage fields are supported, but automatic sequence execution remains disabled.
+- **Scheduling:** added deterministic sequence delay/window helpers with IANA timezone validation, recipient-timezone fallback, business-day handling, and daylight-saving coverage in `src/lib/manage/sequences/schedule.ts`.
+- **Validation:** `npm run typecheck` PASS; focused ESLint PASS; `npm test` PASS (543 passed, 6 skipped); `git diff --check` PASS. No live send, migration, deployment, or Stripe change was performed.
+- **Next:** Chunk 07B — atomic enrollment claims, bounded cron execution, activation gates, suppression/reply/bounce stops, and recovery controls.
+
+## August 8, 2026 — Chunk 07B claim boundary staged locally
+
+- Added the service-role-only `claim_due_sequence_enrollments` and `release_sequence_enrollment_claim` database functions with bounded batches, deterministic ordering, stale-lock recovery, and lock-token ownership.
+- Added the protected `/api/cron/outreach-sequences` route and a five-minute Vercel cron entry. It is fail-closed behind `COSTIVRA_SEQUENCE_EXECUTION_ENABLED`; when enabled before the send path is ready, it releases claims and returns a 503 instead of sending or pretending success.
+- Added the server-side activation endpoint at `/api/manage/outreach/sequences/[id]/activate`. It requires the execution feature flag, draft validation, mandatory stop rules, valid timing/copy, and an authorized internal operator before setting `execution_enabled`.
+- **Validation:** `npm run typecheck` PASS; focused ESLint PASS; `npm test` PASS (543 passed, 6 skipped); `vercel.json` JSON parse PASS; `git diff --check` PASS. The SQL migration still needs Supabase-project lint/apply proof; local Supabase lint cannot connect while Docker/Postgres is unavailable.
+
 ## August 9, 2026 — Packet 4–6 fixes implemented
 
 - **Reports:** schedule calculation now honors the saved IANA timezone, weekly/monthly validation is explicit, schedules can be paused/resumed, and recurring report preferences are stored in a dedicated tenant table. The cron skips disabled report classes and empty reports unless the workspace explicitly allows them.

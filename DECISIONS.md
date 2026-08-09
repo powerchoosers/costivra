@@ -953,3 +953,75 @@ actions. Vendor detail identity uses the real vendor logo in the shared header.
 - The sidebar can be manually collapsed into a compact rail; it never expands
   on hover.
 - Mobile keeps a compact route title and hides the desktop rail control.
+# 2026-08-08 — One audited outbound-email service for manual and sequence mail
+
+## Context
+
+The manual Manage mail route contained provider sending, idempotency, side-effect
+ledger writes, CRM message/thread persistence, activities, and audit events in
+one HTTP handler. Sequence execution must not create a second, weaker send path.
+
+## Decision
+
+Move the provider mutation and durable outbound-record workflow into the
+server-only `src/lib/manage/outbound-email.ts` service. The manual route keeps
+authentication, contact/mailbox lookup, form validation, draft handling, and
+signature preparation, then calls this service. Sequence workers will call the
+same service with `origin: "sequence"` and sequence linkage fields.
+
+The service records the side effect before contacting Resend, passes a stable
+idempotency key, stores provider acceptance, persists CRM linkage, and records
+the activity and audit event. A reused key with different content or an active
+send is rejected rather than risking a duplicate external email.
+
+## Consequences
+
+Manual and sequence mail now share one safety boundary. Sequence execution is
+still disabled until its claim, suppression, approval, and recovery controls
+are implemented. The service deliberately accepts already-authorized recipients;
+route/worker callers remain responsible for tenant and mailbox authorization.
+
+# 2026-08-08 — Sequence timing is deterministic and timezone-aware
+
+## Context
+
+Sequence delays must remain predictable across business days, local send
+windows, recipient timezones, and daylight-saving transitions. An LLM is not a
+safe scheduler for external communication.
+
+## Decision
+
+Implement pure helpers in `src/lib/manage/sequences/schedule.ts` for minute,
+hour, calendar-day, and business-day delays; local send-window movement;
+recipient-timezone fallback; and next-action calculation. All conversion uses
+IANA timezone rules through `Intl.DateTimeFormat`, with explicit validation and
+tests covering DST and weekend boundaries.
+
+## Consequences
+
+Workers can calculate due times without model calls or browser state. Invalid
+windows, timezones, and business-day lists fail closed. A recipient timezone is
+used only when valid; otherwise the sequence timezone is used.
+# 2026-08-08 — Claim sequence work atomically and keep the worker fail-closed
+
+## Context
+
+Vercel cron can overlap or retry. A due enrollment must not be executed by two
+workers, and a dead worker must not hold work forever. The send path is not yet
+ready to activate, so adding a cron route must not accidentally send mail.
+
+## Decision
+
+Add service-role-only database functions that claim a bounded, predictably
+ordered due batch with a per-batch lock token and stale-lock recovery. Add a
+protected `/api/cron/outreach-sequences` route and cron schedule, but require
+`COSTIVRA_SEQUENCE_EXECUTION_ENABLED=true` before claiming. The current route
+releases any claims and returns a 503 until the provider-send and stop-rule
+implementation is complete.
+
+## Consequences
+
+Concurrent workers have a database ownership boundary rather than an
+application-only check. No sequence can send merely because the cron schedule
+exists. The migration must be applied and verified against the Costivra
+Supabase project before the worker is considered deployable.
