@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildLifecycleEmailContent, sendLifecycleEmail } from "./lifecycle";
+import { buildLifecycleEmailContent, sendLifecycleEmail, type LifecycleEmailSendPayload } from "./lifecycle";
 
 const { claimExternalSideEffect, sendTransactionalEmail } = vi.hoisted(() => ({ claimExternalSideEffect: vi.fn(), sendTransactionalEmail: vi.fn() }));
 const sideEffect = { status: "failed", provider_reference: null as string | null };
@@ -37,6 +37,19 @@ describe("lifecycle email system", () => {
     const content = buildLifecycleEmailContent("finding_ready", { findingTitle: "Software cost increased", amountCents: 240000 }, "Lewis");
     expect(content.text).toContain("Potential value: $2400.00");
     expect(content.text).toContain("not verified savings");
+  });
+
+  it("fails closed when a lifecycle event has no stable source identifier", async () => {
+    const result = await sendLifecycleEmail(dbStub(), {
+      kind: "forwarding_test_result",
+      organizationId: "11111111-1111-4111-8111-111111111111",
+      recipientEmail: "owner@example.com",
+      payload: { vendorName: "Example Vendor" } as unknown as LifecycleEmailSendPayload,
+    });
+
+    expect(result).toEqual({ sent: false, reason: "LIFECYCLE_SOURCE_ID_REQUIRED", deliveryStatus: "failed" });
+    expect(claimExternalSideEffect).not.toHaveBeenCalled();
+    expect(sendTransactionalEmail).not.toHaveBeenCalled();
   });
 
   it("retries a previously failed side effect with the same idempotency key", async () => {

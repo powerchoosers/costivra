@@ -89,7 +89,7 @@ export async function ingestManualUpload(input: {
       actorId: input.actorId,
       action: "document.upload_rejected_malware",
     });
-    return { outcome: "rejected" as const, error: decision.message };
+    return { outcome: "rejected" as const, error: decision.message, sha256 };
   }
   if (decision.action === "process") {
     const result = await ingestDocumentBuffer({

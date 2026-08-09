@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requirePortalContext = vi.hoisted(() => vi.fn());
 const stripeIsConfigured = vi.hoisted(() => vi.fn());
+const getStripeBillingMode = vi.hoisted(() => vi.fn());
+const stripeBillingEnabled = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/portal/repository", () => ({ requirePortalContext }));
-vi.mock("@/lib/billing/stripe", () => ({ stripeIsConfigured }));
+vi.mock("@/lib/billing/stripe", () => ({ stripeIsConfigured, getStripeBillingMode, stripeBillingEnabled }));
 
 import { GET } from "./route";
 
@@ -32,6 +34,10 @@ describe("GET /api/billing/status", () => {
   beforeEach(() => {
     requirePortalContext.mockReset();
     stripeIsConfigured.mockReset();
+    getStripeBillingMode.mockReset();
+    stripeBillingEnabled.mockReset();
+    getStripeBillingMode.mockReturnValue("test");
+    stripeBillingEnabled.mockReturnValue(true);
     vi.stubEnv("STRIPE_PRICE_STARTER_MONTHLY", "");
     vi.stubEnv("STRIPE_PRICE_GROWTH_MONTHLY", "");
   });
@@ -52,5 +58,19 @@ describe("GET /api/billing/status", () => {
     const response = await GET();
     expect(response.status).toBe(200);
     expect((await response.json()).status).toBe("setup_pending");
+  });
+
+  it("keeps checkout pending when a live mode is present but explicitly disabled", async () => {
+    requirePortalContext.mockResolvedValue({ db: database(), organizationId: "org-1" });
+    stripeIsConfigured.mockReturnValue(true);
+    getStripeBillingMode.mockReturnValue("live");
+    stripeBillingEnabled.mockReturnValue(false);
+    vi.stubEnv("STRIPE_PRICE_STARTER_MONTHLY", "price_starter_test");
+
+    const response = await GET();
+    const body = await response.json();
+    expect(body.status).toBe("setup_pending");
+    expect(body.billingMode).toBe("live");
+    expect(body.billingEnabled).toBe(false);
   });
 });

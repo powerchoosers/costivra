@@ -21,6 +21,16 @@ function expensePeriod(row: Row) {
   };
 }
 
+export function shouldNotifyFindingReady(input: {
+  hasEvidence: boolean;
+  trustState: string | null;
+  customerVisible: boolean;
+}) {
+  return input.hasEvidence
+    && input.trustState === "evidence_backed"
+    && input.customerVisible;
+}
+
 export async function evaluateApprovedExpense(input: {
   db: DatabaseClient;
   organizationId: string;
@@ -90,7 +100,7 @@ export async function evaluateApprovedExpense(input: {
         // Deterministic, source-linked findings can be promoted to the
         // evidence-backed trust state. Preserve explicit operator labels and
         // customer hiding decisions instead of overwriting them.
-        const trustState = typeof opportunity.trust_state === "string" ? opportunity.trust_state : null;
+        let trustState = typeof opportunity.trust_state === "string" ? opportunity.trust_state : null;
         if (trustState === "needs_evidence") {
           const { error: trustError } = await input.db.from("opportunities")
             .update({ trust_state: "evidence_backed", customer_visible: opportunity.customer_visible !== false, updated_at: new Date().toISOString() })
@@ -98,7 +108,12 @@ export async function evaluateApprovedExpense(input: {
             .eq("organization_id", input.organizationId)
             .eq("trust_state", "needs_evidence");
           if (trustError) throw trustError;
+          trustState = "evidence_backed";
         }
+        // Keep the in-memory state aligned with the successful promotion so
+        // the lifecycle notification is emitted only for this evidence-backed
+        // finding, not for a stale pre-promotion value.
+        opportunity.trust_state = trustState;
       }
       await input.db.from("audit_events").insert({
         organization_id: input.organizationId,
@@ -114,9 +129,11 @@ export async function evaluateApprovedExpense(input: {
       // side-effect ledger makes retries safe.
       const trustState = typeof opportunity.trust_state === "string" ? opportunity.trust_state : null;
       const customerVisible = opportunity.customer_visible !== false;
-      const canNotify = Boolean(evidence?.length)
-        && customerVisible
-        && !["manual_note", "demo_example", "deprecated"].includes(trustState ?? "");
+      const canNotify = shouldNotifyFindingReady({
+        hasEvidence: Boolean(evidence?.length),
+        trustState,
+        customerVisible,
+      });
       if (canNotify) try {
         const { data: vendor } = current.organization_vendor_id
           ? await input.db.from("organization_vendors").select("display_name_override,vendors(canonical_name)").eq("id", current.organization_vendor_id).eq("organization_id", input.organizationId).maybeSingle()

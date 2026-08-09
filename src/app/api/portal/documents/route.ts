@@ -36,7 +36,7 @@ export async function POST(request: Request) {
         db,
         kind: "upload_received",
         organizationId,
-        payload: { documentName: file.name, sourceRecordId: result.documentId, scanStatus },
+        payload: { documentName: file.name, sourceRecordId: result.documentId ?? `upload:${result.sha256}`, scanStatus },
       });
       if ("status" in result && result.status === "needs_review") {
         await sendLifecycleEmailToWorkspace({

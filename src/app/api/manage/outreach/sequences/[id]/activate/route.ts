@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { getSequence } from "@/lib/manage/sequences/repository";
 import { validateSequenceDraft } from "@/lib/manage/sequences/validation";
-import { appendSequenceEvent } from "@/lib/manage/sequences/lifecycle";
+import { checkSystemReadiness } from "@/lib/manage/system-readiness";
 import { cleanUuid } from "@/lib/portal/http";
 
 type Context = { params: Promise<{ id: string }> };
@@ -26,55 +26,38 @@ export async function POST(_request: Request, { params }: Context) {
       return NextResponse.json({ error: "This sequence needs attention before activation.", details: validation.errors }, { status: 409 });
     }
 
-    const now = new Date().toISOString();
-    const { data, error } = await db
-      .from("crm_sequences")
-      .update({
-        status: "active",
-        execution_enabled: true,
-        activated_at: sequence.activatedAt ?? now,
-        paused_at: null,
-        updated_at: now,
-      })
-      .eq("id", id)
-      .in("status", ["draft", "paused"])
-      .select("id,status,execution_enabled,activated_at")
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return NextResponse.json({ error: "The sequence changed before activation. Reload and try again." }, { status: 409 });
-
-    const { data: pendingEnrollments, error: enrollmentError } = await db
-      .from("crm_sequence_enrollments")
-      .update({
-        state: "active",
-        current_step_id: null,
-        current_step_position: 0,
-        next_action_at: now,
-        started_at: now,
-        updated_at: now,
-      })
-      .eq("sequence_id", id)
-      .eq("state", "pending")
-      .select("id");
-    if (enrollmentError) throw enrollmentError;
-    for (const enrollment of pendingEnrollments ?? []) {
-      await appendSequenceEvent(db, {
-        sequenceId: id,
-        enrollmentId: enrollment.id,
-        eventType: "step_scheduled",
-        safeMetadata: { next_action_at: now, activation: true },
-      });
+    const readiness = await checkSystemReadiness(db, { runLiveMalwareProbe: false });
+    const blockedServices = readiness.services
+      .filter((service) => service.status === "blocked")
+      .map((service) => ({ id: service.id, message: service.message }));
+    if (readiness.overall === "blocked") {
+      return NextResponse.json({
+        error: "Sequence activation is blocked by current system readiness.",
+        blockedServices,
+      }, { status: 409 });
     }
 
-    await db.from("internal_audit_events").insert({
-      actor_id: userId,
-      organization_id: sequence.organizationId,
-      action: "crm.sequence_activated",
-      resource_type: "crm_sequence",
-      resource_id: id,
-      safe_metadata: { execution_enabled: true, step_count: sequence.steps.length, activated_enrollments: pendingEnrollments?.length ?? 0 },
+    const now = new Date().toISOString();
+    const { data: activation, error } = await db.rpc("activate_crm_sequence", {
+      p_sequence_id: id,
+      p_actor_id: userId,
+      p_now: now,
     });
-    return NextResponse.json({ sequence: data });
+    if (error?.code === "42883") {
+      return NextResponse.json({ error: "Sequence activation setup is incomplete. Apply the latest database migration first." }, { status: 503 });
+    }
+    if (error) throw error;
+    const activated = Array.isArray(activation) ? activation[0] : activation;
+    if (!activated) return NextResponse.json({ error: "The sequence changed before activation. Reload and try again." }, { status: 409 });
+    return NextResponse.json({
+      sequence: {
+        id: activated.sequence_id,
+        status: "active",
+        execution_enabled: true,
+        activated_at: activated.activated_at,
+        activated_enrollments: activated.activated_enrollments,
+      },
+    });
   } catch (error) {
     const result = manageApiError(error);
     return NextResponse.json({ error: result.error }, { status: result.status });

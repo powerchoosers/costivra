@@ -4,7 +4,14 @@ vi.mock("server-only", () => ({}));
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { verifyInboundEmailProviderReadiness } from "@/lib/email/resend";
+import { emailRequestHash, verifyInboundEmailProviderReadiness } from "@/lib/email/resend";
+
+describe("emailRequestHash", () => {
+  it("changes when the rendered HTML changes", () => {
+    const base = { to: "owner@example.com", subject: "Report", text: "Report text", html: "<p>Report</p>" };
+    expect(emailRequestHash(base)).not.toBe(emailRequestHash({ ...base, html: "<p>Updated report</p>" }));
+  });
+});
 
 function response(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {

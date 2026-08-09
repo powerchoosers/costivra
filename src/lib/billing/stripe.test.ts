@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assertStripeBillingMode } from "./stripe";
+import { assertStripeBillingMode, getStripeBillingMode, stripeBillingEnabled } from "./stripe";
 
 describe("Stripe billing mode guard", () => {
   afterEach(() => {
@@ -32,5 +32,12 @@ describe("Stripe billing mode guard", () => {
   it("rejects an unrecognized key mode instead of guessing", () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "dummy-stripe-secret-for-unit-tests");
     expect(() => assertStripeBillingMode()).toThrow("STRIPE_KEY_MODE_UNKNOWN");
+  });
+
+  it("reports live mode as disabled until the launch flag is explicit", () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_dummy-stripe-secret-for-unit-tests");
+    vi.stubEnv("STRIPE_BILLING_LIVEMODE_ENABLED", "0");
+    expect(getStripeBillingMode()).toBe("live");
+    expect(stripeBillingEnabled()).toBe(false);
   });
 });

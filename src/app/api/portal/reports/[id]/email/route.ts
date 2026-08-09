@@ -18,7 +18,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (!profile?.email) return NextResponse.json({ error: "Your profile does not have an email address." }, { status: 409 });
     const report = await generateReport(db, definition); const rendered = renderReportEmail(report);
     const idempotencyKey = `report-now/${organizationId}/${id}/${new Date().toISOString().slice(0, 10)}/${userId}`;
-    const requestHash = emailRequestHash({ to: profile.email, subject: `${definition.name} is ready`, text: rendered.text });
+    const requestHash = emailRequestHash({ to: profile.email, subject: `${definition.name} is ready`, text: rendered.text, html: rendered.html });
     const claim = await claimExternalSideEffect(db, {
       organizationId,
       type: "report_email",

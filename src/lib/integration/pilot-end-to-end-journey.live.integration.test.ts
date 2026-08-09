@@ -127,7 +127,7 @@ suite("Disposable Pilot Journey Integration Test", () => {
         kind: "forwarding_test_result",
         organizationId: orgId,
         recipientEmail: userEmail,
-        payload: { vendorName: `Acme Telecom ${testId}` },
+        payload: { vendorName: `Acme Telecom ${testId}`, eventKey: `forwarding-test-result:${testId}` },
       });
       expect(emailResult.sent).toBe(true);
 
@@ -136,7 +136,7 @@ suite("Disposable Pilot Journey Integration Test", () => {
         kind: "forwarding_test_result",
         organizationId: orgId,
         recipientEmail: userEmail,
-        payload: { vendorName: `Acme Telecom ${testId}` },
+        payload: { vendorName: `Acme Telecom ${testId}`, eventKey: `forwarding-test-result:${testId}` },
       });
       expect(dupEmailResult.sent).toBe(false);
       expect(dupEmailResult.reason).toContain("idempotent");

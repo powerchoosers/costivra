@@ -1329,3 +1329,255 @@ The sequence worker reuses the same active/send-capable/shared-or-assigned polic
 ## Consequences
 
 Mailbox changes take effect for future sends without requiring a bulk enrollment rewrite. Existing rows are protected by the worker’s runtime check as well as the enrollment trigger.
+
+# 2026-08-09 — Match Stripe webhook mode to the configured key
+
+## Context
+
+Checking only the live-mode feature flag does not prove that an incoming Stripe event belongs to the same account mode as the configured secret. A test event must not be projected through a live-key deployment, and a live event must remain disabled until explicitly approved.
+
+## Decision
+
+Require a recognized `sk_`/`rk_` test or live key, match webhook `event.livemode` to that key mode, and keep live keys blocked unless `STRIPE_BILLING_LIVEMODE_ENABLED=1`. Checkout and Customer Portal use the same guard before provider calls.
+
+## Consequences
+
+Misconfigured Stripe environments fail closed with no billing projection or portal session. Test-mode Costivra setup remains the default until the explicit live launch gate is approved.
+
+# 2026-08-09 — Make sequence activation one database transition
+
+## Context
+
+Activating a sequence and then updating pending enrollments in separate API calls could leave an active sequence with only some contacts activated if the second write or event insert failed.
+
+## Decision
+
+Add the service-role-only `activate_crm_sequence` database function. It locks the sequence, changes the sequence state, activates pending enrollments, writes scheduling events, and records the audit event in one transaction. The API continues to perform operator authorization and draft validation before calling it.
+
+## Consequences
+
+Activation is all-or-nothing and safe to retry after a request timeout. Deployments must apply the migration before enabling the activation flag; the API reports that prerequisite explicitly instead of returning a generic failure.
+
+# 2026-08-09 — Track scheduled report delivery per recipient
+
+## Context
+
+One scheduled report can target several authorized workspace members, but the original delivery-run record stored only one side-effect and provider message ID. A run could therefore appear accepted or delivered when a second recipient failed, and retries could not distinguish completed recipients from failed ones.
+
+## Decision
+
+Add the service-role-only `report_delivery_recipients` table. It stores one normalized recipient, stable idempotency key, side-effect reference, provider message ID, status, safe error, and timestamps for each run. The run remains an aggregate summary; Resend webhook events aggregate recipient state before updating it. A failed recipient can be retried without sending again to recipients already accepted or delivered.
+
+## Consequences
+
+Delivery history is honest for multi-recipient reports and the existing Reports surface can show per-recipient state without adding a new page. The migration must be applied before scheduled report delivery is enabled; the cron reports an explicit setup-required result when the table is absent.
+
+# 2026-08-09 — Make enrollment controls claim-aware
+
+## Context
+
+The sequence worker claims an enrollment before it renders or sends a step. A separate operator pause or stop request could previously update the row while that claim was active; the worker could then release its old claim and overwrite the operator's decision. Paused enrollments also had no resume action in the existing Mail workspace.
+
+## Decision
+
+Pause, stop, and resume now use compare-and-set updates that require no active worker lock. Pause and stop clear the due time and stale lock fields, while resume requires the parent sequence to be active and execution-enabled and schedules the enrollment immediately. The existing sequence-mail view exposes resume for paused enrollments; no new page was added.
+
+## Consequences
+
+An in-flight worker wins neither silently nor destructively: the operator receives a retryable conflict and the worker cannot overwrite a successful control transition. Resuming is explicit and cannot accidentally restart an enrollment while its sequence is paused or disabled.
+
+# 2026-08-09 — Couple sequence task status to enrollment transition
+
+## Context
+
+The task endpoint could mark a sequence task completed before the enrollment transition succeeded. Concurrent clicks could also advance the same enrollment twice, and cancelling a waiting call/general task left the enrollment stuck in `waiting_for_task`.
+
+## Decision
+
+Sequence task updates now use a status compare-and-set. Completion advances the enrollment only after the task update wins; a stale or failed transition restores the prior task status. Cancellation requires an explicit operator reason and stops the waiting enrollment as a failed, auditable sequence transition. Completed or cancelled sequence tasks cannot be reopened, and suggested automatic-email tasks retain their composer-only completion rule.
+
+## Consequences
+
+Task history and enrollment state cannot silently disagree after a stale click or failed transition. Operators use the existing enrollment controls for explicit restart decisions instead of reopening a task that already advanced the sequence.
+
+# 2026-08-09 — Gate sequence activation on current system readiness
+
+## Context
+
+The sequence specification requires activation to stop when the current release readiness check is blocked. Draft validation and the execution flag alone do not prove that Resend, the database, the worker, or malware boundary is ready for a consequential outbound workflow.
+
+## Decision
+
+The activation route runs the existing server-side readiness check without a billable live malware probe. Any blocked service prevents activation and returns only the safe blocked service IDs and messages. Warnings remain visible but do not block activation.
+
+## Consequences
+
+An operator cannot turn on sequence execution while a required platform control is blocked. Activation still requires the existing feature flag, valid draft, operator authorization, and database activation function; no provider call occurs during the readiness check.
+
+# 2026-08-09 — Keep sequence activation honest in the existing Outreach tab
+
+## Context
+
+The server now has a real activation gate, but the builder still showed a permanently disabled “Activation unavailable” control. That made the UI misleading and allowed operators to edit sequences after activation even though the API correctly rejects those writes.
+
+## Decision
+
+Use the existing Outreach Sequences tab as the single control surface. Show a state-specific badge and activation button, call the guarded activation route, surface safe readiness blockers, and make active/paused/archived sequences read-only. Draft validation remains the first local gate; server authorization and readiness remain authoritative.
+
+## Consequences
+
+Operators can understand what is actionable without a new page, and the UI no longer offers edits the backend cannot accept. Activation remains disabled when the draft is invalid, execution is disabled, readiness is blocked, or the required database function has not been applied. The browser check can validate layout and copy, but live sequence data still requires the pending migrations and feature flag.
+
+# 2026-08-09 — Make Outreach metrics and enrollment preview evidence-based
+
+## Context
+
+The first sequence UI exposed placeholder zero metrics and let operators stage contacts without seeing the rendered first touch. Packet 06 requires operational context, truthful performance signals, and a review step before enrollment.
+
+## Decision
+
+Derive sequence sent/reply/scheduled counts from persisted sequence-origin messages, sequence events, and enrollment due times. Add filters and lifecycle controls to the existing tabs, and require a server-generated first-touch preview before the enrollment form can submit. The preview marks inactive, suppressed, missing, and already-enrolled contacts as blocked; the final enrollment route remains authoritative.
+
+## Consequences
+
+Operators see real counts or an honest zero, not estimated activity, and can review personalization before staging a contact. The preview is not an authorization bypass: the server rechecks eligibility at enrollment time. The new controls stay within `/manage/outreach`; pending migrations are still required before local or production sequence data can appear.
+
+# 2026-08-09 — Recalculate report schedules on edit
+
+## Context
+
+The Reports surface could create and pause schedules, but editing cadence, recipient membership, timezone, or send time required creating a new schedule. That made the stored `next_run_at` easy to leave stale and made multiple schedules for one report ambiguous.
+
+## Decision
+
+Use the existing schedule endpoint and sheet for both create and edit. The API validates the complete schedule, rechecks every recipient against current organization membership, and calculates the next run from the saved cadence/timezone/window. The UI tracks the selected schedule ID when editing.
+
+## Consequences
+
+Operators can safely change a schedule without creating duplicate rows, and a paused or archived schedule has no future claim time. Recipient authorization is re-evaluated on every edit, so a previously authorized address cannot remain in a schedule after access is removed.
+
+# 2026-08-09 — Put sequence invariants at the database boundary
+
+## Context
+
+Packet 05 routes validate sequence drafts, but internal workers and future server routes use the service role and could bypass those helpers. Sequence steps also carry cross-row relationships that ordinary foreign keys do not fully protect, such as a reply step preceding an email or an enrollment pointing at another sequence's step.
+
+## Decision
+
+Add a forward-only migration with draft-only step mutation guards, field-shape and reply-order triggers, valid business-day checks, terminal enrollment action checks, sequence/enrollment/step consistency triggers, and a unique provider-event key. Keep the application checks as the user-facing error layer and use the database as the final integrity backstop.
+
+## Consequences
+
+Invalid or cross-sequence sequence data fails closed even when written by a privileged process. Reordering must submit the complete step set, and provider webhook races resolve idempotently. The migration must be applied and linted before sequence APIs can operate against the remote database; it has not been applied by this agent.
+
+# 2026-08-09 — Enforce report tenant links in Postgres
+
+## Context
+
+Portal schedule routes already check that a report definition belongs to the current workspace, but the report cron and other service-role code can write directly. A malformed privileged write could otherwise attach a schedule or delivery run to another organization’s report.
+
+## Decision
+
+Add database triggers for schedule-to-definition and delivery-run-to-definition/schedule consistency. Add a status/next-run invariant so paused and archived schedules cannot remain claimable, while active schedules must retain a next run.
+
+## Consequences
+
+Tenant isolation and pause semantics remain true outside the HTTP routes. The migration must be applied before relying on these guarantees in production; no remote schema change was made by this agent.
+
+# 2026-08-09 — Keep personalization and test sends bounded
+
+## Context
+
+Packet 06 requires an operator to preview and correct contact-specific merge values, and to send a clearly labeled test to the current operator. A generic JSON override would allow arbitrary template paths or sender spoofing, while routing a test through sequence linkage could contaminate production enrollment metrics.
+
+## Decision
+
+Store only a fixed contact-field allowlist in `crm_sequence_enrollments.personalization`; render those values server-side in preview and worker execution. Test sends require a confirmed internal operator email, a personal send-capable mailbox assigned to that operator, and a caller-provided idempotency request ID. They use the audited outbound sender with manual origin and no contact, enrollment, or sequence-step linkage.
+
+## Consequences
+
+Operators can correct a missing contact value without mutating the CRM source record, and retries cannot send a second copy. Test messages remain auditable mailbox activity but cannot look like sequence production events. Provider delivery and the pending migrations still require separate operational setup.
+
+# 2026-08-09 — Include rendered HTML in email idempotency hashes
+
+## Context
+
+Report and lifecycle sends carry both plain-text and HTML bodies. Hashing only the text body could treat a changed HTML rendering as the same request, which makes delivery reconciliation and retry behavior less trustworthy.
+
+## Decision
+
+Include the rendered HTML in the shared `emailRequestHash` input alongside recipient, subject, and plain text. Keep the hash deterministic and content-only; the durable side-effect ledger remains responsible for the idempotency key and provider result.
+
+## Consequences
+
+A materially changed report body receives a distinct request hash, while exact retries remain deduplicated. Existing transactional callers already provide HTML, so no provider contract changes are required.
+
+# 2026-08-09 — Gate finding alerts on the final trust state
+
+## Context
+
+The deterministic expense evaluator can promote a finding from `needs_evidence` to `evidence_backed` during the same transaction that links source evidence. Reading the pre-promotion row could either send an alert before trust review or suppress a valid alert because the in-memory value was stale.
+
+## Decision
+
+Centralize the `finding_ready` predicate and require linked evidence, `evidence_backed` trust state, and customer visibility. Update the in-memory state after a successful promotion before evaluating the notification.
+
+## Consequences
+
+Customer alerts now match the trust state shown in the portal. Findings that are manual notes, demo examples, deprecated, hidden, or still awaiting evidence cannot produce a customer-facing finding alert.
+
+# 2026-08-09 — Park sequence claims when execution is unavailable
+
+## Context
+
+A worker claim can race a sequence pause, feature-flag disablement, or sequence deletion. Merely clearing the lock leaves a due enrollment eligible for the next cron run, creating a repeated claim loop and noisy audit history.
+
+## Decision
+
+Treat a missing parent sequence as a failed claim, and treat a paused or execution-disabled sequence as a paused enrollment. Clear `next_action_at`, retain the pause reason, and append one idempotent paused event while releasing the worker lock.
+
+## Consequences
+
+Paused sequences stop producing repeated work until an operator deliberately resumes the enrollment or sequence. A deletion/data-integrity problem is visible as a failed enrollment rather than silently dropped.
+
+# 2026-08-09 — Require a stable source for lifecycle email idempotency
+
+## Context
+
+The lifecycle sender previously fell back to a generic `workspace-event` key when a caller omitted both a source record and event key. That could silently suppress unrelated emails of the same kind to the same recipient.
+
+## Decision
+
+Require every lifecycle send to provide a trimmed `sourceRecordId` or `eventKey`. Return a safe failed result before claiming the external side effect when neither is present.
+
+## Consequences
+
+Every accepted lifecycle email is traceable to a durable event or record, and malformed callers fail without touching Resend or the side-effect ledger. Existing production call sites already provide one of the two identifiers; fixtures now model that contract explicitly.
+
+# 2026-08-09 — Encode lifecycle idempotency in the send type
+
+## Context
+
+Runtime validation prevents malformed lifecycle sends in production, but an optional payload type still lets new call sites omit the source identifier until runtime.
+
+## Decision
+
+Keep the content renderer’s general payload type, but require `sourceRecordId` or `eventKey` on the side-effect-producing send and workspace-recipient APIs. Rejected manual uploads use their SHA-256 digest as a stable source identifier because no document row exists.
+
+## Consequences
+
+New lifecycle call sites fail TypeScript validation unless they provide an idempotency source, while rejected uploads remain auditable and deduplicated without inventing a document ID.
+
+# 2026-08-09 — Expose Stripe billing-mode readiness before checkout
+
+## Context
+
+The Stripe account is currently a Costivra test account. A server using live credentials with configured prices must not appear checkout-ready while live billing remains disabled; otherwise the UI can offer a path that the checkout route will reject.
+
+## Decision
+
+Derive an explicit Stripe mode (`test`, `live`, or `unknown`) and `billingEnabled` signal in the server-only Stripe helper. Return both from billing status and require the enabled signal in the portal checkout control. Live mode remains disabled unless `STRIPE_BILLING_LIVEMODE_ENABLED=1`.
+
+## Consequences
+
+The billing UI and API now agree on whether checkout is actually available. A live key cannot accidentally turn on self-serve billing merely because Stripe prices exist.

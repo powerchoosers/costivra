@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, ChevronRight, LoaderCircle, Pause, RefreshCw, Square } from "lucide-react";
+import { AlertCircle, ChevronRight, LoaderCircle, Pause, Play, RefreshCw, Square } from "lucide-react";
 
 type SequenceMailItem = {
   id: string;
@@ -87,12 +87,12 @@ export function SequenceMailView({ selectedMailboxId, query }: Props) {
     return items.filter((item) => `${item.contactName} ${item.recipient} ${item.accountName} ${item.sequenceName} ${item.subject}`.toLowerCase().includes(term));
   }, [items, query]);
 
-  async function enrollmentAction(enrollmentId: string, action: "pause" | "stop") {
+  async function enrollmentAction(enrollmentId: string, action: "pause" | "resume" | "stop") {
     setBusyId(enrollmentId);
     try {
       const response = await fetch(`/api/manage/outreach/enrollments/${enrollmentId}/${action}`, { method: "POST" });
       const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || `Enrollment could not be ${action}d.`);
+      if (!response.ok) throw new Error(payload.error || `Enrollment could not be ${action === "resume" ? "resumed" : `${action}d`}.`);
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The enrollment action failed.");
@@ -129,8 +129,10 @@ export function SequenceMailView({ selectedMailboxId, query }: Props) {
           <div><span>{displayDate(item.sentAt || item.scheduledAt)}</span><small>{item.nextActionAt ? `Next ${displayDate(item.nextActionAt)}` : item.mailboxAddress}</small></div>
           <div className="manage-sequence-mail-actions">
             {item.threadId && <Link href={`/manage/mail/${item.threadId}?view=all&folder=sent`} aria-label={`Open ${item.subject}`}><ChevronRight size={16} /></Link>}
-            {item.enrollmentId && ["pending", "active", "waiting_for_task"].includes(item.enrollmentState) && <>
-              <button type="button" onClick={() => void enrollmentAction(item.enrollmentId!, "pause")} disabled={busyId === item.enrollmentId} aria-label="Pause enrollment" title="Pause enrollment"><Pause size={14} /></button>
+            {item.enrollmentId && (["pending", "active", "waiting_for_task"].includes(item.enrollmentState) || item.enrollmentState === "paused") && <>
+              {item.enrollmentState === "paused"
+                ? <button type="button" onClick={() => void enrollmentAction(item.enrollmentId!, "resume")} disabled={busyId === item.enrollmentId} aria-label="Resume enrollment" title="Resume enrollment"><Play size={14} /></button>
+                : <button type="button" onClick={() => void enrollmentAction(item.enrollmentId!, "pause")} disabled={busyId === item.enrollmentId} aria-label="Pause enrollment" title="Pause enrollment"><Pause size={14} /></button>}
               <button type="button" onClick={() => void enrollmentAction(item.enrollmentId!, "stop")} disabled={busyId === item.enrollmentId} aria-label="Stop enrollment" title="Stop enrollment"><Square size={14} /></button>
             </>}
           </div>

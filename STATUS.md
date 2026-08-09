@@ -2132,3 +2132,112 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added a shared API/database mailbox policy and focused tests for active, send-capable, shared, assigned-personal, unassigned, disabled, and send-disabled cases.
 - The sequence worker now rechecks that policy immediately before processing a send, so a later mailbox reassignment or disablement fails closed.
 - Validation after this slice: `npm test` passed (578 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; `git diff --check` passed. `supabase db lint --local` remains unavailable because local Postgres is not running.
+- Stripe billing now applies one mode guard to Checkout, Customer Portal, and webhooks; webhook events must match the configured key mode, and unknown key prefixes fail closed.
+- Validation after this continuation: `npm test` passed (584 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; `git diff --check` passed.
+- Added `20260809120902_packet_07_atomic_sequence_activation.sql` and switched sequence activation to the service-role-only `activate_crm_sequence` transaction. The API now returns a clear migration-prerequisite response when that function is not yet installed.
+- Added activation-route tests covering the atomic RPC call and missing-migration response. Targeted activation tests passed (2/2); typecheck and lint passed after this change.
+- Live Supabase read-only verification confirms the project currently has migrations only through `20260808231254_packet_03_scanner_budget_hardening`; the report, sequence, billing, and new activation tables/functions are not applied. No remote schema change was made.
+
+# 2026-08-09 — Packet 04 recipient-level report delivery
+
+- Added migration `20260809122019_packet_04_report_delivery_recipients.sql` with tenant-consistency trigger, service-role-only access, normalized recipient/idempotency constraints, provider and side-effect indexes, and retry-safe per-recipient state.
+- Refactored the report cron to persist the original recipient set for each run, skip already accepted/delivered recipients, record partial failures, reclaim stale claims after 15 minutes, and advance the schedule only when the aggregate run is accepted, delivered, or intentionally skipped.
+- Resend webhook reconciliation now updates recipient rows and derives run status from all recipients; old single-side-effect runs retain a backward-compatible fallback.
+- Existing portal delivery history now includes each recipient's email, provider status, provider ID, error, and timestamps.
+- Added aggregation and provider-status tests. Targeted report, side-effect-claim, and Resend webhook tests passed (10/10); `npm run typecheck`, `npm run lint`, and `npm run build` passed; `git diff --check` passed.
+- Supabase migration lint remains blocked in this workspace because Docker/local Postgres is unavailable. The migration is not applied to the remote project; scheduled report sending must remain disabled until it is applied and verified.
+
+# 2026-08-09 — Packet 05 enrollment control race hardening
+
+- Pause and stop enrollment routes now reject rows currently claimed by the worker, use state-and-lock compare-and-set updates, clear `next_action_at`, and record checked sequence events.
+- Added a resume route and an existing Mail sequence-view control. Resume requires an active, execution-enabled parent sequence and schedules the paused enrollment immediately.
+- Added focused transition and route tests (8 passed), including worker-lock conflict behavior. Typecheck, lint, and diff checks passed after the change.
+- No provider sends, remote database changes, commits, or pushes were made. Sequence execution remains feature-flagged off.
+
+# 2026-08-09 — Packet 06 sequence task transition hardening
+
+- Sequence task completion now wins a status compare-and-set before advancing the enrollment, and rolls the task back if the enrollment is no longer waiting.
+- Concurrent completion clicks are idempotent; completed/cancelled sequence tasks cannot be reopened. Cancelling a waiting call/general sequence task now requires an explicit reason and stops the enrollment with a durable failed event instead of leaving it stuck.
+- Added task-route coverage for stale completion, successful advancement, cancellation, and duplicate completion (4 tests).
+- Validation after this slice: full unit suite passed (603 passed, 6 skipped); integration passed (8 passed, 6 skipped); typecheck, lint, production build, and diff checks passed.
+
+# 2026-08-09 — Sequence activation readiness gate
+
+- Activation now calls the existing server-side readiness check and fails closed when any required service is blocked. It reports safe blocked-service details and does not call the database activation function in that case.
+- The readiness check deliberately runs with the live malware probe disabled; warnings do not block, while blocked database, Resend, worker, or scanner states do.
+- Activation route coverage now includes the blocked-readiness response (3 tests in that file). Targeted typecheck passed; the full validation commands above were run after the task-transition slice and should be rerun after this gate change.
+
+# 2026-08-09 — Packet 06 activation and locked-state UI
+
+- The existing Outreach Sequences tab now calls the guarded activation endpoint. Drafts show a valid/invalid activation state; paused sequences offer resume when valid; active and archived sequences remain visibly locked.
+- Readiness failures are surfaced in the existing inline alert, including safe blocked-service messages returned by the server. No new page or provider call was added.
+- Empty-state copy now uses the correct paragraph styling instead of the generic icon treatment, and desktop/mobile layouts were browser-checked at the default and 390px viewport sizes.
+- Added `sequenceActivationUiState` unit coverage for draft, paused, active, archived, and busy states.
+- Validation after this slice: full `npm test` passed (609 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; `git diff --check` passed. The local browser could load the authenticated Outreach shell, but the local sequence API returned the existing generic portal request error because the new remote migrations are not applied; no remote schema change was made. `supabase db lint --local` remains blocked because Docker/local Postgres is unavailable.
+
+# 2026-08-09 — Packet 06 operational sequence controls
+
+- Expanded the existing Sequences tab with truthful summary metrics, search/status/owner filters, archived visibility, clone/pause/archive actions, and reply-rate display based on sequence-origin messages and reply events.
+- Expanded the Enrollments tab with search/state filters, current-step/next-action/mailbox context, and pause/resume/stop controls. Staging now requires a first-touch personalization preview and blocks contacts that are suppressed, inactive, or already enrolled.
+- Added timezone and business-day controls, thread mode editing, and step duplication to the draft builder. Active/paused/archived sequences remain read-only.
+- Sequence list metrics are now derived from persisted message and event records; missing metrics are not fabricated as successful sends.
+- Validation after this slice: full `npm test` passed (610 passed, 6 skipped); integration passed (8 passed, 6 skipped); typecheck, lint, production build, and diff checks passed. Desktop and 390px browser checks passed for the authenticated Outreach shell. The local API still reports the generic portal request error until the pending migrations are applied; no remote schema change was made.
+
+# 2026-08-09 — Packet 04 schedule editing and recipient history
+
+- Report schedule PATCH now supports cadence, weekday/day, timezone, send time, authorized recipient changes, pause/resume/archive, and deterministic next-run recalculation. Invalid local times and unauthorized recipients fail closed.
+- The existing customer Reports surface can edit a specific schedule, not just the first schedule for a report, and displays per-recipient delivery outcomes in delivery history.
+- Validation after this continuation: full unit suite passed (610 passed, 6 skipped); integration passed (8 passed, 6 skipped); typecheck, lint, build, and diff checks passed. Supabase local lint remains unavailable because Docker/Postgres is not running.
+- Schedule inputs now reject unsupported cadence/status and malformed times instead of silently defaulting. Final targeted validation after that hardening: typecheck, lint, build, schedule/repository tests, and diff checks passed.
+
+# 2026-08-09 — Packet 05 sequence integrity backstops
+
+- Added migration `20260809140248_packet_05_sequence_integrity_backstops.sql` with database checks for valid business-day values, terminal enrollment action state, provider-event uniqueness, sequence/enrollment/step link consistency, and draft-only step mutations.
+- Sequence-step triggers now enforce the same email/task field rules and reply-thread ordering that the application validator uses. This protects direct service-role writes and future workers from creating invalid drafts or cross-sequence links.
+- Sequence PATCH rejects invalid timezones, local times, duplicate/empty business-day lists, and non-finite daily caps. Step PATCH now respects draft locking, preserves step type/position/delay fields, supports task-pause edits, and records an audit event.
+- Step reorder now requires the complete step set exactly once. Failed sequence clones clean up their newly created draft instead of leaving an orphan.
+- Provider webhook event races now resolve to the database winner instead of throwing a duplicate error.
+- Validation: `npm test` passed (612 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; targeted ESLint passed. Full `npm run lint` hit the 120-second workspace timeout, so it is not claimed as passed. `npm run build` passed. `supabase db lint --local` remains blocked because Docker/local Postgres is unavailable. No remote migration, commit, push, or deployment was performed.
+
+# 2026-08-09 — Packet 06 personalization and safe test send
+
+- Enrollment preview and creation now accept only an explicit contact merge-field allowlist (`first_name`, `full_name`, `company_name`, `job_title`, `industry`, `website`). Overrides are stored per enrollment and applied by the sequence worker without allowing sender spoofing or arbitrary object access.
+- The existing enrollment sheet now displays marketing-permission state and lets an operator correct first name/company for the preview; changing a value requires a fresh server preview before confirmation.
+- Added `/api/manage/outreach/sequences/[id]/steps/[stepId]/test`. It requires a verified internal operator email, sends only to that operator, uses an idempotent test request ID, creates no contact/enrollment linkage, and records the send through the existing audited outbound path. Added route coverage for the request-ID guard and no-sequence-linkage restriction.
+- Deleting a step now preserves contiguous positions and immediate first-touch timing, while refusing a deletion that would leave a reply step without an earlier email. Draft PATCHes now reject invalid combined send windows before the database call.
+- Validation: full `npm test` passed (615 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; `git diff --check` passed. `supabase db lint --local` remains blocked because Docker/local Postgres is unavailable. No remote migration, commit, push, or deployment was performed.
+
+# 2026-08-09 — Packet 04 report tenant and run-state backstops
+
+- Added migration `20260809143436_packet_04_schedule_integrity_backstops.sql` to enforce that schedules match their report definition organization, delivery runs match both the definition and schedule organization, and paused/archived schedules cannot retain a future claim time.
+- This protects the report cron and any future service-role writer from cross-tenant report attachment or paused-schedule delivery. The migration has not been applied remotely because the pending Packet 04 migrations still require review and deployment by Lewis.
+
+# 2026-08-09 — Require evidence-backed trust before finding alerts
+
+- Tightened the `finding_ready` lifecycle gate so a customer alert is sent only when linked evidence exists, the opportunity is explicitly `evidence_backed`, and the finding remains customer-visible. The in-memory trust state now updates when the deterministic evaluator promotes a finding, avoiding both premature alerts and stale suppression.
+- Added focused coverage for evidence, trust-state, and visibility combinations. Targeted test and typecheck passed.
+
+# 2026-08-09 — Park claims when sequence execution is paused
+
+- Sequence workers now fail closed when a claimed enrollment's parent sequence is missing, and park the enrollment as `paused` with no future action when the sequence is paused or execution is disabled. A durable `paused` event is recorded, preventing repeated claims of the same due enrollment.
+- Added worker coverage for the paused-sequence race. Targeted worker tests and typecheck passed.
+
+# 2026-08-09 — Packet 04–06 validation and report idempotency hardening
+
+- Report idempotency hashes now include the rendered HTML as well as recipient, subject, and text, so a materially changed report cannot reuse the previous content hash. Added a regression test for that behavior.
+- Removed the unauthenticated Logo.dev request from the public illustrative hero preview and replaced it with a local building icon, eliminating a 401 that was failing the public smoke suite.
+- Validation after this slice: `npm test` passed (620 passed, 6 skipped across 154 files); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; `git diff --check` passed; public Playwright smoke passed (27 passed, 3 skipped). The authenticated Playwright suite was discovered but skipped because no authenticated test session was available locally. Dependency audits and secret scan passed; invoice evaluation smoke passed at 100% on the checked fixture.
+- Production read-only ops smoke also passed against `https://costivra.ai`: public site/status endpoint healthy, protected crons reject unauthenticated requests, and the Resend webhook rejects unsigned requests.
+
+# 2026-08-09 — Require lifecycle source identifiers
+
+- Lifecycle email sends now fail closed when neither `sourceRecordId` nor `eventKey` is present, preventing unrelated events from sharing a generic idempotency key. Updated the live journey fixture and added regression coverage.
+- The source requirement is now encoded in the send API type; rejected manual uploads use their recorded SHA-256 digest as the stable source because no document row is created.
+- Validation after the type-contract and rejected-upload fix: `npm test` passed (620 passed, 6 skipped); integration passed (8 passed, 6 skipped); typecheck, lint, build, and diff checks passed.
+
+# 2026-08-09 — Keep Stripe checkout honest about key mode
+
+- Billing status now reports `billingMode` and `billingEnabled`; the portal disables checkout when live mode is not explicitly enabled, even if prices are present. Added test/live mode regression coverage.
+- Targeted billing tests (9 passed) and typecheck passed. No Stripe provider writes were made.
+- Stripe read-only check confirms the Costivra test account `acct_1U2MvqK7vdNK2m4p` is connected and named Costivra, but it currently has zero products and zero prices. No provider writes were made. Billing remains blocked until Lewis creates the Costivra test plans and applies the billing migration/configuration.
+- Supabase local migration lint remains unavailable because Docker/local Postgres is not running. No remote migration, commit, push, or deployment was performed.

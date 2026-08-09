@@ -35,21 +35,35 @@ export function mapSequence(row: Row, steps: SequenceStep[] = [], stats?: Partia
   };
 }
 
+export function summarizeSequenceStats(sequenceId: string, enrollments: Row[], messages: Row[], events: Row[], now = Date.now()): Partial<Sequence> {
+  const nextDay = now + 86_400_000;
+  const current = enrollments.filter((item) => item.sequence_id === sequenceId);
+  const sequenceMessages = messages.filter((item) => item.sequence_id === sequenceId);
+  return {
+    activeEnrollments: current.filter((item) => ["pending", "active", "paused", "waiting_for_task"].includes(text(item.state))).length,
+    scheduledNext24Hours: current.filter((item) => { const timestamp = Date.parse(text(item.next_action_at)); return Number.isFinite(timestamp) && timestamp >= now && timestamp <= nextDay; }).length,
+    sent: sequenceMessages.filter((item) => ["sent", "delivered"].includes(text(item.provider_status))).length,
+    replies: events.filter((item) => item.sequence_id === sequenceId && text(item.event_type) === "reply_received").length,
+  };
+}
+
 export async function listSequences(db: Db, organizationId?: string) {
   let query = db.from("crm_sequences").select("*, crm_sequence_steps(*)").order("updated_at", { ascending: false });
   if (organizationId) query = query.eq("organization_id", organizationId);
   const { data, error } = await query;
   if (error) throw error;
   const ids = (data ?? []).map((row: Row) => row.id);
-  const enrollments = ids.length ? await db.from("crm_sequence_enrollments").select("sequence_id,state,next_action_at").in("sequence_id", ids) : { data: [], error: null };
+  const [enrollments, messages, events] = ids.length ? await Promise.all([
+    db.from("crm_sequence_enrollments").select("sequence_id,state,next_action_at").in("sequence_id", ids),
+    db.from("crm_email_messages").select("sequence_id,provider_status").in("sequence_id", ids).eq("origin", "sequence"),
+    db.from("crm_sequence_events").select("sequence_id,event_type").in("sequence_id", ids).eq("event_type", "reply_received"),
+  ]) : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
   if (enrollments.error) throw enrollments.error;
+  if (messages.error) throw messages.error;
+  if (events.error) throw events.error;
   return (data ?? []).map((row: Row) => {
     const related = (Array.isArray(row.crm_sequence_steps) ? row.crm_sequence_steps : []).map((item) => step(item as Row)).sort((a, b) => a.position - b.position);
-    const current = (enrollments.data ?? []).filter((item: Row) => item.sequence_id === row.id);
-    return mapSequence(row, related, {
-      activeEnrollments: current.filter((item: Row) => ["pending", "active", "paused", "waiting_for_task"].includes(text(item.state))).length,
-      scheduledNext24Hours: current.filter((item: Row) => item.next_action_at && Date.parse(text(item.next_action_at)) <= Date.now() + 86_400_000).length,
-    });
+    return mapSequence(row, related, summarizeSequenceStats(row.id as string, enrollments.data as Row[], messages.data as Row[], events.data as Row[]));
   });
 }
 

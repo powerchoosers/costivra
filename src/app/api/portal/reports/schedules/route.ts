@@ -14,7 +14,9 @@ export async function POST(request: Request) {
     const { db, organizationId, userId, role } = await requirePortalContext();
     if (role !== "owner" && role !== "admin") return NextResponse.json({ error: "Administrator access is required to schedule outbound reports." }, { status: 403 });
     const body = await request.json() as Record<string, unknown>;
-    const reportDefinitionId = cleanUuid(body.reportDefinitionId); const cadence = body.cadence === "monthly" ? "monthly" : "weekly"; const timezone = cleanText(body.timezone, 80) || "America/Chicago"; const sendTime = /^\d{2}:\d{2}$/.test(String(body.sendTimeLocal)) ? String(body.sendTimeLocal) : "08:00";
+    const reportDefinitionId = cleanUuid(body.reportDefinitionId); const cadence = body.cadence === undefined ? "weekly" : body.cadence === "monthly" || body.cadence === "weekly" ? body.cadence : null; const timezone = cleanText(body.timezone, 80) || "America/Chicago"; const sendTime = body.sendTimeLocal === undefined ? "08:00" : String(body.sendTimeLocal);
+    if (!cadence) return NextResponse.json({ error: "Choose weekly or monthly cadence." }, { status: 400 });
+    if (!/^\d{2}:\d{2}$/.test(sendTime) || Number(sendTime.slice(0, 2)) > 23 || Number(sendTime.slice(3)) > 59) return NextResponse.json({ error: "Choose a valid local send time." }, { status: 400 });
     if (!isValidTimeZone(timezone)) return NextResponse.json({ error: "Choose a valid IANA timezone, such as America/Chicago." }, { status: 400 });
     const requestedRecipients = normalizeReportRecipients(body.recipientEmails);
     if (!reportDefinitionId || !requestedRecipients.length) return NextResponse.json({ error: "Choose a report and at least one workspace recipient." }, { status: 400 });

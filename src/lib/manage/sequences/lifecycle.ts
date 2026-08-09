@@ -59,7 +59,21 @@ export async function appendSequenceEvent(
     })
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) {
+    // A provider webhook can race another delivery attempt. The database
+    // unique key makes the provider event the idempotency authority; return
+    // the winner instead of turning a harmless duplicate into a failed job.
+    if (error.code === "23505" && input.providerEventId) {
+      const { data: winner, error: winnerError } = await db
+        .from("crm_sequence_events")
+        .select("id")
+        .eq("provider_event_id", input.providerEventId)
+        .maybeSingle();
+      if (winnerError) throw winnerError;
+      if (winner) return winner.id as string;
+    }
+    throw error;
+  }
   return data.id as string;
 }
 
@@ -73,6 +87,7 @@ export async function stopEnrollmentForReason(
     threadId?: string | null;
     providerEventId?: string | null;
     lockToken?: string | null;
+    safeMetadata?: Record<string, unknown>;
   },
 ) {
   const now = nowIso();
@@ -115,7 +130,7 @@ export async function stopEnrollmentForReason(
     emailMessageId: input.messageId,
     emailThreadId: input.threadId,
     providerEventId: input.providerEventId,
-    safeMetadata: { reason: input.reason },
+    safeMetadata: { reason: input.reason, ...(input.safeMetadata ?? {}) },
   });
   return true;
 }

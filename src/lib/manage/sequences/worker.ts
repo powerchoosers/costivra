@@ -12,7 +12,7 @@ import { sendOutboundEmail } from "@/lib/manage/outbound-email";
 import { findSuppression } from "@/lib/manage/sequences/repository";
 import { canUseSequenceMailbox } from "@/lib/manage/sequences/mailbox-policy";
 import { nextSequenceActionAt } from "@/lib/manage/sequences/schedule";
-import { renderTemplate } from "@/lib/manage/sequences/validation";
+import { renderTemplate, sanitizeSequencePersonalization } from "@/lib/manage/sequences/validation";
 import {
   appendSequenceEvent,
   stopEnrollmentForReason,
@@ -69,6 +69,28 @@ async function failClaim(
     });
   }
   return { status: "failed", reason: input.reason } as const;
+}
+
+async function parkInactiveSequenceClaim(
+  db: Db,
+  input: { enrollmentId: string; lockToken: string; sequenceId: string },
+) {
+  const pausedAt = new Date().toISOString();
+  const released = await releaseClaim(db, input.enrollmentId, input.lockToken, {
+    state: "paused",
+    next_action_at: null,
+    paused_at: pausedAt,
+    last_error_code: "SEQUENCE_NOT_ACTIVE",
+  });
+  if (released) {
+    await appendSequenceEvent(db, {
+      sequenceId: input.sequenceId,
+      enrollmentId: input.enrollmentId,
+      eventType: "paused",
+      safeMetadata: { reason: "SEQUENCE_NOT_ACTIVE", paused_at: pausedAt },
+    });
+  }
+  return { status: "skipped", reason: "SEQUENCE_NOT_ACTIVE" } as const;
 }
 
 async function advanceAfterStep(
@@ -293,9 +315,9 @@ export async function processClaimedSequenceEnrollment(
     .eq("id", enrollment.sequence_id)
     .maybeSingle();
   if (sequenceError) throw sequenceError;
-  if (!sequence || sequence.status !== "active" || sequence.execution_enabled !== true) {
-    await releaseClaim(db, claim.id, claim.lock_token);
-    return { status: "skipped", reason: "SEQUENCE_NOT_ACTIVE" } as const;
+  if (!sequence) return failClaim(db, { enrollmentId: claim.id, lockToken: claim.lock_token, sequenceId: text(enrollment.sequence_id), reason: "SEQUENCE_NOT_FOUND" });
+  if (sequence.status !== "active" || sequence.execution_enabled !== true) {
+    return parkInactiveSequenceClaim(db, { enrollmentId: claim.id, lockToken: claim.lock_token, sequenceId: text(sequence.id) });
   }
 
   const [{ data: contact, error: contactError }, { data: mailbox, error: mailboxError }] = await Promise.all([
@@ -347,6 +369,7 @@ export async function processClaimedSequenceEnrollment(
     website: "",
     sender_name: text(ownerProfile?.full_name, "Costivra"),
     sender_title: text(ownerProfile?.job_title),
+    ...sanitizeSequencePersonalization(enrollment.personalization),
   };
 
   const stepType = text(step.step_type);
@@ -516,4 +539,39 @@ export async function completeSequenceTask(
     });
   }
   return true;
+}
+
+/** Stop an enrollment when an operator cancels its waiting sequence task. */
+export async function cancelSequenceTask(
+  db: Db,
+  input: { taskId: string; actorId: string; reason: string },
+) {
+  const { data: task, error: taskError } = await db
+    .from("crm_tasks")
+    .select("id,origin,sequence_id,sequence_enrollment_id,sequence_step_id")
+    .eq("id", input.taskId)
+    .maybeSingle();
+  if (taskError) throw taskError;
+  if (task?.origin !== "sequence" || !task.sequence_enrollment_id || !task.sequence_id || !task.sequence_step_id) return false;
+
+  const { data: enrollment, error: enrollmentError } = await db
+    .from("crm_sequence_enrollments")
+    .select("state")
+    .eq("id", task.sequence_enrollment_id)
+    .maybeSingle();
+  if (enrollmentError) throw enrollmentError;
+  if (!enrollment || enrollment.state !== "waiting_for_task") return false;
+
+  return stopEnrollmentForReason(db, {
+    enrollmentId: task.sequence_enrollment_id,
+    reason: "failure",
+    eventType: "failed",
+    messageId: null,
+    threadId: null,
+    safeMetadata: {
+      actor_id: input.actorId,
+      operator_reason: input.reason,
+      source: "sequence_task_cancel",
+    },
+  });
 }

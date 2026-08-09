@@ -21,7 +21,7 @@ export type EmailDeliveryResult =
   | { ok: false; error: string };
 
 export function emailRequestHash(
-  email: Pick<TransactionalEmail, "to" | "subject" | "text">,
+  email: Pick<TransactionalEmail, "to" | "subject" | "text" | "html">,
 ) {
   return createHash("sha256")
     .update(
@@ -29,6 +29,7 @@ export function emailRequestHash(
         to: email.to.toLowerCase(),
         subject: email.subject,
         text: email.text,
+        html: email.html,
       }),
     )
     .digest("hex");

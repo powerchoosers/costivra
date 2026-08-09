@@ -19,6 +19,10 @@ import {
   stopSequenceEnrollmentForProviderEvent,
   stopSequenceEnrollmentsForReply,
 } from "@/lib/manage/sequences/lifecycle";
+import {
+  aggregateReportDeliveryStatus,
+  reportRecipientStatusForProviderEvent,
+} from "@/lib/reports/delivery";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -132,10 +136,62 @@ async function recordDeliveryEvent(
     const sideEffectStatus = status === "delivered" ? "delivered" : status === "bounced" ? "bounced" : status === "complained" ? "complained" : status === "suppressed" ? "suppressed" : status === "failed" ? "failed" : status;
     const sideEffectUpdate: Record<string, unknown> = { status: sideEffectStatus, updated_at: new Date().toISOString() };
     if (["bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus)) sideEffectUpdate.last_error = `RESEND_${sideEffectStatus.toUpperCase()}`;
-    const { data: sideEffects } = await db.from("external_side_effects").select("id").eq("provider_reference", providerMessageId);
+    const { data: sideEffects } = await db.from("external_side_effects").select("id,type").eq("provider_reference", providerMessageId);
     if (sideEffects?.length) {
       await db.from("external_side_effects").update(sideEffectUpdate).in("id", sideEffects.map((row) => row.id));
-      await db.from("report_delivery_runs").update({ status: sideEffectStatus, provider_message_id: providerMessageId, completed_at: ["delivered", "bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus) ? new Date().toISOString() : null }).eq("external_side_effect_id", sideEffects[0].id);
+      const reportSideEffectIds = sideEffects
+        .filter((row) => row.type === "report_email")
+        .map((row) => row.id);
+      let recipientRows: Array<{ id: string; delivery_run_id: string }> = [];
+      let recipientLookupError: { code?: string; message?: string } | null = null;
+      if (reportSideEffectIds.length) {
+        const recipientLookup = await db
+          .from("report_delivery_recipients")
+          .select("id,delivery_run_id")
+          .in("external_side_effect_id", reportSideEffectIds);
+        recipientRows = (recipientLookup.data ?? []) as Array<{ id: string; delivery_run_id: string }>;
+        recipientLookupError = recipientLookup.error;
+        if (recipientLookupError && recipientLookupError.code !== "42P01") throw recipientLookupError;
+      }
+      const recipientStatus = reportRecipientStatusForProviderEvent(status);
+      if (recipientRows.length && recipientStatus) {
+        const completedAt = ["delivered", "failed", "bounced", "complained", "suppressed"].includes(recipientStatus)
+          ? new Date().toISOString()
+          : null;
+        await db.from("report_delivery_recipients").update({
+          status: recipientStatus,
+          provider_message_id: providerMessageId,
+          completed_at: completedAt,
+          safe_error: ["failed", "bounced", "complained", "suppressed"].includes(recipientStatus)
+            ? `RESEND_${recipientStatus.toUpperCase()}`
+            : null,
+          updated_at: new Date().toISOString(),
+        }).in("id", recipientRows.map((row) => row.id));
+        for (const deliveryRunId of new Set(recipientRows.map((row) => row.delivery_run_id))) {
+          const { data: allRecipients, error: allRecipientsError } = await db
+            .from("report_delivery_recipients")
+            .select("status")
+            .eq("delivery_run_id", deliveryRunId);
+          if (allRecipientsError) throw allRecipientsError;
+          const runStatus = aggregateReportDeliveryStatus((allRecipients ?? []).map((row) => row.status as string));
+          await db.from("report_delivery_runs").update({
+            status: runStatus,
+            provider_message_id: providerMessageId,
+            completed_at: runStatus === "claimed" ? null : new Date().toISOString(),
+            safe_error: runStatus === "failed" ? "ONE_OR_MORE_RECIPIENTS_FAILED" : null,
+          }).eq("id", deliveryRunId);
+        }
+      } else if (reportSideEffectIds.length === 0 || recipientLookupError?.code === "42P01" || !recipientRows.length) {
+        // Backward compatibility for report rows created before the
+        // recipient-level migration was applied.
+        await db.from("report_delivery_runs").update({
+          status: sideEffectStatus,
+          provider_message_id: providerMessageId,
+          completed_at: ["delivered", "bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus)
+            ? new Date().toISOString()
+            : null,
+        }).eq("external_side_effect_id", sideEffects[0].id);
+      }
     }
     if (["bounced", "complained", "suppressed", "failed"].includes(status)) {
       await stopSequenceEnrollmentForProviderEvent(db, {

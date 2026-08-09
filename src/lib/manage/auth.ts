@@ -98,6 +98,15 @@ export async function requireInternalOwner() {
   return operator;
 }
 
+export async function requireVerifiedInternalOperator() {
+  const operator = await requireInternalOperator();
+  const session = await createSessionSupabaseClient();
+  const { data, error } = await session.auth.getUser();
+  const verifiedEmail = data.user?.email?.trim().toLowerCase() === operator.email && Boolean(data.user?.email_confirmed_at);
+  if (error || !verifiedEmail) throw new Error("VERIFIED_EMAIL_REQUIRED");
+  return operator;
+}
+
 export function manageApiError(error: unknown) {
   const message = error instanceof Error ? error.message : "INTERNAL_ERROR";
   if (message === "AUTH_REQUIRED")
@@ -116,6 +125,11 @@ export function manageApiError(error: unknown) {
     return {
       status: 403,
       error: "You do not have access to that mailbox.",
+    };
+  if (message === "VERIFIED_EMAIL_REQUIRED")
+    return {
+      status: 403,
+      error: "Verify your operator email before sending a test message.",
     };
   console.error("Owner portal API error:", message);
   return {

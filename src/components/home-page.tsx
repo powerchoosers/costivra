@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowRight,
@@ -246,7 +245,7 @@ function HeroReviewPreview() {
       </div>
       <div className="hero-review-document">
         <div className="hero-review-document-heading">
-          <span className="hero-review-document-icon"><Image src="https://img.logo.dev/business.att.com?size=128&format=png&fallback=404" alt="AT&amp;T Business" width={24} height={24} /></span>
+          <span className="hero-review-document-icon" aria-hidden="true"><Building2 size={20} /></span>
           <div>
             <span>AT&amp;T Business</span>
             <strong>May internet bill</strong>

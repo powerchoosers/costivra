@@ -15,7 +15,12 @@ export async function POST(request: Request, { params }: Context) {
     if (error) throw error;
     if (source.steps.length) {
       const { error: stepError } = await db.from("crm_sequence_steps").insert(source.steps.map((step) => ({ sequence_id: created.id, position: step.position, step_type: step.stepType, delay_value: step.delayValue, delay_unit: step.delayUnit, thread_mode: step.threadMode, subject_template: step.subjectTemplate, body_html: step.bodyHtml, body_text: step.bodyText, task_title_template: step.taskTitleTemplate, task_notes_template: step.taskNotesTemplate, task_priority: step.taskPriority, pause_until_task_complete: step.pauseUntilTaskComplete })));
-      if (stepError) throw stepError;
+      if (stepError) {
+        // Do not leave a half-created draft behind when a step fails a
+        // database invariant (for example, an invalid reply thread).
+        await db.from("crm_sequences").delete().eq("id", created.id);
+        throw stepError;
+      }
     }
     await db.from("internal_audit_events").insert({ actor_id: userId, organization_id: source.organizationId, action: "crm.sequence_cloned", resource_type: "crm_sequence", resource_id: created.id, safe_metadata: { source_sequence_id: source.id } });
     return NextResponse.json({ id: created.id }, { status: 201 });

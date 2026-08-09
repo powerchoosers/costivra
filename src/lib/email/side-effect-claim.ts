@@ -23,7 +23,7 @@ type SideEffectRow = {
 
 export type SideEffectClaimResult =
   | { claimed: true; id: string }
-  | { claimed: false; duplicate: true; id?: string; providerReference?: string | null }
+  | { claimed: false; duplicate: true; id?: string; providerReference?: string | null; status?: string }
   | { claimed: false; duplicate: false; error: string };
 
 const completedStatuses = new Set(["sent", "accepted", "delivered"]);
@@ -87,6 +87,7 @@ export async function claimExternalSideEffect(
       duplicate: true,
       id: existing.id,
       providerReference: existing.provider_reference,
+      status: existing.status,
     };
   }
 
@@ -108,5 +109,6 @@ export async function claimExternalSideEffect(
     duplicate: true,
     id: existing.id,
     providerReference: existing.provider_reference,
+    status: existing.status,
   };
 }

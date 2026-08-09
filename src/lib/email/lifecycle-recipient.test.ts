@@ -37,7 +37,7 @@ describe("workspace lifecycle recipients", () => {
       db: dbStub({ immediate_finding_alerts: false }, [{ profiles: { email: "owner@example.com" } }]),
       kind: "finding_ready",
       organizationId: "org-1",
-      payload: { findingTitle: "Potential increase" },
+      payload: { findingTitle: "Potential increase", sourceRecordId: "opportunity-1" },
     });
     expect(result).toEqual([]);
     expect(sendLifecycleEmail).not.toHaveBeenCalled();
@@ -52,7 +52,7 @@ describe("workspace lifecycle recipients", () => {
       ]),
       kind: "upload_received",
       organizationId: "org-1",
-      payload: { documentName: "invoice.pdf" },
+      payload: { documentName: "invoice.pdf", sourceRecordId: "document-1" },
     });
     expect(result).toHaveLength(2);
     expect(sendLifecycleEmail).toHaveBeenCalledTimes(2);

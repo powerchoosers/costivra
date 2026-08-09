@@ -23,12 +23,18 @@ export type LifecycleEmailPayload = {
   eventKey?: string;
 };
 
+/** Payload accepted by the side-effect-producing sender. */
+export type LifecycleEmailSendPayload = LifecycleEmailPayload & (
+  | { sourceRecordId: string; eventKey?: string }
+  | { sourceRecordId?: string; eventKey: string }
+);
+
 export interface SendLifecycleEmailInput {
   kind: LifecycleEmailKind;
   organizationId: string;
   recipientEmail: string;
   recipientName?: string;
-  payload: LifecycleEmailPayload;
+  payload: LifecycleEmailSendPayload;
 }
 
 type Content = { subject: string; text: string; html: string };
@@ -70,14 +76,19 @@ export function buildLifecycleEmailContent(kind: LifecycleEmailKind, payload: Li
 }
 
 function stableIdempotencyKey(input: SendLifecycleEmailInput) {
-  const source = input.payload.sourceRecordId || input.payload.eventKey || input.payload.documentName || input.payload.findingTitle || "workspace-event";
-  return `lifecycle/${input.organizationId}/${input.kind}/${source}/${input.recipientEmail.trim().toLowerCase()}`;
+  const source = input.payload.sourceRecordId?.trim() || input.payload.eventKey?.trim();
+  return source
+    ? `lifecycle/${input.organizationId}/${input.kind}/${source}/${input.recipientEmail.trim().toLowerCase()}`
+    : null;
 }
 
 export async function sendLifecycleEmail(db: SupabaseClient, input: SendLifecycleEmailInput): Promise<{ sent: boolean; messageId?: string; reason?: string; deliveryStatus?: "accepted" | "duplicate" | "failed" }> {
-  const content = buildLifecycleEmailContent(input.kind, input.payload, input.recipientName);
   const idempotencyKey = stableIdempotencyKey(input);
-  const requestHash = emailRequestHash({ to: input.recipientEmail, subject: content.subject, text: content.text });
+  if (!idempotencyKey) {
+    return { sent: false, reason: "LIFECYCLE_SOURCE_ID_REQUIRED", deliveryStatus: "failed" };
+  }
+  const content = buildLifecycleEmailContent(input.kind, input.payload, input.recipientName);
+  const requestHash = emailRequestHash({ to: input.recipientEmail, subject: content.subject, text: content.text, html: content.html });
   const claim = await claimExternalSideEffect(db, {
     organizationId: input.organizationId,
     type: "lifecycle_email",

@@ -1,13 +1,13 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendLifecycleEmail, type LifecycleEmailKind, type LifecycleEmailPayload } from "./lifecycle";
+import { sendLifecycleEmail, type LifecycleEmailKind, type LifecycleEmailSendPayload } from "./lifecycle";
 
 type WorkspaceEmailInput = {
   db: SupabaseClient;
   kind: LifecycleEmailKind;
   organizationId: string;
-  payload: LifecycleEmailPayload;
+  payload: LifecycleEmailSendPayload;
   roles?: readonly string[];
 };
 
