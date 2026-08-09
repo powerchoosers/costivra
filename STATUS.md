@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 8, 2026 — Next chunks 07–11 staged
+
+- Added [`COSTIVRA_NEXT_CHUNKS_07_11.md`](COSTIVRA_NEXT_CHUNKS_07_11.md), a small handoff plan for sequence execution, Mail sequence visibility, Stripe test-mode billing, paid onboarding, and final pilot QA.
+- The connected Stripe test account resolves to **Costivra**. Read-only audit found 0 products, 0 prices, 0 customers, 0 subscriptions, and 0 webhook endpoints. No Stripe objects were created.
+- Current pricing copy is Starter $149/month, Growth $599/month, and Enterprise custom. Stripe product creation is intentionally blocked until Lewis confirms the billing catalog, annual/trial policy, currency, taxes, and entitlements.
+- Recommended next implementation handoff is **Chunk 07A**, then 07B, 08, 09A approval, 09B, 10, and 11. No live sends, billing charges, migrations, deployments, or external state changes were performed in this staging step.
+
 ## August 9, 2026 — Packet 4–6 fixes implemented
 
 - **Reports:** schedule calculation now honors the saved IANA timezone, weekly/monthly validation is explicit, schedules can be paused/resumed, and recurring report preferences are stored in a dedicated tenant table. The cron skips disabled report classes and empty reports unless the workspace explicitly allows them.

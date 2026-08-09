@@ -1,14 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { getResendClient } from "@/lib/email/resend";
 import { appendEmailSignatureHtml } from "@/lib/manage/email-signature";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { requireMailbox } from "@/lib/manage/mailbox-access";
+import { sendOutboundEmail } from "@/lib/manage/outbound-email";
 import {
-  deliveryFailureLedgerUpdate,
   emailHtmlToText,
   isValidEmail,
-  mailRequestHash,
   normalizeSubject,
   parseAddressList,
   safeSnippet,
@@ -38,9 +36,7 @@ async function resolveContact(
   let query = db
     .from("crm_contacts")
     .select("id,full_name,email,organization_id");
-  if (organizationId) {
-    query = query.eq("organization_id", organizationId);
-  }
+  if (organizationId) query = query.eq("organization_id", organizationId);
   const { data: byEmail } = await query
     .ilike("email", target)
     .limit(1)
@@ -50,9 +46,7 @@ async function resolveContact(
   let nameQuery = db
     .from("crm_contacts")
     .select("id,full_name,email,organization_id");
-  if (organizationId) {
-    nameQuery = nameQuery.eq("organization_id", organizationId);
-  }
+  if (organizationId) nameQuery = nameQuery.eq("organization_id", organizationId);
   const { data: byName } = await nameQuery
     .ilike("full_name", target)
     .limit(1)
@@ -85,6 +79,17 @@ async function resolveOrganizationId(
   return cleanUuid(byName?.organization_id) || null;
 }
 
+function conflictFor(error: unknown) {
+  if (!(error instanceof Error)) return null;
+  if (error.message === "EMAIL_IDEMPOTENCY_CONTENT_MISMATCH") {
+    return "This send request was reused with different content. Close the composer and try again.";
+  }
+  if (error.message === "EMAIL_SEND_ALREADY_PROCESSING") {
+    return "This email send is already being processed.";
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
     const operator = await requireInternalOperator();
@@ -107,36 +112,27 @@ export async function POST(request: Request) {
       organizationId = await resolveOrganizationId(db, rawTo[0]);
     }
 
-    const resolveAddressList = async (list: string[]) => {
-      return Promise.all(
-        list.map(async (item) => {
-          if (isValidEmail(item)) return item;
-          const matched = await resolveContact(db, organizationId, item);
-          return matched?.email ? matched.email : item;
-        }),
-      );
-    };
-
+    const resolveAddressList = async (list: string[]) => Promise.all(
+      list.map(async (item) => {
+        if (isValidEmail(item)) return item;
+        const matched = await resolveContact(db, organizationId, item);
+        return matched?.email ? matched.email : item;
+      }),
+    );
     const to = await resolveAddressList(rawTo);
     const cc = await resolveAddressList(rawCc);
     const bcc = await resolveAddressList(rawBcc);
 
-    if (!organizationId && to[0]) {
-      organizationId = await resolveOrganizationId(db, to[0]);
+    if (!organizationId && to[0]) organizationId = await resolveOrganizationId(db, to[0]);
+    if (!organizationId && mode !== "draft") {
+      return NextResponse.json(
+        { error: "The recipient does not match a client contact yet. Add that email to the correct CRM account before sending." },
+        { status: 400 },
+      );
     }
-
-    if (!organizationId && mode !== "draft")
-      return NextResponse.json(
-        {
-          error: "The recipient does not match a client contact yet. Add that email to the correct CRM account before sending.",
-        },
-        { status: 400 },
-      );
-    if (!mailboxId)
-      return NextResponse.json(
-        { error: "Choose an active Costivra mailbox before sending." },
-        { status: 400 },
-      );
+    if (!mailboxId) {
+      return NextResponse.json({ error: "Choose an active Costivra mailbox before sending." }, { status: 400 });
+    }
     const mailbox = await requireMailbox(operator, mailboxId, "send");
     if (threadId) {
       const { data: linkedThread } = await db
@@ -145,99 +141,61 @@ export async function POST(request: Request) {
         .eq("id", threadId)
         .eq("organization_id", organizationId)
         .maybeSingle();
-      if (!linkedThread)
-        return NextResponse.json(
-          {
-            error:
-              "That conversation is not linked to the selected client account.",
-          },
-          { status: 409 },
-        );
-      if (linkedThread.mailbox_id && linkedThread.mailbox_id !== mailbox.id)
-        return NextResponse.json(
-          { error: "Replies must use the mailbox that owns the conversation." },
-          { status: 409 },
-        );
+      if (!linkedThread) {
+        return NextResponse.json({ error: "That conversation is not linked to the selected client account." }, { status: 409 });
+      }
+      if (linkedThread.mailbox_id && linkedThread.mailbox_id !== mailbox.id) {
+        return NextResponse.json({ error: "Replies must use the mailbox that owns the conversation." }, { status: 409 });
+      }
     }
-    if (mode !== "draft" && (!to.length || !body))
-      return NextResponse.json(
-        { error: "Add a recipient and message before sending." },
-        { status: 400 },
-      );
-    if (mode !== "draft" && [...to, ...cc, ...bcc].some((email) => !isValidEmail(email)))
-      return NextResponse.json(
-        { error: "One or more recipient addresses are invalid." },
-        { status: 400 },
-      );
-    if (
-      scheduledAt &&
-      (Number.isNaN(scheduledAt.getTime()) ||
-        scheduledAt.getTime() < Date.now() + 60_000 ||
-        scheduledAt.getTime() > Date.now() + 30 * 86_400_000)
-    )
-      return NextResponse.json(
-        {
-          error:
-            "Scheduled sends must be between one minute and 30 days from now.",
-        },
-        { status: 400 },
-      );
+    if (mode !== "draft" && (!to.length || !body)) {
+      return NextResponse.json({ error: "Add a recipient and message before sending." }, { status: 400 });
+    }
+    if (mode !== "draft" && [...to, ...cc, ...bcc].some((email) => !isValidEmail(email))) {
+      return NextResponse.json({ error: "One or more recipient addresses are invalid." }, { status: 400 });
+    }
+    if (scheduledAt && (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() < Date.now() + 60_000 || scheduledAt.getTime() > Date.now() + 30 * 86_400_000)) {
+      return NextResponse.json({ error: "Scheduled sends must be between one minute and 30 days from now." }, { status: 400 });
+    }
 
-    const files = form
-      .getAll("attachments")
-      .filter(
-        (value): value is File => value instanceof File && value.size > 0,
-      );
-    if (
-      files.length > 5 ||
-      files.some((file) => file.size > MAX_ATTACHMENT_SIZE) ||
-      files.reduce((sum, file) => sum + file.size, 0) >
-        MAX_TOTAL_ATTACHMENT_SIZE
-    )
-      return NextResponse.json(
-        {
-          error:
-            "Attach up to five files, no more than 10 MB each and 20 MB total.",
-        },
-        { status: 413 },
-      );
-    if (mode === "draft" && files.length)
-      return NextResponse.json(
-        {
-          error:
-            "Attachments are added when you send. Save the text draft first, then attach files before sending.",
-        },
-        { status: 400 },
-      );
+    const files = form.getAll("attachments").filter((value): value is File => value instanceof File && value.size > 0);
+    if (files.length > 5 || files.some((file) => file.size > MAX_ATTACHMENT_SIZE) || files.reduce((sum, file) => sum + file.size, 0) > MAX_TOTAL_ATTACHMENT_SIZE) {
+      return NextResponse.json({ error: "Attach up to five files, no more than 10 MB each and 20 MB total." }, { status: 413 });
+    }
+    if (mode === "draft" && files.length) {
+      return NextResponse.json({ error: "Attachments are added when you send. Save the text draft first, then attach files before sending." }, { status: 400 });
+    }
 
-    const contact = to[0]
-      ? await resolveContact(db, organizationId, to[0])
-      : null;
+    const contact = to[0] ? await resolveContact(db, organizationId, to[0]) : null;
     const { data: signatureProfile, error: signatureError } = await db
       .from("profiles")
       .select("full_name,job_title,phone,linkedin_url,avatar_path")
       .eq("id", userId)
       .maybeSingle();
     if (signatureError) throw signatureError;
+
     let signatureAttachment: {
       filename: string;
       content: Buffer;
       contentType: string;
+      size: number;
       contentId: string;
+      digest: string;
     } | null = null;
     const avatarPath = typeof signatureProfile?.avatar_path === "string" ? signatureProfile.avatar_path : null;
     if (mode !== "draft" && avatarPath) {
-      const { data: avatar, error: avatarError } = await db.storage
-        .from("costivra-avatars")
-        .download(avatarPath);
+      const { data: avatar, error: avatarError } = await db.storage.from("costivra-avatars").download(avatarPath);
       if (!avatarError && avatar) {
         const extension = avatarPath.split(".").pop()?.toLowerCase();
         const contentType = extension === "png" ? "image/png" : extension === "webp" ? "image/webp" : "image/jpeg";
+        const content = Buffer.from(await avatar.arrayBuffer());
         signatureAttachment = {
           filename: `costivra-profile.${extension === "png" || extension === "webp" ? extension : "jpg"}`,
-          content: Buffer.from(await avatar.arrayBuffer()),
+          content,
           contentType,
+          size: content.length,
           contentId: "costivra-profile-avatar",
+          digest: createHash("sha256").update(content).digest("hex"),
         };
       }
     }
@@ -251,20 +209,16 @@ export async function POST(request: Request) {
           avatarCid: signatureAttachment?.contentId ?? null,
         });
     const outboundText = mode === "draft" ? body : emailHtmlToText(outboundHtml);
-    const fromAddress = mailbox.sender;
-    const attachmentData = await Promise.all(
-      files.map(async (file) => {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        return {
-          filename:
-            file.name.replace(/[\\/]/g, "-").slice(0, 255) || "attachment",
-          contentType: file.type || "application/octet-stream",
-          size: buffer.length,
-          digest: createHash("sha256").update(buffer).digest("hex"),
-          content: buffer,
-        };
-      }),
-    );
+    const attachmentData = await Promise.all(files.map(async (file) => {
+      const content = Buffer.from(await file.arrayBuffer());
+      return {
+        filename: file.name.replace(/[\\/]/g, "-").slice(0, 255) || "attachment",
+        contentType: file.type || "application/octet-stream",
+        size: content.length,
+        digest: createHash("sha256").update(content).digest("hex"),
+        content,
+      };
+    }));
 
     if (mode === "draft") {
       let resolvedThreadId = threadId;
@@ -277,7 +231,7 @@ export async function POST(request: Request) {
             contact_id: contact?.id ?? null,
             subject,
             normalized_subject: normalizeSubject(subject),
-            participants: Array.from(new Set([fromAddress, ...to, ...cc])),
+            participants: Array.from(new Set([mailbox.sender, ...to, ...cc])),
             snippet: safeSnippet(body),
           })
           .select("id")
@@ -300,7 +254,7 @@ export async function POST(request: Request) {
         actor_id: userId,
         direction: "outbound",
         folder: "draft",
-        from_address: fromAddress,
+        from_address: mailbox.sender,
         to_addresses: to,
         cc_addresses: cc,
         bcc_addresses: bcc,
@@ -311,24 +265,18 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       };
       const result = existingDraft
-        ? await db
-            .from("crm_email_messages")
-            .update(draftRecord)
-            .eq("id", existingDraft.id)
+        ? await db.from("crm_email_messages").update(draftRecord).eq("id", existingDraft.id)
         : await db.from("crm_email_messages").insert(draftRecord);
       if (result.error) throw result.error;
-      await db
-        .from("crm_email_threads")
-        .update({
-          mailbox_id: mailbox.id,
-          subject,
-          normalized_subject: normalizeSubject(subject),
-          participants: Array.from(new Set([fromAddress, ...to, ...cc])),
-          snippet: safeSnippet(body),
-          last_message_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", resolvedThreadId);
+      await db.from("crm_email_threads").update({
+        mailbox_id: mailbox.id,
+        subject,
+        normalized_subject: normalizeSubject(subject),
+        participants: Array.from(new Set([mailbox.sender, ...to, ...cc])),
+        snippet: safeSnippet(body),
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", resolvedThreadId);
       await db.from("internal_audit_events").insert({
         actor_id: userId,
         organization_id: organizationId,
@@ -340,273 +288,39 @@ export async function POST(request: Request) {
     }
 
     if (!organizationId) {
-      return NextResponse.json(
-        {
-          error:
-            "The recipient does not match a client contact yet. Add that email to the correct CRM account before sending.",
-        },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "The recipient does not match a client contact yet. Add that email to the correct CRM account before sending." }, { status: 400 });
     }
-
     const idempotencyKey = field(form, "idempotencyKey", 256) || randomUUID();
-    const requestHash = mailRequestHash({
+    const result = await sendOutboundEmail({
+      db,
       organizationId,
-      mailboxId: mailbox.id,
+      actorId: userId,
+      mailbox,
+      contactId: contact?.id ?? null,
+      threadId,
       to,
       cc,
       bcc,
       subject,
-      text: outboundText,
-      html: outboundHtml,
-      scheduledAt: scheduledAt?.toISOString(),
-      attachmentDigests: attachmentData.map((item) => item.digest),
+      textBody: outboundText,
+      htmlBody: outboundHtml,
+      previewText: body,
+      scheduledAt,
+      attachments: [...attachmentData, ...(signatureAttachment ? [signatureAttachment] : [])],
+      idempotencyKey,
+      origin: "manual",
     });
-    const { data: existing } = await db
-      .from("external_side_effects")
-      .select("id,request_hash,status,provider_reference")
-      .eq("idempotency_key", idempotencyKey)
-      .maybeSingle();
-    if (existing) {
-      if (existing.request_hash !== requestHash)
-        return NextResponse.json(
-          {
-            error:
-              "This send request was reused with different content. Close the composer and try again.",
-          },
-          { status: 409 },
-        );
-      if (existing.status === "sent")
-        return NextResponse.json({
-          ok: true,
-          providerId: existing.provider_reference,
-          duplicate: true,
-        });
-      if (existing.status === "pending")
-        return NextResponse.json(
-          { error: "This email send is already being processed." },
-          { status: 409 },
-        );
-    }
-    const traceId = randomUUID();
-    const { data: effect, error: effectError } = await db
-      .from("external_side_effects")
-      .insert({
-        organization_id: organizationId,
-        mailbox_id: mailbox.id,
-        actor_id: userId,
-        type: "email.outbound",
-        destination: [...to, ...cc, ...bcc].join(","),
-        idempotency_key: idempotencyKey,
-        request_hash: requestHash,
-        status: "pending",
-        provider: "resend",
-        authorized_at: new Date().toISOString(),
-        authorization_method: "operator_send_click",
-        trace_id: traceId,
-        sanitized_request_metadata: {
-          subject_length: subject.length,
-          body_length: outboundText.length,
-          recipient_count: to.length + cc.length + bcc.length,
-          attachment_names: attachmentData.map((item) => item.filename),
-          scheduled: Boolean(scheduledAt),
-        },
-      })
-      .select("id")
-      .single();
-    if (effectError) throw effectError;
-
-    let acceptedProviderId: string | null = null;
-    try {
-      let inReplyTo: string | null = null;
-      let references: string[] = [];
-      if (threadId) {
-        const { data: previous } = await db
-          .from("crm_email_messages")
-          .select("internet_message_id,message_references")
-          .eq("thread_id", threadId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        inReplyTo = previous?.internet_message_id ?? null;
-        references = Array.isArray(previous?.message_references)
-          ? previous.message_references.filter(
-              (value): value is string => typeof value === "string",
-            )
-          : [];
-        if (inReplyTo)
-          references = Array.from(new Set([...references, inReplyTo]));
-      }
-      const headers: Record<string, string> = {};
-      if (inReplyTo) headers["In-Reply-To"] = inReplyTo;
-      if (references.length) headers.References = references.join(" ");
-      const { data: sent, error: sendError } =
-        await getResendClient().emails.send(
-          {
-            from: fromAddress,
-            to,
-            cc: cc.length ? cc : undefined,
-            bcc: bcc.length ? bcc : undefined,
-            subject,
-            text: outboundText,
-            html: outboundHtml || undefined,
-            replyTo: mailbox.address,
-            scheduledAt: scheduledAt?.toISOString(),
-            headers: Object.keys(headers).length ? headers : undefined,
-            attachments: [...attachmentData, ...(signatureAttachment ? [signatureAttachment] : [])].map((item) => ({
-              filename: item.filename,
-              content: item.content,
-              contentType: item.contentType,
-              ...("contentId" in item ? { contentId: item.contentId } : {}),
-            })),
-          },
-          { idempotencyKey },
-        );
-      if (sendError || !sent?.id)
-        throw new Error(
-          sendError?.message || "Resend did not accept the email.",
-        );
-      acceptedProviderId = sent.id;
-      const now = new Date().toISOString();
-      await db
-        .from("external_side_effects")
-        .update({
-          status: "sent",
-          provider_reference: sent.id,
-          completed_at: now,
-          updated_at: now,
-        })
-        .eq("id", effect.id);
-
-      let resolvedThreadId = threadId;
-      if (!resolvedThreadId) {
-        const { data: newThread, error } = await db
-          .from("crm_email_threads")
-          .insert({
-            organization_id: organizationId,
-            mailbox_id: mailbox.id,
-            contact_id: contact?.id ?? null,
-            subject,
-            normalized_subject: normalizeSubject(subject),
-            participants: Array.from(new Set([fromAddress, ...to, ...cc])),
-            snippet: safeSnippet(body),
-            last_message_at: now,
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-        resolvedThreadId = newThread.id;
-      }
-      const folder = scheduledAt ? "scheduled" : "sent";
-      const providerStatus = scheduledAt ? "scheduled" : "sent";
-      const { error: messageError } = await db
-        .from("crm_email_messages")
-        .insert({
-          thread_id: resolvedThreadId,
-          organization_id: organizationId,
-          mailbox_id: mailbox.id,
-          contact_id: contact?.id ?? null,
-          actor_id: userId,
-          direction: "outbound",
-          folder,
-          from_address: fromAddress,
-          to_addresses: to,
-          cc_addresses: cc,
-          bcc_addresses: bcc,
-          subject,
-          text_body: outboundText,
-          html_body: outboundHtml || null,
-          provider_message_id: sent.id,
-          provider_status: providerStatus,
-          in_reply_to: inReplyTo,
-          message_references: references,
-          attachments: attachmentData.map((item) => ({
-            filename: item.filename,
-            contentType: item.contentType,
-            size: item.size,
-          })),
-          sent_at: scheduledAt ? null : now,
-        });
-      if (messageError) throw messageError;
-      await db
-        .from("crm_email_threads")
-        .update({
-          organization_id: organizationId,
-          mailbox_id: mailbox.id,
-          contact_id: contact?.id ?? null,
-          subject,
-          normalized_subject: normalizeSubject(subject),
-          participants: Array.from(new Set([fromAddress, ...to, ...cc])),
-          snippet: safeSnippet(body),
-          unread_count: 0,
-          status: "open",
-          last_message_at: scheduledAt?.toISOString() ?? now,
-          updated_at: now,
-        })
-        .eq("id", resolvedThreadId);
-      await db.from("crm_account_profiles").upsert(
-        {
-          organization_id: organizationId,
-          last_contacted_at: scheduledAt ? null : now,
-          updated_at: now,
-        },
-        { onConflict: "organization_id" },
-      );
-      await db.from("crm_activities").insert({
-        organization_id: organizationId,
-        contact_id: contact?.id ?? null,
-        actor_id: userId,
-        kind: "email_outbound",
-        direction: "outbound",
-        subject,
-        summary: safeSnippet(body),
-        occurred_at: scheduledAt?.toISOString() ?? now,
-        metadata: {
-          provider_message_id: sent.id,
-          scheduled: Boolean(scheduledAt),
-        },
-      });
-      await db.from("internal_audit_events").insert({
-        actor_id: userId,
-        organization_id: organizationId,
-        action: scheduledAt ? "crm.email_scheduled" : "crm.email_sent",
-        resource_type: "crm_email_thread",
-        resource_id: resolvedThreadId,
-        trace_id: traceId,
-        safe_metadata: {
-          provider: "resend",
-          recipient_count: to.length + cc.length + bcc.length,
-          attachment_count: attachmentData.length,
-        },
-      });
-      return NextResponse.json({
-        ok: true,
-        threadId: resolvedThreadId,
-        providerId: sent.id,
-        scheduled: Boolean(scheduledAt),
-      });
-    } catch (sendError) {
-      const errorMessage =
-        sendError instanceof Error ? sendError.message : "Email send failed";
-      const now = new Date().toISOString();
-      await db
-        .from("external_side_effects")
-        .update(
-          deliveryFailureLedgerUpdate(acceptedProviderId, errorMessage, now),
-        )
-        .eq("id", effect.id);
-      throw sendError;
-    }
+    return NextResponse.json({
+      ok: true,
+      threadId: result.threadId,
+      providerId: result.providerId,
+      scheduled: result.scheduled,
+      duplicate: result.duplicate,
+    });
   } catch (error) {
+    const conflict = conflictFor(error);
+    if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     const result = manageApiError(error);
-    return NextResponse.json(
-      {
-        error:
-          result.status === 500 && error instanceof Error
-            ? error.message
-            : result.error,
-      },
-      { status: result.status },
-    );
+    return NextResponse.json({ error: result.status === 500 && error instanceof Error ? error.message : result.error }, { status: result.status });
   }
 }
