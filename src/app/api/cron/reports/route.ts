@@ -36,7 +36,19 @@ export async function GET(request: Request) {
         await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);
         results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 }); continue;
       }
-      const rendered = renderReportEmail(report); const recipients = Array.isArray(schedule.recipient_emails) ? schedule.recipient_emails as string[] : [];
+      const { data: members, error: memberError } = await db.from("organization_memberships").select("user_id,profiles(email)").eq("organization_id", schedule.organization_id);
+      if (memberError) throw memberError;
+      const authorized = new Set((members ?? [])
+        .map((member) => ((member.profiles as unknown as { email?: string } | null)?.email ?? "").trim().toLowerCase())
+        .filter(Boolean));
+      const scheduledRecipients = Array.isArray(schedule.recipient_emails) ? schedule.recipient_emails as string[] : [];
+      const recipients = scheduledRecipients.map((recipient) => recipient.trim().toLowerCase()).filter((recipient) => authorized.has(recipient));
+      if (!recipients.length) {
+        await db.from("report_delivery_runs").update({ status: "skipped", generated_at: report.generatedAt, safe_error: "NO_AUTHORIZED_RECIPIENTS", completed_at: new Date().toISOString() }).eq("id", claim.data.id);
+        await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);
+        results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 }); continue;
+      }
+      const rendered = renderReportEmail(report);
       let sent = 0;
       for (const recipient of recipients) {
         const idempotencyKey = `report/${schedule.id}/${scheduledFor}/${recipient}`; const requestHash = emailRequestHash({ to: recipient, subject: `${report.definition.name} is ready`, text: rendered.text });

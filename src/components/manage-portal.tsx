@@ -102,6 +102,7 @@ import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { ManageLiveNotifications } from "@/components/manage-live-notifications";
 import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspace";
+import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
@@ -5326,6 +5327,8 @@ function MailPage({
   onCompose: (context: ComposeContext) => void;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sequenceView = searchParams.get("view") === "sequence";
   const current = data.mail.selectedThread;
   const activeMailboxes = data.mail.mailboxes.filter(
     (mailbox) => mailbox.status === "active",
@@ -5384,7 +5387,7 @@ function MailPage({
             value={data.mail.selectedMailboxId || ""}
             onChange={(val) =>
               router.push(
-                `/manage/mail?folder=${data.mail.folder}&mailbox=${val}`,
+                `/manage/mail?view=${sequenceView ? "sequence" : "all"}&folder=${data.mail.folder}&mailbox=${val}`,
               )
             }
             size="sm"
@@ -5398,6 +5401,10 @@ function MailPage({
             }
           />
         </label>
+        <nav className="manage-mail-view-tabs" aria-label="Mail views">
+          <Link className={!sequenceView ? "active" : ""} href={`/manage/mail?view=all&folder=${data.mail.folder}${mailboxQuery}`}>All mail</Link>
+          <Link className={sequenceView ? "active" : ""} href={`/manage/mail?view=sequence${mailboxQuery}`}>Sequence emails</Link>
+        </nav>
         <nav className="manage-mail-folder-tabs" aria-label="Mailbox folders">
           {folders.map(([key, label]) => (
             <Link
@@ -5420,7 +5427,7 @@ function MailPage({
           Compose
         </button>
       </div>
-      <div className={`manage-mail-shell${current ? " has-thread" : ""}`}>
+      {sequenceView ? <SequenceMailView selectedMailboxId={data.mail.selectedMailboxId} query={query} /> : <div className={`manage-mail-shell${current ? " has-thread" : ""}`}>
       <section className="manage-mail-list">
         <header>
           <div>
@@ -5636,7 +5643,7 @@ function MailPage({
           </p>
         )}
       </aside>
-      </div>
+      </div>}
     </div>
   );
 }

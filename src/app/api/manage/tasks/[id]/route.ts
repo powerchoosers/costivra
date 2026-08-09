@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { cleanText, cleanUuid } from "@/lib/portal/http";
+import { completeSequenceTask } from "@/lib/manage/sequences/worker";
 
 export async function PATCH(
   request: Request,
@@ -19,6 +20,16 @@ export async function PATCH(
         { error: "Invalid task update." },
         { status: 400 },
       );
+    const { data: currentTask, error: currentTaskError } = await db
+      .from("crm_tasks")
+      .select("id,origin,task_type")
+      .eq("id", id)
+      .maybeSingle();
+    if (currentTaskError) throw currentTaskError;
+    if (!currentTask) return NextResponse.json({ error: "Task not found." }, { status: 404 });
+    if (status === "completed" && currentTask.origin === "sequence" && currentTask.task_type === "email") {
+      return NextResponse.json({ error: "Send the suggested sequence email from the composer before completing this task." }, { status: 409 });
+    }
     const { data: task, error } = await db
       .from("crm_tasks")
       .update({
@@ -30,6 +41,9 @@ export async function PATCH(
       .select("organization_id,contact_id,title")
       .single();
     if (error) throw error;
+    if (status === "completed" && currentTask.origin === "sequence") {
+      await completeSequenceTask(db, { taskId: id, actorId: userId });
+    }
     await db
       .from("crm_activities")
       .insert({

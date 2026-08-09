@@ -10,7 +10,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { db, organizationId, userId } = await requirePortalContext(); const body = await request.json() as Record<string, unknown>;
+    const { db, organizationId, userId, role } = await requirePortalContext();
+    if (role !== "owner" && role !== "admin") return NextResponse.json({ error: "Administrator access is required to schedule outbound reports." }, { status: 403 });
+    const body = await request.json() as Record<string, unknown>;
     const reportDefinitionId = cleanUuid(body.reportDefinitionId); const cadence = body.cadence === "monthly" ? "monthly" : "weekly"; const timezone = cleanText(body.timezone, 80) || "America/Chicago"; const sendTime = /^\d{2}:\d{2}$/.test(String(body.sendTimeLocal)) ? String(body.sendTimeLocal) : "08:00";
     if (!isValidTimeZone(timezone)) return NextResponse.json({ error: "Choose a valid IANA timezone, such as America/Chicago." }, { status: 400 });
     const recipients = Array.isArray(body.recipientEmails) ? body.recipientEmails.filter((value): value is string => typeof value === "string").map((value) => value.trim().toLowerCase()).filter(Boolean) : [];

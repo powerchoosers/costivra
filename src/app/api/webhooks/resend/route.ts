@@ -15,6 +15,10 @@ import { isConfiguredSecret } from "@/lib/env/secrets";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  stopSequenceEnrollmentForProviderEvent,
+  stopSequenceEnrollmentsForReply,
+} from "@/lib/manage/sequences/lifecycle";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -132,6 +136,13 @@ async function recordDeliveryEvent(
     if (sideEffects?.length) {
       await db.from("external_side_effects").update(sideEffectUpdate).in("id", sideEffects.map((row) => row.id));
       await db.from("report_delivery_runs").update({ status: sideEffectStatus, provider_message_id: providerMessageId, completed_at: ["delivered", "bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus) ? new Date().toISOString() : null }).eq("external_side_effect_id", sideEffects[0].id);
+    }
+    if (["bounced", "complained", "suppressed", "failed"].includes(status)) {
+      await stopSequenceEnrollmentForProviderEvent(db, {
+        providerMessageId,
+        status: status as "bounced" | "complained" | "suppressed" | "failed",
+        providerEventId,
+      });
     }
   }
 
@@ -473,6 +484,7 @@ async function persistOwnerMailboxMessage(
     received_at: now,
   }).select("id").single();
   if (messageError) throw messageError;
+  await stopSequenceEnrollmentsForReply(db, { threadId, messageId: message.id });
   const attachmentMetadata = await persistOwnerMailboxAttachments(db, resend, {
     providerEmailId: received.data.email_id,
     messageId: message.id,

@@ -3936,7 +3936,7 @@ function Settings({
   data: PortalData;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
   onInvite: () => void;
-  initialTab?: "organization" | "integrations" | "team";
+  initialTab?: "organization" | "integrations" | "team" | "billing";
 }) {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState(initialTab);
@@ -3978,6 +3978,7 @@ function Settings({
         <button type="button" role="tab" aria-selected={tab === "organization"} className={tab === "organization" ? "active" : ""} onClick={() => setTab("organization")}>Organization</button>
         <button type="button" role="tab" aria-selected={tab === "integrations"} className={tab === "integrations" ? "active" : ""} onClick={() => setTab("integrations")}>Integrations</button>
         <button type="button" role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>Team & approvals</button>
+        {['owner', 'admin'].includes(data.currentUser.role) && <button type="button" role="tab" aria-selected={tab === "billing"} className={tab === "billing" ? "active" : ""} onClick={() => setTab("billing")}>Billing</button>}
       </div>
       {tab === "organization" && <>
       <form className="portal-panel settings-form" onSubmit={submit}>
@@ -4064,8 +4065,47 @@ function Settings({
       </>}
       {tab === "integrations" && <div className="settings-tab-panel"><Integrations data={data} run={run} embedded /></div>}
       {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} run={run} embedded /><ApprovalPolicyManager data={data} run={run} /></div>}
+      {tab === "billing" && <BillingPanel />}
     </>
   );
+}
+
+function BillingPanel() {
+  const [status, setStatus] = useState<{ status?: string; subscriptions: Array<{ plan_key: string; status: string; cancel_at_period_end: boolean; current_period_end: string | null }>; entitlements: Array<{ feature_key: string; enabled: boolean }> } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [planKey, setPlanKey] = useState("starter");
+
+  useEffect(() => {
+    let cancelled = false;
+    void api("/api/billing/status").then((value) => { if (!cancelled) setStatus(value as typeof status); }).catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : "Billing status could not be loaded."); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const current = status?.subscriptions?.[0];
+  const billingSetupPending = status?.status === "unconfigured";
+  const startCheckout = async () => {
+    setBusy(true); setError(null);
+    try {
+      const result = await api("/api/billing/checkout", { method: "POST", body: { planKey } }) as { url?: string };
+      if (!result.url) throw new Error("Checkout is not configured yet.");
+      window.location.assign(result.url);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Checkout could not be started."); setBusy(false); }
+  };
+  const openPortal = async () => {
+    setBusy(true); setError(null);
+    try {
+      const result = await api("/api/billing/portal", { method: "POST" }) as { url?: string };
+      if (!result.url) throw new Error("Billing management is not available yet.");
+      window.location.assign(result.url);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Billing management could not be opened."); setBusy(false); }
+  };
+  return <section className="portal-panel settings-billing-panel" aria-labelledby="billing-settings-title">
+    <div className="settings-section-header"><div><span className="eyebrow">Subscription</span><h2 id="billing-settings-title">Costivra billing</h2><p>Choose a plan through Stripe. Your workspace becomes active only after Stripe confirms the subscription.</p></div><CircleDollarSign size={22} aria-hidden="true" /></div>
+    {error && <p role="alert" className="form-error">{error}</p>}
+    {billingSetupPending && <p className="form-note">Billing is present in the application but the database migration still needs to be applied.</p>}
+    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><select id="billing-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)}><option value="starter">Starter · $149/month</option><option value="growth">Growth · $599/month</option></select><button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy}>{busy ? "Opening checkout…" : "Continue to secure checkout"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
+  </section>;
 }
 
 function ApprovalPolicyManager({

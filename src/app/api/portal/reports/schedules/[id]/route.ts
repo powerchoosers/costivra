@@ -7,7 +7,8 @@ type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Context) {
   try {
-    const { db, organizationId, userId } = await requirePortalContext();
+    const { db, organizationId, userId, role } = await requirePortalContext();
+    if (role !== "owner" && role !== "admin") return NextResponse.json({ error: "Administrator access is required to change outbound report schedules." }, { status: 403 });
     const id = cleanUuid((await params).id); if (!id) return NextResponse.json({ error: "Invalid schedule." }, { status: 400 });
     const { data: current, error: currentError } = await db.from("report_schedules").select("*").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     if (currentError) throw currentError;

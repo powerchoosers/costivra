@@ -1025,3 +1025,83 @@ Concurrent workers have a database ownership boundary rather than an
 application-only check. No sequence can send merely because the cron schedule
 exists. The migration must be applied and verified against the Costivra
 Supabase project before the worker is considered deployable.
+# 2026-08-08 — Sequence execution advances only after durable provider/task state
+
+## Context
+
+Sequence execution has two different kinds of side effect: an external email
+accepted by Resend, or an operator task completed in Costivra. Advancing before
+either durable fact exists can skip work or send duplicate follow-ups after a
+worker retry.
+
+## Decision
+
+The sequence worker re-checks the tenant, contact, mailbox, suppression, and
+sequence state after claiming work. Automatic email steps call the shared
+outbound service with a sequence-scoped idempotency key and advance only after
+provider acceptance plus local message persistence. A retry first checks for an
+already-persisted message for that enrollment/step. Manual email, call, and
+general-task steps create sequence-linked CRM tasks and wait; call/general tasks
+advance only when an operator completes them. Email tasks cannot be marked
+complete without sending through the composer.
+
+Inbound replies and signed Resend bounce/complaint/suppression events stop open
+enrollments, create suppression records where appropriate, and append durable
+sequence events.
+
+## Consequences
+
+The worker is retryable and fails closed on missing contact, mailbox, step, or
+template data. Provider acceptance is still not treated as delivery; Resend
+webhooks remain the delivery truth. The SQL claim migration and a real
+test-mode end-to-end run are required before enabling the feature flag.
+# 2026-08-08 — Keep sequence mail inside the existing Mail workspace
+
+## Context
+
+Operators need to see scheduled and provider-reconciled sequence messages,
+but a separate sequence inbox would split the source-of-truth mailbox and add
+another navigation surface.
+
+## Decision
+
+Add `view=sequence` to `/manage/mail` and load a dedicated paginated API that
+returns only sequence-origin messages plus their enrollment and provider
+context. Reuse the existing thread reader through links back to the normal Mail
+route. Expose only pause and stop enrollment actions from the list; provider
+cancellation is not implied when Resend has already accepted a scheduled send.
+
+## Consequences
+
+All mail remains the authoritative conversation view, while Sequence emails
+provides operational filtering and metrics without loading every sequence event
+into the main Manage payload. Authenticated browser QA and live provider-state
+proof remain release gates.
+
+# 2026-08-08 — Use Stripe Checkout plus webhook-projected entitlements
+
+## Context
+
+Costivra now has a dedicated Stripe test account, but billing state must not be inferred from a browser redirect or kept only in Stripe. The application needs an auditable tenant projection and a safe recovery path when webhook delivery is retried or arrives out of order.
+
+## Decision
+
+Use Stripe Billing recurring Prices with Checkout Sessions in subscription mode and the Stripe Customer Portal. Keep plan keys stable (`starter`, `growth`, `enterprise`) and pass Price IDs through server-only environment variables. Verify the raw webhook signature, persist each event ID before processing, project subscription status into tenant billing tables, and grant the minimal `paid_workspace` entitlement only for active or trialing subscriptions. Enterprise stays out of self-serve checkout until its commercial terms are approved.
+
+## Consequences
+
+Checkout is useful only when the server has a configured Costivra Price ID; missing configuration fails closed. A successful redirect does not grant access. Webhook retries can repair a failed projection, and payment failures remove the paid entitlement without storing payment method data. Test-mode Stripe objects and webhook configuration remain a Lewis-controlled release step.
+
+# 2026-08-08 — Enforce sequence daily caps before provider send
+
+## Context
+
+The sequence schema already carries a per-sequence `daily_send_limit`, but a worker that ignored it could flood a mailbox during a retry or cron overlap.
+
+## Decision
+
+Count already accepted sequence messages for the bounded UTC day before an automatic email send. If the cap is reached, release the claim, preserve the current step, and schedule the next permitted send window. A retry with a persisted provider message is reconciled first so it advances instead of being stranded by the cap.
+
+## Consequences
+
+The first worker slice is conservative across regions and may defer a message slightly around local midnight, but it cannot exceed the configured cap. The partial index keeps the count query bounded as the mailbox grows.

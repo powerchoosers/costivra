@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { getSequence } from "@/lib/manage/sequences/repository";
 import { validateSequenceDraft } from "@/lib/manage/sequences/validation";
+import { appendSequenceEvent } from "@/lib/manage/sequences/lifecycle";
 import { cleanUuid } from "@/lib/portal/http";
 
 type Context = { params: Promise<{ id: string }> };
@@ -42,13 +43,36 @@ export async function POST(_request: Request, { params }: Context) {
     if (error) throw error;
     if (!data) return NextResponse.json({ error: "The sequence changed before activation. Reload and try again." }, { status: 409 });
 
+    const { data: pendingEnrollments, error: enrollmentError } = await db
+      .from("crm_sequence_enrollments")
+      .update({
+        state: "active",
+        current_step_id: null,
+        current_step_position: 0,
+        next_action_at: now,
+        started_at: now,
+        updated_at: now,
+      })
+      .eq("sequence_id", id)
+      .eq("state", "pending")
+      .select("id");
+    if (enrollmentError) throw enrollmentError;
+    for (const enrollment of pendingEnrollments ?? []) {
+      await appendSequenceEvent(db, {
+        sequenceId: id,
+        enrollmentId: enrollment.id,
+        eventType: "step_scheduled",
+        safeMetadata: { next_action_at: now, activation: true },
+      });
+    }
+
     await db.from("internal_audit_events").insert({
       actor_id: userId,
       organization_id: sequence.organizationId,
       action: "crm.sequence_activated",
       resource_type: "crm_sequence",
       resource_id: id,
-      safe_metadata: { execution_enabled: true, step_count: sequence.steps.length },
+      safe_metadata: { execution_enabled: true, step_count: sequence.steps.length, activated_enrollments: pendingEnrollments?.length ?? 0 },
     });
     return NextResponse.json({ sequence: data });
   } catch (error) {

@@ -3,6 +3,7 @@ import { DOCUMENT_MIME_TYPES, MAX_DOCUMENT_SIZE } from "@/lib/documents/intake";
 import { ingestManualUpload } from "@/lib/documents/manual-upload";
 import { apiError, cleanUuid } from "@/lib/portal/http";
 import { requirePortalEditor } from "@/lib/portal/repository";
+import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,17 @@ export async function POST(request: Request) {
       buffer: Buffer.from(await file.arrayBuffer()),
       organizationVendorId: organizationVendorId || null,
     });
+    const scanStatus = result.outcome === "quarantined" ? "quarantined" : result.outcome === "duplicate" ? "duplicate" : result.outcome === "rejected" ? "rejected" : "processing";
+    try {
+      await sendLifecycleEmailToWorkspace({
+        db,
+        kind: "upload_received",
+        organizationId,
+        payload: { documentName: file.name, sourceRecordId: result.documentId, scanStatus },
+      });
+    } catch (emailError) {
+      console.error("upload lifecycle email failed", emailError);
+    }
     if (result.outcome === "duplicate") return NextResponse.json({ error: `This file already exists as ${result.originalFilename}.`, documentId: result.documentId }, { status: 409 });
     if (result.outcome === "rejected") return NextResponse.json({ error: result.error }, { status: 422 });
     return NextResponse.json({ ok: true, ...result }, { status: result.outcome === "quarantined" ? 202 : 201 });

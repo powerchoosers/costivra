@@ -20,6 +20,14 @@
 - Added the protected `/api/cron/outreach-sequences` route and a five-minute Vercel cron entry. It is fail-closed behind `COSTIVRA_SEQUENCE_EXECUTION_ENABLED`; when enabled before the send path is ready, it releases claims and returns a 503 instead of sending or pretending success.
 - Added the server-side activation endpoint at `/api/manage/outreach/sequences/[id]/activate`. It requires the execution feature flag, draft validation, mandatory stop rules, valid timing/copy, and an authorized internal operator before setting `execution_enabled`.
 - **Validation:** `npm run typecheck` PASS; focused ESLint PASS; `npm test` PASS (543 passed, 6 skipped); `vercel.json` JSON parse PASS; `git diff --check` PASS. The SQL migration still needs Supabase-project lint/apply proof; local Supabase lint cannot connect while Docker/Postgres is unavailable.
+- **Execution slice:** added `src/lib/manage/sequences/worker.ts` for automatic email, manual/call/general task creation, durable advancement, idempotent retry recovery, and task completion. Added lifecycle helpers for reply, bounce, complaint, provider suppression, and failure stops, wired into the Resend webhook and task completion route. The worker remains off unless `COSTIVRA_SEQUENCE_EXECUTION_ENABLED=true`.
+- **Additional validation:** `npm run typecheck` PASS; focused ESLint PASS; `npm test` PASS (543 passed, 6 skipped); `git diff --check` PASS. No external email was sent and no live migration was applied.
+
+## August 8, 2026 — Packet 08 Sequence Emails view implemented locally
+
+- Added the paginated internal API at `/api/manage/mail/sequence`, filtering only `origin = sequence` messages and loading sequence, enrollment, contact, account, mailbox, and provider state as separate scoped records.
+- Added `SequenceMailView` inside the existing `/manage/mail` workspace. It has All mail / Sequence emails tabs, status filters, daily metrics, empty/loading/error states, thread links, and safe enrollment pause/stop actions. No new top-level page was added.
+- **Validation:** `npm run typecheck` PASS; focused ESLint PASS; `npm test` PASS (543 passed, 6 skipped); `git diff --check` PASS. Browser smoke reached the local sign-in boundary; authenticated Manage visual QA still requires an internal session. No external mail or enrollment action was performed.
 
 ## August 9, 2026 — Packet 4–6 fixes implemented
 
@@ -2022,3 +2030,17 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Corrected public status so configured-but-unproven malware scanning reports limited document processing instead of full operational readiness.
 - Validation: focused scanner/readiness/status tests passed; full unit, integration, typecheck, lint, build, clean probe, EICAR probe, readiness, and smoke checks passed. Full browser E2E still contains unrelated marketing-copy/layout failures from the existing dirty worktree; the four authenticated intake proof paths remain the final launch evidence to capture.
 - Live proof completed afterward in the dedicated authenticated E2E organization: clean and EICAR manual uploads plus clean and EICAR forwarded attachments all produced durable `document_security_scan_attempts`, correct document/attachment states, audit events, and customer/Manage feedback. Details are recorded in `docs/PACKET_03_LIVE_PROOF.md`.
+
+# 2026-08-08 — Packets 07–09 implementation slices
+
+- Added the protected sequence worker boundary: deterministic email/task execution, idempotent outbound keys, durable step advancement, suppression/reply/bounce stops, and task completion rules.
+- Added `view=sequence` to the existing Manage Mail workspace with paginated sequence-origin mail, provider-state metrics, thread links, and pause/stop controls. No separate inbox route was added.
+- Added Stripe test-mode billing foundations: server-only plan catalog, Checkout Session route, Customer Portal route, webhook signature verification and idempotent event ledger, subscription projection, entitlements, and owner/admin billing UI in workspace Settings.
+- Added migration `20260809040000_packet_09_billing.sql`; it has not been applied to Supabase from this workspace. No Stripe products, prices, customers, subscriptions, or webhook endpoints were created by the coding agent.
+- Added `.env.example` placeholders for `STRIPE_PRICE_STARTER_MONTHLY` and `STRIPE_PRICE_GROWTH_MONTHLY`. Enterprise remains assisted-sales only.
+- Read-only Stripe verification still shows the Costivra Test account has zero Products and zero Prices; no provider objects were created by these edits.
+- Added a test-mode guard: live billing is rejected unless `STRIPE_BILLING_LIVEMODE_ENABLED=1` is explicitly set after the live launch controls are approved.
+- Added the sequence `daily_send_limit` enforcement before automatic sends, with a deterministic next-window deferral and a supporting partial index. A retry with an already accepted provider message advances before the cap check, so the cap cannot strand a completed step.
+- Hardened report schedules so only owners/admins can create or change outbound schedules, and the cron re-checks current workspace membership before every delivery.
+- Validation: full `npm run lint` passed with two existing warnings (home-page `<img>` and navigation-history dependency); `npm run typecheck` passed; billing catalog and Stripe webhook tests passed (5/5); full unit suite passed (548 passed, 6 skipped); `npm run build` passed and emitted the billing, Mail Sequence, cron, and webhook routes. Supabase migration lint remains blocked when Docker/Postgres is not running. Authenticated Mail and billing browser QA remains pending because the local browser is currently redirected to `/login`.
+- Release blockers: apply and verify the billing migration, create and test Costivra test-mode Prices and webhook endpoint in Stripe, configure Vercel test-mode secrets, prove checkout → webhook → entitlement → portal lifecycle, and keep the sequence flag disabled until provider proof is complete.
