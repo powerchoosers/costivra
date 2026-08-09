@@ -1644,11 +1644,15 @@ function Actions({
   );
 }
 
+const DEFAULT_REPORT_PREFERENCES = { immediate_finding_alerts: true, review_alerts: true, approval_requests: true, missed_bill_alerts: true, weekly_digest: true, monthly_executive_report: true, allow_empty_reports: false } as const;
+
 function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData; initialView?: "verified" | "in_progress" | "reports" | "summary" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
   const [schedules, setSchedules] = useState<Array<{ id: string; report_definition_id: string; status: string; cadence: string; recipient_emails: string[]; next_run_at: string | null }>>([]);
+  const [reportPreferences, setReportPreferences] = useState({ ...DEFAULT_REPORT_PREFERENCES });
+  const [savingPreferences, setSavingPreferences] = useState(false);
   const [scheduleReportId, setScheduleReportId] = useState<string | null>(null);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
   const activeView = resolveResultsView(searchParams?.get("view"), initialView);
@@ -1661,7 +1665,19 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   useEffect(() => {
     if (activeView !== "reports") return;
     void fetch("/api/portal/reports/schedules").then(async (response) => response.ok ? (await response.json() as { schedules?: typeof schedules }).schedules ?? [] : []).then(setSchedules).catch(() => setSchedules([]));
+    void fetch("/api/portal/reports/preferences").then(async (response) => response.ok ? (await response.json() as { preferences?: typeof reportPreferences }).preferences ?? DEFAULT_REPORT_PREFERENCES : DEFAULT_REPORT_PREFERENCES).then(setReportPreferences).catch(() => undefined);
   }, [activeView]);
+  const updateReportPreference = async (key: keyof typeof reportPreferences, value: boolean) => {
+    const next = { ...reportPreferences, [key]: value }; setReportPreferences(next); setSavingPreferences(true);
+    const response = await fetch("/api/portal/reports/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(next) });
+    setSavingPreferences(false); if (!response.ok) { setReportPreferences(reportPreferences); toast.error("Preference could not be saved", "Try again or ask a workspace administrator."); }
+  };
+  const toggleSchedule = async (scheduleId: string, status: "active" | "paused") => {
+    const response = await fetch(`/api/portal/reports/schedules/${scheduleId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status }) });
+    const payload = await response.json().catch(() => ({})) as { schedule?: typeof schedules[number]; error?: string };
+    if (!response.ok || !payload.schedule) { toast.error("Schedule could not be updated", payload.error || "Try again shortly."); return; }
+    setSchedules((current) => current.map((item) => item.id === scheduleId ? { ...item, status: payload.schedule?.status ?? status, next_run_at: payload.schedule?.next_run_at ?? null } : item));
+  };
   const emailReportNow = async (reportId: string) => {
     setSendingReportId(reportId);
     const response = await fetch(`/api/portal/reports/${reportId}/email`, { method: "POST" });
@@ -1698,7 +1714,8 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
       </section>}
       {activeView === "reports" && <section className="portal-panel reports-surface">
         <div className="portal-panel-heading"><div><h2>Reports</h2><p>Send evidence-backed summaries to people already authorized in this workspace.</p></div></div>
-        <div className="portal-card-grid">{data.reports.map((item) => <article className="portal-card" key={item.id}><FileText className="card-icon" /><h2>{item.name}</h2><p>{item.description}</p><small>{item.lastGeneratedAt ? `Last generated ${date(item.lastGeneratedAt)}` : "Not generated yet"}</small><footer><a className="button button-primary" href={`/api/portal/reports/${item.id}`}><Download size={16} /> Download</a><button className="button button-secondary" type="button" onClick={() => void emailReportNow(item.id)} disabled={sendingReportId === item.id}><Mail size={16} /> {sendingReportId === item.id ? "Sending…" : "Email now"}</button><button className="button button-secondary" type="button" onClick={() => setScheduleReportId(item.id)}><CalendarClock size={16} /> Schedule</button></footer><div className="report-delivery-history">{schedules.filter((schedule) => schedule.report_definition_id === item.id).map((schedule) => <small key={schedule.id}>Scheduled {schedule.cadence} · next {schedule.next_run_at ? date(schedule.next_run_at) : "pending"} · {schedule.status}</small>)}</div></article>)}</div>
+        <div className="portal-card-grid">{data.reports.map((item) => <article className="portal-card" key={item.id}><FileText className="card-icon" /><h2>{item.name}</h2><p>{item.description}</p><small>{item.lastGeneratedAt ? `Last generated ${date(item.lastGeneratedAt)}` : "Not generated yet"}</small><footer><a className="button button-primary" href={`/api/portal/reports/${item.id}`}><Download size={16} /> Download</a><button className="button button-secondary" type="button" onClick={() => void emailReportNow(item.id)} disabled={sendingReportId === item.id}><Mail size={16} /> {sendingReportId === item.id ? "Sending…" : "Email now"}</button><button className="button button-secondary" type="button" onClick={() => setScheduleReportId(item.id)}><CalendarClock size={16} /> Schedule</button></footer><div className="report-delivery-history">{schedules.filter((schedule) => schedule.report_definition_id === item.id).map((schedule) => <div key={schedule.id}><small>Scheduled {schedule.cadence} · next {schedule.next_run_at ? date(schedule.next_run_at) : "paused"} · {schedule.status}</small><button type="button" className="button button-secondary" onClick={() => void toggleSchedule(schedule.id, schedule.status === "active" ? "paused" : "active")}>{schedule.status === "active" ? "Pause" : "Resume"}</button></div>)}</div></article>)}</div>
+        <section className="portal-panel report-preferences-panel"><div className="portal-panel-heading"><div><h2>Communication preferences</h2><p>Account-critical messages remain on. These controls manage recurring report noise.</p></div><small>{savingPreferences ? "Saving…" : "Workspace administrators can change these."}</small></div><div className="report-preferences-grid">{([ ["immediate_finding_alerts", "Immediate finding alerts"], ["review_alerts", "Review alerts"], ["approval_requests", "Approval requests"], ["missed_bill_alerts", "Missed-bill alerts"], ["weekly_digest", "Weekly digest"], ["monthly_executive_report", "Monthly executive report"], ["allow_empty_reports", "Send empty reports"] ] as Array<[keyof typeof reportPreferences, string]>).map(([key, label]) => <label key={key}><input type="checkbox" checked={reportPreferences[key]} onChange={(event) => void updateReportPreference(key, event.target.checked)} /><span>{label}</span></label>)}</div></section>
         {!data.reports.length && <Empty title="No reports configured" copy="Report definitions created for this organization will appear here." />}
       </section>}
       {scheduleReportId && <ReportScheduleSheet reportId={scheduleReportId} reportName={data.reports.find((report) => report.id === scheduleReportId)?.name ?? "Report"} onClose={() => setScheduleReportId(null)} onSaved={(schedule) => { setSchedules((current) => [schedule, ...current]); setScheduleReportId(null); toast.success("Schedule saved", "The next report run is queued for the selected window."); }} />}

@@ -4,17 +4,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { generateReport } from "@/lib/reports/generate-report";
 import { renderReportEmail } from "@/lib/reports/render-report-email";
 import { emailRequestHash, sendTransactionalEmail } from "@/lib/email/resend";
+import { nextReportRun } from "@/lib/reports/schedule";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-function nextScheduleRun(schedule: Record<string, unknown>, from: Date) {
-  const next = new Date(from); const time = String(schedule.send_time_local || "08:00"); next.setUTCHours(Number(time.slice(0, 2)), Number(time.slice(3, 5)), 0, 0);
-  if (schedule.cadence === "monthly") { next.setUTCDate(Number(schedule.day_of_month) || 1); if (next <= from) next.setUTCMonth(next.getUTCMonth() + 1); }
-  else { const target = Number(schedule.weekday ?? 1); const delta = ((target - next.getUTCDay()) + 7) % 7 || 7; next.setUTCDate(next.getUTCDate() + delta); }
-  return next.toISOString();
-}
 
 export async function GET(request: Request) {
   if (!isCronAuthorized(request)) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -28,7 +22,20 @@ export async function GET(request: Request) {
     if (claim.error?.code === "23505") continue;
     if (claim.error || !claim.data) { results.push({ scheduleId: schedule.id, status: "claim_failed", recipients: 0 }); continue; }
     try {
+      const { data: preferences } = await db.from("report_communication_preferences").select("weekly_digest,monthly_executive_report,allow_empty_reports").eq("organization_id", schedule.organization_id).maybeSingle();
+      const cadenceEnabled = schedule.cadence === "monthly" ? preferences?.monthly_executive_report !== false : preferences?.weekly_digest !== false;
+      const next = nextReportRun({ cadence: schedule.cadence, timezone: schedule.timezone, weekday: schedule.weekday, dayOfMonth: schedule.day_of_month, sendTimeLocal: String(schedule.send_time_local).slice(0, 5) }, now);
+      if (!cadenceEnabled) {
+        await db.from("report_delivery_runs").update({ status: "skipped", safe_error: "REPORT_TYPE_DISABLED", completed_at: new Date().toISOString() }).eq("id", claim.data.id);
+        await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);
+        results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 }); continue;
+      }
       const report = await generateReport(db, schedule.report_definitions);
+      if (!report.values.length && preferences?.allow_empty_reports !== true) {
+        await db.from("report_delivery_runs").update({ status: "skipped", generated_at: report.generatedAt, safe_error: "NO_MEANINGFUL_CHANGES", completed_at: new Date().toISOString() }).eq("id", claim.data.id);
+        await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);
+        results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 }); continue;
+      }
       const rendered = renderReportEmail(report); const recipients = Array.isArray(schedule.recipient_emails) ? schedule.recipient_emails as string[] : [];
       let sent = 0;
       for (const recipient of recipients) {
@@ -40,7 +47,7 @@ export async function GET(request: Request) {
         if (!result.ok) throw new Error(result.error); sent += 1;
         if (sent === 1) await db.from("report_delivery_runs").update({ external_side_effect_id: ledger.data.id, provider_message_id: result.providerId, generated_at: report.generatedAt }).eq("id", claim.data.id);
       }
-      const next = nextScheduleRun(schedule, now); await db.from("report_delivery_runs").update({ status: "accepted", completed_at: new Date().toISOString(), safe_error: null }).eq("id", claim.data.id); await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: now.toISOString() }).eq("id", schedule.id);
+      await db.from("report_delivery_runs").update({ status: "accepted", completed_at: new Date().toISOString(), safe_error: null }).eq("id", claim.data.id); await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: now.toISOString() }).eq("id", schedule.id);
       results.push({ scheduleId: schedule.id, status: "accepted", recipients: sent });
     } catch (runError) {
       const safeError = runError instanceof Error ? runError.message.slice(0, 240) : "REPORT_DELIVERY_FAILED"; await db.from("report_delivery_runs").update({ status: "failed", safe_error: safeError, completed_at: new Date().toISOString() }).eq("id", claim.data.id); results.push({ scheduleId: schedule.id, status: "failed", recipients: 0 });

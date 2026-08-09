@@ -30,7 +30,7 @@ create table if not exists public.report_delivery_runs (
   report_definition_id uuid not null references public.report_definitions(id) on delete cascade,
   report_schedule_id uuid references public.report_schedules(id) on delete set null,
   scheduled_for timestamptz not null,
-  status text not null default 'claimed' check (status in ('claimed','pending','accepted','delivered','failed','bounced','suppressed')),
+  status text not null default 'claimed' check (status in ('claimed','pending','accepted','delivered','failed','bounced','suppressed','skipped')),
   external_side_effect_id uuid references public.external_side_effects(id) on delete set null,
   provider_message_id text,
   generated_at timestamptz,

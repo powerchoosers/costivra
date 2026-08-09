@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-09 — Treat report timezones and empty-report behavior as server policy
+
+### Context
+
+Saving a timezone while calculating the next run in UTC creates a quiet but serious customer error. Sending empty recurring reports also creates noise and makes the report preference meaningless.
+
+### Decision
+
+Use one timezone-aware schedule calculator for portal creation, schedule resume, and cron advancement. Store report communication preferences separately from organization profile settings, default empty reports off, and let the worker mark disabled or empty runs as skipped while advancing the schedule.
+
+### Consequences
+
+The saved local time means the same thing in the portal and worker, including daylight-saving transitions handled by the platform timezone database. Delivery history distinguishes skipped runs from provider failures. Live proof is still required before calling scheduling production-ready.
+
 ## 2026-08-09 — Keep report scheduling tenant-scoped and recipient-authorized
 
 ### Context

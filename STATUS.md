@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 9, 2026 — Packet 4–6 fixes implemented
+
+- **Reports:** schedule calculation now honors the saved IANA timezone, weekly/monthly validation is explicit, schedules can be paused/resumed, and recurring report preferences are stored in a dedicated tenant table. The cron skips disabled report classes and empty reports unless the workspace explicitly allows them.
+- **Outreach safety:** added sequence clone/pause/archive endpoints, enrollment preview/pause/stop endpoints, editable step content, real reorder/delete controls, and suppression-aware preview output. Automated execution remains disabled.
+- **Validation:** `npm run typecheck` PASS; focused ESLint PASS; `npm test` PASS (537 passed, 6 skipped); `npm run test:integration` PASS (8 passed, 6 skipped); `npm run build` PASS; `npm run test:e2e` PASS (27 passed, 7 skipped).
+- **Still required before live use:** apply and lint the new Supabase migrations against the Costivra project, verify a real scheduled delivery and Resend reconciliation, and complete Packet 07 execution/approval controls. The Supabase config was made compatible with the installed CLI; `supabase db lint` now parses the project but cannot connect because Docker/local Postgres is not running. No live migration, deployment, or external send was performed.
+
 ## August 9, 2026 — Packets 4–6 implementation checkpoint
 
 - **Packet 04:** lifecycle emails now use the branded Costivra shell, configured Resend sender, stable source-based idempotency, and an external-side-effect record before provider send. Reports share one generator for CSV and email output. Tenant-owned report schedules, delivery runs, the protected `/api/cron/reports` route, portal Email now/Schedule/history controls, and Resend delivery reconciliation are implemented locally.
