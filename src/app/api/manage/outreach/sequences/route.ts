@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { listSequences } from "@/lib/manage/sequences/repository";
-import { cleanText, cleanUuid } from "@/lib/portal/http";
+import { cleanText } from "@/lib/portal/http";
 
 const privateHeaders = { "Cache-Control": "private, no-store" };
 
