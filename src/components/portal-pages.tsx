@@ -1664,6 +1664,9 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   const [scheduleReportId, setScheduleReportId] = useState<string | null>(null);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [sendingReportId, setSendingReportId] = useState<string | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportLoadError, setReportLoadError] = useState<string | null>(null);
+  const [reportsReloadToken, setReportsReloadToken] = useState(0);
   const activeView = resolveResultsView(searchParams?.get("view"), initialView);
   const updateView = (view: string) => router.replace(`/app/results?view=${view}`);
   const verified = data.savings.filter(resultIsVerified).reduce((sum, item) => sum + item.amount, 0);
@@ -1673,10 +1676,41 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   const renewalsApproaching = data.contracts.filter((contract) => isUpcomingContract(contract)).length;
   useEffect(() => {
     if (activeView !== "reports") return;
-    void fetch("/api/portal/reports/schedules").then(async (response) => response.ok ? (await response.json() as { schedules?: typeof schedules }).schedules ?? [] : []).then(setSchedules).catch(() => setSchedules([]));
-    void fetch("/api/portal/reports/deliveries").then(async (response) => response.ok ? (await response.json() as { deliveries?: typeof deliveryRuns }).deliveries ?? [] : []).then(setDeliveryRuns).catch(() => setDeliveryRuns([]));
-    void fetch("/api/portal/reports/preferences").then(async (response) => response.ok ? (await response.json() as { preferences?: typeof reportPreferences }).preferences ?? DEFAULT_REPORT_PREFERENCES : DEFAULT_REPORT_PREFERENCES).then(setReportPreferences).catch(() => undefined);
-  }, [activeView]);
+    let cancelled = false;
+    const loadReportControls = async () => {
+      setReportsLoading(true);
+      setReportLoadError(null);
+      try {
+        const [schedulesResponse, deliveriesResponse, preferencesResponse] = await Promise.all([
+          fetch("/api/portal/reports/schedules"),
+          fetch("/api/portal/reports/deliveries"),
+          fetch("/api/portal/reports/preferences"),
+        ]);
+        if (!schedulesResponse.ok || !deliveriesResponse.ok || !preferencesResponse.ok) {
+          throw new Error("Report controls could not be loaded.");
+        }
+        const [schedulesPayload, deliveriesPayload, preferencesPayload] = await Promise.all([
+          schedulesResponse.json() as Promise<{ schedules?: typeof schedules }>,
+          deliveriesResponse.json() as Promise<{ deliveries?: typeof deliveryRuns }>,
+          preferencesResponse.json() as Promise<{ preferences?: typeof reportPreferences }>,
+        ]);
+        if (cancelled) return;
+        setSchedules(schedulesPayload.schedules ?? []);
+        setDeliveryRuns(deliveriesPayload.deliveries ?? []);
+        setReportPreferences(preferencesPayload.preferences ?? DEFAULT_REPORT_PREFERENCES);
+      } catch {
+        if (!cancelled) {
+          setSchedules([]);
+          setDeliveryRuns([]);
+          setReportLoadError("Report schedules, delivery history, or preferences could not be loaded. Try again before changing report settings.");
+        }
+      } finally {
+        if (!cancelled) setReportsLoading(false);
+      }
+    };
+    void loadReportControls();
+    return () => { cancelled = true; };
+  }, [activeView, reportsReloadToken]);
   const updateReportPreference = async (key: keyof typeof reportPreferences, value: boolean) => {
     const next = { ...reportPreferences, [key]: value }; setReportPreferences(next); setSavingPreferences(true);
     const response = await fetch("/api/portal/reports/preferences", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(next) });
@@ -1724,9 +1758,13 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
       </section>}
       {activeView === "reports" && <section className="portal-panel reports-surface">
         <div className="portal-panel-heading"><div><h2>Reports</h2><p>Send evidence-backed summaries to people already authorized in this workspace.</p></div></div>
+        {reportsLoading && <p className="muted" role="status">Loading report schedules and delivery history…</p>}
+        {reportLoadError && <div className="form-error" role="alert"><Info size={16} /><span>{reportLoadError}</span><button type="button" className="button button-secondary" onClick={() => setReportsReloadToken((current) => current + 1)}>Try again</button></div>}
         <div className="portal-card-grid">{data.reports.map((item) => <article className="portal-card" key={item.id}><FileText className="card-icon" /><h2>{item.name}</h2><p>{item.description}</p><small>{item.lastGeneratedAt ? `Last generated ${date(item.lastGeneratedAt)}` : "Not generated yet"}</small><footer><a className="button button-primary" href={`/api/portal/reports/${item.id}`}><Download size={16} /> Download</a><button className="button button-secondary" type="button" onClick={() => void emailReportNow(item.id)} disabled={sendingReportId === item.id}><Mail size={16} /> {sendingReportId === item.id ? "Sending…" : "Email now"}</button><button className="button button-secondary" type="button" onClick={() => { setEditingScheduleId(null); setScheduleReportId(item.id); }}><CalendarClock size={16} /> Schedule</button></footer><div className="report-delivery-history">{schedules.filter((schedule) => schedule.report_definition_id === item.id).map((schedule) => <div key={schedule.id}><small>Scheduled {schedule.cadence} · next {schedule.next_run_at ? date(schedule.next_run_at) : "paused"} · {schedule.status}</small><button type="button" className="button button-secondary" onClick={() => { setEditingScheduleId(schedule.id); setScheduleReportId(item.id); }} aria-label={`Edit ${item.name} schedule`}>Edit</button><button type="button" className="button button-secondary" onClick={() => void toggleSchedule(schedule.id, schedule.status === "active" ? "paused" : "active")}>{schedule.status === "active" ? "Pause" : "Resume"}</button></div>)}</div></article>)}</div>
-        <section className="portal-panel report-preferences-panel"><div className="portal-panel-heading"><div><h2>Communication preferences</h2><p>Account-critical messages remain on. These controls manage recurring report noise.</p></div><small>{savingPreferences ? "Saving…" : "Workspace administrators can change these."}</small></div><div className="report-preferences-grid">{([ ["immediate_finding_alerts", "Immediate finding alerts"], ["review_alerts", "Review alerts"], ["approval_requests", "Approval requests"], ["missed_bill_alerts", "Missed-bill alerts"], ["weekly_digest", "Weekly digest"], ["monthly_executive_report", "Monthly executive report"], ["allow_empty_reports", "Send empty reports"] ] as Array<[keyof typeof reportPreferences, string]>).map(([key, label]) => <label key={key}><input type="checkbox" checked={reportPreferences[key]} onChange={(event) => void updateReportPreference(key, event.target.checked)} /><span>{label}</span></label>)}</div></section>
-        <section className="portal-panel report-preferences-panel"><div className="portal-panel-heading"><div><h2>Delivery history</h2><p>See whether a scheduled report was accepted, delivered, skipped, or needs attention.</p></div><small>{deliveryRuns.length ? `${deliveryRuns.length} recent run${deliveryRuns.length === 1 ? "" : "s"}` : "No runs yet"}</small></div>{deliveryRuns.length ? <div className="portal-list report-delivery-list">{deliveryRuns.map((run) => <div className="portal-list-row" key={run.id}><FileText size={16} /><div className="grow"><strong>{run.report_name}</strong><span>Scheduled {date(run.scheduled_for)}{run.completed_at ? ` · completed ${date(run.completed_at)}` : ""}</span>{run.safe_error && <small>{run.safe_error}</small>}{run.recipients?.length ? <div className="report-delivery-recipients">{run.recipients.map((recipient) => <span key={recipient.id}><strong>{recipient.email}</strong><Status value={recipient.status} />{recipient.safe_error && <small>{recipient.safe_error}</small>}</span>)}</div> : null}</div><Status value={run.status} /></div>)}</div> : <Empty title="No delivery runs yet" copy="Scheduled report attempts will appear here after the first run." />}</section>
+        {!reportLoadError && !reportsLoading && <>
+          <section className="portal-panel report-preferences-panel"><div className="portal-panel-heading"><div><h2>Communication preferences</h2><p>Account-critical messages remain on. These controls manage recurring report noise.</p></div><small>{savingPreferences ? "Saving…" : "Workspace administrators can change these."}</small></div><div className="report-preferences-grid">{([ ["immediate_finding_alerts", "Immediate finding alerts"], ["review_alerts", "Review alerts"], ["approval_requests", "Approval requests"], ["missed_bill_alerts", "Missed-bill alerts"], ["weekly_digest", "Weekly digest"], ["monthly_executive_report", "Monthly executive report"], ["allow_empty_reports", "Send empty reports"] ] as Array<[keyof typeof reportPreferences, string]>).map(([key, label]) => <label key={key}><input type="checkbox" checked={reportPreferences[key]} onChange={(event) => void updateReportPreference(key, event.target.checked)} /><span>{label}</span></label>)}</div></section>
+          <section className="portal-panel report-preferences-panel"><div className="portal-panel-heading"><div><h2>Delivery history</h2><p>See whether a scheduled report was accepted, delivered, skipped, or needs attention.</p></div><small>{deliveryRuns.length ? `${deliveryRuns.length} recent run${deliveryRuns.length === 1 ? "" : "s"}` : "No runs yet"}</small></div>{deliveryRuns.length ? <div className="portal-list report-delivery-list">{deliveryRuns.map((run) => <div className="portal-list-row" key={run.id}><FileText size={16} /><div className="grow"><strong>{run.report_name}</strong><span>Scheduled {date(run.scheduled_for)}{run.completed_at ? ` · completed ${date(run.completed_at)}` : ""}</span>{run.safe_error && <small>{run.safe_error}</small>}{run.recipients?.length ? <div className="report-delivery-recipients">{run.recipients.map((recipient) => <span key={recipient.id}><strong>{recipient.email}</strong><Status value={recipient.status} />{recipient.safe_error && <small>{recipient.safe_error}</small>}</span>)}</div> : null}</div><Status value={run.status} /></div>)}</div> : <Empty title="No delivery runs yet" copy="Scheduled report attempts will appear here after the first run." />}</section>
+        </>}
         {!data.reports.length && <Empty title="No reports configured" copy="Report definitions created for this organization will appear here." />}
       </section>}
       {scheduleReportId && <ReportScheduleSheet reportId={scheduleReportId} reportName={data.reports.find((report) => report.id === scheduleReportId)?.name ?? "Report"} initialSchedule={schedules.find((schedule) => schedule.id === editingScheduleId)} onClose={() => { setScheduleReportId(null); setEditingScheduleId(null); }} onSaved={(schedule) => { setSchedules((current) => current.some((item) => item.id === schedule.id) ? current.map((item) => item.id === schedule.id ? { ...item, ...schedule } : item) : [schedule, ...current]); setScheduleReportId(null); setEditingScheduleId(null); toast.success("Schedule saved", "The next report run is queued for the selected window."); }} />}

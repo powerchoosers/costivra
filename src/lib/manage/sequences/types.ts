@@ -22,7 +22,7 @@ export type SequenceStep = {
 
 export type Sequence = {
   id: string;
-  organizationId: string;
+  organizationId: string | null;
   name: string;
   description: string | null;
   status: SequenceStatus;

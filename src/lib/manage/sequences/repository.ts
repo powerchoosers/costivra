@@ -35,7 +35,7 @@ function step(row: Row): SequenceStep {
 
 export function mapSequence(row: Row, steps: SequenceStep[] = [], stats?: Partial<Sequence>) : Sequence {
   return {
-    id: text(row.id), organizationId: text(row.organization_id), name: text(row.name), description: nullable(row.description),
+    id: text(row.id), organizationId: nullable(row.organization_id), name: text(row.name), description: nullable(row.description),
     status: row.status as Sequence["status"], ownerId: text(row.owner_id), ownerName: nullable((row.owner as Row | null)?.full_name), timezone: text(row.timezone, "America/Chicago"),
     businessDays: Array.isArray(row.business_days) ? row.business_days.map(Number) : [1,2,3,4,5],
     sendStartLocal: text(row.send_start_local, "09:00"), sendEndLocal: text(row.send_end_local, "16:00"), dailySendLimit: num(row.daily_send_limit, 25),

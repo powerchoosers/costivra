@@ -34,10 +34,12 @@ export async function POST(request: Request) {
       assignedTo: mailbox.assigned_to,
     });
     if (!mailboxAvailable) return NextResponse.json({ error: "That sender mailbox is not available to you." }, { status: 403 });
-    const { data: contacts } = await db.from("crm_contacts").select("id,organization_id,email,status").in("id", contactIds).eq("organization_id", sequence.organizationId);
+    let contactsQuery = db.from("crm_contacts").select("id,organization_id,email,status").in("id", contactIds);
+    if (sequence.organizationId) contactsQuery = contactsQuery.eq("organization_id", sequence.organizationId);
+    const { data: contacts } = await contactsQuery;
     const eligible: string[] = []; const blocked: Array<{ id: string; reason: string }> = [];
     const foundContactIds = new Set((contacts ?? []).map((contact) => contact.id));
-    for (const contactId of contactIds) if (!foundContactIds.has(contactId)) blocked.push({ id: contactId, reason: "Contact was not found in this account." });
+    for (const contactId of contactIds) if (!foundContactIds.has(contactId)) blocked.push({ id: contactId, reason: "Contact was not found in this workspace." });
     for (const contact of contacts ?? []) {
       if (contact.status !== "active") blocked.push({ id: contact.id, reason: `Contact status is ${contact.status}.` });
       else {
@@ -47,7 +49,11 @@ export async function POST(request: Request) {
       }
     }
     if (!eligible.length) return NextResponse.json({ error: "No selected contacts are eligible.", blocked }, { status: 409 });
-    const rows = eligible.map((contactId) => ({ sequence_id: sequenceId, organization_id: sequence.organizationId, contact_id: contactId, mailbox_id: mailboxId, enrolled_by: userId, state: "pending", current_step_position: 0, personalization: personalizationByContact[contactId] ?? {} }));
+    const organizationByContact = new Map((contacts ?? []).map((contact) => [contact.id, contact.organization_id]));
+    const rows = eligible.flatMap((contactId) => {
+      const organizationId = organizationByContact.get(contactId);
+      return organizationId ? [{ sequence_id: sequenceId, organization_id: organizationId, contact_id: contactId, mailbox_id: mailboxId, enrolled_by: userId, state: "pending", current_step_position: 0, personalization: personalizationByContact[contactId] ?? {} }] : [];
+    });
     const { data, error } = await db.from("crm_sequence_enrollments").insert(rows).select("id,contact_id");
     if (error?.code === "23505") return NextResponse.json({ error: "At least one contact already has an active enrollment in another sequence.", blocked }, { status: 409 });
     if (error) throw error;

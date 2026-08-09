@@ -14,8 +14,10 @@ export async function POST(request: Request) {
     const sequence = await getSequence(db, sequenceId); if (!sequence) return NextResponse.json({ error: "Sequence not found." }, { status: 404 });
     if (sequence.status !== "draft") return NextResponse.json({ error: "Only draft sequences may be previewed in this packet." }, { status: 409 });
     const validation = validateSequenceDraft(sequence, { forActivation: true }); if (!validation.valid) return NextResponse.json({ error: "This sequence needs attention before preview.", details: validation.errors }, { status: 409 });
+    let contactsQuery = db.from("crm_contacts").select("id,organization_id,full_name,email,title,organization:organizations(name),status").in("id", contactIds);
+    if (sequence.organizationId) contactsQuery = contactsQuery.eq("organization_id", sequence.organizationId);
     const [{ data: contacts, error: contactsError }, { data: existingEnrollments, error: enrollmentError }] = await Promise.all([
-      db.from("crm_contacts").select("id,organization_id,full_name,email,title,organization:organizations(name),status").in("id", contactIds).eq("organization_id", sequence.organizationId),
+      contactsQuery,
       db.from("crm_sequence_enrollments").select("contact_id,state").in("contact_id", contactIds).not("state", "in", "(replied,bounced,unsubscribed,stopped,completed,failed)"),
     ]);
     if (contactsError) throw contactsError;
@@ -25,7 +27,7 @@ export async function POST(request: Request) {
     const firstStep = sequence.steps[0];
     const results = await Promise.all(contactIds.map(async (contactId) => {
       const contact = contactsById.get(contactId);
-      if (!contact) return { id: contactId, fullName: "Unknown contact", email: "", blockedReason: "Contact was not found in this account.", subject: "", body: "" };
+      if (!contact) return { id: contactId, fullName: "Unknown contact", email: "", blockedReason: "Contact was not found in this workspace.", subject: "", body: "" };
       const [firstName] = contact.full_name.trim().split(/\s+/);
       const organization = contact.organization as { name?: string } | null;
       const variables = { first_name: firstName, full_name: contact.full_name, company_name: organization?.name ?? "", job_title: contact.title, industry: "", website: "", sender_name: "Costivra team", sender_title: "", ...personalizationByContact[contact.id] };
