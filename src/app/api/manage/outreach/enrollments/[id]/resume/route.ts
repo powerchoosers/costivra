@@ -10,6 +10,9 @@ export async function POST(_request: Request, { params }: Context) {
     const { db, userId } = await requireInternalOperator();
     const id = cleanUuid((await params).id);
     if (!id) return NextResponse.json({ error: "Invalid enrollment." }, { status: 400 });
+    if (process.env.COSTIVRA_SEQUENCE_EXECUTION_ENABLED !== "true") {
+      return NextResponse.json({ error: "Sequence execution is not enabled for this release." }, { status: 409 });
+    }
 
     const { data: current, error: currentError } = await db
       .from("crm_sequence_enrollments")

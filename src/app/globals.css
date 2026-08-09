@@ -2617,6 +2617,7 @@ html { scroll-padding-top: 92px; }
 .manage-source { width:max-content; padding:4px 7px; border:1px solid #e0e4e9; border-radius:7px; color:#687383; font-size:.61rem; }
 .manage-icon-button { width:34px; height:34px; display:grid; place-items:center; border:1px solid #e1e5ea; border-radius:9px; background:#fff; color:#5f6b7c; cursor:pointer; }
 .manage-outreach-board { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:start; }
+.sequence-inspector-list{display:grid;gap:0;margin:0 0 18px}.sequence-inspector-list>div{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid #edf0f4;padding:11px 0}.sequence-inspector-list dt{color:#718096;font-size:.7rem}.sequence-inspector-list dd{margin:0;color:#26344d;font-size:.78rem;text-align:right}
 .manage-task-column { background:#f1f3f6; border:1px solid #e1e5ea; border-radius:16px; overflow:hidden; }
 .manage-task-column>header { height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; border-bottom:1px solid #dfe3e8; }
 .manage-task-column>header>div { display:flex; align-items:center; gap:8px; }

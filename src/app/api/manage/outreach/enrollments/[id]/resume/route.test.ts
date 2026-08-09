@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const requireInternalOperator = vi.hoisted(() => vi.fn());
 const manageApiError = vi.hoisted(() => vi.fn((error: unknown) => ({
@@ -27,6 +27,20 @@ function makeQuery(results: Array<{ data: unknown; error: unknown }>) {
 describe("POST /api/manage/outreach/enrollments/[id]/resume", () => {
   beforeEach(() => {
     requireInternalOperator.mockReset();
+    vi.stubEnv("COSTIVRA_SEQUENCE_EXECUTION_ENABLED", "true");
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("keeps resume disabled while sequence execution is gated off", async () => {
+    vi.stubEnv("COSTIVRA_SEQUENCE_EXECUTION_ENABLED", "false");
+    const from = vi.fn();
+    requireInternalOperator.mockResolvedValue({ db: { from }, userId: "operator-1" });
+
+    const response = await POST(new Request("https://costivra.ai"), { params: Promise.resolve({ id: enrollmentId }) });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "Sequence execution is not enabled for this release." });
+    expect(from).not.toHaveBeenCalled();
   });
 
   it("resumes only against an active executing sequence and schedules immediate work", async () => {
