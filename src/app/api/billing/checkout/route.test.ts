@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requirePortalContext = vi.hoisted(() => vi.fn());
 const getBillingPlan = vi.hoisted(() => vi.fn(() => ({ key: "starter", checkoutEnabled: true })));
 const getConfiguredPriceId = vi.hoisted(() => vi.fn(() => "price_starter_live"));
+const getBillingCatalogPlan = vi.hoisted(() => vi.fn(() => ({ key: "starter", checkoutEnabled: true, active: true, stripePriceId: "price_starter_live" })));
 const assertStripeBillingMode = vi.hoisted(() => vi.fn());
 const getStripeClient = vi.hoisted(() => vi.fn());
 const getStripeAccountReadiness = vi.hoisted(() => vi.fn());
@@ -10,7 +11,7 @@ const getStripeBillingMode = vi.hoisted(() => vi.fn());
 const stripeAccountReadyForLiveCheckout = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/portal/repository", () => ({ requirePortalContext }));
-vi.mock("@/lib/billing/catalog", () => ({ getBillingPlan, getConfiguredPriceId }));
+vi.mock("@/lib/billing/catalog", () => ({ getBillingPlan, getConfiguredPriceId, getBillingCatalogPlan }));
 vi.mock("@/lib/billing/stripe", () => ({ assertStripeBillingMode, getStripeClient, getStripeAccountReadiness, getStripeBillingMode, stripeAccountReadyForLiveCheckout }));
 
 import { POST } from "./route";
@@ -37,6 +38,7 @@ describe("POST /api/billing/checkout", () => {
     });
     getBillingPlan.mockReset().mockReturnValue({ key: "starter", checkoutEnabled: true });
     getConfiguredPriceId.mockReset().mockReturnValue("price_starter_live");
+    getBillingCatalogPlan.mockReset().mockResolvedValue({ key: "starter", checkoutEnabled: true, active: true, stripePriceId: "price_starter_live" });
     assertStripeBillingMode.mockReset();
     getStripeBillingMode.mockReset().mockReturnValue("live");
     getStripeAccountReadiness.mockReset().mockResolvedValue({ reachable: true, chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, currentlyDue: ["business_profile.product_description"], pastDue: [], disabledReason: "requirements.past_due" });

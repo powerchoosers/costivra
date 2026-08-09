@@ -1581,3 +1581,17 @@ Derive an explicit Stripe mode (`test`, `live`, or `unknown`) and `billingEnable
 ## Consequences
 
 The billing UI and API now agree on whether checkout is actually available. A live key cannot accidentally turn on self-serve billing merely because Stripe prices exist.
+
+# 2026-08-09 — Store editable pricing in a mode-aware catalog
+
+## Context
+
+Pricing appeared in several places and was previously split between environment Price IDs and hardcoded display amounts. That made a legitimate price change easy to show incorrectly or apply to the wrong Stripe mode.
+
+## Decision
+
+Use a service-role-only `billing_plan_catalog` table with one row per plan and Stripe mode (`test` or `live`). The owner portal edits the catalog through a server-authorized route. For recurring plans, a save creates a new Stripe Price and archives the previous one; the app records the active Price ID and uses it for Checkout and webhook resolution. Public pages receive display fields only, never provider identifiers.
+
+## Consequences
+
+Pricing changes are traceable, mode-separated, and consistent across the homepage, pricing page, portal checkout, Stripe, and webhook processing. Stripe Price objects remain immutable in practice, so historical subscriptions continue to reference their original price. Production still requires a separate live Stripe key and live catalog prices before enabling live billing.

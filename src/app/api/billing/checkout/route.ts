@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBillingPlan, getConfiguredPriceId } from "@/lib/billing/catalog";
+import { getBillingCatalogPlan, getBillingPlan } from "@/lib/billing/catalog";
 import { assertStripeBillingMode, getStripeAccountReadiness, getStripeBillingMode, getStripeClient, stripeAccountReadyForLiveCheckout } from "@/lib/billing/stripe";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { cleanText } from "@/lib/portal/http";
@@ -18,7 +18,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const plan = getBillingPlan(cleanText(body.planKey, 30));
     if (!plan) return NextResponse.json({ error: "Choose a valid Costivra plan." }, { status: 400 });
-    const priceId = getConfiguredPriceId(plan);
+    const catalogPlan = await getBillingCatalogPlan(plan.key);
+    const priceId = catalogPlan.active ? catalogPlan.stripePriceId : null;
     if (!plan.checkoutEnabled || !priceId) {
       return NextResponse.json({ error: "That plan is not configured for self-serve checkout yet." }, { status: 409 });
     }
@@ -34,6 +35,10 @@ export async function POST(request: Request) {
     assertStripeBillingMode();
     if (getStripeBillingMode() === "live" && !stripeAccountReadyForLiveCheckout(await getStripeAccountReadiness())) {
       return NextResponse.json({ error: "Stripe account setup is incomplete. Enable charges and payouts before starting live checkout." }, { status: 409 });
+    }
+    const stripePrice = await stripe.prices.retrieve(priceId);
+    if (!stripePrice.active || stripePrice.livemode !== (getStripeBillingMode() === "live")) {
+      return NextResponse.json({ error: "That plan's Stripe price is not available in the configured billing mode." }, { status: 409 });
     }
     const requestKey = (request.headers.get("x-request-id") || crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     const existing = await db.from("billing_customers").select("stripe_customer_id").eq("organization_id", organizationId).maybeSingle();

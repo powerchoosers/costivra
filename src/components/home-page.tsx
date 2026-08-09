@@ -37,6 +37,17 @@ const heroReviewMonthlyChangeCents = heroReviewExample.currentMonthlyCents - her
 const heroReviewAnnualImpactCents = heroReviewMonthlyChangeCents * 12;
 const formatHeroReviewCurrency = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
 
+export type PublicBillingPlan = {
+  key: "starter" | "growth" | "enterprise";
+  name: string;
+  description: string;
+  amountCents: number | null;
+  currency: string;
+  interval: "month" | "year" | "custom";
+  features: string[];
+  active: boolean;
+};
+
 const trust = [
   [FileLock2, "Private documents", "Files remain private and use controlled access."],
   [Building2, "Tenant-isolated records", "Customer records are separated by organization boundaries and database policies."],
@@ -148,7 +159,7 @@ const evidenceData: Record<EvidenceCategory, EvidenceData> = {
   },
 };
 
-export function HomePage() {
+export function HomePage({ plans }: { plans: PublicBillingPlan[] }) {
   return (
     <main className="paper-texture">
       <section className="hero">
@@ -158,6 +169,13 @@ export function HomePage() {
             <h1>Find hidden waste in your business bills.</h1>
             <p>Upload up to three software, internet, or energy bills. Costivra flags price increases, duplicate charges, unused services, and renewal risks, then links every finding to the exact source.</p>
             <p className="hero-fit">Built for owners, finance teams, and operators managing recurring costs across locations, services, and contracts.</p>
+            <div className="hero-loop" aria-label="Costivra review process">
+              <span><strong>01</strong> Upload bills</span>
+              <span aria-hidden="true">→</span>
+              <span><strong>02</strong> See the evidence</span>
+              <span aria-hidden="true">→</span>
+              <span><strong>03</strong> Decide what happens next</span>
+            </div>
             <div className="hero-actions">
               <Link className="button button-primary" href="/scan">Review 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
               <Link className="button button-secondary" href="#evidence">See a sample review</Link>
@@ -218,9 +236,7 @@ export function HomePage() {
               <strong>Simple plans.<br />Clear value.</strong>
               <p className="muted">Plans shown for the current Costivra offering. See pricing for details.</p>
             </div>
-            <Plan name="Starter" price="$149" copy="One business, up to three active expense accounts, document monitoring, and renewal reminders." />
-            <Plan name="Growth" price="$599" copy="Multiple locations, approvals, team access, advanced reports, and weekly monitoring." />
-            <Plan name="Enterprise" price="Let's talk" copy="SSO, custom policies, integrations, retention controls, and dedicated support." />
+            {plans.filter((plan) => plan.active).map((plan) => <Plan key={plan.key} name={plan.name} price={plan.amountCents == null ? "Let's talk" : new Intl.NumberFormat("en-US", { style: "currency", currency: plan.currency, maximumFractionDigits: 0 }).format(plan.amountCents / 100)} copy={plan.description} />)}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link></div>
         </div>

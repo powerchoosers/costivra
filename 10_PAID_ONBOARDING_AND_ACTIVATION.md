@@ -1,14 +1,44 @@
 # Packet 10: Paid Onboarding and Activation
 
+## Current status — August 9, 2026
+
+This packet remains the correct next milestone, but it is **partially implemented**. The durable activation checklist exists for already-created workspaces. True paid self-service onboarding does not exist yet.
+
+Implemented today:
+
+- `organization_onboarding` exists in Supabase as a durable, tenant-scoped projection.
+- `/api/portal/onboarding` can read, derive, and persist onboarding progress.
+- The customer `/app` dashboard has a resumable Activation Checklist.
+- Document progress counts only clean, durably stored, successfully extracted records in eligible states.
+- Activation requires an authoritative reviewed invoice or contract and at least one monitored vendor.
+- Activation is derived from authoritative records; operators cannot manually mark a workspace activated.
+- Owners/admins can explicitly block or resume onboarding.
+- Founder-led onboarding can still use existing Manage account creation and invitation flows.
+- Dynamic pricing is now managed from `/manage/settings` and displayed on public pages.
+
+Still open:
+
+- Visitor selects a plan before an organization exists.
+- Checkout success is connected to signed-webhook-confirmed workspace provisioning.
+- Idempotent reuse of an invited user or an already-created organization.
+- Setting onboarding source to `paid_checkout` rather than defaulting to `internal`.
+- Plan entitlements enforced during onboarding and later paid actions.
+- Paid welcome, reminder, forwarding, review-needed, and activation-complete email triggers.
+- Manage account views showing subscription, onboarding progress, blocker, and last customer action.
+- Automatic-forwarding test state distinct from manual monitoring state.
+- Recovery and browser proof for delayed webhooks, payment failure, duplicate provisioning, and expired invitations.
+
+Do not treat a Checkout success redirect as proof of payment or activation. Signed Stripe webhook state remains authoritative.
+
 ## Mission
 
-Create a guided onboarding flow that connects plan selection, Stripe subscription truth, authentication, workspace provisioning, company setup, first documents, review, and monitoring. Preserve the ability to onboard supervised pilot customers manually.
+Create a guided onboarding flow that connects plan selection, Stripe subscription truth, authentication, workspace provisioning, company setup, first documents, review, and monitoring. Preserve supervised founder-led pilot onboarding.
 
-Do not create a separate disconnected onboarding product.
+Do not create a separate disconnected onboarding product. Use the existing customer application and existing Manage workspace.
 
-## Dependencies
+## Dependencies and current files
 
-Complete Packet 09 first.
+Complete the remaining Packet 09 proof gates before enabling paid self-service.
 
 Inspect:
 
@@ -18,102 +48,106 @@ src/app/login/
 src/app/set-password/
 src/app/auth/
 src/app/app/
+src/app/api/billing/checkout/route.ts
+src/app/api/webhooks/stripe/route.ts
+src/app/api/portal/onboarding/route.ts
 src/components/app-shell.tsx
 src/components/portal-pages.tsx
+src/components/manage-portal.tsx
+src/lib/portal/onboarding.ts
+src/lib/portal/activation.ts
+src/lib/billing/
 src/lib/auth/
 src/lib/portal/
-src/lib/billing/
-src/app/api/billing/
+supabase/migrations/20260809061921_packet_10_organization_onboarding.sql
 ```
-
-Inspect existing invitation and team-member flows.
 
 ## Two supported paths
 
-### Path A: Founder-led pilot
+### Path A: Founder-led pilot — currently supported
 
-1. Internal operator creates the account in Manage.
+1. Internal operator creates the organization in Manage.
 2. Internal operator invites the owner.
-3. Pilot agreement or manual billing is recorded.
-4. Customer sets password.
-5. Customer enters the existing workspace.
-6. Activation checklist guides the first documents and monitoring setup.
+3. Pilot agreement or manual billing is recorded outside self-serve Checkout.
+4. Customer sets a password.
+5. Customer enters the existing `/app` workspace.
+6. The Activation Checklist guides company details, documents, review, and monitoring.
 
-### Path B: Paid self-service
+### Path B: Paid self-service — not complete
 
-1. Visitor selects a plan.
-2. Visitor starts Stripe Checkout.
-3. Stripe webhook confirms the subscription.
-4. Visitor authenticates or creates an account.
-5. Costivra provisions the workspace once.
-6. Customer completes guided activation.
-7. Entitlements control paid actions.
+1. Visitor selects a dynamic plan from public pricing.
+2. Visitor starts Stripe Checkout without an existing organization.
+3. Signed Stripe webhook confirms the Checkout/subscription.
+4. Costivra authenticates or creates the user.
+5. Costivra provisions or reuses exactly one organization.
+6. `organization_onboarding.source` is set to `paid_checkout`.
+7. Customer completes guided activation.
+8. Entitlements control paid actions.
 
 Both paths must converge on the same organization, membership, billing, and activation records.
 
 ## Provisioning rule
 
-Do not provision paid access from:
+Never provision paid access from:
 
 ```text
 /success?session_id=...
 ```
 
-The signed Stripe webhook creates or marks the billing customer/subscription. The success page may poll for server-confirmed status.
+The signed Stripe webhook must confirm the event. The success page may poll for server-confirmed status.
 
-Avoid duplicate organizations when:
+Provisioning must be idempotent when:
 
 - the user refreshes;
 - the webhook retries;
 - the customer returns later;
 - an invited user already exists;
-- an internal operator already created the account.
+- an internal operator already created the organization;
+- a Checkout Session is delivered twice.
 
-## Onboarding state
+Use Stripe metadata and a stable organization/user lookup. Never create a second organization merely because a browser session is new.
 
-Create a dedicated tenant-owned state or an equally explicit structure.
+## Current onboarding state
 
-Suggested `organization_onboarding` fields:
+The deployed table is:
 
-- organization_id
-- source: pilot_invite, paid_checkout, internal
-- status: not_started, in_progress, activated, blocked
-- current_step
-- company_completed_at
-- location_completed_at
-- documents_completed_at
-- review_completed_at
-- monitoring_selected_at
-- monitoring_completed_at
-- activated_at
-- blocked_reason
-- created_at
-- updated_at
+```text
+organization_onboarding
+```
 
-Do not infer activation from the absence of errors.
+It stores:
+
+- organization ID;
+- source: `pilot_invite`, `paid_checkout`, or `internal`;
+- status: `not_started`, `in_progress`, `activated`, or `blocked`;
+- current step;
+- company/location, document, review, and monitoring timestamps;
+- activation timestamp;
+- blocked reason.
+
+Current synchronization derives progress from authoritative records. It does not infer activation from the absence of errors.
+
+Current limitation: the sync route preserves the existing source and defaults new rows to `internal`; paid Checkout must explicitly write `paid_checkout` during provisioning.
 
 ## Guided steps
 
-Keep the customer flow short.
+Keep the customer flow short and resumable.
 
 ### 1. Account confirmed
 
-Show:
-
-- signed-in user
-- plan
-- subscription/trial status
-- company name
+Show the signed-in user, confirmed subscription/plan status, workspace name, and any payment issue. The current checklist treats workspace creation as complete, but it does not yet show payment-confirmed plan state here.
 
 ### 2. Company profile
 
 Collect only useful fields:
 
-- company name
-- industry
-- timezone
-- currency
-- primary location
+- company name;
+- industry;
+- timezone;
+- currency;
+- primary location.
+
+The current activation logic requires at least one location. Add explicit company-field completion if the product needs more than that.
 
 ### 3. Add documents
 
@@ -121,154 +155,149 @@ Ask for three recent recurring bills or contracts.
 
 Count only documents that are:
 
-- supported
-- durably stored
-- not rejected
-- not terminally failed
+- durably stored;
+- security-clean;
+- supported and not rejected;
+- in a successful or reviewable extraction state.
 
-Quarantined documents do not count as analyzed documents.
+Quarantined or terminally failed documents do not count.
 
 ### 4. Review first record
 
-Require at least one authoritative reviewed invoice or contract.
-
-Do not mark complete because the review queue is empty.
+Require at least one authoritative reviewed invoice or contract. An empty review queue is not completion.
 
 ### 5. Select monitoring mode
 
-Options:
+Options should be explicit:
 
-- automatic forwarding pending test
-- manual tracking
+- automatic forwarding, pending a successful real test;
+- manual tracking.
 
-Automatic monitoring is not complete until the real test succeeds.
+The current checklist counts an active or manual-tracking vendor, but does not yet record automatic-forwarding test completion separately. Do not label automatic monitoring complete until the real test succeeds.
 
 ### 6. Activation complete
 
 Show:
 
-- records accepted
-- first reviewed vendor
-- monitoring state
-- first next action
-- support route
+- records accepted;
+- first reviewed vendor;
+- monitoring state;
+- next action;
+- support route;
+- current subscription and entitlement state.
 
 ## UI placement
 
-Use the existing customer application.
+Use the existing customer application:
 
-Options:
+- activation panel on `/app`;
+- resumable route-local checklist or sheet;
+- existing `/app/settings` Billing tab.
 
-- activation panel on `/app`
-- resumable activation sheet
-- route-local onboarding state
-
-Do not add multiple new top-level nav pages.
-
-The customer may dismiss the guide, but it remains resumable until activated.
+Do not add another top-level customer navigation page. The customer may dismiss the guide, but it must remain resumable until activated.
 
 ## Pricing CTA behavior
 
-Update marketing and pricing CTAs:
+The public homepage and `/pricing` now display the owner-managed catalog, but their plan cards currently lead to `/scan` rather than starting Checkout. Complete this only after paid self-service provisioning exists.
 
-- free scan or contact path remains honest
-- paid plan CTA opens checkout
-- existing signed-in owners reuse their organization
-- signed-in non-owners cannot start billing for another organization
-- cancellation returns to pricing without creating access
+Required behavior:
 
-Do not show a paid button that is not wired.
+- free scan or contact path remains honest;
+- paid plan CTA opens Checkout when the selected plan is active and configured;
+- an existing signed-in owner reuses the existing organization;
+- a signed-in non-owner cannot start billing for another organization;
+- cancellation returns to the correct customer route without creating access;
+- no paid button appears for an inactive or unconfigured plan.
 
 ## Entitlement enforcement
 
-Use the central entitlement helper from Packet 09.
+Use the central entitlement helper from Packet 09 once it exists. Gate only server-authorized mutations, including:
 
-Gate:
+- uploads beyond the plan limit;
+- monitored vendors;
+- seats;
+- scheduled reports;
+- sequences if included in a plan;
+- premium category coverage.
 
-- uploads beyond limit
-- monitored vendors
-- seats
-- scheduled reports
-- sequences if included in a plan
-- premium category coverage
-
-Do not hide existing customer data because a plan lapses. Prefer read-only plus a clear billing message.
+Do not hide existing customer data when billing lapses. Prefer read-only access and a clear billing message.
 
 ## Email wiring
 
-Use Packet 04 lifecycle emails:
+Use the existing lifecycle email system, not a new onboarding subsystem:
 
-- subscription/workspace welcome
-- onboarding reminder
-- upload received
-- review needed
-- forwarding instructions
-- activation complete
+- subscription/workspace welcome;
+- onboarding reminder;
+- upload received;
+- review needed;
+- forwarding instructions;
+- activation complete;
+- payment failure and recovery notice.
 
-Deduplicate every message.
-
-Do not create a separate onboarding email subsystem.
+Deduplicate each message with the external-side-effect ledger and provider event identity.
 
 ## Internal Manage context
 
 On account records, show:
 
-- onboarding source
-- plan
-- subscription state
-- activation progress
-- blocked step
-- last customer action
-- support action
+- onboarding source;
+- current plan and subscription state;
+- activation progress;
+- blocked step/reason;
+- last customer action;
+- safe support action.
 
-Allow internal operators to:
+Allow internal owners/operators to:
 
-- resend invitation
-- copy secure activation link
-- inspect blocker
-- record manual pilot terms
-- avoid bypassing payment truth for a paid account without an audited owner action
+- resend an invitation;
+- copy a secure activation link;
+- inspect blockers;
+- record manual pilot terms;
+- support a paid account without bypassing payment truth;
+- record any manual override as an audited owner action.
 
-## Recovery
+## Recovery cases
 
-Handle:
+Handle and test:
 
-- paid but user not created
-- user created but webhook delayed
-- duplicate organization
-- expired invitation
-- failed document scan
-- failed extraction
-- no authoritative contact
-- automatic monitoring test failure
-- failed payment during onboarding
+- paid but user not created;
+- user created but webhook delayed;
+- duplicate organization candidate;
+- duplicate webhook;
+- expired invitation;
+- failed document scan;
+- failed extraction;
+- no authoritative review;
+- automatic-monitoring test failure;
+- failed payment during onboarding.
 
-Every blocker should give a clear next action.
+Every blocker needs a clear next action and must not silently grant paid access.
 
 ## Tests
 
 Unit and integration:
 
-- idempotent provisioning
-- invited user with checkout
-- existing organization reuse
-- webhook delayed
-- duplicate webhook
-- non-owner billing rejection
-- activation completion rules
-- quarantined document does not count
-- review required
-- monitoring truth
-- entitlement gating
+- idempotent provisioning;
+- invited user with Checkout;
+- existing organization reuse;
+- webhook delayed or duplicated;
+- non-owner billing rejection;
+- activation completion rules;
+- quarantined document does not count;
+- authoritative review required;
+- monitoring truth;
+- entitlement gating;
+- payment failure and recovery.
 
 Browser:
 
-- founder-led invitation path
-- paid checkout test path
-- resume onboarding
-- mobile
-- keyboard
-- payment failure state
+- founder-led invitation path;
+- paid Checkout test path;
+- resume onboarding;
+- mobile;
+- keyboard access;
+- payment failure state;
+- correct return to `/app/settings`.
 
 Run:
 
@@ -286,10 +315,14 @@ npm run test:e2e:authenticated
 
 - Founder-led and paid customers converge on the same system of record.
 - Signed Stripe webhook controls paid access.
-- Provisioning is idempotent.
-- Onboarding is short and resumable.
-- Activation uses real states.
+- Provisioning is idempotent and reuses existing users/organizations.
+- Paid Checkout sets onboarding source to `paid_checkout`.
+- Onboarding is short, honest, and resumable.
+- Activation uses real authoritative states.
+- Automatic monitoring is not claimed complete without a successful test.
+- Entitlements gate paid actions server-side.
 - Existing data remains accessible when billing has an issue.
 - Manage shows onboarding and billing context.
-- No unnecessary top-level app page was added.
-- No branch, commit, push, merge, or deployment was performed.
+- Public paid CTAs open only configured Checkout flows.
+- No unnecessary top-level app page is added.
+- No branch, commit, push, merge, or deployment is performed by the coding agent.

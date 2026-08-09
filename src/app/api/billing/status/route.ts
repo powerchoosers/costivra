@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { requirePortalContext } from "@/lib/portal/repository";
-import { BILLING_PLANS, getConfiguredPriceId } from "@/lib/billing/catalog";
+import { getBillingCatalog } from "@/lib/billing/catalog";
 import { getStripeAccountReadiness, getStripeBillingMode, stripeAccountReadyForLiveCheckout, stripeBillingEnabled, stripeIsConfigured } from "@/lib/billing/stripe";
 
 export async function GET() {
   try {
     const { db, organizationId } = await requirePortalContext();
-    const plans = BILLING_PLANS.map((plan) => ({
+    const catalog = await getBillingCatalog();
+    const plans = catalog.map((plan) => ({
       key: plan.key,
-      name: plan.name,
-      checkoutEnabled: plan.checkoutEnabled && Boolean(getConfiguredPriceId(plan)),
+      name: plan.displayName,
+      description: plan.description,
+      amountCents: plan.amountCents,
+      currency: plan.currency,
+      interval: plan.interval,
+      features: plan.features,
+      checkoutEnabled: plan.checkoutEnabled && plan.active && Boolean(plan.stripePriceId),
     }));
     const providerConfigured = stripeIsConfigured();
     const billingMode = getStripeBillingMode();
@@ -20,7 +26,7 @@ export async function GET() {
       ...(!providerConfigured ? ["stripe_provider_not_configured"] : []),
       ...(providerConfigured && !billingEnabled ? ["stripe_billing_mode_disabled"] : []),
       ...(providerConfigured && billingMode === "live" && !liveAccountReady ? ["stripe_account_not_ready"] : []),
-      ...BILLING_PLANS.filter((plan) => plan.checkoutEnabled && !getConfiguredPriceId(plan)).map((plan) => `price_missing:${plan.key}`),
+      ...catalog.filter((plan) => plan.checkoutEnabled && plan.active && !plan.stripePriceId).map((plan) => `price_missing:${plan.key}`),
     ];
     const [{ data: subscriptions, error: subscriptionsError }, { data: entitlements, error: entitlementsError }] = await Promise.all([
       db.from("billing_subscriptions").select("plan_key,status,cancel_at_period_end,current_period_end,trial_end").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(5),

@@ -4520,7 +4520,7 @@ function SettingsPage({
   const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
   const [runningRetentionReport, setRunningRetentionReport] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "enrichment">("general");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "enrichment" | "billing">("general");
   const [apolloSettings, setApolloSettings] = useState<ApolloSettingsSummary | null>(null);
   const [loadingApolloSettings, setLoadingApolloSettings] = useState(false);
   const [apolloSettingsError, setApolloSettingsError] = useState<string | null>(null);
@@ -4708,6 +4708,19 @@ function SettingsPage({
           <button
             type="button"
             role="tab"
+            id="manage-settings-billing-tab"
+            aria-selected={activeSettingsTab === "billing"}
+            aria-controls="manage-settings-billing-panel"
+            className={activeSettingsTab === "billing" ? "active" : undefined}
+            onClick={() => setActiveSettingsTab("billing")}
+          >
+            Billing &amp; pricing
+          </button>
+        )}
+        {data.operator.role === "owner" && (
+          <button
+            type="button"
+            role="tab"
             id="manage-settings-enrichment-tab"
             aria-selected={activeSettingsTab === "enrichment"}
             aria-controls="manage-settings-enrichment-panel"
@@ -4721,7 +4734,9 @@ function SettingsPage({
           </button>
         )}
       </div>
-      {activeSettingsTab === "general" ? (
+      {activeSettingsTab === "billing" ? (
+        <BillingCatalogSettings />
+      ) : activeSettingsTab === "general" ? (
         <div
           id="manage-settings-general-panel"
           role="tabpanel"
@@ -5006,6 +5021,99 @@ function SettingsPage({
         </section>
       )}
     </div>
+  );
+}
+
+type ManageBillingPlan = {
+  key: "starter" | "growth" | "enterprise";
+  displayName: string;
+  description: string;
+  amountCents: number | null;
+  currency: string;
+  interval: "month" | "year" | "custom";
+  features: string[];
+  stripePriceId: string | null;
+  active: boolean;
+};
+
+function BillingCatalogSettings() {
+  const toast = useToast();
+  const [plans, setPlans] = useState<ManageBillingPlan[]>([]);
+  const [mode, setMode] = useState<"test" | "live" | "unknown">("unknown");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/manage/billing/catalog", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; mode?: "test" | "live" | "unknown"; plans?: ManageBillingPlan[] };
+        if (!response.ok || !payload.plans) throw new Error(payload.error || "Pricing could not be loaded.");
+        if (!cancelled) {
+          setMode(payload.mode || "unknown");
+          setPlans(payload.plans);
+        }
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "Pricing could not be loaded.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const updatePlan = (key: ManageBillingPlan["key"], field: keyof ManageBillingPlan, value: unknown) => {
+    setPlans((current) => current.map((plan) => plan.key === key ? { ...plan, [field]: value } : plan));
+  };
+
+  async function save(plan: ManageBillingPlan) {
+    setSaving(plan.key);
+    setError(null);
+    try {
+      const response = await fetch("/api/manage/billing/catalog", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...plan, features: plan.features }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; plans?: ManageBillingPlan[] };
+      if (!response.ok || !payload.plans) throw new Error(payload.error || "Pricing could not be saved.");
+      setPlans(payload.plans);
+      toast.success(`${plan.displayName} pricing updated`, mode === "live" ? "Live Stripe pricing is now active." : "Test Stripe pricing is now active.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Pricing could not be saved.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <section id="manage-settings-billing-panel" role="tabpanel" aria-labelledby="manage-settings-billing-tab" className="manage-panel manage-settings-enrichment">
+      <header className="manage-settings-enrichment-heading">
+        <div>
+          <span className="manage-settings-kicker">Owner controls</span>
+          <h3>Billing &amp; pricing</h3>
+          <p>Edit the plan copy and amount shown across Costivra. Saving creates a new Stripe Price and archives the previous one.</p>
+        </div>
+        <span className={`manage-enrichment-status manage-enrichment-status--${mode === "live" ? "connected" : mode === "test" ? "needs_access" : "unconfigured"}`}><i aria-hidden="true" /> Stripe {mode === "unknown" ? "not configured" : `${mode} mode`}</span>
+      </header>
+      {error && <div className="manage-enrichment-message manage-enrichment-message--error" role="alert"><CircleAlert size={17} aria-hidden="true" /><div><strong>Pricing could not be updated</strong><small>{error}</small></div></div>}
+      {loading ? <div className="manage-enrichment-loading" aria-live="polite"><span aria-hidden="true" /><div><strong>Loading pricing</strong><small>Reading the current Stripe catalog.</small></div></div> : (
+        <div className="manage-billing-catalog-grid">
+          {plans.map((plan) => (
+            <article className="manage-billing-catalog-card" key={plan.key}>
+              <div className="manage-enrichment-provider-heading"><div><strong>{plan.displayName}</strong><small>{plan.stripePriceId ? `Stripe Price ${plan.stripePriceId}` : "No Stripe Price yet"}</small></div><label className="manage-preference-toggle"><span className="manage-visually-hidden">Plan active</span><input type="checkbox" checked={plan.active} onChange={(event) => updatePlan(plan.key, "active", event.target.checked)} /><i aria-hidden="true" /></label></div>
+              <label><span>Plan name</span><input value={plan.displayName} maxLength={80} onChange={(event) => updatePlan(plan.key, "displayName", event.target.value)} /></label>
+              <label><span>Description</span><textarea value={plan.description} maxLength={320} rows={2} onChange={(event) => updatePlan(plan.key, "description", event.target.value)} /></label>
+              {plan.key !== "enterprise" ? <div className="manage-billing-catalog-row"><label><span>Amount (USD)</span><input type="number" min="1" step="1" value={plan.amountCents == null ? "" : plan.amountCents / 100} onChange={(event) => updatePlan(plan.key, "amountCents", Math.round(Number(event.target.value) * 100))} /></label><label><span>Bill every</span><select value={plan.interval} onChange={(event) => updatePlan(plan.key, "interval", event.target.value)}><option value="month">Month</option><option value="year">Year</option></select></label></div> : <p className="manage-billing-catalog-custom">Enterprise remains custom-priced and assisted sales.</p>}
+              <label><span>Included features (one per line)</span><textarea value={plan.features.join("\n")} rows={4} onChange={(event) => updatePlan(plan.key, "features", event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} /></label>
+              <button type="button" className="manage-button manage-button--primary" disabled={saving !== null} onClick={() => void save(plan)}>{saving === plan.key ? "Saving Stripe price…" : "Save pricing"}</button>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

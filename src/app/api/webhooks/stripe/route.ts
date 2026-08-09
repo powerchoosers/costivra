@@ -10,11 +10,16 @@ function isoFromUnix(value: number | null | undefined): string | null {
   return typeof value === "number" ? new Date(value * 1000).toISOString() : null;
 }
 
-function planFromPrice(priceId: string | null | undefined, metadata?: Stripe.Metadata): "starter" | "growth" | "enterprise" | null {
+async function planFromPrice(db: ReturnType<typeof createServerSupabaseClient>, priceId: string | null | undefined, metadata?: Stripe.Metadata): Promise<"starter" | "growth" | "enterprise" | null> {
   const metadataPlan = getBillingPlan(metadata?.plan_key);
   if (metadataPlan) return metadataPlan.key;
   if (priceId && priceId === process.env.STRIPE_PRICE_STARTER_MONTHLY) return "starter";
   if (priceId && priceId === process.env.STRIPE_PRICE_GROWTH_MONTHLY) return "growth";
+  if (priceId) {
+    const { data } = await db.from("billing_plan_catalog").select("plan_key").eq("stripe_price_id", priceId).maybeSingle();
+    const catalogPlan = getBillingPlan(data?.plan_key);
+    if (catalogPlan) return catalogPlan.key;
+  }
   return null;
 }
 
@@ -56,7 +61,7 @@ async function handleEvent(db: ReturnType<typeof createServerSupabaseClient>, ev
     const currentItem = subscription.items.data[0];
     const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
     const priceId = subscription.items.data[0]?.price?.id ?? null;
-    const planKey = planFromPrice(priceId, subscription.metadata);
+    const planKey = await planFromPrice(db, priceId, subscription.metadata);
     const organizationId = await resolveOrganization(db, customerId, subscription.metadata);
     if (!organizationId) throw new Error("Stripe subscription has no Costivra organization mapping.");
     if (!planKey) throw new Error("Stripe subscription price is not configured for Costivra.");

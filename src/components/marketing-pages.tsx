@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { PublicBillingPlan } from "@/components/home-page";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -262,8 +263,8 @@ const solutionSpecs: Record<string, PageSpec> = {
   },
 };
 
-export function MarketingPage({ path }: { path: string }) {
-  if (path === "pricing") return <PricingPage />;
+export function MarketingPage({ path, plans }: { path: string; plans: PublicBillingPlan[] }) {
+  if (path === "pricing") return <PricingPage plans={plans} />;
   if (path === "scan") return <ScanPage />;
   if (path === "login" || path === "signup") return <AccountPage mode={path} />;
   if (path === "privacy") return <PrivacyPage />;
@@ -326,12 +327,7 @@ function SpecPage({ spec }: { spec: PageSpec }) {
   })}</div></Reveal><Reveal><section className="spec-operating"><div className="spec-operating-intro"><span className="eyebrow">{operating.eyebrow}</span><h2>{operating.title}</h2><p>{operating.copy}</p></div><ol className="spec-steps">{operating.steps.map((step, index) => <li key={step.label}><span>{String(index + 1).padStart(2, "0")}</span><div><h3>{step.label}</h3><p>{step.copy}</p></div></li>)}</ol></section></Reveal><Reveal><section className="spec-closure"><div><span className="eyebrow">A deliberate first step</span><h2>{close.title}</h2><p>{close.copy}</p></div><Link className="button button-primary" href={close.href}>{close.action} <ArrowRight aria-hidden="true" size={17} /></Link></section></Reveal></div></PageFrame>;
 }
 
-function PricingPage() {
-  const plans = [
-    { name: "Starter", price: "$149", fit: "One business with a contained set of recurring bills to monitor.", features: ["Up to three active expense accounts", "Monthly monitoring", "Renewal reminders"] },
-    { name: "Growth", price: "$599", fit: "Businesses managing vendors across multiple locations or decision owners.", features: ["Multiple locations", "Team and approval workflows", "Weekly monitoring", "Advanced reports"] },
-    { name: "Enterprise", price: "Custom", fit: "Organizations that need custom access, retention, and integration controls.", features: ["SSO and custom roles", "Custom integrations", "Retention controls", "Dedicated support"] },
-  ];
+function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
 
   return (
     <PageFrame>
@@ -348,13 +344,13 @@ function PricingPage() {
       </section>
 
       <div className="content-grid pricing-plan-grid">
-        {plans.map(({ name, price, fit, features }) => (
+        {plans.filter((plan) => plan.active).map(({ key, name, amountCents, currency, description, features }) => (
           <article className="content-block pricing-plan-card" key={name}>
             <span className="pricing-plan-name">{name}</span>
-            <div className="pricing-plan-price">{price}{price.startsWith("$") ? <small> / month</small> : null}</div>
-            <p className="pricing-plan-fit">{fit}</p>
+            <div className="pricing-plan-price">{amountCents == null ? "Custom" : new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amountCents / 100)}{amountCents != null ? <small> / month</small> : null}</div>
+            <p className="pricing-plan-fit">{description}</p>
             {features.map((feature) => <p className="pricing-plan-feature" key={feature}><Check aria-hidden="true" size={16} /> {feature}</p>)}
-            <Link className={name === "Growth" ? "button button-primary" : "button button-secondary"} href={name === "Enterprise" ? "/contact" : "/scan"}>{name === "Enterprise" ? "Talk to us" : "Start with 3 bills"}</Link>
+            <Link className={key === "growth" ? "button button-primary" : "button button-secondary"} href={key === "enterprise" ? "/contact" : "/scan"}>{key === "enterprise" ? "Talk to us" : "Start with 3 bills"}</Link>
           </article>
         ))}
       </div>

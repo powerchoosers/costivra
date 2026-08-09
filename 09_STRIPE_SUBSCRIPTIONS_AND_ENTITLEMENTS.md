@@ -1,10 +1,36 @@
-# Packet 09: Stripe Subscriptions and Entitlements
+# Packet 09: Stripe Subscriptions, Dynamic Pricing, and Entitlements
+
+## Current status — August 9, 2026
+
+This packet is **partially implemented**. The subscription foundation exists, but the complete paid self-service proof and plan-specific entitlement enforcement are still open.
+
+Implemented today:
+
+- Supabase billing tables: `billing_customers`, `billing_subscriptions`, `billing_events`, and `billing_entitlements`.
+- Service-role-only database access with RLS enabled; browser writes are prohibited.
+- `POST /api/billing/checkout` using Stripe Checkout with `mode: "subscription"`.
+- `POST /api/billing/portal` using Stripe Customer Portal.
+- Signed webhook handling at `POST /api/webhooks/stripe`.
+- Idempotent customer creation, Checkout Sessions, and webhook event ledgering.
+- Test-mode Starter and Growth recurring Prices exist in the Costivra Stripe account.
+- Owner-managed pricing at `/manage/settings` → **Billing & pricing**.
+- Dynamic pricing now feeds the homepage, public pricing page, customer billing selector, Checkout, and webhook plan lookup.
+
+Still open:
+
+- Full test subscription proof: Checkout → signed webhook → subscription record → entitlement → Customer Portal.
+- A central entitlement helper and actual plan-limit enforcement.
+- Production webhook configuration and live-mode proof.
+- Correct customer return URLs (`/app/settings` is the customer route; the current Checkout/Portal helpers still use `/portal/settings`).
+- Stripe Customer Portal configuration policy and tax/legal approval.
+
+Do not treat this packet as permission to create live products, prices, customers, subscriptions, or webhooks without Lewis's explicit approval and a mode check.
 
 ## Mission
 
-Install Costivra's recurring subscription foundation using Stripe Billing, Stripe Checkout, webhooks, and the Stripe Customer Portal. Payment truth must come from signed Stripe events, not from the success redirect.
+Use Stripe Billing, Stripe Checkout, webhooks, and the Stripe Customer Portal for recurring subscriptions. Stripe's signed events are the source of payment truth; a success redirect never grants access by itself.
 
-The connected Stripe account was empty at audit time. Re-check before creating anything.
+The current Costivra pricing source of truth is the server-side Supabase table `billing_plan_catalog`, with one row per plan and Stripe mode (`test` or `live`). Environment Price IDs are only a legacy bootstrap fallback.
 
 ## Required reading and files
 
@@ -13,307 +39,171 @@ Inspect:
 ```text
 package.json
 .env.example
-src/components/marketing-pages.tsx
+src/lib/billing/catalog.ts
+src/lib/billing/stripe.ts
+src/lib/billing/entitlements.ts       # create before plan-limit enforcement
+src/app/api/billing/checkout/route.ts
+src/app/api/billing/status/route.ts
+src/app/api/billing/portal/route.ts
+src/app/api/webhooks/stripe/route.ts
+src/app/api/manage/billing/catalog/route.ts
 src/components/home-page.tsx
-src/app/pricing/
-src/app/api/
-src/lib/supabase/
-src/lib/auth/
-src/lib/portal/repository.ts
+src/components/marketing-pages.tsx
 src/components/portal-pages.tsx
+src/lib/supabase/
+supabase/migrations/20260809040000_packet_09_billing.sql
+supabase/migrations/20260809221900_billing_plan_catalog.sql
 ```
 
-Read current Stripe Billing, Checkout, webhook, and Customer Portal documentation before implementation.
+Read current Stripe Billing, Checkout, webhook, and Customer Portal documentation before changing integration behavior.
 
-## Pricing decision gate
+## Pricing architecture
 
-Do not invent prices or plan names.
+Do not scatter prices through components or hardcode Stripe Price IDs in client code.
 
-Before creating Stripe products:
+The catalog contains:
 
-1. Inspect the current Costivra pricing page.
-2. Compare it with Lewis's current pricing decision.
-3. Produce a plan mapping for approval:
-   - stable internal plan key
-   - display name
-   - monthly or annual
-   - Stripe product
-   - Stripe price
-   - entitlements
-   - trial policy
-4. If pricing is unresolved, complete the integration with test placeholder IDs in environment configuration and report the human blocker.
+- stable internal plan key: `starter`, `growth`, or `enterprise`;
+- display name and description;
+- amount in integer cents and currency;
+- monthly, annual, or custom cadence;
+- feature copy;
+- active/inactive state;
+- Stripe product and Price IDs;
+- separate `test` and `live` rows.
 
-Do not hardcode Stripe price IDs in client code.
+The owner editor creates a replacement Stripe Price and archives the previous Price when the amount or cadence changes. Existing subscriptions retain their historical Price. Public pages receive display fields only; provider identifiers remain server-side.
+
+Enterprise remains assisted-sales only unless Lewis explicitly enables a self-serve Price.
 
 ## Stripe architecture
 
 Use:
 
-- Stripe Billing
-- Stripe Checkout Sessions with `mode: "subscription"`
-- Stripe Customer Portal
-- signed webhooks
-- pinned current Stripe SDK
-- restricted API key where supported
+- Stripe Billing;
+- Stripe Checkout Sessions with `mode: "subscription"`;
+- Stripe Customer Portal;
+- signed webhooks;
+- a server-only restricted/secret key;
+- idempotency keys for external mutations.
 
-Do not build recurring payments with raw PaymentIntents.
-
-Do not pass `payment_method_types` for web Checkout. Let Stripe use dynamically configured eligible methods.
-
-Use an `integration_identifier` on current supported API versions.
+Do not use raw PaymentIntents for recurring subscriptions. Do not accept a browser-supplied amount or Price ID without resolving it against the server catalog.
 
 ## Environment variables
 
-Add safe placeholders to `.env.example`:
-
 ```text
 STRIPE_RESTRICTED_KEY=
+STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
-STRIPE_PRICE_<PLAN_KEY>_MONTHLY=
-STRIPE_PRICE_<PLAN_KEY>_ANNUAL=
-STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID=
+STRIPE_BILLING_LIVEMODE_ENABLED=0
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_PRICE_STARTER_MONTHLY=       # legacy bootstrap fallback only
+STRIPE_PRICE_GROWTH_MONTHLY=        # legacy bootstrap fallback only
 ```
 
-Only add the publishable key to the browser. All other keys are server-only.
+The Price ID variables are not the long-term catalog. They are used only when the matching mode's catalog row has no saved Stripe Price yet. Never put secret keys or webhook secrets in browser-visible variables.
 
-Do not print keys.
+The app currently uses Stripe Test mode locally. Production must use separate live credentials and live catalog rows. A Stripe connector showing live mode is not proof that the app is configured for live billing.
 
 ## Data model
 
-Create tenant-owned billing tables.
+Existing tables:
 
-### `billing_customers`
+- `billing_customers`: one Stripe customer per organization;
+- `billing_subscriptions`: provider subscription projection and status;
+- `billing_events`: unique Stripe event ledger;
+- `billing_entitlements`: organization feature state;
+- `billing_plan_catalog`: owner-managed display data and active Price per plan/mode.
 
-- organization_id
-- stripe_customer_id
-- email
-- created_at
-- updated_at
-
-One Stripe customer per organization.
-
-### `billing_subscriptions`
-
-- id
-- organization_id
-- stripe_subscription_id
-- stripe_customer_id
-- stripe_price_id
-- plan_key
-- status
-- cancel_at_period_end
-- current_period_start
-- current_period_end
-- trial_start
-- trial_end
-- canceled_at
-- ended_at
-- latest_invoice_id
-- created_at
-- updated_at
-
-### `billing_events`
-
-- stripe_event_id unique
-- event_type
-- livemode
-- status
-- processed_at
-- safe_error
-- created_at
-
-### `billing_entitlements`
-
-- organization_id
-- plan_key
-- feature_key
-- enabled
-- limit_value
-- source_subscription_id
-- effective_at
-- expires_at
-- updated_at
-
-Requirements:
-
-- RLS enabled.
-- Customer users may read safe billing state for their own organization.
-- Browser writes are prohibited.
-- Webhook uses server credentials.
-- Event processing is idempotent.
-- Do not store full payment method data.
+All are service-role-only from the database. Customer users read safe billing state through authenticated server routes, not direct browser table access. Do not store full payment method data.
 
 ## Checkout route
 
-Create a server route such as:
+`POST /api/billing/checkout` currently:
 
-```text
-POST /api/billing/checkout
-```
+- authenticates the customer;
+- requires owner/admin role in an existing organization;
+- validates a stable plan key;
+- resolves the active Price from `billing_plan_catalog`;
+- verifies the Price is active and belongs to the configured Stripe mode;
+- creates or reuses one Stripe customer per organization;
+- attaches organization metadata;
+- creates a subscription Checkout Session;
+- records an audit event;
+- returns the Checkout URL.
 
-It must:
-
-- authenticate the user;
-- require organization owner/admin role;
-- validate a stable plan key;
-- resolve the server-side price ID;
-- create or reuse the Stripe customer;
-- attach organization/user metadata;
-- create a subscription Checkout Session;
-- use safe success and cancel URLs;
-- return the Checkout URL;
-- create an audit event.
-
-Do not grant access based on the redirect.
+The remaining paid-onboarding work is to support a visitor who does not yet have an organization. Until that exists, Checkout is for an already-created workspace.
 
 ## Webhook route
 
-Create:
+`POST /api/webhooks/stripe`:
 
-```text
-POST /api/webhooks/stripe
-```
+- verifies the raw body and Stripe signature;
+- rejects mode mismatches and disabled live billing;
+- persists an idempotent event ledger;
+- handles `checkout.session.completed`;
+- handles all `customer.subscription.*` events;
+- handles `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`;
+- writes subscription state and the current Stripe Price ID;
+- syncs the current `paid_workspace` entitlement.
 
-Verify the raw body and Stripe signature.
-
-Handle at minimum:
-
-- `checkout.session.completed`
-- `customer.subscription.created`
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
-- `invoice.paid`
-- `invoice.payment_failed`
-- `invoice.payment_action_required`
-
-Persist the Stripe event before or during processing with idempotent state.
-
-Subscription status mapping must be deterministic.
+The webhook currently does **not** provision a new organization after Checkout. That belongs to Packet 10.
 
 ## Entitlement policy
 
-Define plan entitlements in one server-owned catalog.
+Only the basic `paid_workspace` entitlement is currently synchronized. Before calling billing complete, add a server-owned entitlement helper and enforce it at the relevant mutation boundaries for:
 
-Examples of feature keys, only if they match current product decisions:
+- document/upload limits;
+- monitored vendors;
+- team seats;
+- scheduled reports;
+- sequence enrollment and daily sends;
+- premium category coverage;
+- support level.
 
-- document upload limit
-- monitored vendors
-- team seats
-- scheduled reports
-- sequence enrollments
-- sequence daily sends
-- category packs
-- support level
+When billing lapses, preserve existing customer data and prefer read-only access plus a clear billing message. Never delete customer data because of payment state.
 
-Do not scatter plan checks across components.
+## Customer Portal and settings
 
-Create a helper such as:
+Customer billing appears in the existing `/app/settings` Billing tab. The owner billing catalog appears in `/manage/settings` and is internal-only.
 
-```text
-src/lib/billing/entitlements.ts
-```
+The Customer Portal route exists, but its return URL must be corrected from `/portal/settings` to `/app/settings` before production proof.
 
-Customer access must degrade gracefully:
-
-- read-only access to existing records when a subscription lapses
-- no destructive data deletion
-- no new paid action when entitlement is absent
-- owner receives billing notice
-- internal owner remains able to support the account
-
-## Customer Portal
-
-Create:
-
-```text
-POST /api/billing/portal
-```
-
-The organization owner can:
-
-- update payment method
-- view invoices
-- change plan where allowed
-- cancel according to policy
-
-Use Stripe's hosted Customer Portal.
-
-## Settings UI
-
-Use the existing customer Settings route.
-
-Add a Billing tab or section with:
-
-- current plan
-- subscription status
-- renewal date
-- trial end
-- payment issue
-- manage billing button
-- plan entitlements
-- invoice link through Customer Portal
-
-Do not add a new top-level app navigation page.
+Do not add a new top-level customer navigation page.
 
 ## Tax boundary
 
-Do not enable automatic tax merely because the API supports it.
+Do not enable automatic tax merely because Stripe supports it. Before enabling Stripe Tax, confirm registrations, jurisdictions, product tax code, business address, and tax policy with Lewis.
 
-Before enabling Stripe Tax, Lewis must confirm:
+## Test-mode proof still required
 
-- registrations
-- jurisdictions
-- product tax code
-- business address
-- tax policy
+Prove with signed test events or Stripe CLI fixtures:
 
-Until then, keep the setting explicit and documented.
+1. successful Checkout;
+2. duplicate webhook;
+3. active subscription;
+4. failed invoice;
+5. payment recovery;
+6. cancellation at period end;
+7. Customer Portal;
+8. unauthorized checkout rejection;
+9. wrong-mode or inactive-Price rejection;
+10. tenant isolation;
+11. entitlement behavior at each plan boundary.
 
-## Test mode
-
-Complete test-mode proof first.
-
-Use Stripe test clocks or test events where appropriate.
-
-Prove:
-
-1. successful checkout
-2. duplicate webhook
-3. subscription active
-4. failed invoice
-5. recovery after payment
-6. cancellation at period end
-7. immediate cancellation if supported by policy
-8. Customer Portal
-9. unauthorized checkout rejection
-10. wrong price ID rejection
-11. tenant isolation
-
-Do not create live products or prices without Lewis's explicit pricing decision.
-
-## Tests
-
-```bash
-npm run typecheck
-npm run lint
-npm test
-npm run test:integration
-npm run build
-npm run test:e2e
-```
-
-Add Stripe CLI or signed-fixture webhook tests without exposing secrets.
+Never use live payment details for proof. Never create live products or prices as a test of the integration.
 
 ## Acceptance criteria
 
-- Checkout creates a real Stripe subscription in test mode.
-- Signed webhooks are the source of subscription truth.
+- Dynamic catalog is the source of truth for display and Checkout.
+- Owner-only pricing edits create replacement Stripe Prices and archive old Prices.
+- Signed webhooks remain the source of subscription truth.
 - Duplicate events are safe.
-- Entitlements update deterministically.
-- Customer Portal works.
-- Billing is visible in existing Settings.
+- Customer Portal works and returns to `/app/settings`.
+- Entitlements update deterministically and are enforced at paid actions.
+- Billing remains visible in existing Settings.
 - No payment method data is stored in Costivra.
 - Tax is not falsely represented as enabled.
 - Existing pilot accounts are not locked out accidentally.
-- No branch, commit, push, merge, or deployment was performed.
+- Test subscription proof passes before live billing is considered.
+- No branch, commit, push, merge, or deployment is performed by the coding agent.
