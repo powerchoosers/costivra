@@ -110,6 +110,7 @@ import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types"
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
 import type { SystemReadiness } from "@/lib/manage/system-readiness";
 import { formatManageDate } from "@/lib/manage/date-format";
+import { sequenceTaskOriginLabel } from "@/lib/manage/task-origin";
 import { groupRecordedSpend, type SpendInterval } from "@/lib/manage/vendor-costs";
 import {
   buildRecipientCandidates,
@@ -4445,7 +4446,7 @@ function Outreach({
                       </span>
                       <small>{pretty(task.taskType)}</small>
                     </div>
-                    {task.origin === "sequence" && (task.sequenceEnrollmentId ? <Link className="manage-task-origin" href={`/manage/outreach?tab=enrollments&enrollment=${task.sequenceEnrollmentId}`} aria-label={`Open sequence enrollment for ${task.title}`}>Sequence · Step {task.sequenceStepPosition ?? "—"}</Link> : <span className="manage-task-origin">Sequence · Step {task.sequenceStepPosition ?? "—"}</span>)}
+                    {sequenceTaskOriginLabel(task) && (task.sequenceEnrollmentId ? <Link className="manage-task-origin" href={`/manage/outreach?tab=enrollments&enrollment=${task.sequenceEnrollmentId}`} aria-label={`Open sequence enrollment for ${task.title}`}>{sequenceTaskOriginLabel(task)}</Link> : <span className="manage-task-origin">{sequenceTaskOriginLabel(task)}</span>)}
                     <h4>{task.title}</h4>
                     <p><strong>{task.organizationName}</strong></p>
                     {task.notes && (
@@ -5878,7 +5879,7 @@ function TaskList({ tasks }: { tasks: ManageData["tasks"] }) {
           <div>
             <strong>{task.title}</strong>
             <p>{task.organizationName}</p>
-            {task.origin === "sequence" && <small className="manage-task-origin">Sequence · Step {task.sequenceStepPosition ?? "—"}</small>}
+            {sequenceTaskOriginLabel(task) && <small className="manage-task-origin">{sequenceTaskOriginLabel(task)}</small>}
           </div>
           <time>{date(task.dueAt)}</time>
         </Link>
