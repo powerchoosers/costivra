@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { getStripeClient } from "@/lib/billing/stripe";
+import { assertStripeBillingMode, getStripeClient } from "@/lib/billing/stripe";
 import { requirePortalContext } from "@/lib/portal/repository";
 
 export async function POST() {
   try {
     const { db, organizationId, role } = await requirePortalContext();
     if (role !== "owner" && role !== "admin") return NextResponse.json({ error: "Only an owner or administrator can manage billing." }, { status: 403 });
+    assertStripeBillingMode();
     const { data: customer, error } = await db.from("billing_customers").select("stripe_customer_id").eq("organization_id", organizationId).maybeSingle();
     if (error) throw error;
     if (!customer?.stripe_customer_id) return NextResponse.json({ error: "No billing account has been started for this workspace." }, { status: 409 });

@@ -5,6 +5,7 @@ import { generateReport } from "@/lib/reports/generate-report";
 import { renderReportEmail } from "@/lib/reports/render-report-email";
 import { emailRequestHash, sendTransactionalEmail } from "@/lib/email/resend";
 import { claimExternalSideEffect } from "@/lib/email/side-effect-claim";
+import { authorizedReportRecipients } from "@/lib/reports/recipients";
 import { nextReportRun } from "@/lib/reports/schedule";
 
 export const runtime = "nodejs";
@@ -61,8 +62,7 @@ export async function GET(request: Request) {
       const authorized = new Set((members ?? [])
         .map((member) => ((member.profiles as unknown as { email?: string } | null)?.email ?? "").trim().toLowerCase())
         .filter(Boolean));
-      const scheduledRecipients = Array.isArray(schedule.recipient_emails) ? schedule.recipient_emails as string[] : [];
-      const recipients = scheduledRecipients.map((recipient) => recipient.trim().toLowerCase()).filter((recipient) => authorized.has(recipient));
+      const recipients = authorizedReportRecipients(schedule.recipient_emails, authorized);
       if (!recipients.length) {
         await db.from("report_delivery_runs").update({ status: "skipped", generated_at: report.generatedAt, safe_error: "NO_AUTHORIZED_RECIPIENTS", completed_at: new Date().toISOString() }).eq("id", deliveryRunId);
         await db.from("report_schedules").update({ next_run_at: next, last_run_at: now.toISOString(), updated_at: new Date().toISOString() }).eq("id", schedule.id);

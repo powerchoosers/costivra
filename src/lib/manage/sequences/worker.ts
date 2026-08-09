@@ -10,6 +10,7 @@ import {
 } from "@/lib/manage/mail";
 import { sendOutboundEmail } from "@/lib/manage/outbound-email";
 import { findSuppression } from "@/lib/manage/sequences/repository";
+import { canUseSequenceMailbox } from "@/lib/manage/sequences/mailbox-policy";
 import { nextSequenceActionAt } from "@/lib/manage/sequences/schedule";
 import { renderTemplate } from "@/lib/manage/sequences/validation";
 import {
@@ -299,14 +300,20 @@ export async function processClaimedSequenceEnrollment(
 
   const [{ data: contact, error: contactError }, { data: mailbox, error: mailboxError }] = await Promise.all([
     db.from("crm_contacts").select("id,organization_id,full_name,email,title,status").eq("id", enrollment.contact_id).eq("organization_id", enrollment.organization_id).maybeSingle(),
-    db.from("crm_mailboxes").select("id,address,display_name,status,can_send").eq("id", enrollment.mailbox_id).maybeSingle(),
+    db.from("crm_mailboxes").select("id,address,display_name,status,can_send,mailbox_type,assigned_to").eq("id", enrollment.mailbox_id).maybeSingle(),
   ]);
   if (contactError) throw contactError;
   if (mailboxError) throw mailboxError;
   if (!contact || contact.status !== "active" || !isValidEmail(text(contact.email))) {
     return failClaim(db, { enrollmentId: claim.id, lockToken: claim.lock_token, sequenceId: sequence.id, reason: "CONTACT_NOT_SENDABLE" });
   }
-  if (!mailbox || mailbox.status !== "active" || mailbox.can_send !== true) {
+  const mailboxAvailable = mailbox && canUseSequenceMailbox(text(enrollment.enrolled_by), {
+    status: text(mailbox.status),
+    canSend: mailbox.can_send === true,
+    mailboxType: text(mailbox.mailbox_type),
+    assignedTo: nullable(mailbox.assigned_to),
+  });
+  if (!mailboxAvailable) {
     return failClaim(db, { enrollmentId: claim.id, lockToken: claim.lock_token, sequenceId: sequence.id, reason: "MAILBOX_NOT_SENDABLE" });
   }
   const suppression = await findSuppression(db, text(contact.email));

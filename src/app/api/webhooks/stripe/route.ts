@@ -111,7 +111,7 @@ export async function POST(request: Request) {
   if (event.livemode && process.env.STRIPE_BILLING_LIVEMODE_ENABLED !== "1") {
     return NextResponse.json({ error: "Live billing is not enabled." }, { status: 400 });
   }
-  try { assertStripeBillingMode(); } catch { return NextResponse.json({ error: "Billing mode is not configured." }, { status: 400 }); }
+  try { assertStripeBillingMode(event.livemode); } catch { return NextResponse.json({ error: "Billing mode is not configured." }, { status: 400 }); }
 
   const db = createServerSupabaseClient();
   const { data: existing } = await db.from("billing_events").select("status").eq("stripe_event_id", event.id).maybeSingle();

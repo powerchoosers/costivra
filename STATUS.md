@@ -2111,7 +2111,7 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 
 - Email-forwarding monitoring now requires a valid approved sender at both the API and persistence boundaries; manual methods are unaffected.
 - Replaced the public hero preview's raw remote image with the configured Next image path and removed the unnecessary navigation hook dependency.
-- Validation: full `npm test` passed (568 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed with zero warnings; `npm run build` passed; `git diff --check` passed.
+- Validation: full `npm test` passed (574 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed with zero warnings; `npm run build` passed; `git diff --check` passed.
 
 # 2026-08-09 — Concurrent email claim hardening
 
@@ -2119,7 +2119,16 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Failed effects can be retried safely; a competing approved effect is treated as in progress and cannot call Resend a second time.
 - Added tests for first claim, concurrent claim, failed retry, and content mismatch behavior.
 
+# 2026-08-09 — Report recipient normalization
+
+- Scheduled report recipients are now normalized and deduplicated at write and delivery time, then intersected with current workspace membership.
+- Added unit coverage for case folding, blanks, duplicate addresses, and unauthorized recipients.
+
 # 2026-08-09 — Sequence enrollment consistency hardening
 
 - Added `20260809063214_packet_05_enrollment_consistency.sql` to enforce sequence/contact organization matching, current-step ownership, and active send-capable mailbox state for direct service-role writes.
 - API suppression and authorization checks remain in place; this migration adds the database backstop.
+- Added `20260809114956_packet_05_mailbox_organization_consistency.sql` to enforce the established global-mailbox model: shared senders remain reusable, while personal senders must be assigned to the operator who enrolls the contact.
+- Added a shared API/database mailbox policy and focused tests for active, send-capable, shared, assigned-personal, unassigned, disabled, and send-disabled cases.
+- The sequence worker now rechecks that policy immediately before processing a send, so a later mailbox reassignment or disablement fails closed.
+- Validation after this slice: `npm test` passed (578 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; `git diff --check` passed. `supabase db lint --local` remains unavailable because local Postgres is not running.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { listEnrollments, findSuppression } from "@/lib/manage/sequences/repository";
 import { validateSequenceDraft } from "@/lib/manage/sequences/validation";
+import { canUseSequenceMailbox } from "@/lib/manage/sequences/mailbox-policy";
 import { getSequence } from "@/lib/manage/sequences/repository";
 import { cleanUuid } from "@/lib/portal/http";
 
@@ -23,7 +24,13 @@ export async function POST(request: Request) {
     if (!validation.valid) return NextResponse.json({ error: "This sequence needs attention before enrollment.", details: validation.errors }, { status: 409 });
     if (sequence.status !== "draft") return NextResponse.json({ error: "Only draft sequences may create pending enrollments in this packet." }, { status: 409 });
     const { data: mailbox } = await db.from("crm_mailboxes").select("id,address,status,can_send,assigned_to,mailbox_type").eq("id", mailboxId).maybeSingle();
-    if (!mailbox || mailbox.status !== "active" || !mailbox.can_send || (mailbox.mailbox_type === "personal" && mailbox.assigned_to !== userId)) return NextResponse.json({ error: "That sender mailbox is not available to you." }, { status: 403 });
+    const mailboxAvailable = mailbox && canUseSequenceMailbox(userId, {
+      status: mailbox.status,
+      canSend: mailbox.can_send,
+      mailboxType: mailbox.mailbox_type,
+      assignedTo: mailbox.assigned_to,
+    });
+    if (!mailboxAvailable) return NextResponse.json({ error: "That sender mailbox is not available to you." }, { status: 403 });
     const { data: contacts } = await db.from("crm_contacts").select("id,organization_id,email,status").in("id", contactIds).eq("organization_id", sequence.organizationId);
     const eligible: string[] = []; const blocked: Array<{ id: string; reason: string }> = [];
     for (const contact of contacts ?? []) {

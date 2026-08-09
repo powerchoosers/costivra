@@ -1260,6 +1260,20 @@ Lifecycle and report email sends claim the unique idempotency key with an insert
 
 Concurrent lifecycle/report triggers now fail closed against duplicate sends while preserving safe retries after a provider rejection. An ambiguous in-flight send remains visible for operator reconciliation instead of being retried blindly.
 
+# 2026-08-09 — Normalize scheduled report recipients before delivery
+
+## Context
+
+Recipient arrays come from editable schedule records and may contain case differences, blanks, or repeated addresses. Filtering only at send time can overstate recipient counts and makes delivery history harder to interpret.
+
+## Decision
+
+Normalize and deduplicate recipient addresses before schedule creation and again at cron delivery, then intersect them with current workspace membership. Any unauthorized requested address still blocks schedule creation.
+
+## Consequences
+
+Each authorized address is delivered at most once per scheduled report period, and a stale or malformed schedule cannot expand delivery outside the current organization.
+
 # 2026-08-09 — Email-forwarding monitoring requires a configured sender
 
 ## Context
@@ -1287,3 +1301,31 @@ Add a trigger-backed database guard for sequence organization, contact organizat
 ## Consequences
 
 Direct internal writes fail closed at the database boundary instead of relying only on application callers. Manual mail and customer tables remain outside the sequence write path.
+
+# 2026-08-09 — Keep mailboxes global, enforce personal assignment for sequences
+
+## Context
+
+`crm_mailboxes` is a server-only Costivra operator allowlist. It deliberately has no organization column: shared senders can serve multiple customer organizations, while personal senders are assigned to an internal operator. Adding a tenant foreign key would change that established mailbox model without improving the shared-sender case.
+
+## Decision
+
+Keep shared mailboxes global. Make sequence enrollment use the existing rule consistently: the sender must be active and send-capable; shared mailboxes are allowed, and personal mailboxes must be assigned to the enrolling operator. Enforce this in the API and in the enrollment trigger so direct service-role writes cannot bypass it.
+
+## Consequences
+
+The API and database now agree on personal-mailbox ownership. Shared mailboxes remain reusable across organizations by design. Owner/operator mailbox administration outside sequences is unchanged.
+
+# 2026-08-09 — Recheck sequence mailbox ownership immediately before send
+
+## Context
+
+An enrollment can remain pending while an operator disables or reassigns its mailbox. Validating only when the enrollment is created would allow a later worker run to send from a mailbox that is no longer available to the enrolling operator.
+
+## Decision
+
+The sequence worker reuses the same active/send-capable/shared-or-assigned policy immediately before processing an email step. A changed mailbox fails the enrollment instead of sending.
+
+## Consequences
+
+Mailbox changes take effect for future sends without requiring a bulk enrollment rewrite. Existing rows are protected by the worker’s runtime check as well as the enrollment trigger.

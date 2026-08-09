@@ -24,10 +24,15 @@ export function stripeIsConfigured(): boolean {
 }
 
 /** Keep the new integration in test mode until Lewis explicitly enables live billing. */
-export function assertStripeBillingMode() {
-  if (process.env.STRIPE_BILLING_LIVEMODE_ENABLED === "1") return;
+export function assertStripeBillingMode(eventLivemode?: boolean) {
   const secret = configuredStripeSecret();
-  if (!secret?.startsWith("sk_test_") && !secret?.startsWith("rk_test_")) {
+  const isLiveKey = secret?.startsWith("sk_live_") || secret?.startsWith("rk_live_");
+  const isTestKey = secret?.startsWith("sk_test_") || secret?.startsWith("rk_test_");
+  if (!isLiveKey && !isTestKey) throw new Error("STRIPE_KEY_MODE_UNKNOWN");
+  if (eventLivemode !== undefined && eventLivemode !== isLiveKey) {
+    throw new Error("STRIPE_EVENT_MODE_MISMATCH");
+  }
+  if (isLiveKey && process.env.STRIPE_BILLING_LIVEMODE_ENABLED !== "1") {
     throw new Error("STRIPE_LIVE_BILLING_DISABLED");
   }
 }
