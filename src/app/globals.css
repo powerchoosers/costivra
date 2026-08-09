@@ -2636,6 +2636,8 @@ html { scroll-padding-top: 92px; }
 .manage-task-column article footer span { display:flex; align-items:center; gap:5px; color:#8791a0; font-size:.61rem; }
 .manage-task-column article footer button { width:28px; height:28px; display:grid; place-items:center; background:#fff; border:1px solid #dfe4ea; border-radius:8px; color:#12a463; cursor:pointer; }
 .manage-priority { padding:4px 6px; border-radius:6px; background:#f3f4f6; color:#697386; font-size:.57rem; font-weight:720; text-transform:uppercase; }
+.manage-task-origin { display:inline-flex; width:max-content; align-items:center; border:1px solid #d7e1f2; border-radius:999px; color:#3f5f98; background:#f4f7fc; padding:3px 6px; font-size:.57rem; font-weight:650; text-decoration:none; }
+.manage-task-origin:hover { border-color:#b9cbe8; color:#2d4f8f; }
 .manage-priority--high { background:#fff1f0; color:#d92d20; } .manage-priority--low { background:#edf7f2; color:#18794e; }
 .manage-column-empty { padding:26px 10px; color:#8b95a4; font-size:.65rem; text-align:center; }
 .manage-mail-page { min-width:0; height:100%; display:flex; flex-direction:column; border:1px solid var(--manage-line); border-radius:17px; background:#fff; box-shadow:0 4px 20px -4px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.02); overflow:hidden; }

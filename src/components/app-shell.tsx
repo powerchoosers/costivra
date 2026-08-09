@@ -281,7 +281,14 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const [profileOpen, setProfileOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.sessionStorage.getItem(APP_SIDEBAR_PREFERENCE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);

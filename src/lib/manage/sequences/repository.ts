@@ -8,6 +8,19 @@ type Row = Record<string, unknown>;
 const text = (value: unknown, fallback = "") => typeof value === "string" ? value : fallback;
 const nullable = (value: unknown) => typeof value === "string" && value ? value : null;
 const num = (value: unknown, fallback = 0) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+const touchEventTypes = new Set(["task_created", "task_completed", "email_queued", "email_sent", "email_delivered", "reply_received", "bounced", "unsubscribed"]);
+
+export function latestEnrollmentTouches(events: Row[]) {
+  const latest = new Map<string, string>();
+  for (const event of events) {
+    const enrollmentId = text(event.enrollment_id);
+    const occurredAt = nullable(event.occurred_at);
+    if (!enrollmentId || !occurredAt || !touchEventTypes.has(text(event.event_type))) continue;
+    const previous = latest.get(enrollmentId);
+    if (!previous || Date.parse(occurredAt) > Date.parse(previous)) latest.set(enrollmentId, occurredAt);
+  }
+  return latest;
+}
 
 function step(row: Row): SequenceStep {
   return {
@@ -40,7 +53,7 @@ export function summarizeSequenceStats(sequenceId: string, enrollments: Row[], m
   const current = enrollments.filter((item) => item.sequence_id === sequenceId);
   const sequenceMessages = messages.filter((item) => item.sequence_id === sequenceId);
   return {
-    activeEnrollments: current.filter((item) => ["pending", "active", "waiting_for_task"].includes(text(item.state))).length,
+    activeEnrollments: current.filter((item) => ["active", "waiting_for_task"].includes(text(item.state))).length,
     scheduledNext24Hours: current.filter((item) => { const timestamp = Date.parse(text(item.next_action_at)); return Number.isFinite(timestamp) && timestamp >= now && timestamp <= nextDay; }).length,
     sent: sequenceMessages.filter((item) => ["sent", "delivered"].includes(text(item.provider_status))).length,
     replies: events.filter((item) => item.sequence_id === sequenceId && text(item.event_type) === "reply_received").length,
@@ -81,11 +94,17 @@ export async function listEnrollments(db: Db, organizationId?: string) {
   if (organizationId) query = query.eq("organization_id", organizationId);
   const { data, error } = await query;
   if (error) throw error;
+  const enrollmentIds = (data ?? []).map((row: Row) => text(row.id)).filter(Boolean);
+  const touchEvents = enrollmentIds.length
+    ? await db.from("crm_sequence_events").select("enrollment_id,event_type,occurred_at").in("enrollment_id", enrollmentIds)
+    : { data: [], error: null };
+  if (touchEvents.error) throw touchEvents.error;
+  const latestTouches = latestEnrollmentTouches((touchEvents.data ?? []) as Row[]);
   return (data ?? []).map((row: Row): Enrollment => ({
     id: text(row.id), sequenceId: text(row.sequence_id), sequenceName: text((row.sequence as Row | null)?.name, "Sequence"), organizationId: text(row.organization_id),
     contactId: text(row.contact_id), contactName: text((row.contact as Row | null)?.full_name, "Unknown contact"), contactEmail: text((row.contact as Row | null)?.email), accountName: text((row.organization as Row | null)?.name, "Unknown account"),
     mailboxId: text(row.mailbox_id), mailboxAddress: text((row.mailbox as Row | null)?.address), state: row.state as Enrollment["state"], currentStepPosition: num(row.current_step_position),
-    nextActionAt: nullable(row.next_action_at), stopReason: nullable(row.stop_reason), createdAt: text(row.created_at),
+    nextActionAt: nullable(row.next_action_at), lastTouchAt: latestTouches.get(text(row.id)) ?? null, stopReason: nullable(row.stop_reason), createdAt: text(row.created_at),
   }));
 }
 

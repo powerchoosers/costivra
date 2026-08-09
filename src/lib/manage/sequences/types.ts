@@ -64,6 +64,7 @@ export type Enrollment = {
   state: EnrollmentState;
   currentStepPosition: number;
   nextActionAt: string | null;
+  lastTouchAt: string | null;
   stopReason: string | null;
   createdAt: string;
 };

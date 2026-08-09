@@ -228,6 +228,11 @@ export type ManageTask = {
   dueAt: string | null;
   notes: string | null;
   createdAt: string;
+  origin?: "manual" | "sequence";
+  sequenceId?: string | null;
+  sequenceEnrollmentId?: string | null;
+  sequenceStepId?: string | null;
+  sequenceStepPosition?: number | null;
 };
 
 export type ManageActivity = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findOutreachBlock, summarizeSequenceStats } from "./repository";
+import { findOutreachBlock, latestEnrollmentTouches, summarizeSequenceStats } from "./repository";
 
 function query(result: { data: unknown; error: unknown }) {
   const builder = {
@@ -28,7 +28,19 @@ describe("summarizeSequenceStats", () => {
     ], [
       { sequence_id: "sequence-1", event_type: "reply_received" },
       { sequence_id: "sequence-1", event_type: "email_sent" },
-    ], now)).toEqual({ activeEnrollments: 2, scheduledNext24Hours: 1, sent: 1, replies: 1 });
+    ], now)).toEqual({ activeEnrollments: 1, scheduledNext24Hours: 1, sent: 1, replies: 1 });
+  });
+});
+
+describe("latestEnrollmentTouches", () => {
+  it("returns the newest real touch and ignores staging-only events", () => {
+    expect(latestEnrollmentTouches([
+      { enrollment_id: "enrollment-1", event_type: "enrolled", occurred_at: "2026-08-10T08:00:00.000Z" },
+      { enrollment_id: "enrollment-1", event_type: "email_sent", occurred_at: "2026-08-10T09:00:00.000Z" },
+      { enrollment_id: "enrollment-1", event_type: "task_created", occurred_at: "2026-08-10T10:00:00.000Z" },
+      { enrollment_id: "enrollment-1", event_type: "email_delivered", occurred_at: "2026-08-10T09:30:00.000Z" },
+      { enrollment_id: "enrollment-2", event_type: "step_scheduled", occurred_at: "2026-08-10T11:00:00.000Z" },
+    ])).toEqual(new Map([["enrollment-1", "2026-08-10T10:00:00.000Z"]]));
   });
 });
 

@@ -393,6 +393,13 @@ export async function getManageData(input?: {
   const visibleTasks = rows(tasksResult.data).filter((task) =>
     isVisibleOrganization(text(task.organization_id)),
   );
+  const sequenceStepIds = [...new Set(visibleTasks.map((task) => text(task.sequence_step_id)).filter(Boolean))];
+  const sequenceStepPositionsResult = sequenceStepIds.length
+    ? await db.from("crm_sequence_steps").select("id,position").in("id", sequenceStepIds)
+    : { data: [], error: null };
+  const sequenceStepPositionById = new Map(
+    rows(sequenceStepPositionsResult.data).map((step) => [text(step.id), nullableNumber(step.position)]),
+  );
   const openTasks = visibleTasks.filter((task) =>
     ["open", "in_progress"].includes(text(task.status)),
   );
@@ -771,6 +778,11 @@ export async function getManageData(input?: {
       dueAt: nullable(task.due_at),
       notes: nullable(task.notes),
       createdAt: text(task.created_at),
+      origin: text(task.origin, "manual") === "sequence" ? "sequence" : "manual",
+      sequenceId: nullable(task.sequence_id),
+      sequenceEnrollmentId: nullable(task.sequence_enrollment_id),
+      sequenceStepId: nullable(task.sequence_step_id),
+      sequenceStepPosition: sequenceStepPositionById.get(text(task.sequence_step_id)) ?? null,
     })),
     activities: rows(activitiesResult.data)
       .filter((activity) =>

@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     const personalizationByContact = sanitizeSequencePersonalizationMap(body.personalization);
     if (!sequenceId || !contactIds.length) return NextResponse.json({ error: "Choose a sequence and at least one contact." }, { status: 400 });
     const sequence = await getSequence(db, sequenceId); if (!sequence) return NextResponse.json({ error: "Sequence not found." }, { status: 404 });
+    if (sequence.status !== "draft") return NextResponse.json({ error: "Only draft sequences may be previewed in this packet." }, { status: 409 });
     const validation = validateSequenceDraft(sequence, { forActivation: true }); if (!validation.valid) return NextResponse.json({ error: "This sequence needs attention before preview.", details: validation.errors }, { status: 409 });
     const [{ data: contacts, error: contactsError }, { data: existingEnrollments, error: enrollmentError }] = await Promise.all([
       db.from("crm_contacts").select("id,organization_id,full_name,email,title,organization:organizations(name),status").in("id", contactIds).eq("organization_id", sequence.organizationId),

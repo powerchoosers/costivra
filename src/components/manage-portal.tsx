@@ -702,7 +702,14 @@ export function ManagePortal({
   const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : "Client operations";
   useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
-  const [mobileNav, setMobileNav] = useState(true);
+  const [mobileNav, setMobileNav] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY) !== "true";
+    } catch {
+      return true;
+    }
+  });
   const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
   const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; left: number; top: number; closing?: boolean } | null>(null);
   const [sidebarViewport, setSidebarViewport] =
@@ -729,6 +736,7 @@ export function ManagePortal({
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const sidebarPointerDownRef = useRef(false);
+  const suppressSidebarFocusRef = useRef(false);
   const sidebarCloseTimerRef = useRef<number | null>(null);
   const dialogCloseTimerRef = useRef<number | null>(null);
   const [dialog, setDialog] = useState<"account" | "contact" | "task" | "note" | "mailbox" | null>(null);
@@ -1065,7 +1073,11 @@ export function ManagePortal({
           sidebarIsCollapsed ? " is-collapsed" : ""
         }`}
         onFocusCapture={() => {
-          if (sidebarViewport !== "mobile" && !sidebarPointerDownRef.current) {
+          if (
+            sidebarViewport !== "mobile" &&
+            !sidebarPointerDownRef.current &&
+            !suppressSidebarFocusRef.current
+          ) {
             clearSidebarIntent();
             setMobileNav(true);
           }
@@ -1138,7 +1150,14 @@ export function ManagePortal({
                     onMouseLeave={clearSidebarTooltip}
                     onFocus={(event) => showSidebarTooltip(unreadCount > 0 ? `${label}, ${unreadCount} unread messages` : label, event.currentTarget)}
                     onBlur={clearSidebarTooltip}
-                    onClick={() => setMobileNav(false)}
+                    onClick={() => {
+                      // Keep a collapsed rail collapsed after the browser moves focus to the clicked link.
+                      suppressSidebarFocusRef.current = true;
+                      setMobileNav(false);
+                      window.setTimeout(() => {
+                        suppressSidebarFocusRef.current = false;
+                      }, 300);
+                    }}
                   >
                     <Icon size={18} />
                     <span className="manage-nav-label">{label}</span>
@@ -1170,7 +1189,13 @@ export function ManagePortal({
               onMouseLeave={clearSidebarTooltip}
               onFocus={(event) => showSidebarTooltip(settingsNav[0], event.currentTarget)}
               onBlur={clearSidebarTooltip}
-              onClick={() => setMobileNav(false)}
+              onClick={() => {
+                suppressSidebarFocusRef.current = true;
+                setMobileNav(false);
+                window.setTimeout(() => {
+                  suppressSidebarFocusRef.current = false;
+                }, 300);
+              }}
             >
               <Settings size={18} />
               <span className="manage-nav-label">{settingsNav[0]}</span>
@@ -4420,6 +4445,7 @@ function Outreach({
                       </span>
                       <small>{pretty(task.taskType)}</small>
                     </div>
+                    {task.origin === "sequence" && (task.sequenceEnrollmentId ? <Link className="manage-task-origin" href={`/manage/outreach?tab=enrollments&enrollment=${task.sequenceEnrollmentId}`} aria-label={`Open sequence enrollment for ${task.title}`}>Sequence · Step {task.sequenceStepPosition ?? "—"}</Link> : <span className="manage-task-origin">Sequence · Step {task.sequenceStepPosition ?? "—"}</span>)}
                     <h4>{task.title}</h4>
                     <p><strong>{task.organizationName}</strong></p>
                     {task.notes && (
@@ -5852,6 +5878,7 @@ function TaskList({ tasks }: { tasks: ManageData["tasks"] }) {
           <div>
             <strong>{task.title}</strong>
             <p>{task.organizationName}</p>
+            {task.origin === "sequence" && <small className="manage-task-origin">Sequence · Step {task.sequenceStepPosition ?? "—"}</small>}
           </div>
           <time>{date(task.dueAt)}</time>
         </Link>
