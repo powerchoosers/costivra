@@ -2298,8 +2298,14 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Billing status now performs a read-only Stripe account readiness check. Live checkout remains pending unless Stripe reports both charges and payouts enabled; the account readiness summary is safe metadata only and never exposes secrets.
 - The Billing panel now explains this blocker as Stripe account verification/setup rather than implying that a connected API key alone means payments are ready.
 
-# 2026-08-09 — Fail closed on durable outreach suppression
+# 2026-08-09 — Fail closed and explain outreach eligibility
 
 - Packet 06 enrollment staging and preview now check the contact's current marketing consent plus prior provider outcomes (`bounced`, `complained`, or `suppressed`) in addition to the existing suppression table and inactive-contact check.
+
+- The internal Manage contact model now carries optional suppression context from active email/domain suppressions, the latest marketing consent, and recent provider outcomes. This is display context only; the server-side eligibility check remains authoritative and fail-closed.
+- The Packet 06 enrollment picker now keeps inactive contacts visible and labels status, consent, and known suppression reasons instead of silently filtering them out. This lets operators understand why a contact will be blocked before requesting a preview.
+- Added latest-opted-in regression coverage for the shared eligibility resolver. Validation: `npm test` passed (637 passed, 6 skipped); integration passed (8 passed, 6 skipped); typecheck, lint, and production build passed. No provider writes, migration, commit, push, or deployment were performed.
+- Sequence selection now persists in `/manage/outreach?tab=sequences&sequence=<id>` and restores from browser navigation; switching nested tabs clears stale sequence/enrollment context.
+- URL-state slice validation: `npm test` passed (637 passed, 6 skipped); `npm run typecheck`, `npm run lint`, and `npm run build` passed. No provider writes, migration, commit, push, or deployment were performed.
 - The sequence worker repeats that eligibility check immediately before sending. A newly opted-out or provider-suppressed contact is stopped with the matching unsubscribe/bounce event instead of receiving a later sequence message.
 - Consent resolution uses the latest recorded consent, so a later opt-in is not incorrectly blocked by an older opt-out record. Full validation after this slice: `npm test` passed (636 passed, 6 skipped); integration passed (8 passed, 6 skipped); typecheck, lint, and production build passed. No provider writes, commit, push, migration, or deployment were performed.

@@ -4288,6 +4288,8 @@ function Outreach({
   const setOutreachTab = (tab: "tasks" | "sequences" | "enrollments") => {
     const next = new URLSearchParams(searchParams.toString());
     if (tab === "tasks") next.delete("tab"); else next.set("tab", tab);
+    if (tab !== "sequences") next.delete("sequence");
+    if (tab !== "enrollments") next.delete("enrollment");
     router.replace(`/manage/outreach${next.toString() ? `?${next.toString()}` : ""}`);
   };
   const handleOutreachTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {

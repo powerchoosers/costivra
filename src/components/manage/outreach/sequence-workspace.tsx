@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Archive, ArrowDown, ArrowUp, Check, ChevronRight, CircleAlert, Copy, Eye, LoaderCircle, Pause, Play, Plus, Search, Trash2, Users, X } from "lucide-react";
 import type { ManageData } from "@/lib/manage/types";
 import type { Sequence, SequenceStep, SequenceStepType, Enrollment } from "@/lib/manage/sequences/types";
@@ -50,10 +51,14 @@ function stepDraft(type: SequenceStepType, position: number) {
 }
 
 export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.toString();
+  const sequenceQueryId = searchParams.get("sequence");
+  const enrollmentQueryId = searchParams.get("enrollment");
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [sequenceExecutionEnabled, setSequenceExecutionEnabled] = useState(false);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -75,6 +80,22 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [mailboxId, setMailboxId] = useState(data.mail.mailboxes.find((item) => item.canSend && item.status === "active")?.id ?? "");
   const activeSheet = showNew ? "new" : showEnroll ? "enroll" : null;
+
+  const selectSequence = (id: string | null) => {
+    const next = new URLSearchParams(urlQuery);
+    next.set("tab", "sequences");
+    if (id) next.set("sequence", id); else next.delete("sequence");
+    next.delete("enrollment");
+    router.replace(`/manage/outreach?${next.toString()}`, { scroll: false });
+  };
+
+  const selectEnrollment = (id: string | null) => {
+    const next = new URLSearchParams(urlQuery);
+    next.set("tab", "enrollments");
+    if (id) next.set("enrollment", id); else next.delete("enrollment");
+    next.delete("sequence");
+    router.replace(`/manage/outreach?${next.toString()}`, { scroll: false });
+  };
 
   useEffect(() => {
     if (!activeSheet) return;
@@ -105,7 +126,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
     return () => document.removeEventListener("keydown", handleSheetKeyDown);
   }, [activeSheet]);
 
-  const selected = sequences.find((item) => item.id === selectedId) ?? null;
+  const selected = sequences.find((item) => item.id === sequenceQueryId) ?? null;
+  const selectedEnrollment = enrollments.find((item) => item.id === enrollmentQueryId) ?? null;
   const ownerOptions = useMemo(() => Array.from(new Set(sequences.map((item) => item.ownerName || "Unassigned"))).sort(), [sequences]);
   const visibleSequences = useMemo(() => sequences.filter((item) => {
     const searchTerm = `${query} ${sequenceSearch}`.trim().toLowerCase();
@@ -147,7 +169,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
     setBusy(true); setError(null);
     try {
       const payload = await requestJson("/api/manage/outreach/sequences", { method: "POST", body: JSON.stringify({ organizationId, name }) });
-      setShowNew(false); setName(""); await load(); setSelectedId(String(payload.id));
+      setShowNew(false); setName(""); await load(); selectSequence(String(payload.id));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The sequence could not be created."); }
     finally { setBusy(false); }
   }
@@ -220,7 +242,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
     setBusy(true); setError(null);
     try {
       const payload = await requestJson(`/api/manage/outreach/sequences/${id}/${action}`, { method: "POST", body: JSON.stringify({}) });
-      if (action === "clone" && typeof payload.id === "string") setSelectedId(payload.id);
+      if (action === "clone" && typeof payload.id === "string") selectSequence(payload.id);
       await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : `The sequence could not be ${action}d.`); }
     finally { setBusy(false); }
@@ -260,7 +282,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
       <div className="sequence-summary-strip" aria-label="Outreach sequence summary"><div><span>Active sequences</span><strong>{summary.activeSequences}</strong></div><div><span>Active enrollments</span><strong>{summary.activeEnrollments}</strong></div><div><span>Scheduled next 24h</span><strong>{summary.scheduled}</strong></div><div><span>Replies</span><strong>{summary.replies}</strong></div><div><span>Needs attention</span><strong>{sequences.filter((item) => item.status === "draft" && !validateSequenceDraft(item, { forActivation: true }).valid).length}</strong></div></div>
       <div className="sequence-toolbar"><label className="sequence-search"><Search size={14} /><input value={sequenceSearch} onChange={(event) => setSequenceSearch(event.target.value)} placeholder="Search sequences" aria-label="Search sequences" /></label><label><span className="sr-only">Filter sequence status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | Sequence["status"])}><option value="all">All statuses</option><option value="draft">Draft</option><option value="active">Active</option><option value="paused">Paused</option><option value="archived">Archived</option></select></label><label><span className="sr-only">Filter sequence owner</span><select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}><option value="all">All owners</option>{ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label><label className="sequence-checkbox"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} /> Show archived</label></div>
       <div className="sequence-layout">
-        <div className="sequence-list manage-panel"><div className="manage-panel-header"><div><h3>Saved sequences</h3><p>{visibleSequences.length} plan{visibleSequences.length === 1 ? "" : "s"}</p></div></div>{visibleSequences.length ? visibleSequences.map((item) => <div key={item.id} className={`sequence-list-item${selectedId === item.id ? " is-selected" : ""}`}><button className="sequence-list-item__main" onClick={() => setSelectedId(item.id)}><span><strong>{item.name}</strong><small>{item.steps.length} steps · {item.status} · {item.ownerName || "Unassigned"}</small><small>{item.activeEnrollments} active contacts · {item.scheduledNext24Hours} scheduled · {item.sent} sent · {item.replies} replies · {item.sent ? `${Math.round((item.replies / item.sent) * 100)}% reply rate` : "— reply rate"}</small></span><ChevronRight size={16} /></button><div className="sequence-row-actions"><button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "clone")} disabled={busy} aria-label={`Clone ${item.name}`} title="Clone sequence"><Copy size={14} /></button>{item.status === "active" && <button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "pause")} disabled={busy} aria-label={`Pause ${item.name}`} title="Pause sequence"><Pause size={14} /></button>}{["draft", "paused"].includes(item.status) && <button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "archive")} disabled={busy} aria-label={`Archive ${item.name}`} title="Archive sequence"><Archive size={14} /></button>}</div></div>) : <div className="manage-empty"><strong>No matching sequences.</strong><p>Start with one focused, human-reviewable follow-up plan.</p></div>}</div>
+        <div className="sequence-list manage-panel"><div className="manage-panel-header"><div><h3>Saved sequences</h3><p>{visibleSequences.length} plan{visibleSequences.length === 1 ? "" : "s"}</p></div></div>{visibleSequences.length ? visibleSequences.map((item) => <div key={item.id} className={`sequence-list-item${sequenceQueryId === item.id ? " is-selected" : ""}`}><button className="sequence-list-item__main" onClick={() => selectSequence(item.id)}><span><strong>{item.name}</strong><small>{item.steps.length} steps · {item.status} · {item.ownerName || "Unassigned"}</small><small>{item.activeEnrollments} active contacts · {item.scheduledNext24Hours} scheduled · {item.sent} sent · {item.replies} replies · {item.sent ? `${Math.round((item.replies / item.sent) * 100)}% reply rate` : "— reply rate"}</small></span><ChevronRight size={16} /></button><div className="sequence-row-actions"><button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "clone")} disabled={busy} aria-label={`Clone ${item.name}`} title="Clone sequence"><Copy size={14} /></button>{item.status === "active" && <button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "pause")} disabled={busy} aria-label={`Pause ${item.name}`} title="Pause sequence"><Pause size={14} /></button>}{["draft", "paused"].includes(item.status) && <button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "archive")} disabled={busy} aria-label={`Archive ${item.name}`} title="Archive sequence"><Archive size={14} /></button>}</div></div>) : <div className="manage-empty"><strong>No matching sequences.</strong><p>Start with one focused, human-reviewable follow-up plan.</p></div>}</div>
         <div className="sequence-editor manage-panel">{selected ? <SequenceEditor sequence={selected} executionEnabled={sequenceExecutionEnabled} busy={busy} activating={activating} onActivate={activateSequence} onAdd={addStep} onSave={saveSequence} onReorder={reorderSteps} onDelete={deleteStep} onDuplicate={duplicateStep} onTestSend={sendTest} onClone={() => void sequenceAction(selected.id, "clone")} /> : <div className="manage-empty sequence-editor__empty"><strong>Select a sequence to edit it.</strong><p>Activation is checked server-side before any message can be sent.</p></div>}</div>
       </div>
       {enrollments.length > 0 && <div className="manage-panel sequence-enrollment-summary"><div className="manage-panel-header"><div><h3>Pending enrollment review</h3><p>These records are staged only; no message has been sent.</p></div></div><div className="sequence-enrollment-table">{enrollments.slice(0, 12).map((item) => <div key={item.id}><span><strong>{item.contactName}</strong><small>{item.sequenceName} · {item.contactEmail}</small></span><em>{item.state}</em></div>)}</div></div>}
