@@ -4283,13 +4283,14 @@ function Outreach({
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const searchParams = useSearchParams();
   const router = useRouter();
-  const outreachTab = searchParams.get("tab") === "sequences" || searchParams.get("tab") === "enrollments" ? searchParams.get("tab") : "tasks";
+  const requestedOutreachTab = searchParams.get("tab");
+  const outreachTab: "tasks" | "sequences" | "enrollments" = requestedOutreachTab === "sequences" || requestedOutreachTab === "enrollments" ? requestedOutreachTab : "tasks";
   const setOutreachTab = (tab: "tasks" | "sequences" | "enrollments") => {
     const next = new URLSearchParams(searchParams.toString());
     if (tab === "tasks") next.delete("tab"); else next.set("tab", tab);
     router.replace(`/manage/outreach${next.toString() ? `?${next.toString()}` : ""}`);
   };
-  const handleOutreachTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+  const handleOutreachTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     const tabs = ["tasks", "sequences", "enrollments"] as const;

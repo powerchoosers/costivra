@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { brandedEmailHtml, escapeEmailHtml } from "./brand";
 import { emailRequestHash, sendTransactionalEmail } from "./resend";
+import { claimExternalSideEffect } from "./side-effect-claim";
 
 export type LifecycleEmailKind =
   | "welcome_activation" | "upload_received" | "review_needed" | "finding_ready"
@@ -77,25 +78,25 @@ export async function sendLifecycleEmail(db: SupabaseClient, input: SendLifecycl
   const content = buildLifecycleEmailContent(input.kind, input.payload, input.recipientName);
   const idempotencyKey = stableIdempotencyKey(input);
   const requestHash = emailRequestHash({ to: input.recipientEmail, subject: content.subject, text: content.text });
-  const { data: existing, error: lookupError } = await db.from("external_side_effects").select("id,status,provider_reference").eq("organization_id", input.organizationId).eq("idempotency_key", idempotencyKey).maybeSingle();
-  if (lookupError) return { sent: false, reason: "SIDE_EFFECT_LOOKUP_FAILED", deliveryStatus: "failed" };
-  if (existing && ["sent", "delivered", "accepted"].includes(existing.status)) {
-    return { sent: false, messageId: existing.provider_reference || undefined, reason: "Already delivered (idempotent duplicate)", deliveryStatus: "duplicate" };
+  const claim = await claimExternalSideEffect(db, {
+    organizationId: input.organizationId,
+    type: "lifecycle_email",
+    destination: input.recipientEmail.trim().toLowerCase(),
+    idempotencyKey,
+    requestHash,
+    authorizationMethod: "lifecycle_event_policy_v1",
+    sanitizedRequestMetadata: { kind: input.kind, source_record_id: input.payload.sourceRecordId ?? null, event_key: input.payload.eventKey ?? null, subject: content.subject },
+  });
+  if (!claim.claimed) {
+    if (claim.duplicate) return { sent: false, messageId: claim.providerReference || undefined, reason: "Already delivered or in progress (idempotent duplicate)", deliveryStatus: "duplicate" };
+    return { sent: false, reason: claim.error, deliveryStatus: "failed" };
   }
-
-  const { error: ledgerError } = await db.from("external_side_effects").upsert({
-    organization_id: input.organizationId, type: "lifecycle_email", destination: input.recipientEmail.trim().toLowerCase(), idempotency_key: idempotencyKey,
-    request_hash: requestHash, status: "approved", provider: "resend", authorized_at: new Date().toISOString(), authorization_method: "lifecycle_event_policy_v1",
-    sanitized_request_metadata: { kind: input.kind, source_record_id: input.payload.sourceRecordId ?? null, event_key: input.payload.eventKey ?? null, subject: content.subject },
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "idempotency_key" });
-  if (ledgerError) return { sent: false, reason: "SIDE_EFFECT_LEDGER_FAILED", deliveryStatus: "failed" };
 
   const result = await sendTransactionalEmail({ to: input.recipientEmail.trim().toLowerCase(), subject: content.subject, text: content.text, html: content.html, idempotencyKey });
   if (!result.ok) {
-    await db.from("external_side_effects").update({ status: "failed", last_error: result.error, updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
+    await db.from("external_side_effects").update({ status: "failed", last_error: result.error, updated_at: new Date().toISOString() }).eq("id", claim.id);
     return { sent: false, reason: result.error, deliveryStatus: "failed" };
   }
-  await db.from("external_side_effects").update({ status: "sent", provider_reference: result.providerId, completed_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
+  await db.from("external_side_effects").update({ status: "sent", provider_reference: result.providerId, completed_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq("id", claim.id);
   return { sent: true, messageId: result.providerId, deliveryStatus: "accepted" };
 }

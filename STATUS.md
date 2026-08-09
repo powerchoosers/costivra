@@ -2113,6 +2113,12 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Replaced the public hero preview's raw remote image with the configured Next image path and removed the unnecessary navigation hook dependency.
 - Validation: full `npm test` passed (568 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed with zero warnings; `npm run build` passed; `git diff --check` passed.
 
+# 2026-08-09 — Concurrent email claim hardening
+
+- Added `src/lib/email/side-effect-claim.ts` so lifecycle and report emails use an insert-winner idempotency claim instead of a read-then-upsert race.
+- Failed effects can be retried safely; a competing approved effect is treated as in progress and cannot call Resend a second time.
+- Added tests for first claim, concurrent claim, failed retry, and content mismatch behavior.
+
 # 2026-08-09 — Sequence enrollment consistency hardening
 
 - Added `20260809063214_packet_05_enrollment_consistency.sql` to enforce sequence/contact organization matching, current-step ownership, and active send-capable mailbox state for direct service-role writes.

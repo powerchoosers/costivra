@@ -1246,6 +1246,20 @@ Normalize display-name addresses and require an exact match between the inbound 
 
 A real approved forwarding test still activates monitoring after clean processing, while unrelated or spoofed mail remains in the normal intake record without changing monitoring state.
 
+# 2026-08-09 — External email effects use an insert-winner claim
+
+## Context
+
+A read-then-upsert pattern is not enough to prevent duplicate provider calls: two workers can both observe no completed effect and then both send the same email before either write is visible.
+
+## Decision
+
+Lifecycle and report email sends claim the unique idempotency key with an insert. Only the insert winner may call Resend. Failed rows can be reclaimed with a compare-and-set update; an approved in-flight row is treated as already owned by another worker.
+
+## Consequences
+
+Concurrent lifecycle/report triggers now fail closed against duplicate sends while preserving safe retries after a provider rejection. An ambiguous in-flight send remains visible for operator reconciliation instead of being retried blindly.
+
 # 2026-08-09 — Email-forwarding monitoring requires a configured sender
 
 ## Context

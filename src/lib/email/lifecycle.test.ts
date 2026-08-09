@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLifecycleEmailContent, sendLifecycleEmail } from "./lifecycle";
 
-const { sendTransactionalEmail } = vi.hoisted(() => ({ sendTransactionalEmail: vi.fn() }));
+const { claimExternalSideEffect, sendTransactionalEmail } = vi.hoisted(() => ({ claimExternalSideEffect: vi.fn(), sendTransactionalEmail: vi.fn() }));
 const sideEffect = { status: "failed", provider_reference: null as string | null };
 
 vi.mock("./resend", () => ({
   emailRequestHash: vi.fn(() => "dummy-request-hash"),
   sendTransactionalEmail,
 }));
+vi.mock("./side-effect-claim", () => ({ claimExternalSideEffect }));
 
 function dbStub() {
   return {
@@ -28,6 +29,7 @@ describe("lifecycle email system", () => {
     sideEffect.status = "failed";
     sideEffect.provider_reference = null;
     sendTransactionalEmail.mockResolvedValue({ ok: true, providerId: "msg_test_1" });
+    claimExternalSideEffect.mockResolvedValue({ claimed: true, id: "effect-1" });
     process.env.RESEND_API_KEY = "dummy-resend-api-key-for-tests";
   });
 
