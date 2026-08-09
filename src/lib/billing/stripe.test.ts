@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assertStripeBillingMode, getStripeBillingMode, stripeBillingEnabled } from "./stripe";
+import { assertStripeBillingMode, getStripeBillingMode, stripeAccountReadyForLiveCheckout, stripeBillingEnabled } from "./stripe";
 
 describe("Stripe billing mode guard", () => {
+  it("requires a reachable account with charges and payouts enabled for live checkout", () => {
+    expect(stripeAccountReadyForLiveCheckout({ reachable: true, chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, currentlyDue: [], pastDue: [], disabledReason: null })).toBe(true);
+    expect(stripeAccountReadyForLiveCheckout({ reachable: true, chargesEnabled: true, payoutsEnabled: false, detailsSubmitted: true, currentlyDue: [], pastDue: [], disabledReason: null })).toBe(false);
+    expect(stripeAccountReadyForLiveCheckout(null)).toBe(false);
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
   });

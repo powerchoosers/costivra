@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { getSequence, findOutreachBlock } from "@/lib/manage/sequences/repository";
-import { validateSequenceDraft, renderTemplate, sanitizeSequencePersonalizationMap } from "@/lib/manage/sequences/validation";
+import { missingTemplateValues, validateSequenceDraft, renderTemplate, sanitizeSequencePersonalizationMap } from "@/lib/manage/sequences/validation";
 import { cleanUuid } from "@/lib/portal/http";
 
 export async function POST(request: Request) {
@@ -39,7 +39,9 @@ export async function POST(request: Request) {
           : existingByContact.has(contact.id)
             ? `Already enrolled in another active sequence (${existingByContact.get(contact.id)}).`
             : null;
-      return { id: contact.id, fullName: contact.full_name, email: contact.email, blockedReason, personalization: personalizationByContact[contact.id] ?? {}, subject: firstStep?.subjectTemplate ? renderTemplate(firstStep.subjectTemplate, variables) : firstStep?.taskTitleTemplate ? renderTemplate(firstStep.taskTitleTemplate, variables) : "", body: firstStep?.bodyText ? renderTemplate(firstStep.bodyText, variables) : "" };
+      const previewFields = [firstStep?.subjectTemplate, firstStep?.bodyText, firstStep?.taskTitleTemplate, firstStep?.taskNotesTemplate];
+      const missingFields = [...new Set(previewFields.flatMap((value) => missingTemplateValues(value, variables)))];
+      return { id: contact.id, fullName: contact.full_name, email: contact.email, blockedReason, personalization: personalizationByContact[contact.id] ?? {}, missingFields, subject: firstStep?.subjectTemplate ? renderTemplate(firstStep.subjectTemplate, variables) : firstStep?.taskTitleTemplate ? renderTemplate(firstStep.taskTitleTemplate, variables) : "", body: firstStep?.bodyText ? renderTemplate(firstStep.bodyText, variables) : "" };
     }));
     return NextResponse.json({ sequenceId, results });
   } catch (error) { const result = manageApiError(error); return NextResponse.json({ error: result.error }, { status: result.status }); }

@@ -17,6 +17,12 @@ export type StripeAccountReadiness = {
   disabledReason: string | null;
 };
 
+export function stripeAccountReadyForLiveCheckout(readiness: StripeAccountReadiness | null | undefined) {
+  return readiness?.reachable === true
+    && readiness.chargesEnabled === true
+    && readiness.payoutsEnabled === true;
+}
+
 function configuredStripeSecret() {
   return process.env.STRIPE_RESTRICTED_KEY ?? process.env.STRIPE_SECRET_KEY;
 }

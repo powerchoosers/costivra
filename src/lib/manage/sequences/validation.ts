@@ -27,6 +27,15 @@ export function unresolvedTemplateTokens(value: string | null | undefined) {
   return findTemplateTokens(value).filter((token) => !allowedTokens.has(token));
 }
 
+/**
+ * Return allowlisted merge fields that are present in copy but have no value
+ * in the explicit preview context. Unknown tokens are intentionally excluded;
+ * activation validation reports those separately as a harder error.
+ */
+export function missingTemplateValues(value: string | null | undefined, variables: Record<string, string | null | undefined>) {
+  return findTemplateTokens(value).filter((token) => allowedTokens.has(token) && !String(variables[token] ?? "").trim());
+}
+
 export function sanitizeSequencePersonalization(value: unknown): SequencePersonalization {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const source = value as Record<string, unknown>;

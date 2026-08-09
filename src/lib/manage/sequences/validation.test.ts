@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { isValidLocalTime, renderTemplate, sanitizeSequencePersonalization, sanitizeSequencePersonalizationMap, unresolvedTemplateTokens, validateSequenceDraft } from "./validation";
+import { isValidLocalTime, missingTemplateValues, renderTemplate, sanitizeSequencePersonalization, sanitizeSequencePersonalizationMap, unresolvedTemplateTokens, validateSequenceDraft } from "./validation";
 
 describe("sequence validation", () => {
   it("allows only the pilot token allowlist", () => {
     expect(unresolvedTemplateTokens("Hi {{first_name}} {{contact.secret}} {{company_name}}" )).toEqual(["contact.secret"]);
     expect(renderTemplate("Hi {{first_name}} at {{company_name}}", { first_name: "Ava", company_name: "Acme" })).toBe("Hi Ava at Acme");
+  });
+
+  it("flags missing allowlisted values without treating unknown tokens as merge fields", () => {
+    expect(missingTemplateValues("Hi {{first_name}} at {{company_name}} ({{contact.secret}})", { first_name: "", company_name: "Acme" })).toEqual(["first_name"]);
   });
 
   it("requires safe stops and complete ordered steps before activation", () => {

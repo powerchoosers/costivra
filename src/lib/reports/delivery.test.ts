@@ -4,6 +4,7 @@ import {
   isReportScheduleClaimCurrent,
   isReportDeliverySchemaSetupError,
   reportRecipientStatusForProviderEvent,
+  shouldAdvanceProviderStatus,
 } from "./delivery";
 
 import { authorizedReportRecipients } from "./recipients";
@@ -22,6 +23,13 @@ describe("report delivery aggregation", () => {
     expect(aggregateReportDeliveryStatus(["delivered", "delivered"])).toBe("delivered");
     expect(reportRecipientStatusForProviderEvent("sent")).toBe("accepted");
     expect(reportRecipientStatusForProviderEvent("delivery_delayed")).toBeNull();
+  });
+
+  it("does not let a stale provider event move delivery backward", () => {
+    expect(shouldAdvanceProviderStatus("delivered", "sent")).toBe(false);
+    expect(shouldAdvanceProviderStatus("delivered", "complained")).toBe(true);
+    expect(shouldAdvanceProviderStatus("sent", "delayed")).toBe(true);
+    expect(shouldAdvanceProviderStatus(undefined, "accepted")).toBe(true);
   });
 
   it("keeps a changed schedule recipient list bounded to authorized members", () => {

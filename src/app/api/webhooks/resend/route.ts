@@ -22,6 +22,7 @@ import {
 import {
   aggregateReportDeliveryStatus,
   reportRecipientStatusForProviderEvent,
+  shouldAdvanceProviderStatus,
 } from "@/lib/reports/delivery";
 
 export const runtime = "nodejs";
@@ -126,35 +127,49 @@ async function recordDeliveryEvent(
       updates.folder = "sent";
       updates.sent_at = event.created_at;
     }
-    await db
+    const { data: mailboxMessages, error: mailboxMessageLookupError } = await db
       .from("crm_email_messages")
-      .update(updates)
+      .select("id,provider_status")
       .eq("provider_message_id", providerMessageId);
+    if (mailboxMessageLookupError) throw mailboxMessageLookupError;
+    const advancingMailboxMessageIds = (mailboxMessages ?? [])
+      .filter((message) => shouldAdvanceProviderStatus(message.provider_status as string | null | undefined, status))
+      .map((message) => message.id as string);
+    if (advancingMailboxMessageIds.length) {
+      await db
+        .from("crm_email_messages")
+        .update(updates)
+        .in("id", advancingMailboxMessageIds);
+    }
 
     // Resend acceptance is not delivery truth. Lifecycle and scheduled-report
     // side effects are reconciled here from the signed provider event.
     const sideEffectStatus = status === "delivered" ? "delivered" : status === "bounced" ? "bounced" : status === "complained" ? "complained" : status === "suppressed" ? "suppressed" : status === "failed" ? "failed" : status;
     const sideEffectUpdate: Record<string, unknown> = { status: sideEffectStatus, updated_at: new Date().toISOString() };
     if (["bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus)) sideEffectUpdate.last_error = `RESEND_${sideEffectStatus.toUpperCase()}`;
-    const { data: sideEffects } = await db.from("external_side_effects").select("id,type").eq("provider_reference", providerMessageId);
-    if (sideEffects?.length) {
-      await db.from("external_side_effects").update(sideEffectUpdate).in("id", sideEffects.map((row) => row.id));
-      const reportSideEffectIds = sideEffects
+    const { data: sideEffects } = await db.from("external_side_effects").select("id,type,status").eq("provider_reference", providerMessageId);
+    const advancingSideEffects = (sideEffects ?? []).filter((row) => shouldAdvanceProviderStatus(row.status as string | null | undefined, sideEffectStatus));
+    if (advancingSideEffects.length) {
+      await db.from("external_side_effects").update(sideEffectUpdate).in("id", advancingSideEffects.map((row) => row.id));
+      const reportSideEffectIds = advancingSideEffects
         .filter((row) => row.type === "report_email")
         .map((row) => row.id);
-      let recipientRows: Array<{ id: string; delivery_run_id: string }> = [];
+      let recipientRows: Array<{ id: string; delivery_run_id: string; status: string | null }> = [];
       let recipientLookupError: { code?: string; message?: string } | null = null;
       if (reportSideEffectIds.length) {
         const recipientLookup = await db
           .from("report_delivery_recipients")
-          .select("id,delivery_run_id")
+          .select("id,delivery_run_id,status")
           .in("external_side_effect_id", reportSideEffectIds);
-        recipientRows = (recipientLookup.data ?? []) as Array<{ id: string; delivery_run_id: string }>;
+        recipientRows = (recipientLookup.data ?? []) as Array<{ id: string; delivery_run_id: string; status: string | null }>;
         recipientLookupError = recipientLookup.error;
         if (recipientLookupError && recipientLookupError.code !== "42P01") throw recipientLookupError;
       }
       const recipientStatus = reportRecipientStatusForProviderEvent(status);
-      if (recipientRows.length && recipientStatus) {
+      const advancingRecipientRows = recipientStatus
+        ? recipientRows.filter((row) => shouldAdvanceProviderStatus(row.status, recipientStatus))
+        : [];
+      if (advancingRecipientRows.length && recipientStatus) {
         const completedAt = ["delivered", "failed", "bounced", "complained", "suppressed"].includes(recipientStatus)
           ? new Date().toISOString()
           : null;
@@ -166,8 +181,8 @@ async function recordDeliveryEvent(
             ? `RESEND_${recipientStatus.toUpperCase()}`
             : null,
           updated_at: new Date().toISOString(),
-        }).in("id", recipientRows.map((row) => row.id));
-        for (const deliveryRunId of new Set(recipientRows.map((row) => row.delivery_run_id))) {
+        }).in("id", advancingRecipientRows.map((row) => row.id));
+        for (const deliveryRunId of new Set(advancingRecipientRows.map((row) => row.delivery_run_id))) {
           const { data: allRecipients, error: allRecipientsError } = await db
             .from("report_delivery_recipients")
             .select("status")
@@ -190,7 +205,7 @@ async function recordDeliveryEvent(
           completed_at: ["delivered", "bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus)
             ? new Date().toISOString()
             : null,
-        }).eq("external_side_effect_id", sideEffects[0].id);
+        }).eq("external_side_effect_id", advancingSideEffects[0].id);
       }
     }
     if (["bounced", "complained", "suppressed", "failed"].includes(status)) {

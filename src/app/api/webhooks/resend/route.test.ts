@@ -28,8 +28,12 @@ const createMockDb = () => {
     insert: vi.fn(async () => ({ error: null })),
   };
   const crmEmailMessages = {
+    select: vi.fn(() => ({
+      eq: vi.fn(async () => ({ data: [], error: null })),
+    })),
     update: vi.fn(() => ({
       eq: vi.fn(() => ({ error: null })),
+      in: vi.fn(() => ({ error: null })),
     })),
   };
 

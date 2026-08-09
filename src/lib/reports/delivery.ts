@@ -15,6 +15,26 @@ const reportRecipientFailureStatuses = new Set([
   "suppressed",
 ]);
 
+const providerDeliveryRank: Record<string, number> = {
+  scheduled: 0,
+  accepted: 1,
+  sent: 1,
+  delayed: 2,
+  delivered: 3,
+  failed: 4,
+  bounced: 4,
+  complained: 4,
+  suppressed: 4,
+};
+
+/** Resend retries can arrive out of order; never move a known state backward. */
+export function shouldAdvanceProviderStatus(current: string | null | undefined, next: string) {
+  if (!current || current === next) return true;
+  const currentRank = providerDeliveryRank[current] ?? -1;
+  const nextRank = providerDeliveryRank[next] ?? -1;
+  return nextRank > currentRank;
+}
+
 /**
  * A run is a summary of all recipient rows. It is only accepted when every
  * recipient has been accepted by the provider, and only delivered when every

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBillingPlan, getConfiguredPriceId } from "@/lib/billing/catalog";
-import { assertStripeBillingMode, getStripeClient } from "@/lib/billing/stripe";
+import { assertStripeBillingMode, getStripeAccountReadiness, getStripeBillingMode, getStripeClient, stripeAccountReadyForLiveCheckout } from "@/lib/billing/stripe";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { cleanText } from "@/lib/portal/http";
 
@@ -32,6 +32,9 @@ export async function POST(request: Request) {
 
     const stripe = getStripeClient();
     assertStripeBillingMode();
+    if (getStripeBillingMode() === "live" && !stripeAccountReadyForLiveCheckout(await getStripeAccountReadiness())) {
+      return NextResponse.json({ error: "Stripe account setup is incomplete. Enable charges and payouts before starting live checkout." }, { status: 409 });
+    }
     const requestKey = (request.headers.get("x-request-id") || crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
     const existing = await db.from("billing_customers").select("stripe_customer_id").eq("organization_id", organizationId).maybeSingle();
     if (existing.error?.code === "42P01") return NextResponse.json({ error: "Billing database setup is incomplete." }, { status: 503 });

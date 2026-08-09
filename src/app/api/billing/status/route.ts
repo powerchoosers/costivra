@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { BILLING_PLANS, getConfiguredPriceId } from "@/lib/billing/catalog";
-import { getStripeAccountReadiness, getStripeBillingMode, stripeBillingEnabled, stripeIsConfigured } from "@/lib/billing/stripe";
+import { getStripeAccountReadiness, getStripeBillingMode, stripeAccountReadyForLiveCheckout, stripeBillingEnabled, stripeIsConfigured } from "@/lib/billing/stripe";
 
 export async function GET() {
   try {
@@ -15,8 +15,7 @@ export async function GET() {
     const billingMode = getStripeBillingMode();
     const billingEnabled = stripeBillingEnabled();
     const stripeAccount = providerConfigured ? await getStripeAccountReadiness() : null;
-    const liveAccountReady = billingMode !== "live"
-      || (stripeAccount?.reachable === true && stripeAccount.chargesEnabled === true && stripeAccount.payoutsEnabled === true);
+    const liveAccountReady = billingMode !== "live" || stripeAccountReadyForLiveCheckout(stripeAccount);
     const setupReasons = [
       ...(!providerConfigured ? ["stripe_provider_not_configured"] : []),
       ...(providerConfigured && !billingEnabled ? ["stripe_billing_mode_disabled"] : []),

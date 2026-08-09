@@ -5,9 +5,10 @@ const stripeIsConfigured = vi.hoisted(() => vi.fn());
 const getStripeBillingMode = vi.hoisted(() => vi.fn());
 const stripeBillingEnabled = vi.hoisted(() => vi.fn());
 const getStripeAccountReadiness = vi.hoisted(() => vi.fn());
+const stripeAccountReadyForLiveCheckout = vi.hoisted(() => vi.fn((readiness: { reachable?: boolean; chargesEnabled?: boolean; payoutsEnabled?: boolean } | null) => readiness?.reachable === true && readiness.chargesEnabled === true && readiness.payoutsEnabled === true));
 
 vi.mock("@/lib/portal/repository", () => ({ requirePortalContext }));
-vi.mock("@/lib/billing/stripe", () => ({ stripeIsConfigured, getStripeBillingMode, stripeBillingEnabled, getStripeAccountReadiness }));
+vi.mock("@/lib/billing/stripe", () => ({ stripeIsConfigured, getStripeBillingMode, stripeBillingEnabled, getStripeAccountReadiness, stripeAccountReadyForLiveCheckout }));
 
 import { GET } from "./route";
 
