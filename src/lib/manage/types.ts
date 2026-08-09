@@ -140,6 +140,8 @@ export type ManageContact = {
   source: "crm" | "workspace";
   marketingStatus: "opted_in" | "opted_out" | null;
   marketingConsentAt: string | null;
+  /** A server-resolved reason the contact is not eligible for outreach, when known. */
+  outreachSuppressionReason?: string | null;
   archivedAt?: string | null;
   archivedBy?: string | null;
   updatedAt?: string | null;

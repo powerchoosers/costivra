@@ -40,7 +40,7 @@ export function summarizeSequenceStats(sequenceId: string, enrollments: Row[], m
   const current = enrollments.filter((item) => item.sequence_id === sequenceId);
   const sequenceMessages = messages.filter((item) => item.sequence_id === sequenceId);
   return {
-    activeEnrollments: current.filter((item) => ["pending", "active", "paused", "waiting_for_task"].includes(text(item.state))).length,
+    activeEnrollments: current.filter((item) => ["pending", "active", "waiting_for_task"].includes(text(item.state))).length,
     scheduledNext24Hours: current.filter((item) => { const timestamp = Date.parse(text(item.next_action_at)); return Number.isFinite(timestamp) && timestamp >= now && timestamp <= nextDay; }).length,
     sent: sequenceMessages.filter((item) => ["sent", "delivered"].includes(text(item.provider_status))).length,
     replies: events.filter((item) => item.sequence_id === sequenceId && text(item.event_type) === "reply_received").length,
@@ -99,4 +99,64 @@ export async function findSuppression(db: Db, email: string) {
   if (domainError) throw domainError;
   const active = [...(emailRows ?? []), ...(domainRows ?? [])].find((row: Row) => !row.expires_at || Date.parse(text(row.expires_at)) > Date.now());
   return active ?? null;
+}
+
+export type OutreachBlock = {
+  code: "suppressed" | "marketing_opted_out" | "prior_provider_suppression";
+  reason: string;
+  stopReason: "unsubscribe" | "bounce";
+};
+
+/**
+ * Resolve every durable reason a contact must not enter a sequence. This is
+ * intentionally rechecked at send time because a contact can opt out or
+ * bounce after an operator stages a pending enrollment.
+ */
+export async function findOutreachBlock(
+  db: Db,
+  input: { contactId: string; email: string },
+): Promise<OutreachBlock | null> {
+  const suppression = await findSuppression(db, input.email);
+  if (suppression) {
+    const reason = text(suppression.reason, "suppressed");
+    return {
+      code: "suppressed",
+      reason: `Suppressed: ${reason}.`,
+      stopReason: reason === "bounced" ? "bounce" : "unsubscribe",
+    };
+  }
+
+  const [{ data: consent, error: consentError }, { data: providerMessage, error: providerError }] = await Promise.all([
+    db.from("crm_marketing_consents")
+      .select("status")
+      .eq("contact_id", input.contactId)
+      .order("recorded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db.from("crm_email_messages")
+      .select("provider_status")
+      .eq("contact_id", input.contactId)
+      .in("provider_status", ["bounced", "complained", "suppressed"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (consentError) throw consentError;
+  if (providerError) throw providerError;
+  if (text(consent?.status) === "opted_out") {
+    return {
+      code: "marketing_opted_out",
+      reason: "Contact has opted out of email marketing.",
+      stopReason: "unsubscribe",
+    };
+  }
+  if (providerMessage) {
+    const status = text(providerMessage.provider_status, "suppressed");
+    return {
+      code: "prior_provider_suppression",
+      reason: `Contact has a prior ${status} email result.`,
+      stopReason: status === "bounced" ? "bounce" : "unsubscribe",
+    };
+  }
+  return null;
 }

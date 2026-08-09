@@ -2238,6 +2238,68 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 # 2026-08-09 — Keep Stripe checkout honest about key mode
 
 - Billing status now reports `billingMode` and `billingEnabled`; the portal disables checkout when live mode is not explicitly enabled, even if prices are present. Added test/live mode regression coverage.
-- Targeted billing tests (9 passed) and typecheck passed. No Stripe provider writes were made.
-- Stripe read-only check confirms the Costivra test account `acct_1U2MvqK7vdNK2m4p` is connected and named Costivra, but it currently has zero products and zero prices. No provider writes were made. Billing remains blocked until Lewis creates the Costivra test plans and applies the billing migration/configuration.
+- Billing status now also returns explicit `setupReasons` for missing database tables, provider configuration, disabled billing mode, and missing self-serve prices. The existing Billing panel renders those reasons instead of hiding setup behind the currently selected plan.
+- Full validation after this slice: targeted billing tests (9 passed), `npm test` passed (622 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed. No Stripe provider writes were made.
+- Stripe read-only check confirms the Costivra test account `acct_1U2MvqK7vdNK2m4p` is connected and named Costivra, but it currently has zero products and zero prices. Stripe also reports `charges_enabled=false`, `payouts_enabled=false`, and missing business description, support phone, and terms acceptance. No provider writes were made. Billing remains blocked until Lewis completes the Stripe account setup, creates the Costivra test plans, and applies the billing migration/configuration.
 - Supabase local migration lint remains unavailable because Docker/local Postgres is not running. No remote migration, commit, push, or deployment was performed.
+
+# 2026-08-09 — Reconcile report recipients on every retry
+
+- The report cron now upserts the current authorized recipient set on every run, including retries of failed or stale claims. Newly added authorized recipients are no longer omitted when an earlier run already has recipient rows; removed recipients remain safely skipped by the existing authorization check.
+- Validation: `npm test` passed (623 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed.
+
+# 2026-08-09 — Keep paused sequence tasks paused
+
+- Completing a sequence-generated task after its parent sequence has been paused now advances the enrollment to the next step while preserving `state=paused` and clearing `next_action_at`. The explicit Resume action remains the only path that restarts execution.
+- Task-step execution now honors `pause_until_task_complete=false`: the sequence advances when the task is created, and later task completion is recorded without attempting a second transition. Task event idempotency now keys on the task row as well as enrollment/step.
+- Added worker coverage for both transitions. Validation: `npm test` passed (625 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed.
+
+# 2026-08-09 — Reject stale report schedule claims
+
+- The report cron now re-reads a claimed schedule before generating or sending. If an operator paused or rescheduled it after the claim, the run is marked `skipped` with `SCHEDULE_CHANGED` and no email is sent.
+- Added claim-freshness coverage. Validation: `npm test` passed (626 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed.
+
+# 2026-08-09 — Bound scheduled-report retries
+
+- Added migration `20260809152000_packet_04_report_retry_backoff.sql` with an attempt counter and retry timestamp for report delivery runs.
+- Report failures now retry at 5 minutes, 30 minutes, and 2 hours, then stop after four total attempts for manual review. Setup failures such as a missing recipient migration do not retry automatically.
+- Added pure retry-policy coverage. Validation: `npm test` passed (628 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed.
+
+# 2026-08-09 — Compare-and-set report schedule advancement
+
+- Successful, skipped, and no-change report runs now advance `next_run_at` only when the schedule is still active and still points at the claimed `scheduled_for` timestamp. A late worker cannot overwrite a newer edit.
+- Validation after this guard: `npm test` passed (628 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed.
+
+# 2026-08-09 — Keep scheduled report retries idempotent
+
+- Scheduled report generation now accepts a stable `generatedAt` value, and the cron uses the scheduled period timestamp. Retries therefore produce the same rendered content and request hash instead of failing with an idempotency content mismatch caused by a new clock timestamp.
+- Added a deterministic generation regression test. Validation: `npm test` passed (629 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed.
+
+# 2026-08-09 — Clarify active Outreach metrics
+
+- Outreach sequence metrics now exclude paused enrollments from “Active enrollments” and “active contacts.” Paused contacts remain available in the Enrollments tab and are counted again only after explicit resume.
+- Added repository coverage for the paused-state exclusion. Validation: `npm test` passed (629 passed, 6 skipped); `npm run test:integration` passed (8 passed, 6 skipped); `npm run typecheck` passed; `npm run lint` passed; `npm run build` passed; and `git diff --check` passed.
+
+# 2026-08-09 — Make missing report migrations explicit
+
+- Packet 04 report cron failures caused by a missing report-delivery table or the new retry columns now return `setup_required` instead of the ambiguous `claim_failed` status. This prevents the worker from treating an unapplied migration as a transient delivery problem.
+- Added pure coverage for missing-table, missing-retry-column, unrelated-column, and provider-error cases. No report work is claimed or sent when the schema boundary is unavailable.
+
+# 2026-08-09 — Keep sequence activation honest while disabled
+
+- The existing Outreach Sequences tab now receives the release-wide sequence execution flag from its server route. When automatic execution is disabled, draft and paused sequences show `Execution disabled for this release` and cannot present an actionable activation button.
+- This keeps Packet 06 behavior aligned with the safety requirement that automated sequence sending remains disabled until the execution release gate is intentionally enabled. Added UI-state coverage for the disabled flag.
+- Paused sequences use the same disabled state; they cannot be resumed through the UI while the release gate is off.
+- Added route coverage proving the API reports the gate as disabled unless `COSTIVRA_SEQUENCE_EXECUTION_ENABLED=true` is explicitly set.
+- Sequence and enrollment list responses now send `Cache-Control: private, no-store` so authenticated CRM data is not reused by intermediary caches.
+
+# 2026-08-09 — Reflect Stripe account readiness in billing status
+
+- Billing status now performs a read-only Stripe account readiness check. Live checkout remains pending unless Stripe reports both charges and payouts enabled; the account readiness summary is safe metadata only and never exposes secrets.
+- The Billing panel now explains this blocker as Stripe account verification/setup rather than implying that a connected API key alone means payments are ready.
+
+# 2026-08-09 — Fail closed on durable outreach suppression
+
+- Packet 06 enrollment staging and preview now check the contact's current marketing consent plus prior provider outcomes (`bounced`, `complained`, or `suppressed`) in addition to the existing suppression table and inactive-contact check.
+- The sequence worker repeats that eligibility check immediately before sending. A newly opted-out or provider-suppressed contact is stopped with the matching unsubscribe/bounce event instead of receiving a later sequence message.
+- Consent resolution uses the latest recorded consent, so a later opt-in is not incorrectly blocked by an older opt-out record. Full validation after this slice: `npm test` passed (636 passed, 6 skipped); integration passed (8 passed, 6 skipped); typecheck, lint, and production build passed. No provider writes, commit, push, migration, or deployment were performed.

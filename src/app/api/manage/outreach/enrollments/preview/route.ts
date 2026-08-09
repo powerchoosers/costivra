@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
-import { getSequence, findSuppression } from "@/lib/manage/sequences/repository";
+import { getSequence, findOutreachBlock } from "@/lib/manage/sequences/repository";
 import { validateSequenceDraft, renderTemplate, sanitizeSequencePersonalizationMap } from "@/lib/manage/sequences/validation";
 import { cleanUuid } from "@/lib/portal/http";
 
@@ -25,14 +25,16 @@ export async function POST(request: Request) {
     const results = await Promise.all(contactIds.map(async (contactId) => {
       const contact = contactsById.get(contactId);
       if (!contact) return { id: contactId, fullName: "Unknown contact", email: "", blockedReason: "Contact was not found in this account.", subject: "", body: "" };
-      const suppression = await findSuppression(db, contact.email);
       const [firstName] = contact.full_name.trim().split(/\s+/);
       const organization = contact.organization as { name?: string } | null;
       const variables = { first_name: firstName, full_name: contact.full_name, company_name: organization?.name ?? "", job_title: contact.title, industry: "", website: "", sender_name: "Costivra team", sender_title: "", ...personalizationByContact[contact.id] };
+      const outreachBlock = contact.status === "active"
+        ? await findOutreachBlock(db, { contactId: contact.id, email: contact.email })
+        : null;
       const blockedReason = contact.status !== "active"
         ? `Contact status is ${contact.status}.`
-        : suppression
-          ? `Suppressed: ${suppression.reason}.`
+        : outreachBlock
+          ? outreachBlock.reason
           : existingByContact.has(contact.id)
             ? `Already enrolled in another active sequence (${existingByContact.get(contact.id)}).`
             : null;

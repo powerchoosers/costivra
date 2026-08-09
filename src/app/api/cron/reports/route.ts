@@ -8,7 +8,10 @@ import { claimExternalSideEffect } from "@/lib/email/side-effect-claim";
 import { authorizedReportRecipients } from "@/lib/reports/recipients";
 import {
   aggregateReportDeliveryStatus,
+  isReportScheduleClaimCurrent,
+  isReportDeliverySchemaSetupError,
 } from "@/lib/reports/delivery";
+import { MAX_REPORT_ATTEMPTS, nextReportRetryAt, reportRetryIsDue } from "@/lib/reports/retry";
 import { nextReportRun } from "@/lib/reports/schedule";
 
 export const runtime = "nodejs";
@@ -27,11 +30,10 @@ type ReportRecipientRow = {
   provider_message_id: string | null;
 };
 
-function isMissingRecipientTable(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-  const value = error as { code?: string; message?: string };
-  return value.code === "42P01" || /report_delivery_recipients.*does not exist/i.test(value.message ?? "");
-}
+type ReportRunRetryState = {
+  attempt_count?: number | null;
+  next_retry_at?: string | null;
+};
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "REPORT_DELIVERY_FAILED";
@@ -67,24 +69,31 @@ export async function GET(request: Request) {
         scheduled_for: scheduledFor,
         status: "claimed",
       })
-      .select("id")
+      .select("id,attempt_count")
       .maybeSingle();
     let deliveryRunId = claim.data?.id as string | undefined;
+    let attemptCount = Number(claim.data?.attempt_count ?? 1);
+    if (!Number.isFinite(attemptCount)) attemptCount = 1;
     if (claim.error?.code === "23505") {
       // A failed run, or a run left claimed by a worker that timed out, may
       // be reclaimed. A fresh claimed run is still owned by another worker.
       const { data: previous } = await db
         .from("report_delivery_runs")
-        .select("id,status,created_at")
+        .select("id,status,created_at,attempt_count,next_retry_at")
         .eq("report_schedule_id", schedule.id)
         .eq("scheduled_for", scheduledFor)
         .maybeSingle();
-      const reclaimable = previous?.status === "failed"
-        || (previous?.status === "claimed" && isStaleClaim(previous.created_at, now));
+      if (!previous) continue;
+      const previousRetryState = previous as (ReportRunRetryState & { status?: string; created_at?: string | null }) | null;
+      const reclaimable = Boolean(previous) && (reportRetryIsDue(previousRetryState)
+        || (previousRetryState?.status === "claimed"
+          && Number(previousRetryState.attempt_count ?? 1) < MAX_REPORT_ATTEMPTS
+          && isStaleClaim(previousRetryState.created_at, now)));
       if (!reclaimable) continue;
+      attemptCount = Math.min(MAX_REPORT_ATTEMPTS, Math.max(1, Number(previousRetryState?.attempt_count ?? 1) + 1));
       const { data: reclaimed, error: reclaimError } = await db
         .from("report_delivery_runs")
-        .update({ status: "claimed", safe_error: null, completed_at: null })
+        .update({ status: "claimed", attempt_count: attemptCount, next_retry_at: null, safe_error: null, completed_at: null })
         .eq("id", previous.id)
         .in("status", ["failed", "claimed"])
         .select("id")
@@ -93,16 +102,31 @@ export async function GET(request: Request) {
       deliveryRunId = reclaimed.id as string;
     }
     if (claim.error && claim.error.code !== "23505") {
-      results.push({ scheduleId: schedule.id, status: "claim_failed", recipients: 0 });
+      results.push({ scheduleId: schedule.id, status: isReportDeliverySchemaSetupError(claim.error) ? "setup_required" : "claim_failed", recipients: 0 });
       continue;
     }
-    if (!deliveryRunId) {
+      if (!deliveryRunId) {
       results.push({ scheduleId: schedule.id, status: "claim_failed", recipients: 0 });
       continue;
     }
 
     let completedRecipients = 0;
     try {
+      const { data: currentSchedule, error: currentScheduleError } = await db
+        .from("report_schedules")
+        .select("status,next_run_at")
+        .eq("id", schedule.id)
+        .maybeSingle();
+      if (currentScheduleError) throw currentScheduleError;
+      if (!isReportScheduleClaimCurrent(currentSchedule, scheduledFor)) {
+        await db.from("report_delivery_runs").update({
+          status: "skipped",
+          safe_error: "SCHEDULE_CHANGED",
+          completed_at: new Date().toISOString(),
+        }).eq("id", deliveryRunId);
+        results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 });
+        continue;
+      }
       const { data: preferences } = await db
         .from("report_communication_preferences")
         .select("weekly_digest,monthly_executive_report,allow_empty_reports")
@@ -128,12 +152,15 @@ export async function GET(request: Request) {
           next_run_at: next,
           last_run_at: now.toISOString(),
           updated_at: now.toISOString(),
-        }).eq("id", schedule.id);
+        }).eq("id", schedule.id).eq("status", "active").eq("next_run_at", scheduledFor);
         results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 });
         continue;
       }
 
-      const report = await generateReport(db, schedule.report_definitions);
+      // Keep the rendered content stable across bounded retries. The
+      // scheduled period is the report's provenance timestamp; using `now`
+      // here would change the request hash and defeat idempotent retry.
+      const report = await generateReport(db, schedule.report_definitions, { generatedAt: scheduledFor });
       if (!report.values.length && preferences?.allow_empty_reports !== true) {
         await db.from("report_delivery_runs").update({
           status: "skipped",
@@ -145,7 +172,7 @@ export async function GET(request: Request) {
           next_run_at: next,
           last_run_at: now.toISOString(),
           updated_at: now.toISOString(),
-        }).eq("id", schedule.id);
+        }).eq("id", schedule.id).eq("status", "active").eq("next_run_at", scheduledFor);
         results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 });
         continue;
       }
@@ -170,7 +197,7 @@ export async function GET(request: Request) {
           next_run_at: next,
           last_run_at: now.toISOString(),
           updated_at: now.toISOString(),
-        }).eq("id", schedule.id);
+        }).eq("id", schedule.id).eq("status", "active").eq("next_run_at", scheduledFor);
         results.push({ scheduleId: schedule.id, status: "skipped", recipients: 0 });
         continue;
       }
@@ -182,17 +209,13 @@ export async function GET(request: Request) {
         recipient_email: recipient,
         idempotency_key: `report/${schedule.id}/${scheduledFor}/${recipient}`,
       }));
-      const { data: existingRecipients, error: existingRecipientError } = await db
+      // Reconcile the current authorized recipient set on every retry. A
+      // schedule can be edited after a failed/in-flight run; only inserting
+      // when the run had no rows would silently omit newly added recipients.
+      const { error: recipientUpsertError } = await db
         .from("report_delivery_recipients")
-        .select("id,recipient_email,idempotency_key,status,external_side_effect_id,provider_message_id")
-        .eq("delivery_run_id", deliveryRunId);
-      if (existingRecipientError) throw existingRecipientError;
-      if (!existingRecipients?.length) {
-        const { error: recipientUpsertError } = await db
-          .from("report_delivery_recipients")
-          .upsert(requestedRecipientRows, { onConflict: "delivery_run_id,recipient_email", ignoreDuplicates: true });
-        if (recipientUpsertError) throw recipientUpsertError;
-      }
+        .upsert(requestedRecipientRows, { onConflict: "delivery_run_id,recipient_email", ignoreDuplicates: true });
+      if (recipientUpsertError) throw recipientUpsertError;
       const { data: persistedRecipients, error: recipientReadError } = await db
         .from("report_delivery_recipients")
         .select("id,recipient_email,idempotency_key,status,external_side_effect_id,provider_message_id")
@@ -306,11 +329,15 @@ export async function GET(request: Request) {
         .eq("delivery_run_id", deliveryRunId);
       if (finalRecipientError) throw finalRecipientError;
       const runStatus = aggregateReportDeliveryStatus((finalRecipients ?? []).map((row) => row.status as string));
+      const retryAt = runStatus === "failed" ? nextReportRetryAt(attemptCount, now) : null;
       const runUpdate: Record<string, unknown> = {
         status: runStatus,
         generated_at: report.generatedAt,
         completed_at: runStatus === "claimed" ? null : new Date().toISOString(),
-        safe_error: runStatus === "failed" ? "ONE_OR_MORE_RECIPIENTS_FAILED" : null,
+        next_retry_at: retryAt,
+        safe_error: runStatus === "failed"
+          ? retryAt ? "ONE_OR_MORE_RECIPIENTS_FAILED" : "REPORT_RETRY_EXHAUSTED"
+          : null,
       };
       if (firstSideEffectId) runUpdate.external_side_effect_id = firstSideEffectId;
       if (firstProviderMessageId) runUpdate.provider_message_id = firstProviderMessageId;
@@ -320,7 +347,7 @@ export async function GET(request: Request) {
           next_run_at: next,
           last_run_at: now.toISOString(),
           updated_at: now.toISOString(),
-        }).eq("id", schedule.id);
+        }).eq("id", schedule.id).eq("status", "active").eq("next_run_at", scheduledFor);
       }
       results.push({
         scheduleId: schedule.id,
@@ -328,13 +355,15 @@ export async function GET(request: Request) {
         recipients: completedRecipients,
       });
     } catch (runError) {
-      const setupRequired = isMissingRecipientTable(runError);
+      const setupRequired = isReportDeliverySchemaSetupError(runError);
+      const retryAt = setupRequired ? null : nextReportRetryAt(attemptCount, now);
       const safeError = setupRequired
         ? "REPORT_RECIPIENTS_MIGRATION_REQUIRED"
-        : errorMessage(runError).slice(0, 240);
+        : retryAt ? errorMessage(runError).slice(0, 240) : "REPORT_RETRY_EXHAUSTED";
       await db.from("report_delivery_runs").update({
         status: "failed",
         safe_error: safeError,
+        next_retry_at: retryAt,
         completed_at: new Date().toISOString(),
       }).eq("id", deliveryRunId);
       results.push({

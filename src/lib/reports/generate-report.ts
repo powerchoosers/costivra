@@ -8,8 +8,13 @@ export type ReportDefinition = { id: string; organization_id: string; name: stri
 export type GeneratedReport = { definition: ReportDefinition; headers: string[]; values: unknown[][]; summary: Array<{ label: string; value: string }>; generatedAt: string };
 const cell = (value: unknown) => value == null ? "" : String(value);
 
-export async function generateReport(db: SupabaseClient, definition: ReportDefinition): Promise<GeneratedReport> {
+export async function generateReport(
+  db: SupabaseClient,
+  definition: ReportDefinition,
+  options: { generatedAt?: string } = {},
+): Promise<GeneratedReport> {
   const org = definition.organization_id;
+  const generatedAt = options.generatedAt ?? new Date().toISOString();
   let headers: string[] = []; let values: unknown[][] = [];
   if (definition.report_type === "renewal_calendar") {
     const { data, error } = await db.from("contracts").select("title,category,end_date,notice_period_days,annual_value,status").eq("organization_id", org).order("end_date"); if (error) throw error;
@@ -45,8 +50,8 @@ export async function generateReport(db: SupabaseClient, definition: ReportDefin
     const { data, error } = await db.from("opportunities").select("title,category,status,confidence,estimated_annual_value,deadline_at").eq("organization_id", org).order("estimated_annual_value", { ascending: false }); if (error) throw error;
     headers = ["Finding", "Category", "Status", "Confidence", "Potential annual value", "Deadline"]; values = (data ?? []).map((row) => [row.title, row.category, row.status, row.confidence, row.estimated_annual_value, row.deadline_at]);
   }
-  const summary = [{ label: "Rows", value: String(values.length) }, { label: "Report", value: definition.name }, { label: "Generated", value: new Date().toISOString() }];
-  return { definition, headers, values, summary, generatedAt: new Date().toISOString() };
+  const summary = [{ label: "Rows", value: String(values.length) }, { label: "Report", value: definition.name }, { label: "Generated", value: generatedAt }];
+  return { definition, headers, values, summary, generatedAt };
 }
 
 export function reportCsv(report: GeneratedReport) {

@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
-import { listEnrollments, findSuppression } from "@/lib/manage/sequences/repository";
+import { listEnrollments, findOutreachBlock } from "@/lib/manage/sequences/repository";
 import { validateSequenceDraft, sanitizeSequencePersonalizationMap } from "@/lib/manage/sequences/validation";
 import { canUseSequenceMailbox } from "@/lib/manage/sequences/mailbox-policy";
 import { getSequence } from "@/lib/manage/sequences/repository";
 import { cleanUuid } from "@/lib/portal/http";
 
+const privateHeaders = { "Cache-Control": "private, no-store" };
+
 export async function GET() {
-  try { const { db } = await requireInternalOperator(); return NextResponse.json({ enrollments: await listEnrollments(db) }); }
+  try { const { db } = await requireInternalOperator(); return NextResponse.json({ enrollments: await listEnrollments(db) }, { headers: privateHeaders }); }
   catch (error) { const result = manageApiError(error); return NextResponse.json({ error: result.error }, { status: result.status }); }
 }
 
@@ -37,10 +39,12 @@ export async function POST(request: Request) {
     const foundContactIds = new Set((contacts ?? []).map((contact) => contact.id));
     for (const contactId of contactIds) if (!foundContactIds.has(contactId)) blocked.push({ id: contactId, reason: "Contact was not found in this account." });
     for (const contact of contacts ?? []) {
-      const suppression = await findSuppression(db, contact.email);
       if (contact.status !== "active") blocked.push({ id: contact.id, reason: `Contact status is ${contact.status}.` });
-      else if (suppression) blocked.push({ id: contact.id, reason: `Suppressed: ${suppression.reason}.` });
-      else eligible.push(contact.id);
+      else {
+        const block = await findOutreachBlock(db, { contactId: contact.id, email: contact.email });
+        if (block) blocked.push({ id: contact.id, reason: block.reason });
+        else eligible.push(contact.id);
+      }
     }
     if (!eligible.length) return NextResponse.json({ error: "No selected contacts are eligible.", blocked }, { status: 409 });
     const rows = eligible.map((contactId) => ({ sequence_id: sequenceId, organization_id: sequence.organizationId, contact_id: contactId, mailbox_id: mailboxId, enrolled_by: userId, state: "pending", current_step_position: 0, personalization: personalizationByContact[contactId] ?? {} }));

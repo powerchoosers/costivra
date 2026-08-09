@@ -38,6 +38,9 @@ export async function appendSequenceEvent(
   existingQuery = input.emailMessageId
     ? existingQuery.eq("email_message_id", input.emailMessageId)
     : existingQuery.is("email_message_id", null);
+  existingQuery = input.taskId
+    ? existingQuery.eq("task_id", input.taskId)
+    : existingQuery.is("task_id", null);
   const { data: existing, error: existingError } = await existingQuery.limit(1).maybeSingle();
   if (existingError) throw existingError;
   if (existing) return existing.id as string;

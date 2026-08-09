@@ -4082,7 +4082,7 @@ function Settings({
 }
 
 function BillingPanel() {
-  const [status, setStatus] = useState<{ status?: string; providerConfigured?: boolean; billingMode?: "test" | "live" | "unknown"; billingEnabled?: boolean; plans?: Array<{ key: string; name: string; checkoutEnabled: boolean }>; subscriptions: Array<{ plan_key: string; status: string; cancel_at_period_end: boolean; current_period_end: string | null }>; entitlements: Array<{ feature_key: string; enabled: boolean }> } | null>(null);
+  const [status, setStatus] = useState<{ status?: string; providerConfigured?: boolean; billingMode?: "test" | "live" | "unknown"; billingEnabled?: boolean; setupReasons?: string[]; stripeAccount?: { reachable: boolean; chargesEnabled: boolean | null; payoutsEnabled: boolean | null; detailsSubmitted: boolean | null; currentlyDue: string[]; pastDue: string[]; disabledReason: string | null }; plans?: Array<{ key: string; name: string; checkoutEnabled: boolean }>; subscriptions: Array<{ plan_key: string; status: string; cancel_at_period_end: boolean; current_period_end: string | null }>; entitlements: Array<{ feature_key: string; enabled: boolean }> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [planKey, setPlanKey] = useState("starter");
@@ -4097,6 +4097,17 @@ function BillingPanel() {
   const billingSetupPending = status?.status === "unconfigured";
   const selectedPlan = status?.plans?.find((plan) => plan.key === planKey);
   const checkoutReady = !billingSetupPending && status?.billingEnabled === true && selectedPlan?.checkoutEnabled === true;
+  const setupReasonLabel = (reason: string) => {
+    if (reason === "billing_database_not_configured") return "Apply the billing database migration.";
+    if (reason === "stripe_provider_not_configured") return "Configure Stripe on the server.";
+    if (reason === "stripe_billing_mode_disabled") return `Enable the approved Stripe billing mode (currently ${status?.billingMode ?? "unknown"}).`;
+    if (reason === "stripe_account_not_ready") return "Finish Stripe account verification and enable charges and payouts.";
+    if (reason.startsWith("price_missing:")) {
+      const plan = reason.slice("price_missing:".length);
+      return `Add and configure the ${plan} Stripe price.`;
+    }
+    return "Complete the remaining billing setup.";
+  };
   const startCheckout = async () => {
     setBusy(true); setError(null);
     try {
@@ -4116,10 +4127,7 @@ function BillingPanel() {
   return <section className="portal-panel settings-billing-panel" aria-labelledby="billing-settings-title">
     <div className="settings-section-header"><div><span className="eyebrow">Subscription</span><h2 id="billing-settings-title">Costivra billing</h2><p>Choose a plan through Stripe. Your workspace becomes active only after Stripe confirms the subscription.</p></div><CircleDollarSign size={22} aria-hidden="true" /></div>
     {error && <p role="alert" className="form-error">{error}</p>}
-    {billingSetupPending && <p className="form-note">Billing is present in the application but the database migration still needs to be applied.</p>}
-    {!billingSetupPending && status && !status.providerConfigured && <p className="form-note">Stripe is not configured in this server environment yet. Checkout remains disabled.</p>}
-    {!billingSetupPending && status?.providerConfigured && status.billingEnabled === false && <p className="form-note">Stripe billing is not enabled for this server mode ({status.billingMode ?? "unknown"}). Checkout remains disabled until the approved billing mode is configured.</p>}
-    {!billingSetupPending && status?.providerConfigured && selectedPlan && !selectedPlan.checkoutEnabled && <p className="form-note">The {selectedPlan.name} test price is not configured yet. Checkout remains disabled until it is added in Stripe.</p>}
+    {status?.setupReasons?.length ? <div className="form-note" role="status"><strong>Checkout setup still needs:</strong><ul>{status.setupReasons.map((reason) => <li key={reason}>{setupReasonLabel(reason)}</li>)}</ul></div> : null}
     {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><select id="billing-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)}><option value="starter">Starter · $149/month</option><option value="growth">Growth · $599/month</option></select><button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
   </section>;
 }

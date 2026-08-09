@@ -9,7 +9,7 @@ import {
   sanitizeEmailHtml,
 } from "@/lib/manage/mail";
 import { sendOutboundEmail } from "@/lib/manage/outbound-email";
-import { findSuppression } from "@/lib/manage/sequences/repository";
+import { findOutreachBlock } from "@/lib/manage/sequences/repository";
 import { canUseSequenceMailbox } from "@/lib/manage/sequences/mailbox-policy";
 import { nextSequenceActionAt } from "@/lib/manage/sequences/schedule";
 import { renderTemplate, sanitizeSequencePersonalization } from "@/lib/manage/sequences/validation";
@@ -100,9 +100,10 @@ async function advanceAfterStep(
     sequence: Row;
     step: Row;
     lockToken: string;
-    eventType: "email_sent" | "task_completed";
+    eventType: "email_sent" | "task_created" | "task_completed";
     messageId?: string | null;
     threadId?: string | null;
+    taskId?: string | null;
     externalSideEffectId?: string | null;
   },
 ) {
@@ -132,6 +133,7 @@ async function advanceAfterStep(
       eventType: input.eventType,
       emailMessageId: input.messageId,
       emailThreadId: input.threadId,
+      taskId: input.taskId,
       externalSideEffectId: input.externalSideEffectId,
     });
     await appendSequenceEvent(db, {
@@ -225,6 +227,18 @@ async function createSequenceTask(
     }).select("id").single();
     if (error) throw error;
     taskId = task.id as string;
+  }
+
+  if (input.step.pause_until_task_complete === false) {
+    const advanced = await advanceAfterStep(db, {
+      enrollment: input.enrollment,
+      sequence: input.sequence,
+      step: input.step,
+      lockToken: input.lockToken,
+      eventType: "task_created",
+      taskId,
+    });
+    return { ...advanced, taskId } as const;
   }
 
   const released = await releaseClaim(db, text(input.enrollment.id), input.lockToken, {
@@ -338,15 +352,15 @@ export async function processClaimedSequenceEnrollment(
   if (!mailboxAvailable) {
     return failClaim(db, { enrollmentId: claim.id, lockToken: claim.lock_token, sequenceId: sequence.id, reason: "MAILBOX_NOT_SENDABLE" });
   }
-  const suppression = await findSuppression(db, text(contact.email));
-  if (suppression) {
+  const outreachBlock = await findOutreachBlock(db, { contactId: text(contact.id), email: text(contact.email) });
+  if (outreachBlock) {
     await stopEnrollmentForReason(db, {
       enrollmentId: claim.id,
-      reason: "unsubscribe",
-      eventType: "unsubscribed",
+      reason: outreachBlock.stopReason,
+      eventType: outreachBlock.stopReason === "bounce" ? "bounced" : "unsubscribed",
       lockToken: claim.lock_token,
     });
-    return { status: "suppressed", reason: text(suppression.reason, "suppressed") } as const;
+    return { status: "suppressed", reason: outreachBlock.reason } as const;
   }
 
   const nextPosition = numberValue(enrollment.current_step_position) + 1;
@@ -486,15 +500,32 @@ export async function completeSequenceTask(
   if (enrollmentError) throw enrollmentError;
   if (sequenceError) throw sequenceError;
   if (stepError) throw stepError;
-  if (!enrollment || !sequence || !step || enrollment.state !== "waiting_for_task") return false;
+  if (!enrollment || !sequence || !step) return false;
+  if (enrollment.state !== "waiting_for_task") {
+    // Non-pausing tasks already advanced the sequence when created. Their
+    // later completion is still recorded, but must not attempt a second
+    // enrollment transition or make the operator's task impossible to close.
+    if (step.pause_until_task_complete !== false || numberValue(enrollment.current_step_position) < numberValue(step.position)) return false;
+    await appendSequenceEvent(db, {
+      sequenceId: sequence.id,
+      enrollmentId: enrollment.id,
+      stepId: step.id,
+      taskId: task.id,
+      eventType: "task_completed",
+      safeMetadata: { actor_id: input.actorId, sequence_already_advanced: true },
+    });
+    return true;
+  }
 
   const { data: steps, error: stepsError } = await db.from("crm_sequence_steps").select("id,position,delay_value,delay_unit").eq("sequence_id", sequence.id).order("position", { ascending: true });
   if (stepsError) throw stepsError;
   const currentPosition = numberValue(step.position);
   const nextStep = (steps ?? []).find((candidate: Row) => numberValue(candidate.position) > currentPosition) as Row | undefined;
   const now = new Date();
+  const sequenceExecuting = sequence.status === "active" && sequence.execution_enabled === true;
   const nextActionAt = nextStep
-    ? nextSequenceActionAt({
+    ? sequenceExecuting
+      ? nextSequenceActionAt({
         completedAt: now,
         delayValue: numberValue(nextStep.delay_value),
         delayUnit: nextStep.delay_unit as "minutes" | "hours" | "business_days" | "calendar_days",
@@ -505,9 +536,12 @@ export async function completeSequenceTask(
           sendEndLocal: text(sequence.send_end_local, "16:00").slice(0, 5),
         },
       })
+      : null
     : null;
   const update = nextStep
-    ? { state: "active", current_step_id: nextStep.id, current_step_position: numberValue(nextStep.position), next_action_at: nextActionAt, updated_at: now.toISOString() }
+    ? sequenceExecuting
+      ? { state: "active", current_step_id: nextStep.id, current_step_position: numberValue(nextStep.position), next_action_at: nextActionAt, paused_at: null, updated_at: now.toISOString() }
+      : { state: "paused", current_step_id: nextStep.id, current_step_position: numberValue(nextStep.position), next_action_at: null, paused_at: now.toISOString(), updated_at: now.toISOString() }
     : { state: "completed", current_step_id: step.id, current_step_position: currentPosition, next_action_at: null, completed_at: now.toISOString(), updated_at: now.toISOString() };
   const { data: updated, error: updateError } = await db.from("crm_sequence_enrollments").update(update).eq("id", enrollment.id).eq("state", "waiting_for_task").select("id").maybeSingle();
   if (updateError) throw updateError;
@@ -527,7 +561,7 @@ export async function completeSequenceTask(
       enrollmentId: enrollment.id,
       stepId: text(nextStep.id),
       eventType: "step_scheduled",
-      safeMetadata: { next_action_at: nextActionAt, position: nextStep.position },
+      safeMetadata: { next_action_at: nextActionAt, position: nextStep.position, sequence_paused: !sequenceExecuting },
     });
   } else {
     await appendSequenceEvent(db, {

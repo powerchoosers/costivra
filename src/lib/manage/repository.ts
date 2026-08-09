@@ -72,6 +72,7 @@ export async function getManageData(input?: {
     staffResult,
     crmContactsResult,
     marketingConsentsResult,
+    outreachSuppressionsResult,
     tasksResult,
     activitiesResult,
     mailboxesResult,
@@ -106,6 +107,10 @@ export async function getManageData(input?: {
       .from("crm_marketing_consents")
       .select("organization_id,contact_id,status,recorded_at")
       .order("recorded_at", { ascending: false }),
+    db
+      .from("crm_outreach_suppressions")
+      .select("email_normalized,domain_normalized,reason,expires_at,created_at")
+      .order("created_at", { ascending: false }),
     db
       .from("crm_tasks")
       .select("*")
@@ -182,6 +187,31 @@ export async function getManageData(input?: {
     .from("crm_account_enrichments")
     .select("organization_id,provider,name,short_description,industry,website,logo_url,linkedin_url,phone,location,employee_count,founded_year,technology_names,status,fetched_at,attempted_at");
   const enrichmentAvailable = !accountEnrichmentsResult.error;
+
+  // This is display context only. The enrollment API remains the authoritative
+  // fail-closed check at preview, staging, and send time.
+  const suppressionRows = outreachSuppressionsResult.error
+    ? []
+    : rows(outreachSuppressionsResult.data);
+  const activeSuppressionByEmail = new Map<string, string>();
+  const activeSuppressionByDomain = new Map<string, string>();
+  for (const suppression of suppressionRows) {
+    const expiresAt = nullable(suppression.expires_at);
+    if (expiresAt && Date.parse(expiresAt) <= Date.now()) continue;
+    const reason = text(suppression.reason, "suppressed");
+    const email = text(suppression.email_normalized).trim().toLowerCase();
+    const domain = text(suppression.domain_normalized).trim().toLowerCase();
+    if (email && !activeSuppressionByEmail.has(email)) activeSuppressionByEmail.set(email, reason);
+    if (domain && !activeSuppressionByDomain.has(domain)) activeSuppressionByDomain.set(domain, reason);
+  }
+  const priorProviderStatusByContact = new Map<string, string>();
+  for (const message of rows(messagesResult.data)) {
+    const contactId = text(message.contact_id);
+    const providerStatus = text(message.provider_status);
+    if (contactId && ["bounced", "complained", "suppressed"].includes(providerStatus) && !priorProviderStatusByContact.has(contactId)) {
+      priorProviderStatusByContact.set(contactId, providerStatus);
+    }
+  }
 
   const overlayRows = rows(overlaysResult.data);
   const isVisibleOrganization = (organizationId: string) =>
@@ -441,6 +471,11 @@ export async function getManageData(input?: {
           marketingStatus:
             status === "opted_in" || status === "opted_out" ? status : null,
           marketingConsentAt: nullable(consent?.recorded_at),
+          outreachSuppressionReason: activeSuppressionByEmail.get(text(contact.email).trim().toLowerCase())
+            ?? activeSuppressionByDomain.get(text(contact.email).trim().toLowerCase().split("@")[1] ?? "")
+            ?? (priorProviderStatusByContact.get(text(contact.id))
+              ? `prior ${priorProviderStatusByContact.get(text(contact.id))} email result`
+              : status === "opted_out" ? "marketing opt-out" : null),
         };
       })(),
       id: text(contact.id),
@@ -486,6 +521,7 @@ export async function getManageData(input?: {
       source: "workspace",
       marketingStatus: null,
       marketingConsentAt: null,
+      outreachSuppressionReason: null,
     });
   }
 

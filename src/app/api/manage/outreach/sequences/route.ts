@@ -3,10 +3,15 @@ import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
 import { listSequences } from "@/lib/manage/sequences/repository";
 import { cleanText, cleanUuid } from "@/lib/portal/http";
 
+const privateHeaders = { "Cache-Control": "private, no-store" };
+
 export async function GET() {
   try {
     const { db } = await requireInternalOperator();
-    return NextResponse.json({ sequences: await listSequences(db) });
+    return NextResponse.json({
+      sequences: await listSequences(db),
+      executionEnabled: process.env.COSTIVRA_SEQUENCE_EXECUTION_ENABLED === "true",
+    }, { headers: privateHeaders });
   } catch (error) {
     const result = manageApiError(error);
     return NextResponse.json({ error: result.error }, { status: result.status });

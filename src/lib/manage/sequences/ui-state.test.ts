@@ -20,4 +20,17 @@ describe("sequenceActivationUiState", () => {
   it("shows an honest busy state", () => {
     expect(sequenceActivationUiState("draft", true, true)).toEqual({ badge: "Checking system readiness", buttonLabel: "Checking readiness…", disabled: true });
   });
+
+  it("keeps draft activation disabled when the release flag is off", () => {
+    expect(sequenceActivationUiState("draft", true, false, false)).toEqual({
+      badge: "Execution disabled for this release",
+      buttonLabel: "Execution disabled",
+      disabled: true,
+    });
+    expect(sequenceActivationUiState("paused", true, false, false)).toEqual({
+      badge: "Execution disabled for this release",
+      buttonLabel: "Execution disabled",
+      disabled: true,
+    });
+  });
 });

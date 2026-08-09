@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const stopEnrollmentForReason = vi.hoisted(() => vi.fn());
+const appendSequenceEvent = vi.hoisted(() => vi.fn());
 vi.mock("./lifecycle", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./lifecycle")>()),
   stopEnrollmentForReason,
+  appendSequenceEvent,
 }));
 
-import { cancelSequenceTask, processClaimedSequenceEnrollment } from "./worker";
+import { cancelSequenceTask, completeSequenceTask, processClaimedSequenceEnrollment } from "./worker";
 
 function makeQuery(result: { data: unknown; error: unknown }, singleResult = result) {
   const query = {
@@ -18,6 +20,8 @@ function makeQuery(result: { data: unknown; error: unknown }, singleResult = res
     limit: vi.fn(() => query),
     update: vi.fn(() => query),
     insert: vi.fn(() => query),
+    order: vi.fn(() => query),
+    then: (resolve: (value: { data: unknown; error: unknown }) => unknown) => Promise.resolve(result).then(resolve),
     maybeSingle: vi.fn(async () => result),
     single: vi.fn(async () => singleResult),
   };
@@ -25,7 +29,10 @@ function makeQuery(result: { data: unknown; error: unknown }, singleResult = res
 }
 
 describe("sequence task cancellation", () => {
-  beforeEach(() => stopEnrollmentForReason.mockReset().mockResolvedValue(true));
+  beforeEach(() => {
+    stopEnrollmentForReason.mockReset().mockResolvedValue(true);
+    appendSequenceEvent.mockReset().mockResolvedValue("event-1");
+  });
 
   it("stops a waiting sequence enrollment with an auditable failure transition", async () => {
     const taskQuery = makeQuery({ data: { origin: "sequence", sequence_id: "sequence-1", sequence_enrollment_id: "enrollment-1", sequence_step_id: "step-1" }, error: null });
@@ -85,6 +92,85 @@ describe("sequence task cancellation", () => {
       next_action_at: null,
       last_error_code: "SEQUENCE_NOT_ACTIVE",
     }));
-    expect(eventQuery.insert).toHaveBeenCalledWith(expect.objectContaining({ event_type: "paused" }));
+    expect(appendSequenceEvent).toHaveBeenCalledWith(db, expect.objectContaining({ eventType: "paused" }));
+  });
+
+  it("keeps the enrollment paused when a waiting task completes after the sequence was paused", async () => {
+    const taskQuery = makeQuery({ data: {
+      id: "task-1",
+      origin: "sequence",
+      task_type: "call",
+      sequence_id: "sequence-1",
+      sequence_enrollment_id: "enrollment-1",
+      sequence_step_id: "step-1",
+      organization_id: "org-1",
+      contact_id: "contact-1",
+    }, error: null });
+    const enrollmentQuery = makeQuery({ data: {
+      id: "enrollment-1",
+      state: "waiting_for_task",
+      sequence_id: "sequence-1",
+      current_step_position: 1,
+      started_at: null,
+    }, error: null });
+    const sequenceQuery = makeQuery({ data: {
+      id: "sequence-1",
+      status: "paused",
+      execution_enabled: false,
+    }, error: null });
+    const stepQuery = makeQuery({ data: { id: "step-1", position: 1 }, error: null });
+    const stepsQuery = makeQuery({ data: [{ id: "step-1", position: 1 }, { id: "step-2", position: 2, delay_value: 2, delay_unit: "business_days" }], error: null });
+    const db = {
+      from(table: string) {
+        if (table === "crm_tasks") return taskQuery;
+        if (table === "crm_sequence_enrollments") return enrollmentQuery;
+        if (table === "crm_sequences") return sequenceQuery;
+        if (table === "crm_sequence_steps") return stepQuery.maybeSingle.mock.calls.length ? stepsQuery : stepQuery;
+        throw new Error(`Unexpected table ${table}`);
+      },
+    };
+
+    await expect(completeSequenceTask(db as never, { taskId: "task-1", actorId: "operator-1" })).resolves.toBe(true);
+    expect(enrollmentQuery.update).toHaveBeenCalledWith(expect.objectContaining({
+      state: "paused",
+      current_step_id: "step-2",
+      current_step_position: 2,
+      next_action_at: null,
+    }));
+    expect(appendSequenceEvent).toHaveBeenCalledWith(db, expect.objectContaining({
+      eventType: "step_scheduled",
+      safeMetadata: expect.objectContaining({ sequence_paused: true, next_action_at: null }),
+    }));
+  });
+
+  it("records completion for a non-pausing task without attempting a second transition", async () => {
+    const taskQuery = makeQuery({ data: {
+      id: "task-1",
+      origin: "sequence",
+      task_type: "call",
+      sequence_id: "sequence-1",
+      sequence_enrollment_id: "enrollment-1",
+      sequence_step_id: "step-1",
+    }, error: null });
+    const enrollmentQuery = makeQuery({ data: { id: "enrollment-1", state: "active", current_step_position: 2 }, error: null });
+    const sequenceQuery = makeQuery({ data: { id: "sequence-1", status: "active", execution_enabled: true }, error: null });
+    const stepQuery = makeQuery({ data: { id: "step-1", position: 1, pause_until_task_complete: false }, error: null });
+    const db = {
+      from(table: string) {
+        if (table === "crm_tasks") return taskQuery;
+        if (table === "crm_sequence_enrollments") return enrollmentQuery;
+        if (table === "crm_sequences") return sequenceQuery;
+        if (table === "crm_sequence_steps") return stepQuery;
+        throw new Error(`Unexpected table ${table}`);
+      },
+    };
+
+    await expect(completeSequenceTask(db as never, { taskId: "task-1", actorId: "operator-1" })).resolves.toBe(true);
+    expect(enrollmentQuery.update).not.toHaveBeenCalled();
+    expect(appendSequenceEvent).toHaveBeenCalledWith(db, expect.objectContaining({
+      eventType: "task_completed",
+      taskId: "task-1",
+      safeMetadata: expect.objectContaining({ sequence_already_advanced: true }),
+    }));
   });
 });

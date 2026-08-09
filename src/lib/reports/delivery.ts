@@ -45,3 +45,27 @@ export function reportRecipientStatusForProviderEvent(eventStatus: string) {
   if (eventStatus === "failed") return "failed" as const;
   return null;
 }
+
+export function isReportScheduleClaimCurrent(
+  schedule: { status?: unknown; next_run_at?: unknown } | null | undefined,
+  scheduledFor: string,
+) {
+  return schedule?.status === "active"
+    && typeof schedule.next_run_at === "string"
+    && schedule.next_run_at === scheduledFor;
+}
+
+/**
+ * Report delivery depends on a small set of reviewed migrations. Keep schema
+ * failures distinguishable from transient provider/database failures so the
+ * cron can stop claiming work and tell the operator exactly what is missing.
+ */
+export function isReportDeliverySchemaSetupError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: unknown; message?: unknown };
+  const code = typeof value.code === "string" ? value.code : "";
+  const message = typeof value.message === "string" ? value.message : "";
+  if (code === "42P01") return true;
+  if (code !== "42703") return false;
+  return /report_delivery_runs|report_delivery_recipients|attempt_count|next_retry_at/i.test(message);
+}
