@@ -1290,7 +1290,7 @@ export function ManagePortal({
             </div>
           </div>
           <div className="manage-topbar-center">
-          {(["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") && (
+          {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
             <div className="manage-create-wrap" ref={createMenuRef}>
               <button className={`manage-button manage-button--primary manage-create-trigger${createMenuOpen ? " is-active" : ""}`} type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
                 <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
@@ -1311,6 +1311,15 @@ export function ManagePortal({
                       <small>Key person or decision maker</small>
                     </span>
                   </button>
+                  {section === "outreach" && (
+                    <button type="button" role="menuitem" onClick={() => { openDialog("task"); closeCreateMenu(); }}>
+                      <span className="manage-create-icon manage-create-icon--task"><CalendarClock size={16} /></span>
+                      <span className="manage-create-label">
+                        <strong>Add task</strong>
+                        <small>Follow-up, call, meeting, or review</small>
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1327,7 +1336,7 @@ export function ManagePortal({
               >
                 <Plus size={16} /> Add note
               </button>
-            ) : (["overview", "accounts", "contacts"] as const).includes(section as "overview" | "accounts" | "contacts") ? null : (
+            ) : (["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") ? null : (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() =>
@@ -1373,7 +1382,16 @@ export function ManagePortal({
             );
           }}
         >
-          {section !== "overview" && !detailId && <GlobalBackControl className="manage-global-back" />}
+          {section !== "overview" && !detailId && (
+            section === "outreach" ? (
+              <div className="manage-outreach-context-row">
+                <GlobalBackControl className="manage-global-back" />
+                <button className="manage-button manage-button--primary" onClick={() => openDialog("task")}>
+                  <Plus size={16} /> Add task
+                </button>
+              </div>
+            ) : <GlobalBackControl className="manage-global-back" />
+          )}
           {section === "overview" && (
             <Overview data={data} />
           )}
@@ -1395,8 +1413,6 @@ export function ManagePortal({
               data={data}
               query={search}
               run={run}
-              onTask={() => openDialog("task")}
-              onNote={() => openDialog("note")}
             />
           )}
           {section === "mail" && (
@@ -4297,14 +4313,10 @@ function Outreach({
   data,
   query,
   run,
-  onTask,
-  onNote,
 }: {
   data: ManageData;
   query: string;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
-  onTask: () => void;
-  onNote: () => void;
 }) {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const searchParams = useSearchParams();
@@ -4342,21 +4354,6 @@ function Outreach({
     return matchesPriority && matchesQuery;
   });
 
-  const exportTasksCsv = () => {
-    const exportRows = tasks.map((t) => ({
-      ID: t.id,
-      Organization: t.organizationName,
-      Title: t.title,
-      Type: t.taskType,
-      Priority: t.priority,
-      Status: t.status,
-      DueAt: t.dueAt ?? "",
-      Notes: t.notes ?? "",
-      CreatedAt: t.createdAt,
-    }));
-    downloadCsv(`costivra-tasks-${new Date().toISOString().slice(0, 10)}.csv`, exportRows);
-  };
-
   return (
     <>
       <nav className="manage-tabs manage-outreach-tabs" role="tablist" aria-label="Outreach workspace">
@@ -4365,36 +4362,6 @@ function Outreach({
         <button id="outreach-tab-enrollments" role="tab" aria-selected={outreachTab === "enrollments"} aria-controls="outreach-panel-enrollments" tabIndex={outreachTab === "enrollments" ? 0 : -1} className={outreachTab === "enrollments" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("enrollments")}>Enrollments</button>
       </nav>
       {outreachTab !== "tasks" ? <div id={`outreach-panel-${outreachTab}`} role="tabpanel" aria-labelledby={`outreach-tab-${outreachTab}`} tabIndex={0}><SequenceWorkspace data={data} query={query} mode={outreachTab === "enrollments" ? "enrollments" : "sequences"} /></div> : <div id="outreach-panel-tasks" role="tabpanel" aria-labelledby="outreach-tab-tasks" tabIndex={0}>
-      <section className="manage-page-heading">
-        <div>
-          <h2>Outreach</h2>
-          <p>
-            Follow-ups, calls, meetings, and review work—without automated
-            blasting.
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            className="manage-button manage-button--quiet"
-            onClick={exportTasksCsv}
-            title="Export tasks to CSV"
-          >
-            <Download size={15} /> Export CSV
-          </button>
-          <button
-            className="manage-button manage-button--quiet"
-            onClick={onNote}
-          >
-            <FileText size={16} /> Add note
-          </button>
-          <button
-            className="manage-button manage-button--primary"
-            onClick={onTask}
-          >
-            <Plus size={16} /> Add task
-          </button>
-        </div>
-      </section>
       <div className="manage-tabs" style={{ marginBottom: 16, borderBottom: "1px solid #edf0f3" }}>
         <button
           className={priorityFilter === "all" ? "active" : ""}

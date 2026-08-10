@@ -2,7 +2,7 @@
 
 ## Current status — August 9, 2026
 
-This packet is **partially implemented**. The subscription foundation exists, but the complete paid self-service proof and plan-specific entitlement enforcement are still open.
+This packet is **partially implemented**. The subscription foundation and four plan-limit enforcement boundaries exist, but complete paid self-service proof and the remaining product-policy boundaries are still open.
 
 Implemented today:
 
@@ -14,6 +14,7 @@ Implemented today:
 - Idempotent customer creation, Checkout Sessions, and webhook event ledgering.
 - Pre-auth retries reuse a customer already saved on the checkout intent, so a failed Checkout attempt cannot multiply Stripe customer records.
 - The signup page keeps one idempotency key for the current plan attempt, so a lost browser response can safely retry the same handoff.
+- A successful pre-auth return now calls a server-side reconciliation route. It retrieves the Stripe Checkout Session, requires a completed paid/no-payment-required session, verifies the intent metadata, provisions idempotently, and projects the subscription and entitlements when a webhook is delayed.
 - Test-mode Starter and Growth recurring Prices exist in the **app-configured** Stripe Test account, whose Stripe account name is `Costivra sandbox`.
 - The Supabase Test catalog rows now store those verified provider IDs: Starter `price_1U2eoWGiNqnczA1Og9pC0EdR` / `prod_V2kJNDQdjSwiEL`; Growth `price_1U2eoXGiNqnczA1ObRi2Aztj` / `prod_V2kJHD0rkcyDIQ`.
 - Owner-managed pricing at `/manage/settings` → **Billing & pricing**.
@@ -35,9 +36,10 @@ Implemented today:
 
 Still open:
 
-- Full test subscription proof: complete the opened Test Checkout with a Stripe test card, then verify signed webhook → subscription record → entitlement → Customer Portal. The application successfully opened a real Test-mode Starter Checkout Session after the Managed Payments fix; payment/webhook proof is still pending.
+- Full test subscription proof: the opened Test Checkout was completed with Stripe's test card, but signed webhook → subscription record → entitlement → Customer Portal proof is still pending because the current deployment predates the webhook secret.
 - Remaining entitlement enforcement: document/upload limits, sequence enrollment/send limits, and premium category coverage still need explicit product policy before they can be safely gated.
-- Production webhook configuration and live-mode proof.
+- The app-configured `Costivra sandbox` Test account now has an active event destination at `https://costivra.ai/api/webhooks/stripe` listening for the seven billing events used by the app. The production `STRIPE_WEBHOOK_SECRET` was added to Vercel; Vercel requires a new deployment before that secret is available to the running function.
+- Live-mode proof and live webhook setup.
 - Activation-link browser proof, delayed webhook recovery, and support handling for the manual-review case.
 - Stripe Customer Portal configuration policy and tax/legal approval.
 - Credential alignment: the local app key currently resolves to Stripe Test account `acct_1U2Mw8GiNqnczA1O` (display name `Costivra sandbox`), while the connected Stripe dashboard account is `acct_1U2MvqK7vdNK2m4p` (display name `Costivra`). These are different accounts. Replace the app/Vercel Test-mode keys and catalog rows, or intentionally use the sandbox account; do not describe the dashboard account as connected until this is aligned.
@@ -53,10 +55,11 @@ Do not treat this packet as permission to create live products, prices, customer
 - Stripe Managed Payments is explicitly disabled in both subscription Checkout routes because the current pilot products do not have Managed Payments tax codes configured. Do not re-enable it without a separate tax/product-code decision.
 - The app currently points at `Costivra sandbox` Test mode. The separate Stripe dashboard account `Costivra` is not connected to the app yet.
 - Vercel/local credential alignment is still a Lewis-owned configuration step; no secret key should be copied into this repository or chat.
-- A real Starter Test Checkout Session was opened successfully, but no test payment, signed webhook, Customer Portal proof, or activation-email browser proof has been completed.
-- The deployed production signup page renders the selected Starter plan and the “Continue to secure checkout” creation flow; the deployed pre-auth endpoint also rejects malformed requests before touching Stripe.
-- Production valid-request smoke testing currently fails on deployment `dpl_64Txez67K223bSUAsgwXL5c16oVG` because that deployment predates the local `managed_payments.enabled = false` fix; Stripe returns the Managed Payments product-tax-code error. The fix is present in the working tree and must be deployed before production Checkout can open.
-- Latest local validation after the failed-state and entitlement hardening: focused billing/entitlement/webhook/location/pre-auth tests pass (14 tests), focused ESLint passes, TypeScript validation passes, `npm run build` passes, and `git diff --check` passes. No deployment was performed.
+- A real Starter Test Checkout Session was opened and completed with Stripe's test card, but no signed webhook, Customer Portal proof, or activation-email browser proof has been completed.
+- The current production deployment (`dpl_8esVNXQJxYVmW5wqFFJxbvuP9GYE`, commit `0ed5fac`) renders the selected Starter plan at `$149/month`, shows “Continue to secure checkout,” and does not ask for a password during creation.
+- A valid production Starter request now returns a real Stripe Test-mode Checkout URL (`201`) and records a `checkout_open` intent with both a Stripe customer and Checkout Session in Supabase. This proves the creation-to-Checkout handoff; no card was entered and no payment or subscription was created.
+- The previous Managed Payments tax-code failure was from the superseded deployment `dpl_64Txez67K223bSUAsgwXL5c16oVG`; it is no longer the current production state.
+- Latest validation after the failed-state and entitlement hardening: focused billing/entitlement/webhook/location/pre-auth tests pass (14 tests), focused ESLint passes, TypeScript validation passes, `npm run build` passes, and `git diff --check` passes.
 - Never paste secret keys or webhook secrets into chat. Lewis must align the keys/catalog in local and Vercel settings before account-specific proof is valid.
 
 ## Mission
@@ -229,7 +232,7 @@ stripe listen --forward-to http://localhost:3000/api/webhooks/stripe
 
 Copy the signing secret printed by Stripe CLI into local `STRIPE_WEBHOOK_SECRET` for that session. Production proof requires a deployed HTTPS webhook endpoint with its own Dashboard webhook secret.
 
-After Lewis deploys the current working tree, repeat one valid Test-mode POST to `/api/billing/preauth-checkout`. It must return a Checkout URL rather than 500, and the Vercel log must no longer contain the Managed Payments tax-code error. Only then proceed to the test-card and signed-webhook checks.
+The current deployment has passed the valid Test-mode POST and returned a Checkout URL. The Test endpoint and Vercel secret are now configured, but a new deployment is required before signed delivery can be verified. After Lewis deploys the current code, complete one Test checkout and verify the signed webhook creates the subscription, entitlement rows, onboarding record, and activation link. Do not use a real card or live-mode price.
 
 Prove with signed test events or Stripe CLI fixtures:
 

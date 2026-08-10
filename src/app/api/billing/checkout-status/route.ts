@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { reconcileCheckoutSession } from "@/lib/billing/checkout-reconciliation";
+import { getStripeClient } from "@/lib/billing/stripe";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -23,5 +25,17 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("checkout status failed", error);
     return NextResponse.json({ error: "Checkout status could not be loaded." }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const sessionId = new URL(request.url).searchParams.get("session_id")?.trim() ?? "";
+  if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return NextResponse.json({ error: "A valid Checkout session is required." }, { status: 400 });
+  try {
+    const result = await reconcileCheckoutSession(createServerSupabaseClient(), getStripeClient(), sessionId);
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("checkout reconciliation failed", error);
+    return NextResponse.json({ error: "Checkout reconciliation could not be completed." }, { status: 500 });
   }
 }

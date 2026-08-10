@@ -423,6 +423,12 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     if (billingOutcome !== "success" || !checkoutSessionId) return;
     let active = true;
     let attempts = 0;
+    void fetch(`/api/billing/checkout-status?session_id=${encodeURIComponent(checkoutSessionId)}`, {
+      method: "POST",
+      cache: "no-store",
+    }).catch(() => {
+      // The signed webhook may still be in flight; polling remains the fallback.
+    });
     const poll = async () => {
       try {
         const response = await fetch(`/api/billing/checkout-status?session_id=${encodeURIComponent(checkoutSessionId)}`, { cache: "no-store" });
