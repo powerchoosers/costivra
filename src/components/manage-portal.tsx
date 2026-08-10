@@ -702,7 +702,7 @@ export function ManagePortal({
   const currentAccount = section === "accounts" && detailId ? data.accounts.find((item) => item.id === detailId) : null;
   const currentContact = section === "contacts" && detailId ? data.contacts.find((item) => item.id === detailId) : null;
   const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations", "trust-review": "Trust review" };
-  const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? (outreachSequenceId ? "Sequence" : managePageLabels[section] ?? pretty(section));
+  const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? (outreachSequenceId ? "Sequence" : sequenceOutreachTab ? "Sequences" : managePageLabels[section] ?? pretty(section));
   const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : outreachSequenceId ? "/manage/outreach?tab=sequences" : "/manage";
   const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : outreachSequenceId ? "Sequences" : "Client operations";
   useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
@@ -4356,7 +4356,8 @@ function Outreach({
     window.requestAnimationFrame(() => document.getElementById(`outreach-tab-${nextTab}`)?.focus());
   };
 
-  const tasks = data.tasks.filter((task) => {
+  const activeTasks = data.tasks.filter((task) => ["open", "in_progress"].includes(task.status));
+  const tasks = activeTasks.filter((task) => {
     const matchesPriority =
       priorityFilter === "all" || task.priority === priorityFilter;
     const matchesQuery = `${task.title} ${task.organizationName} ${task.notes || ""}`
@@ -4366,10 +4367,10 @@ function Outreach({
   });
 
   const priorityFilterOptions = [
-    { value: "all" as const, label: "All priorities", count: data.tasks.length },
-    { value: "high" as const, label: "High priority", count: data.tasks.filter((task) => task.priority === "high").length },
-    { value: "normal" as const, label: "Normal priority", count: data.tasks.filter((task) => task.priority === "normal").length },
-    { value: "low" as const, label: "Low priority", count: data.tasks.filter((task) => task.priority === "low").length },
+    { value: "all" as const, label: "All priorities", count: activeTasks.length },
+    { value: "high" as const, label: "High priority", count: activeTasks.filter((task) => task.priority === "high").length },
+    { value: "normal" as const, label: "Normal priority", count: activeTasks.filter((task) => task.priority === "normal").length },
+    { value: "low" as const, label: "Low priority", count: activeTasks.filter((task) => task.priority === "low").length },
   ];
 
   useEffect(() => {
@@ -4399,12 +4400,16 @@ function Outreach({
   return (
     <>
       <nav className="manage-tabs manage-outreach-tabs" role="tablist" aria-label="Outreach workspace">
-        <button id="outreach-tab-tasks" role="tab" aria-selected={outreachTab === "tasks"} aria-controls="outreach-panel-tasks" tabIndex={outreachTab === "tasks" ? 0 : -1} className={outreachTab === "tasks" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("tasks")}>Tasks <span>{data.tasks.length}</span></button>
+        <button id="outreach-tab-tasks" role="tab" aria-selected={outreachTab === "tasks"} aria-controls="outreach-panel-tasks" tabIndex={outreachTab === "tasks" ? 0 : -1} className={outreachTab === "tasks" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("tasks")}>Tasks <span>{activeTasks.length}</span></button>
         <button id="outreach-tab-sequences" role="tab" aria-selected={outreachTab === "sequences"} aria-controls="outreach-panel-sequences" tabIndex={outreachTab === "sequences" ? 0 : -1} className={outreachTab === "sequences" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("sequences")}>Sequences</button>
         <button id="outreach-tab-enrollments" role="tab" aria-selected={outreachTab === "enrollments"} aria-controls="outreach-panel-enrollments" tabIndex={outreachTab === "enrollments" ? 0 : -1} className={outreachTab === "enrollments" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("enrollments")}>Enrollments</button>
       </nav>
       {outreachTab !== "tasks" ? <div id={`outreach-panel-${outreachTab}`} role="tabpanel" aria-labelledby={`outreach-tab-${outreachTab}`} tabIndex={0}><SequenceWorkspace data={data} query={query} mode={outreachTab === "enrollments" ? "enrollments" : "sequences"} /></div> : <div id="outreach-panel-tasks" role="tabpanel" aria-labelledby="outreach-tab-tasks" tabIndex={0}>
       <div className="manage-outreach-board-toolbar">
+        <div className="manage-outreach-task-toolbar-copy">
+          <strong>Active tasks</strong>
+          <span>{tasks.length} shown · ordered by due date · completed tasks hidden</span>
+        </div>
         <div ref={priorityFilterRef} className={`manage-outreach-priority-filter${priorityFilterOpen ? " is-open" : ""}`}>
           <button ref={priorityFilterTriggerRef} type="button" className="manage-outreach-priority-filter__trigger" aria-label="Filter tasks by priority" title="Filter tasks by priority" aria-haspopup="menu" aria-controls="outreach-priority-filter-menu" aria-expanded={priorityFilterOpen} onClick={() => setPriorityFilterOpen((current) => !current)}>
             <ListFilter size={16} strokeWidth={1.8} aria-hidden="true" />
@@ -4432,76 +4437,79 @@ function Outreach({
           </div>
         </div>
       </div>
-      <section className="manage-outreach-board">
-        {["open", "in_progress", "completed"].map((status) => (
-          <div className="manage-task-column" key={status}>
-            <header>
-              <div>
-                <i className={`task-dot task-dot--${status}`} />
-                <h3>{pretty(status)}</h3>
-              </div>
-              <span>
-                {tasks.filter((task) => task.status === status).length}
-              </span>
-            </header>
-            <div>
-              {tasks
-                .filter((task) => task.status === status)
-                .map((task) => (
-                  <article key={task.id}>
-                    <div>
-                      <span
-                        className={`manage-priority manage-priority--${task.priority}`}
-                      >
-                        {task.priority}
-                      </span>
-                      <small>{pretty(task.taskType)}</small>
-                    </div>
-                    {sequenceTaskOriginLabel(task) && (task.sequenceEnrollmentId ? <Link className="manage-task-origin" href={`/manage/outreach?tab=enrollments&enrollment=${task.sequenceEnrollmentId}`} aria-label={`Open sequence enrollment for ${task.title}`}>{sequenceTaskOriginLabel(task)}</Link> : <span className="manage-task-origin">{sequenceTaskOriginLabel(task)}</span>)}
-                    <h4>{task.title}</h4>
-                    <p><strong>{task.organizationName}</strong></p>
-                    {task.notes && (
-                      <p style={{ marginTop: 4, color: "#667085", fontSize: "0.64rem", lineHeight: 1.4 }}>
-                        {task.notes}
-                      </p>
-                    )}
-                    <footer>
-                      <span>
-                        <Clock3 size={14} /> {date(task.dueAt)}
-                      </span>
-                      {status !== "completed" && (
-                        <button
-                          onClick={() =>
-                            void run(
-                              () =>
-                                api(`/api/manage/tasks/${task.id}`, {
-                                  method: "PATCH",
-                                  body: JSON.stringify({ status: "completed" }),
-                                }),
-                              "Task completed.",
-                            )
-                          }
-                          aria-label={`Complete ${task.title}`}
-                          title="Mark task completed"
-                        >
-                          <Check size={15} />
-                        </button>
-                      )}
-                    </footer>
-                  </article>
-                ))}
-              {!tasks.some((task) => task.status === status) && (
-                <p className="manage-column-empty">
-                  No {pretty(status).toLowerCase()} tasks.
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
-      </section>
+      <OutreachTaskTable tasks={tasks} run={run} />
       </div>}
     </>
   );
+}
+
+function OutreachTaskTable({
+  tasks,
+  run,
+}: {
+  tasks: ManageData["tasks"];
+  run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+}) {
+  const orderedTasks = [...tasks].sort((a, b) => {
+    const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+    const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+    if (aDue !== bDue) return aDue - bDue;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  if (!orderedTasks.length) {
+    return <Empty icon={CalendarClock} title="No active tasks" copy="Your active follow-up work will appear here in due-date order. Completed tasks stay out of this working view." />;
+  }
+
+  return <div className="manage-table-wrap manage-outreach-task-table">
+    <table>
+      <caption className="sr-only">Active outreach tasks ordered by due date</caption>
+      <thead>
+        <tr>
+          <th scope="col">Task</th>
+          <th scope="col">Account</th>
+          <th scope="col">Status</th>
+          <th scope="col">Priority</th>
+          <th scope="col">Type</th>
+          <th scope="col" aria-sort="ascending">Due</th>
+          <th scope="col"><span className="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {orderedTasks.map((task) => (
+          <tr key={task.id}>
+            <td data-label="Task">
+              <div className="manage-outreach-task-record-cell">
+                <Link href={taskHref(task)} className="manage-outreach-task-record" aria-label={`Open ${task.title} for ${task.organizationName}`}>
+                  <span className={`manage-task-icon manage-task-icon--${task.priority}`}><TaskIcon taskType={task.taskType} /></span>
+                  <span>
+                    <strong>{task.title}</strong>
+                    {task.notes && <small>{task.notes}</small>}
+                  </span>
+                </Link>
+                {sequenceTaskOriginLabel(task) && (task.sequenceEnrollmentId ? <Link className="manage-task-origin manage-outreach-task-origin" href={`/manage/outreach?tab=enrollments&enrollment=${task.sequenceEnrollmentId}`} aria-label={`Open sequence enrollment for ${task.title}`}>{sequenceTaskOriginLabel(task)}</Link> : <span className="manage-task-origin manage-outreach-task-origin">{sequenceTaskOriginLabel(task)}</span>)}
+              </div>
+            </td>
+            <td data-label="Account"><Link className="manage-outreach-task-account" href={`/manage/accounts/${task.organizationId}`}>{task.organizationName}</Link></td>
+            <td data-label="Status"><span className={`manage-status manage-status--${task.status}`}><i aria-hidden="true" />{pretty(task.status)}</span></td>
+            <td data-label="Priority"><span className={`manage-priority manage-priority--${task.priority}`}>{task.priority}</span></td>
+            <td data-label="Type">{pretty(task.taskType)}</td>
+            <td data-label="Due"><time dateTime={task.dueAt ?? undefined}>{date(task.dueAt)}</time></td>
+            <td data-label="Actions" className="manage-outreach-task-actions">
+              <button
+                type="button"
+                onClick={() => void run(() => api(`/api/manage/tasks/${task.id}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) }), "Task completed.")}
+                aria-label={`Complete ${task.title}`}
+                title="Mark task completed"
+              >
+                <Check size={15} />
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>;
 }
 
 function SettingsPage({

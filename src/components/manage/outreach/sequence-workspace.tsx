@@ -9,7 +9,7 @@ import type { Sequence, SequenceStep, SequenceStepType, Enrollment } from "@/lib
 import { sanitizeEmailHtml } from "@/lib/manage/sanitize-email-html";
 import { PERSONALIZATION_OVERRIDE_FIELDS, TEMPLATE_TOKENS, renderTemplate, validateSequenceDraft } from "@/lib/manage/sequences/validation";
 import { sequenceActivationUiState } from "@/lib/manage/sequences/ui-state";
-import { useNavigationLabel } from "@/components/navigation-history";
+import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 
 type Props = { data: ManageData; query: string; mode?: "sequences" | "enrollments"; sequenceId?: string | null };
 type SequenceAction = "clone" | "pause" | "archive";
@@ -55,6 +55,26 @@ function stepDraft(type: SequenceStepType, position: number) {
     : { stepType: type, delayValue: position === 1 ? 0 : 1, delayUnit: "business_days", taskTitleTemplate: type === "call_task" ? "Call {{full_name}}" : "Follow up with {{full_name}}", taskNotesTemplate: "Review the contact record before acting.", taskPriority: "normal", pauseUntilTaskComplete: true };
 }
 
+function createLocalStep(type: SequenceStepType, position: number, id: string, sequenceId: string): SequenceStep {
+  const draft = stepDraft(type, position);
+  return {
+    id,
+    sequenceId,
+    position,
+    stepType: type,
+    delayValue: draft.delayValue,
+    delayUnit: draft.delayUnit as SequenceStep["delayUnit"],
+    threadMode: ("threadMode" in draft ? draft.threadMode : null) as SequenceStep["threadMode"],
+    subjectTemplate: "subjectTemplate" in draft ? draft.subjectTemplate ?? null : null,
+    bodyHtml: "bodyHtml" in draft ? draft.bodyHtml ?? null : null,
+    bodyText: "bodyText" in draft ? draft.bodyText ?? null : null,
+    taskTitleTemplate: "taskTitleTemplate" in draft ? draft.taskTitleTemplate ?? null : null,
+    taskNotesTemplate: "taskNotesTemplate" in draft ? draft.taskNotesTemplate ?? null : null,
+    taskPriority: draft.taskPriority as SequenceStep["taskPriority"],
+    pauseUntilTaskComplete: draft.pauseUntilTaskComplete,
+  };
+}
+
 export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId = null }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -82,6 +102,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   const [enrollmentFromDate, setEnrollmentFromDate] = useState("");
   const [enrollmentToDate, setEnrollmentToDate] = useState("");
   const [showNew, setShowNew] = useState(false);
+  const [newSheetClosing, setNewSheetClosing] = useState(false);
+  const newSheetCloseTimer = useRef<number | null>(null);
   const [showEnroll, setShowEnroll] = useState(false);
   const [showActivationReview, setShowActivationReview] = useState(false);
   const [name, setName] = useState("");
@@ -91,6 +113,22 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   const [previewBusy, setPreviewBusy] = useState(false);
   const [mailboxId, setMailboxId] = useState(data.mail.mailboxes.find((item) => item.canSend && item.status === "active")?.id ?? "");
   const activeSheet = showNew ? "new" : showEnroll ? "enroll" : enrollmentQueryId ? "inspect" : null;
+
+  const closeNewSheet = useCallback((afterClose?: () => void) => {
+    if (newSheetClosing) return;
+    setNewSheetClosing(true);
+    if (newSheetCloseTimer.current !== null) window.clearTimeout(newSheetCloseTimer.current);
+    newSheetCloseTimer.current = window.setTimeout(() => {
+      setShowNew(false);
+      setNewSheetClosing(false);
+      newSheetCloseTimer.current = null;
+      afterClose?.();
+    }, 190);
+  }, [newSheetClosing, setShowNew]);
+
+  useEffect(() => () => {
+    if (newSheetCloseTimer.current !== null) window.clearTimeout(newSheetCloseTimer.current);
+  }, []);
 
   const openSequence = (id: string) => {
     router.push(`/manage/outreach/sequences/${id}`);
@@ -119,7 +157,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     const handleSheetKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        setShowNew(false);
+        if (showNew) closeNewSheet();
         setShowEnroll(false);
         return;
       }
@@ -138,12 +176,12 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     };
     document.addEventListener("keydown", handleSheetKeyDown);
     return () => document.removeEventListener("keydown", handleSheetKeyDown);
-  }, [activeSheet]);
+  }, [activeSheet, closeNewSheet, showNew]);
 
   const selected = sequences.find((item) => item.id === sequenceQueryId) ?? null;
   const selectedEnrollment = enrollments.find((item) => item.id === enrollmentQueryId) ?? null;
   const selectedDraftValidation = selected ? validateSequenceDraft(selected, { forActivation: true }) : null;
-  useNavigationLabel(sequenceId ? selected?.name ?? "Sequence" : "Outreach", sequenceId ? "/manage/outreach?tab=sequences" : "/manage", sequenceId ? "Sequences" : "Outreach");
+  useNavigationLabel(sequenceId ? selected?.name ?? "Sequence" : mode === "sequences" ? "Sequences" : "Outreach", sequenceId ? "/manage/outreach?tab=sequences" : "/manage", sequenceId ? "Sequences" : "Outreach");
   const ownerOptions = useMemo(() => Array.from(new Set(sequences.map((item) => item.ownerName || "Unassigned"))).sort(), [sequences]);
   const visibleSequences = useMemo(() => sequences.filter((item) => {
     const searchTerm = `${query} ${sequenceSearch}`.trim().toLowerCase();
@@ -209,8 +247,10 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     setBusy(true); setError(null);
     try {
       const payload = await requestJson("/api/manage/outreach/sequences", { method: "POST", body: JSON.stringify({ name }) });
-      setShowNew(false); setName("");
-      if (typeof payload.id === "string") openSequence(payload.id);
+      setName("");
+      closeNewSheet(() => {
+        if (typeof payload.id === "string") openSequence(payload.id);
+      });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The sequence could not be created."); }
     finally { setBusy(false); }
   }
@@ -218,7 +258,14 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   async function addStep(type: SequenceStepType) {
     if (!selected) return;
     setBusy(true); setError(null);
-    try { await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps`, { method: "POST", body: JSON.stringify(stepDraft(type, selected.steps.length + 1)) }); await load(); }
+    try {
+      const position = selected.steps.length + 1;
+      const payload = await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps`, { method: "POST", body: JSON.stringify(stepDraft(type, position)) });
+      if (typeof payload.id !== "string") throw new Error("The step was created but its identifier was missing.");
+      const createdStep = createLocalStep(type, Number(payload.position) || position, payload.id, selected.id);
+      setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: [...item.steps, createdStep] } : item));
+      setNotice(`${stepLabel(type)} added.`);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "The step could not be added."); }
     finally { setBusy(false); }
   }
@@ -247,8 +294,12 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     if (!selected) return;
     setBusy(true); setError(null);
     try {
-      await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps`, { method: "POST", body: JSON.stringify({ stepType: step.stepType, delayValue: step.delayValue, delayUnit: step.delayUnit, threadMode: step.threadMode, subjectTemplate: step.subjectTemplate, bodyHtml: step.bodyHtml, bodyText: step.bodyText, taskTitleTemplate: step.taskTitleTemplate, taskNotesTemplate: step.taskNotesTemplate, taskPriority: step.taskPriority, pauseUntilTaskComplete: step.pauseUntilTaskComplete }) });
-      await load();
+      const position = selected.steps.length + 1;
+      const payload = await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps`, { method: "POST", body: JSON.stringify({ stepType: step.stepType, delayValue: step.delayValue, delayUnit: step.delayUnit, threadMode: step.threadMode, subjectTemplate: step.subjectTemplate, bodyHtml: step.bodyHtml, bodyText: step.bodyText, taskTitleTemplate: step.taskTitleTemplate, taskNotesTemplate: step.taskNotesTemplate, taskPriority: step.taskPriority, pauseUntilTaskComplete: step.pauseUntilTaskComplete }) });
+      if (typeof payload.id !== "string") throw new Error("The step was duplicated but its identifier was missing.");
+      const duplicate = { ...step, id: payload.id, position: Number(payload.position) || position, sequenceId: selected.id };
+      setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: [...item.steps, duplicate] } : item));
+      setNotice(`${stepLabel(step.stepType)} duplicated.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The step could not be duplicated."); }
     finally { setBusy(false); }
   }
@@ -343,7 +394,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
         onAction={sequenceAction}
         onNew={() => setShowNew(true)}
       />}
-      {showNew && <NewSequenceSheet name={name} busy={busy} onNameChange={setName} onClose={() => setShowNew(false)} onSubmit={createSequence} />}
+      {showNew && <NewSequenceSheet name={name} busy={busy} isClosing={newSheetClosing} onNameChange={setName} onClose={() => closeNewSheet()} onSubmit={createSequence} />}
     </section>;
   }
 
@@ -355,10 +406,13 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
       {visibleEnrollments.length ? <div className="sequence-enrollment-table">{visibleEnrollments.map((item) => <div key={item.id}><span><strong>{item.contactName}</strong><small>{item.accountName} · {item.sequenceName} · {item.contactEmail}</small><small>Step {item.currentStepPosition || "Pending"} · {item.nextActionAt ? `Next ${formatSequenceDate(item.nextActionAt)}` : "No action scheduled"} · Last touch {item.lastTouchAt ? formatSequenceDate(item.lastTouchAt) : "none"} · {item.mailboxAddress}</small></span><em>{item.state}</em><div className="sequence-row-actions"><button className="manage-icon-button" onClick={() => selectEnrollment(item.id)} disabled={busy} aria-label={`Inspect ${item.contactName}`} title="Inspect enrollment"><Eye size={14} /></button>{["active", "waiting_for_task"].includes(item.state) && <button className="manage-icon-button" onClick={() => void enrollmentAction(item.id, "pause")} disabled={busy} aria-label={`Pause ${item.contactName}`} title="Pause enrollment"><Pause size={14} /></button>}{item.state === "paused" && <button className="manage-icon-button" onClick={() => void enrollmentAction(item.id, "resume")} disabled={busy || !sequenceExecutionEnabled} aria-label={`Resume ${item.contactName}`} title={sequenceExecutionEnabled ? "Resume enrollment" : "Resume unavailable until sequence execution is enabled"}><Play size={14} /></button>}{["pending", "active", "paused", "waiting_for_task"].includes(item.state) && <button className="manage-icon-button" onClick={() => void enrollmentAction(item.id, "stop")} disabled={busy} aria-label={`Stop ${item.contactName}`} title="Stop enrollment"><X size={14} /></button>}</div></div>)}</div> : <div className="manage-empty"><strong>No matching enrollments.</strong><p>Pending contacts appear here before any sequence touch is sent.</p></div>}
     </div> : sequenceId ? (
       selected ? <div className="sequence-detail-page">
-        <Link className="sequence-detail-back" href="/manage/outreach?tab=sequences">
-          <ArrowLeft size={15} aria-hidden="true" />
-          <span>Back to Sequences</span>
-        </Link>
+        <div className="sequence-detail-context-row">
+          <GlobalBackControl className="sequence-detail-back" />
+          <div className="sequence-detail-actions">
+            <Link className="manage-button manage-button--quiet" href={`/manage/outreach?tab=enrollments&sequenceId=${selected.id}`}>View enrollments</Link>
+            <button className="manage-button manage-button--primary" onClick={() => setShowEnroll(true)} disabled={selected.status !== "draft" || !selectedDraftValidation?.valid} title={selected.status !== "draft" ? "Only draft sequences can be enrolled in this packet." : selectedDraftValidation?.valid ? "Enroll contacts" : "Complete sequence setup before enrolling contacts."}><Users size={15} /> Enroll contacts</button>
+          </div>
+        </div>
         <div className="sequence-detail-heading">
           <div>
             <span className="manage-eyebrow">Sequence · {selected.status}</span>
@@ -370,10 +424,6 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
               <span><strong>{selected.sent}</strong> sent</span>
               <span><strong>{selected.replies}</strong> replies</span>
             </div>
-          </div>
-          <div className="sequence-detail-actions">
-            <Link className="manage-button manage-button--quiet" href={`/manage/outreach?tab=enrollments&sequenceId=${selected.id}`}>View enrollments</Link>
-            <button className="manage-button manage-button--primary" onClick={() => setShowEnroll(true)} disabled={selected.status !== "draft" || !selectedDraftValidation?.valid} title={selected.status !== "draft" ? "Only draft sequences can be enrolled in this packet." : selectedDraftValidation?.valid ? "Enroll contacts" : "Complete sequence setup before enrolling contacts."}><Users size={15} /> Enroll contacts</button>
           </div>
         </div>
         <div className="sequence-editor manage-panel sequence-detail-editor">
@@ -395,8 +445,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   </section>;
 }
 
-function NewSequenceSheet({ name, busy, onNameChange, onClose, onSubmit }: { name: string; busy: boolean; onNameChange: (value: string) => void; onClose: () => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void }) {
-  return <div className="portal-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><form className="portal-sheet" onSubmit={onSubmit}><div className="portal-sheet-header"><div><span className="manage-eyebrow">Draft only</span><h2>New sequence</h2></div><button type="button" className="manage-icon-button" onClick={onClose} aria-label="Close"><X size={17} /></button></div><div className="portal-sheet-body"><label>Name<input value={name} onChange={(event) => onNameChange(event.target.value)} placeholder="Renewal follow-up" required /></label><small>This sequence can include people from different accounts. Account-specific eligibility and consent checks happen when people are enrolled.</small><div className="portal-sheet-actions"><button type="button" className="manage-button manage-button--quiet" onClick={onClose}>Cancel</button><button className="manage-button manage-button--primary" disabled={busy}>{busy ? "Creating…" : "Create draft"}</button></div></div></form></div>;
+function NewSequenceSheet({ name, busy, isClosing, onNameChange, onClose, onSubmit }: { name: string; busy: boolean; isClosing?: boolean; onNameChange: (value: string) => void; onClose: () => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void }) {
+  return <div className={`portal-sheet-backdrop${isClosing ? " is-closing" : ""}`} role="presentation" onMouseDown={(event) => { if (!isClosing && event.target === event.currentTarget) onClose(); }}><form className={`portal-sheet portal-sheet--new-sequence${isClosing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="new-sequence-title" onSubmit={onSubmit}><div className="portal-sheet-header"><div><span className="manage-eyebrow">Draft only</span><h2 id="new-sequence-title">New sequence</h2></div><button type="button" className="manage-icon-button" onClick={onClose} aria-label="Close new sequence"><X size={17} /></button></div><div className="portal-sheet-body"><label>Name<input value={name} onChange={(event) => onNameChange(event.target.value)} placeholder="Renewal follow-up" required /></label><small>This sequence can include people from different accounts. Account-specific eligibility and consent checks happen when people are enrolled.</small><div className="portal-sheet-actions"><button type="button" className="manage-button manage-button--quiet" onClick={onClose}>Cancel</button><button className="manage-button manage-button--primary" disabled={busy}>{busy ? "Creating…" : "Create draft"}</button></div></div></form></div>;
 }
 
 function SequenceDirectory({ sequences, totalSequences, visibleCount, activeCount, scheduledCount, needsSetupCount, page, pageCount, onPage, sequenceSearch, onSequenceSearch, statusFilter, onStatusFilter, ownerFilter, onOwnerFilter, ownerOptions, showArchived, onShowArchived, failedSequenceIds, busy, onAction, onNew }: {
