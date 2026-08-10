@@ -30,6 +30,15 @@ describe("OAuth callback", () => {
     expect(response.headers.get("location")).toBe("https://costivra.ai/access");
   });
 
+  it("preserves a selected billing plan through the OAuth callback", async () => {
+    exchangeCodeForSession.mockResolvedValue({ error: null });
+    const response = await GET(new NextRequest(
+      "https://costivra.ai/auth/callback?code=one-time-code&next=%2Fapp%2Fsettings%3Ftab%3Dbilling%26plan%3Dgrowth",
+    ));
+
+    expect(response.headers.get("location")).toBe("https://costivra.ai/access?next=%2Fapp%2Fsettings%3Ftab%3Dbilling%26plan%3Dgrowth");
+  });
+
   it.each([
     ["https://costivra.ai/auth/callback", false],
     ["https://costivra.ai/auth/callback?code=bad-code", true],

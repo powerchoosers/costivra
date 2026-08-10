@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const constructEvent = vi.fn();
-const state = { eventStatus: new Map<string, string>(), customers: [] as Array<Record<string, unknown>> };
+const state = { eventStatus: new Map<string, string>(), customers: [] as Array<Record<string, unknown>>, onboardingSource: "internal" as string | null };
 
 vi.mock("@/lib/billing/stripe", () => ({
   getStripeClient: () => ({ webhooks: { constructEvent } }),
@@ -21,6 +21,12 @@ vi.mock("@/lib/supabase/server", () => ({
       if (table === "billing_customers") {
         return { upsert: async (row: Record<string, unknown>) => { state.customers.push(row); return { error: null }; } };
       }
+      if (table === "organization_onboarding") {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: state.onboardingSource ? { source: state.onboardingSource } : null, error: null }) }) }),
+          upsert: async (row: Record<string, unknown>) => { state.onboardingSource = typeof row.source === "string" ? row.source : null; return { error: null }; },
+        };
+      }
       throw new Error(`Unexpected table in webhook test: ${table}`);
     },
   }),
@@ -33,6 +39,7 @@ describe("Stripe webhook boundary", () => {
     vi.clearAllMocks();
     state.eventStatus.clear();
     state.customers.length = 0;
+    state.onboardingSource = "internal";
     process.env.STRIPE_WEBHOOK_SECRET = "dummy-stripe-webhook-secret-for-tests";
     process.env.STRIPE_BILLING_LIVEMODE_ENABLED = "0";
   });
@@ -57,6 +64,7 @@ describe("Stripe webhook boundary", () => {
     expect(first.status).toBe(200);
     expect(state.eventStatus.get("evt_test_checkout_1")).toBe("processed");
     expect(state.customers).toHaveLength(1);
+    expect(state.onboardingSource).toBe("paid_checkout");
 
     const second = await POST(request());
     expect(second.status).toBe(200);

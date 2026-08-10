@@ -35,11 +35,20 @@ describe("POST /api/billing/portal", () => {
   });
 
   it("checks the billing mode before opening the Stripe portal", async () => {
-    const response = await POST();
+    const response = await POST(new Request("https://costivra.ai/api/billing/portal"));
     expect(response.status).toBe(200);
     expect(assertStripeBillingMode).toHaveBeenCalledOnce();
     expect(createPortalSession).toHaveBeenCalledWith(
-      { customer: "cus_test_costivra", return_url: "https://costivra.ai/portal/settings" },
+      { customer: "cus_test_costivra", return_url: "https://costivra.ai/app/settings?tab=billing" },
+    );
+  });
+
+  it("keeps a local portal return on localhost", async () => {
+    const response = await POST(new Request("http://localhost:3000/api/billing/portal"));
+
+    expect(response.status).toBe(200);
+    expect(createPortalSession).toHaveBeenCalledWith(
+      { customer: "cus_test_costivra", return_url: "http://localhost:3000/app/settings?tab=billing" },
     );
   });
 });

@@ -20,7 +20,9 @@ test("public site navigates without runtime errors", async ({ page }, testInfo) 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "Find hidden waste in your business bills." })).toBeVisible();
   await expect(page.getByText("Recurring bill review for growing businesses", { exact: true })).toBeVisible();
-  await expect(page.getByText("Built for owners, finance teams, and operators managing recurring costs across locations, services, and contracts.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Upload software, internet, or energy bills. Costivra finds price increases, duplicate charges, unused services, and renewal risks—with the exact source attached.", { exact: true })).toBeVisible();
+  await expect(page.locator(".hero-loop")).toHaveCount(0);
+  await expect(page.locator(".hero-review-result-grid")).toBeVisible();
   await expect(page.getByRole("link", { name: "Review 3 bills free", exact: true })).toHaveAttribute("href", "/scan");
   await expect(page.getByRole("link", { name: "See a sample review", exact: true })).toHaveAttribute("href", "#evidence");
   await page.getByRole("link", { name: "See a sample review", exact: true }).click();

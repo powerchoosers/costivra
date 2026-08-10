@@ -18,6 +18,7 @@ describe("authenticated access routing", () => {
     expect(resolveAccessDestination({ internal: false, hasMembership: false, requested: null })).toBe("/login?error=no_access");
     expect(validAccessDestination("//example.com/app")).toBeNull();
     expect(validAccessDestination("/pricing")).toBeNull();
+    expect(validAccessDestination("/app/settings?tab=billing&plan=growth")).toBe("/app/settings?tab=billing&plan=growth");
   });
 
   it("keeps password recovery reachable even when a session already exists", () => {

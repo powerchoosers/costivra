@@ -53,6 +53,18 @@ async function handleEvent(db: ReturnType<typeof createServerSupabaseClient>, ev
       const { error } = await db.from("billing_customers").upsert({ organization_id: organizationId, stripe_customer_id: session.customer, updated_at: new Date().toISOString() }, { onConflict: "organization_id" });
       if (error) throw error;
     }
+    const { data: onboarding, error: onboardingReadError } = await db.from("organization_onboarding").select("source").eq("organization_id", organizationId).maybeSingle();
+    if (onboardingReadError && onboardingReadError.code !== "42P01") throw onboardingReadError;
+    if (!onboarding || onboarding.source === "internal") {
+      const { error: onboardingError } = await db.from("organization_onboarding").upsert({
+        organization_id: organizationId,
+        source: "paid_checkout",
+        status: "not_started",
+        current_step: "account_confirmed",
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "organization_id" });
+      if (onboardingError && onboardingError.code !== "42P01") throw onboardingError;
+    }
     return;
   }
 

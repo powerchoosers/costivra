@@ -14,7 +14,7 @@ vi.mock("@/lib/portal/repository", () => ({ requirePortalContext }));
 vi.mock("@/lib/billing/catalog", () => ({ getBillingPlan, getConfiguredPriceId, getBillingCatalogPlan }));
 vi.mock("@/lib/billing/stripe", () => ({ assertStripeBillingMode, getStripeClient, getStripeAccountReadiness, getStripeBillingMode, stripeAccountReadyForLiveCheckout }));
 
-import { POST } from "./route";
+import { POST, appUrl } from "./route";
 
 function recordQuery(data: unknown) {
   const query = {
@@ -49,6 +49,12 @@ describe("POST /api/billing/checkout", () => {
     });
   });
 
+  it("keeps local Checkout returns on the local origin", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://costivra.ai";
+    expect(appUrl(new Request("http://localhost:3000/api/billing/checkout"))).toBe("http://localhost:3000");
+    expect(appUrl(new Request("https://costivra.ai/api/billing/checkout"))).toBe("https://costivra.ai");
+  });
+
   it("stops before creating a customer or Checkout Session when live Stripe is not ready", async () => {
     const response = await POST(new Request("https://costivra.ai/api/billing/checkout", {
       method: "POST",
@@ -61,5 +67,31 @@ describe("POST /api/billing/checkout", () => {
     const stripe = getStripeClient.mock.results[0]?.value;
     expect(stripe.customers.create).not.toHaveBeenCalled();
     expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps the selected plan in local Checkout return URLs", async () => {
+    getStripeBillingMode.mockReturnValue("test");
+    getStripeClient.mockReturnValue({
+      prices: { retrieve: vi.fn().mockResolvedValue({ active: true, livemode: false }) },
+      customers: {
+        search: vi.fn().mockResolvedValue({ data: [] }),
+        create: vi.fn().mockResolvedValue({ id: "cus_test_costivra" }),
+      },
+      checkout: { sessions: { create: vi.fn().mockResolvedValue({ id: "cs_test_costivra", url: "https://checkout.stripe.test/session" }) } },
+    });
+    process.env.NEXT_PUBLIC_SITE_URL = "https://costivra.ai";
+
+    const response = await POST(new Request("http://localhost:3000/api/billing/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-request-id": "checkout-local-test" },
+      body: JSON.stringify({ planKey: "starter" }),
+    }));
+
+    expect(response.status).toBe(201);
+    const stripe = getStripeClient.mock.results[0]?.value;
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
+      success_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&billing=success",
+      cancel_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&billing=cancelled",
+    }), expect.any(Object));
   });
 });

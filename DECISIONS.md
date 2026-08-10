@@ -1595,3 +1595,17 @@ Use a service-role-only `billing_plan_catalog` table with one row per plan and S
 ## Consequences
 
 Pricing changes are traceable, mode-separated, and consistent across the homepage, pricing page, portal checkout, Stripe, and webhook processing. Stripe Price objects remain immutable in practice, so historical subscriptions continue to reference their original price. Production still requires a separate live Stripe key and live catalog prices before enabling live billing.
+
+# 2026-08-09 — Use an authenticated workspace before paid Checkout
+
+## Context
+
+Stripe can collect payment before Costivra knows which authenticated user and organization should receive access, but provisioning a workspace from a browser success URL would create an unsafe ownership and tenant-isolation boundary. Costivra already creates an organization-scoped workspace during account signup when the customer provides a company name.
+
+## Decision
+
+Use an auth-first paid handoff for the pilot: public Starter/Growth CTAs carry a stable plan key into signup or sign-in, email confirmation and OAuth preserve the selection, and the authenticated owner/admin starts Stripe Checkout from `/app/settings?tab=billing&plan=...`. Signed Stripe webhooks remain the only source of paid access and mark the existing workspace onboarding source `paid_checkout`.
+
+## Consequences
+
+Customers choose a plan before creating or entering their workspace and return directly to the correct Billing tab, while Costivra never grants paid access to an unowned organization. Direct pre-auth Checkout with signed user/workspace provisioning remains a separate future milestone rather than a shortcut around tenant authorization.

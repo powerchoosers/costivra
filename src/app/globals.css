@@ -6693,38 +6693,29 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .sequence-builder-preview__label{display:block;margin:12px 0 6px;color:#8590a1;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.sequence-builder-preview__rich{color:#26344d;font-size:.78rem;line-height:1.55}.sequence-builder-preview__rich p{margin:0 0 8px}.sequence-builder-preview__rich a{color:#315fb6;text-decoration:underline}
 @media (max-width: 760px){.sequence-preview-overrides{grid-template-columns:1fr!important}.sequence-enrollment-confirmation dl{grid-template-columns:1fr}.sequence-builder-preview__header{flex-direction:column}.sequence-builder-preview__widths{width:100%}.sequence-builder-preview__widths button{flex:1}.sequence-builder-preview__frame--desktop{max-width:100%}}
 
-/* Homepage hero clarity pass: make the product loop visible before the visitor reads the demo. */
-.hero-loop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-  max-width: 560px;
-  margin: 20px 0 24px;
-  color: #aab4c5;
-  font-size: .69rem;
-  letter-spacing: .01em;
+/* Homepage hero clarity pass: one promise, one action, and one dominant product visual. */
+.hero-review-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+  gap: 12px;
 }
 
-.hero-loop span:not(:nth-child(even)) {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid rgba(170, 180, 197, .22);
-  border-radius: 999px;
-  padding: 7px 10px;
-  background: rgba(255, 255, 255, .035);
+.hero-review-result-grid .hero-review-impact,
+.hero-review-result-grid .hero-review-evidence {
+  min-width: 0;
+  border: 1px solid #2c374b;
+  border-radius: 12px;
+  padding: 14px;
+  background: rgba(255, 255, 255, .025);
 }
 
-.hero-loop strong {
-  color: var(--mint);
-  font: 700 .58rem/1 "SFMono-Regular", Consolas, monospace;
-  letter-spacing: .04em;
+.hero-review-result-grid .hero-review-impact {
+  border-color: rgba(212, 255, 90, .25);
+  background: rgba(212, 255, 90, .055);
 }
 
-.hero-loop span:nth-child(even) {
-  color: #6e7b91;
-  font-size: .85rem;
+.hero-review-result-grid .hero-review-evidence {
+  align-content: center;
 }
 
 @media (min-width: 1051px) {
@@ -6734,6 +6725,5 @@ body.modal-open .app-topbar { filter: blur(7px); }
 }
 
 @media (max-width: 760px) {
-  .hero-loop { margin: 16px 0 22px; gap: 7px 8px; line-height: 1.35; }
-  .hero-loop span:not(:nth-child(even)) { padding: 6px 8px; }
+  .hero-review-result-grid { grid-template-columns: 1fr; }
 }

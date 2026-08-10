@@ -3988,7 +3988,12 @@ function Settings({
   initialTab?: "organization" | "integrations" | "team" | "billing";
 }) {
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState(initialTab);
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams?.get("tab");
+  const tabFromUrl = requestedTab === "organization" || requestedTab === "integrations" || requestedTab === "team" || requestedTab === "billing"
+    ? requestedTab
+    : null;
+  const [tab, setTab] = useState(tabFromUrl ?? initialTab);
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setBusy(true);
@@ -4120,10 +4125,13 @@ function Settings({
 }
 
 function BillingPanel() {
+  const searchParams = useSearchParams();
+  const requestedPlan = searchParams?.get("plan");
+  const billingOutcome = searchParams?.get("billing");
   const [status, setStatus] = useState<{ status?: string; providerConfigured?: boolean; billingMode?: "test" | "live" | "unknown"; billingEnabled?: boolean; setupReasons?: string[]; stripeAccount?: { reachable: boolean; chargesEnabled: boolean | null; payoutsEnabled: boolean | null; detailsSubmitted: boolean | null; currentlyDue: string[]; pastDue: string[]; disabledReason: string | null }; plans?: Array<{ key: string; name: string; description?: string; amountCents?: number | null; currency?: string; interval?: string; checkoutEnabled: boolean }>; subscriptions: Array<{ plan_key: string; status: string; cancel_at_period_end: boolean; current_period_end: string | null }>; entitlements: Array<{ feature_key: string; enabled: boolean }> } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [planKey, setPlanKey] = useState("starter");
+  const [planKey, setPlanKey] = useState(requestedPlan === "growth" || requestedPlan === "starter" ? requestedPlan : "starter");
 
   useEffect(() => {
     let cancelled = false;
@@ -4167,8 +4175,11 @@ function BillingPanel() {
   return <section className="portal-panel settings-billing-panel" aria-labelledby="billing-settings-title">
     <div className="settings-section-header"><div><span className="eyebrow">Subscription</span><h2 id="billing-settings-title">Costivra billing</h2><p>Choose a plan through Stripe. Your workspace becomes active only after Stripe confirms the subscription.</p></div><CircleDollarSign size={22} aria-hidden="true" /></div>
     {error && <p role="alert" className="form-error">{error}</p>}
-    {status?.setupReasons?.length ? <div className="form-note" role="status"><strong>Checkout setup still needs:</strong><ul>{status.setupReasons.map((reason) => <li key={reason}>{setupReasonLabel(reason)}</li>)}</ul></div> : null}
-    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><select id="billing-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)}>{checkoutPlans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name} · {formatPlanPrice(plan)}</option>)}</select><button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
+     {billingOutcome === "success" && !current && <p className="form-note" role="status">Checkout returned successfully. Stripe is still confirming the subscription; this page will show the plan once the signed webhook is processed.</p>}
+     {billingOutcome === "success" && current && <p className="form-note" role="status">Subscription confirmed: {current.plan_key} is {current.status}.</p>}
+     {billingOutcome === "cancelled" && <p className="form-note" role="status">Checkout was cancelled. No subscription or access change was applied.</p>}
+     {status?.setupReasons?.length ? <div className="form-note" role="status"><strong>Checkout setup still needs:</strong><ul>{status.setupReasons.map((reason) => <li key={reason}>{setupReasonLabel(reason)}</li>)}</ul></div> : null}
+    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><select id="billing-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)}>{checkoutPlans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name} · {formatPlanPrice(plan)}</option>)}</select>{requestedPlan && <p className="form-note" role="status">Your selected plan is ready. Review it, then continue to secure checkout.</p>}<button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
   </section>;
 }
 

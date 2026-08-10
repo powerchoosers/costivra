@@ -65,7 +65,10 @@ export async function proxy(request: NextRequest) {
 
   if (shouldResolveEntry && data?.claims) {
     const url = request.nextUrl.clone();
-    const requested = validAccessDestination(request.nextUrl.searchParams.get("next"));
+    const requested = validAccessDestination(request.nextUrl.searchParams.get("next"))
+      ?? ((request.nextUrl.searchParams.get("plan") === "starter" || request.nextUrl.searchParams.get("plan") === "growth")
+        ? `/app/settings?tab=billing&plan=${request.nextUrl.searchParams.get("plan")}`
+        : null);
     url.pathname = "/access";
     url.search = "";
     if (requested) url.searchParams.set("next", requested);

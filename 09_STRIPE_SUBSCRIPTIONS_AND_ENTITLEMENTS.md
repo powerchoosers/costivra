@@ -15,13 +15,17 @@ Implemented today:
 - Test-mode Starter and Growth recurring Prices exist in the Costivra Stripe account.
 - Owner-managed pricing at `/manage/settings` → **Billing & pricing**.
 - Dynamic pricing now feeds the homepage, public pricing page, customer billing selector, Checkout, and webhook plan lookup.
+- Public Starter/Growth plan CTAs now carry the selected plan through `/signup?plan=...`; signup, sign-in, and email-confirmation redirects preserve that selection and land an authenticated user on `/app/settings?tab=billing&plan=...`.
+- The customer Billing tab preselects the requested plan and starts Checkout from the existing workspace context.
+- Checkout and Customer Portal return to `/app/settings?tab=billing` (not the retired `/portal/settings` route).
+- A completed Checkout webhook marks an existing workspace's onboarding source as `paid_checkout` when it was previously `internal`.
 
 Still open:
 
 - Full test subscription proof: Checkout → signed webhook → subscription record → entitlement → Customer Portal.
 - A central entitlement helper and actual plan-limit enforcement.
 - Production webhook configuration and live-mode proof.
-- Correct customer return URLs (`/app/settings` is the customer route; the current Checkout/Portal helpers still use `/portal/settings`).
+- Direct pre-auth Checkout and idempotent organization provisioning for a visitor who has not created an account/workspace yet.
 - Stripe Customer Portal configuration policy and tax/legal approval.
 
 Do not treat this packet as permission to create live products, prices, customers, subscriptions, or webhooks without Lewis's explicit approval and a mode check.
@@ -47,9 +51,11 @@ src/app/api/billing/status/route.ts
 src/app/api/billing/portal/route.ts
 src/app/api/webhooks/stripe/route.ts
 src/app/api/manage/billing/catalog/route.ts
+src/app/api/portal/onboarding/route.ts
 src/components/home-page.tsx
 src/components/marketing-pages.tsx
 src/components/portal-pages.tsx
+src/proxy.ts
 src/lib/supabase/
 supabase/migrations/20260809040000_packet_09_billing.sql
 supabase/migrations/20260809221900_billing_plan_catalog.sql
@@ -134,6 +140,8 @@ All are service-role-only from the database. Customer users read safe billing st
 
 The remaining paid-onboarding work is to support a visitor who does not yet have an organization. Until that exists, Checkout is for an already-created workspace.
 
+The public plan-selection handoff is implemented, but it is not pre-auth billing: the visitor chooses a plan, creates or signs into an account, and then starts Checkout from the authenticated Billing tab. A visitor without an organization is not sent to Stripe yet.
+
 ## Webhook route
 
 `POST /api/webhooks/stripe`:
@@ -148,6 +156,8 @@ The remaining paid-onboarding work is to support a visitor who does not yet have
 - syncs the current `paid_workspace` entitlement.
 
 The webhook currently does **not** provision a new organization after Checkout. That belongs to Packet 10.
+
+For an existing organization, `checkout.session.completed` also upserts `organization_onboarding.source = paid_checkout` when the row is new or still marked `internal`. It does not create users, organizations, or memberships.
 
 ## Entitlement policy
 
@@ -167,7 +177,7 @@ When billing lapses, preserve existing customer data and prefer read-only access
 
 Customer billing appears in the existing `/app/settings` Billing tab. The owner billing catalog appears in `/manage/settings` and is internal-only.
 
-The Customer Portal route exists, but its return URL must be corrected from `/portal/settings` to `/app/settings` before production proof.
+The Customer Portal route exists and returns to `/app/settings?tab=billing`. Production proof is still required.
 
 Do not add a new top-level customer navigation page.
 
@@ -200,6 +210,7 @@ Never use live payment details for proof. Never create live products or prices a
 - Signed webhooks remain the source of subscription truth.
 - Duplicate events are safe.
 - Customer Portal works and returns to `/app/settings`.
+- Public plan selection survives signup/sign-in and opens the requested plan in the existing Billing tab.
 - Entitlements update deterministically and are enforced at paid actions.
 - Billing remains visible in existing Settings.
 - No payment method data is stored in Costivra.

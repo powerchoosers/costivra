@@ -4,8 +4,10 @@ import { assertStripeBillingMode, getStripeAccountReadiness, getStripeBillingMod
 import { requirePortalContext } from "@/lib/portal/repository";
 import { cleanText } from "@/lib/portal/http";
 
-function appUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "https://costivra.ai").replace(/\/$/, "");
+export function appUrl(request: Request) {
+  const requestOrigin = new URL(request.url).origin;
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(requestOrigin)) return requestOrigin;
+  return (process.env.NEXT_PUBLIC_SITE_URL || requestOrigin || "https://costivra.ai").replace(/\/$/, "");
 }
 
 export async function POST(request: Request) {
@@ -72,8 +74,8 @@ export async function POST(request: Request) {
       customer: customerId,
       client_reference_id: organizationId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl()}/portal/settings?billing=success`,
-      cancel_url: `${appUrl()}/portal/settings?billing=cancelled`,
+      success_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&billing=success`,
+      cancel_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&billing=cancelled`,
       metadata: { organization_id: organizationId, plan_key: plan.key },
       subscription_data: { metadata: { organization_id: organizationId, plan_key: plan.key } },
     }, { idempotencyKey: `costivra-checkout-${organizationId}-${plan.key}-${requestKey}` });

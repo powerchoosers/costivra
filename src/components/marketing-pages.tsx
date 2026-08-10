@@ -266,7 +266,7 @@ const solutionSpecs: Record<string, PageSpec> = {
 export function MarketingPage({ path, plans }: { path: string; plans: PublicBillingPlan[] }) {
   if (path === "pricing") return <PricingPage plans={plans} />;
   if (path === "scan") return <ScanPage />;
-  if (path === "login" || path === "signup") return <AccountPage mode={path} />;
+  if (path === "login" || path === "signup") return <AccountPage mode={path} plans={plans} />;
   if (path === "privacy") return <PrivacyPage />;
   if (path === "terms") return <TermsPage />;
   if (path === "ucep-disclosure") return <DisclosurePage />;
@@ -344,13 +344,13 @@ function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
       </section>
 
       <div className="content-grid pricing-plan-grid">
-        {plans.filter((plan) => plan.active).map(({ key, name, amountCents, currency, description, features }) => (
+        {plans.filter((plan) => plan.active).map(({ key, name, amountCents, currency, interval, description, features }) => (
           <article className="content-block pricing-plan-card" key={name}>
             <span className="pricing-plan-name">{name}</span>
-            <div className="pricing-plan-price">{amountCents == null ? "Custom" : new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amountCents / 100)}{amountCents != null ? <small> / month</small> : null}</div>
+            <div className="pricing-plan-price">{amountCents == null ? "Custom" : new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amountCents / 100)}{amountCents != null ? <small> / {interval}</small> : null}</div>
             <p className="pricing-plan-fit">{description}</p>
             {features.map((feature) => <p className="pricing-plan-feature" key={feature}><Check aria-hidden="true" size={16} /> {feature}</p>)}
-            <Link className={key === "growth" ? "button button-primary" : "button button-secondary"} href={key === "enterprise" ? "/contact" : "/scan"}>{key === "enterprise" ? "Talk to us" : "Start with 3 bills"}</Link>
+            <Link className={key === "growth" ? "button button-primary" : "button button-secondary"} href={key === "enterprise" ? "/contact" : `/signup?plan=${key}`}>{key === "enterprise" ? "Talk to us" : `Choose ${name}`}</Link>
           </article>
         ))}
       </div>
@@ -383,7 +383,7 @@ function ScanPage() {
   return <PageFrame><div className="detail-layout scan-layout"><header className="content-hero"><h1>Start with three current bills.</h1><p>Create a private Costivra workspace, then choose up to three software, telecom/internet, or commercial-energy documents. The original source stays attached while your review begins.</p><div className="scan-assurances"><p className="scan-assurance"><Check aria-hidden="true" size={17} />Only the documents you choose</p><p className="scan-assurance"><Check aria-hidden="true" size={17} />Private workspace for your organization</p><p className="scan-assurance"><Check aria-hidden="true" size={17} />No vendor contact without approval</p></div></header><section className="panel scan-panel"><div className="panel-header"><h2>Start your 3-bill review</h2><span className="eyebrow">Account required before upload</span></div><div className="panel-body scan-panel-body"><ShieldCheck aria-hidden="true" size={34} style={{ color: "var(--blue)", marginBottom: 18 }}/><h2 style={{marginTop:0}}>Create your private workspace first.</h2><p className="muted" style={{lineHeight:1.65}}>Use a work email to create your organization workspace. After email confirmation, you can upload PDF, DOCX, or text records and see each document&apos;s status and next review step.</p><Link className="button button-primary" href="/signup?next=/app/documents" style={{width:"100%",marginTop:18}}>Create a private workspace <ArrowRight size={16}/></Link><Link className="button button-secondary" href="/login?next=/app/documents" style={{width:"100%",marginTop:10}}>I already have an account</Link></div></section></div></PageFrame>;
 }
 
-function AccountPage({ mode }: { mode: string }) {
+function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[] }) {
   const signup = mode === "signup";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -406,6 +406,8 @@ function AccountPage({ mode }: { mode: string }) {
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === "1";
   const microsoftEnabled = process.env.NEXT_PUBLIC_MICROSOFT_OAUTH_ENABLED === "1";
   const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
+  const selectedPlanKey = searchParams?.get("plan");
+  const selectedPlan = plans.find((plan) => plan.key === selectedPlanKey && plan.active && plan.key !== "enterprise");
 
   async function signInWithProvider(provider: "google" | "azure") {
     const enabled = provider === "google" ? googleEnabled : microsoftEnabled;
@@ -415,8 +417,11 @@ function AccountPage({ mode }: { mode: string }) {
     setMessageTone("error");
     const next = searchParams?.get("next");
     const safeNext = next?.startsWith("/app") || next?.startsWith("/manage") ? next : null;
+    const planDestination = selectedPlan
+      ? `/app/settings?tab=billing&plan=${encodeURIComponent(selectedPlan.key)}`
+      : null;
     const callback = new URL("/auth/callback", window.location.origin);
-    if (safeNext) callback.searchParams.set("next", safeNext);
+    if (safeNext || planDestination) callback.searchParams.set("next", safeNext ?? planDestination!);
     const { error } = await createClient().auth.signInWithOAuth({
       provider,
       options: {
@@ -445,21 +450,26 @@ function AccountPage({ mode }: { mode: string }) {
       setBusy(false);
       return;
     }
+    const next = searchParams?.get("next");
+    const safeNext = next?.startsWith("/app") || next?.startsWith("/manage") ? next : null;
+    const confirmationParams = new URLSearchParams({ confirmed: "1" });
+    if (selectedPlan) confirmationParams.set("plan", selectedPlan.key);
+    if (safeNext) confirmationParams.set("next", safeNext);
     const result = signup
-      ? await client.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/login?confirmed=1`, data: { full_name: String(form.get("fullName") ?? "").trim(), company_name: String(form.get("companyName") ?? "").trim() } } })
+      ? await client.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/login?${confirmationParams.toString()}`, data: { full_name: String(form.get("fullName") ?? "").trim(), company_name: String(form.get("companyName") ?? "").trim() } } })
       : await client.auth.signInWithPassword({ email, password });
     if (result.error) { setMessage(result.error.message); setBusy(false); return; }
     if (signup && !result.data.session) { setMessageTone("info"); setMessage("Check your email to confirm your account, then sign in."); setBusy(false); return; }
-    const next = searchParams?.get("next");
-    const destination = next?.startsWith("/app") || next?.startsWith("/manage")
-      ? `/access?next=${encodeURIComponent(next)}`
-      : "/access";
+    const requestedDestination = safeNext ?? (selectedPlan
+      ? `/app/settings?tab=billing&plan=${encodeURIComponent(selectedPlan.key)}`
+      : null);
+    const destination = requestedDestination ? `/access?next=${encodeURIComponent(requestedDestination)}` : "/access";
     // A full navigation lets the browser send the newly written Supabase auth
     // cookie on the first protected workspace request. A client-side route
     // transition can otherwise race the cookie write and be sent back to login.
     window.location.assign(destination);
   }
-  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span className="account-brand-wordmark">Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span></div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
+  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span className="account-brand-wordmark">Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span>{selectedPlan && <span><CircleDollarSign aria-hidden="true" size={16} /> {selectedPlan.name} · {new Intl.NumberFormat("en-US", { style: "currency", currency: selectedPlan.currency, maximumFractionDigits: 0 }).format((selectedPlan.amountCents ?? 0) / 100)} / {selectedPlan.interval}</span>}</div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? selectedPlan ? `Create your account, then continue to secure checkout for ${selectedPlan.name}.` : "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : selectedPlan ? `Sign in to continue with ${selectedPlan.name}.` : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
   <div className="account-provider-grid" aria-label="Sign-in providers">
     {googleEnabled && (
       <button className="account-provider" type="button" disabled={Boolean(oauthProvider)} onClick={() => void signInWithProvider("google")}>
@@ -475,7 +485,7 @@ function AccountPage({ mode }: { mode: string }) {
     )}
   </div>
 )}
-{!resetMode && (googleEnabled || microsoftEnabled) && <div className="account-divider"><span>or use email</span></div>}{signup && <div className="account-fields account-fields-double"><div className="field"><label htmlFor="full-name">Your name</label><input id="full-name" name="fullName" required autoComplete="name" /></div><div className="field"><label htmlFor="company-name">Company</label><input id="company-name" name="companyName" required autoComplete="organization" /></div></div>}<div className="account-fields"><div className="field"><label htmlFor="email">Work email</label><input id="email" name="email" required type="email" autoComplete="email" placeholder="you@company.com" /></div>{!resetMode && <div className="field"><div className="account-label-row"><label htmlFor="password">Password</label><button type="button" className="account-inline-link" onClick={() => { setResetMode(true); setMessage(""); router.replace("/login?mode=recovery"); }}>Forgot password?</button></div><input id="password" name="password" required type="password" minLength={10} autoComplete={signup ? "new-password" : "current-password"} /></div>}</div>{signup && <small className="account-hint">Use at least 10 characters.</small>}{message && <p role={messageTone === "error" ? "alert" : "status"} className={`account-message account-message--${messageTone}`}>{message}</p>}<button className="button button-primary account-submit" type="submit" disabled={busy || Boolean(oauthProvider)}>{busy ? "Working…" : resetMode ? "Email reset link" : signup ? "Create account" : "Sign in"}<ArrowRight aria-hidden="true" size={17} /></button><p className="account-switch">{resetMode ? <>Remember your password? <button type="button" className="account-inline-link" onClick={() => { setResetMode(false); setMessage(""); router.replace("/login"); }}>Back to sign in</button></> : signup ? <>Already have an account? <Link href="/login">Sign in</Link></> : <>New to Costivra? <Link href="/signup">Create an account</Link></>}</p></form></div></PageFrame>;
+{!resetMode && (googleEnabled || microsoftEnabled) && <div className="account-divider"><span>or use email</span></div>}{signup && <div className="account-fields account-fields-double"><div className="field"><label htmlFor="full-name">Your name</label><input id="full-name" name="fullName" required autoComplete="name" /></div><div className="field"><label htmlFor="company-name">Company</label><input id="company-name" name="companyName" required autoComplete="organization" /></div></div>}<div className="account-fields"><div className="field"><label htmlFor="email">Work email</label><input id="email" name="email" required type="email" autoComplete="email" placeholder="you@company.com" /></div>{!resetMode && <div className="field"><div className="account-label-row"><label htmlFor="password">Password</label><button type="button" className="account-inline-link" onClick={() => { setResetMode(true); setMessage(""); router.replace("/login?mode=recovery"); }}>Forgot password?</button></div><input id="password" name="password" required type="password" minLength={10} autoComplete={signup ? "new-password" : "current-password"} /></div>}</div>{signup && <small className="account-hint">Use at least 10 characters.</small>}{message && <p role={messageTone === "error" ? "alert" : "status"} className={`account-message account-message--${messageTone}`}>{message}</p>}<button className="button button-primary account-submit" type="submit" disabled={busy || Boolean(oauthProvider)}>{busy ? "Working…" : resetMode ? "Email reset link" : signup ? "Create account" : "Sign in"}<ArrowRight aria-hidden="true" size={17} /></button><p className="account-switch">{resetMode ? <>Remember your password? <button type="button" className="account-inline-link" onClick={() => { setResetMode(false); setMessage(""); router.replace("/login"); }}>Back to sign in</button></> : signup ? <>Already have an account? <Link href={selectedPlan ? `/login?plan=${encodeURIComponent(selectedPlan.key)}` : "/login"}>Sign in</Link></> : <>New to Costivra? <Link href={selectedPlan ? `/signup?plan=${encodeURIComponent(selectedPlan.key)}` : "/signup"}>Create an account</Link></>}</p></form></div></PageFrame>;
 }
 
 function GoogleLogo() {

@@ -11,7 +11,6 @@ import {
   FileCheck2,
   FileLock2,
   FileText,
-  LockKeyhole,
   RadioTower,
   ShieldCheck,
   Upload,
@@ -167,21 +166,12 @@ export function HomePage({ plans }: { plans: PublicBillingPlan[] }) {
           <div className="hero-copy">
             <span className="hero-eyebrow">Recurring bill review for growing businesses</span>
             <h1>Find hidden waste in your business bills.</h1>
-            <p>Upload up to three software, internet, or energy bills. Costivra flags price increases, duplicate charges, unused services, and renewal risks, then links every finding to the exact source.</p>
-            <p className="hero-fit">Built for owners, finance teams, and operators managing recurring costs across locations, services, and contracts.</p>
-            <div className="hero-loop" aria-label="Costivra review process">
-              <span><strong>01</strong> Upload bills</span>
-              <span aria-hidden="true">→</span>
-              <span><strong>02</strong> See the evidence</span>
-              <span aria-hidden="true">→</span>
-              <span><strong>03</strong> Decide what happens next</span>
-            </div>
+            <p>Upload software, internet, or energy bills. Costivra finds price increases, duplicate charges, unused services, and renewal risks—with the exact source attached.</p>
             <div className="hero-actions">
               <Link className="button button-primary" href="/scan">Review 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link>
               <Link className="button button-secondary" href="#evidence">See a sample review</Link>
             </div>
             <div className="hero-assurance" aria-label="Costivra product assurances">
-              <span><LockKeyhole aria-hidden="true" size={15} /> Only the documents you choose</span>
               <span><ShieldCheck aria-hidden="true" size={15} /> No broad inbox access</span>
               <span><Users aria-hidden="true" size={15} /> Human approval before outside action</span>
             </div>
@@ -236,7 +226,7 @@ export function HomePage({ plans }: { plans: PublicBillingPlan[] }) {
               <strong>Simple plans.<br />Clear value.</strong>
               <p className="muted">Plans shown for the current Costivra offering. See pricing for details.</p>
             </div>
-            {plans.filter((plan) => plan.active).map((plan) => <Plan key={plan.key} name={plan.name} price={plan.amountCents == null ? "Let's talk" : new Intl.NumberFormat("en-US", { style: "currency", currency: plan.currency, maximumFractionDigits: 0 }).format(plan.amountCents / 100)} copy={plan.description} />)}
+            {plans.filter((plan) => plan.active).map((plan) => <Plan key={plan.key} planKey={plan.key} name={plan.name} interval={plan.interval} price={plan.amountCents == null ? "Let's talk" : new Intl.NumberFormat("en-US", { style: "currency", currency: plan.currency, maximumFractionDigits: 0 }).format(plan.amountCents / 100)} copy={plan.description} />)}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 28 }}><Link className="button button-primary" href="/scan">Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link></div>
         </div>
@@ -279,20 +269,17 @@ function HeroReviewPreview() {
           <div><span>Previous bill</span><strong>{formatHeroReviewCurrency(heroReviewExample.previousMonthlyCents)} <small>/ month</small></strong></div>
           <div><span>Current bill</span><strong>{formatHeroReviewCurrency(heroReviewExample.currentMonthlyCents)} <small>/ month</small></strong></div>
         </div>
-        <div className="hero-review-change">
-          <span>Change from prior bill</span>
-          <strong>+{formatHeroReviewCurrency(heroReviewMonthlyChangeCents)} <small>/ month</small></strong>
-          <em>{formatHeroReviewCurrency(heroReviewExample.currentMonthlyCents)} − {formatHeroReviewCurrency(heroReviewExample.previousMonthlyCents)} = {formatHeroReviewCurrency(heroReviewMonthlyChangeCents)}</em>
-        </div>
-        <div className="hero-review-impact">
-          <span>Potential annual impact</span>
-          <strong>+{formatHeroReviewCurrency(heroReviewAnnualImpactCents)}</strong>
-          <small>If the new charge continues for 12 months.</small>
-        </div>
-        <div className="hero-review-evidence">
-          <span>Source evidence</span>
-          <strong>May internet bill · Page 2</strong>
-          <q>Monthly circuit charge: $1,510.00</q>
+        <div className="hero-review-result-grid">
+          <div className="hero-review-impact">
+            <span>Potential annual impact</span>
+            <strong>+{formatHeroReviewCurrency(heroReviewAnnualImpactCents)}</strong>
+            <small>+$200 / month × 12 · not verified</small>
+          </div>
+          <div className="hero-review-evidence">
+            <span>Source evidence</span>
+            <strong>May internet bill · Page 2</strong>
+            <q>Monthly circuit charge: $1,510.00</q>
+          </div>
         </div>
       </div>
       <div className="hero-review-footer">
@@ -458,6 +445,6 @@ function ScrollReveal({ children, className = "" }: { children: ReactNode; class
   return <div ref={ref} className={`scroll-reveal ${visible ? "is-visible" : ""} ${className}`}>{children}</div>;
 }
 
-function Plan({ name, price, copy }: { name: string; price: string; copy: string }) {
-  return <div className="plan"><span className="plan-name">{name}</span><div className="price">{price}{price.startsWith("$") ? <small style={{ fontSize: ".85rem", fontWeight: 400 }}> / month</small> : null}</div><p>{copy}</p></div>;
+function Plan({ planKey, name, interval, price, copy }: { planKey: PublicBillingPlan["key"]; name: string; interval: PublicBillingPlan["interval"]; price: string; copy: string }) {
+  return <div className="plan"><span className="plan-name">{name}</span><div className="price">{price}{price.startsWith("$") ? <small style={{ fontSize: ".85rem", fontWeight: 400 }}> / {interval}</small> : null}</div><p>{copy}</p>{planKey === "enterprise" ? <Link className="button button-secondary" href="/contact">Talk to us</Link> : <Link className="button button-secondary" href={`/signup?plan=${planKey}`}>Choose {name}</Link>}</div>;
 }
