@@ -1637,3 +1637,17 @@ Both authenticated and pre-auth subscription Checkout Sessions explicitly set `m
 ## Consequences
 
 Test Checkout can open with the current dynamic catalog, while tax collection and merchant-of-record work remain visible release gates rather than an accidental Stripe default.
+
+# 2026-08-10 — Keep sequence execution fail-closed behind migration and operator review
+
+## Context
+
+Automatic outreach has consequential external side effects. The sequence UI and worker can be deployed before the safety schema, unsubscribe path, provider reconciliation, and recovery ledger are present.
+
+## Decision
+
+Sequence activation requires the safety tables to exist and the existing server-side validation/readiness checks to pass. Automatic sending remains behind `COSTIVRA_SEQUENCE_EXECUTION_ENABLED`. Every sequence send uses the canonical outbound service, opaque hashed unsubscribe tokens, provider idempotency, and a ten-send-per-mailbox pilot ceiling. Provider-ambiguous failures are never retried automatically.
+
+## Consequences
+
+The product can be tested and reviewed without accidental sends. A migration-history mismatch must be repaired deliberately before the new safety migration is pushed; the implementation does not silently repair or reorder remote history.

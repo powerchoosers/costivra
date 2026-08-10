@@ -4322,6 +4322,7 @@ function Outreach({
   const [priorityFilter, setPriorityFilter] = useState<"all" | "high" | "normal" | "low">("all");
   const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
   const priorityFilterRef = useRef<HTMLDivElement>(null);
+  const priorityFilterTriggerRef = useRef<HTMLButtonElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const requestedOutreachTab = searchParams.get("tab");
@@ -4370,7 +4371,9 @@ function Outreach({
       if (!priorityFilterRef.current?.contains(event.target as Node)) setPriorityFilterOpen(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPriorityFilterOpen(false);
+      if (event.key !== "Escape") return;
+      setPriorityFilterOpen(false);
+      priorityFilterTriggerRef.current?.focus();
     };
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
@@ -4390,11 +4393,11 @@ function Outreach({
       {outreachTab !== "tasks" ? <div id={`outreach-panel-${outreachTab}`} role="tabpanel" aria-labelledby={`outreach-tab-${outreachTab}`} tabIndex={0}><SequenceWorkspace data={data} query={query} mode={outreachTab === "enrollments" ? "enrollments" : "sequences"} /></div> : <div id="outreach-panel-tasks" role="tabpanel" aria-labelledby="outreach-tab-tasks" tabIndex={0}>
       <div className="manage-outreach-board-toolbar">
         <div ref={priorityFilterRef} className={`manage-outreach-priority-filter${priorityFilterOpen ? " is-open" : ""}`}>
-          <button type="button" className="manage-outreach-priority-filter__trigger" aria-label="Filter tasks by priority" title="Filter tasks by priority" aria-haspopup="menu" aria-expanded={priorityFilterOpen} onClick={() => setPriorityFilterOpen((current) => !current)}>
+          <button ref={priorityFilterTriggerRef} type="button" className="manage-outreach-priority-filter__trigger" aria-label="Filter tasks by priority" title="Filter tasks by priority" aria-haspopup="menu" aria-controls="outreach-priority-filter-menu" aria-expanded={priorityFilterOpen} onClick={() => setPriorityFilterOpen((current) => !current)}>
             <ListFilter size={16} strokeWidth={1.8} aria-hidden="true" />
             {priorityFilter !== "all" && <span className="manage-outreach-priority-filter__count">1</span>}
           </button>
-          <div className="manage-outreach-priority-filter__menu" role="menu" aria-label="Task priority filters">
+          <div id="outreach-priority-filter-menu" className="manage-outreach-priority-filter__menu" role="menu" aria-label="Task priority filters">
             <div className="manage-outreach-priority-filter__heading">Filter tasks</div>
             {priorityFilterOptions.map((option) => (
               <button
@@ -4406,6 +4409,7 @@ function Outreach({
                 onClick={() => {
                   setPriorityFilter(option.value);
                   setPriorityFilterOpen(false);
+                  priorityFilterTriggerRef.current?.focus();
                 }}
               >
                 <span className="manage-outreach-priority-filter__option-label"><span className="manage-outreach-priority-filter__option-check" aria-hidden="true" />{option.label}</span>

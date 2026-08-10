@@ -204,7 +204,7 @@ export async function stopSequenceEnrollmentForProviderEvent(
 ) {
   const { data: message, error } = await db
     .from("crm_email_messages")
-    .select("id,thread_id,organization_id,sequence_id,sequence_enrollment_id,to_addresses")
+    .select("id,thread_id,organization_id,sequence_id,sequence_enrollment_id,mailbox_id,to_addresses")
     .eq("provider_message_id", input.providerMessageId)
     .eq("origin", "sequence")
     .maybeSingle();
@@ -230,7 +230,7 @@ export async function stopSequenceEnrollmentForProviderEvent(
       providerReference: input.providerMessageId,
     });
   }
-  return stopEnrollmentForReason(db, {
+  const stopped = await stopEnrollmentForReason(db, {
     enrollmentId: message.sequence_enrollment_id,
     reason,
     eventType,
@@ -238,4 +238,35 @@ export async function stopSequenceEnrollmentForProviderEvent(
     threadId: message.thread_id,
     providerEventId: input.providerEventId,
   });
+  if (stopped && message.mailbox_id) {
+    await applyProviderSafetyPause(db, { mailboxId: message.mailbox_id, sequenceId: message.sequence_id });
+  }
+  return stopped;
+}
+
+/** Pause automatic outreach when a mailbox shows a sustained provider failure rate. */
+export async function applyProviderSafetyPause(db: Db, input: { mailboxId: string; sequenceId?: string | null }) {
+  const { data: recent, error } = await db
+    .from("crm_email_messages")
+    .select("provider_status")
+    .eq("mailbox_id", input.mailboxId)
+    .eq("origin", "sequence")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  const messages = recent ?? [];
+  const failures = messages.filter((row) => ["bounced", "complained", "failed", "suppressed"].includes(row.provider_status)).length;
+  if (messages.length < 10 || failures < 3 || failures / messages.length < 0.2) return false;
+  await db.from("crm_mailboxes").update({ can_send: false, updated_at: new Date().toISOString() }).eq("id", input.mailboxId);
+  if (input.sequenceId) {
+    await db.from("crm_sequences").update({ status: "paused", execution_enabled: false, updated_at: new Date().toISOString() }).eq("id", input.sequenceId).eq("status", "active");
+  }
+  await db.from("internal_audit_events").insert({
+    organization_id: null,
+    action: "crm.sequence_provider_safety_pause",
+    resource_type: "crm_mailbox",
+    resource_id: input.mailboxId,
+    safe_metadata: { sequence_id: input.sequenceId ?? null, sample_size: messages.length, failures },
+  });
+  return true;
 }
