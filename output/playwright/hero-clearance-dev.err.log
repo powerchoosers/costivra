@@ -978,3 +978,75 @@ https://react.dev/link/hydration-mismatch
   107 |   }, [newSheetClosing]);
   108 |
 ⚠ Server is approaching the used memory threshold, restarting...
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RenderFromTemplateContext>
+      <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
+        <InnerScrollAndFocusHandlerOld focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
+          <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+            <LoadingBoundary name="outreach/" loading={null}>
+              <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+                <RedirectBoundary>
+                  <RedirectErrorBoundary router={{...}}>
+                    <InnerLayoutRouter url="/manage/ou..." tree={[...]} params={{slug:[...]}} ...>
+                      <SegmentViewNode type="page" pagePath="manage/[[....">
+                        <SegmentTrieNode>
+                        <Page>
+                          <ManagePortal section="outreach" detailId={null} outreachSequenceId={null} ...>
+                            <div className="manage-app...">
+                              <ManageLiveNotifications>
+                              <aside
+                                id="manage-owner-sidebar"
+                                ref={{current:null}}
++                               className="manage-sidebar is-collapsed"
+-                               className="manage-sidebar is-open"
+                                onFocusCapture={function onFocusCapture}
+                                onPointerDownCapture={function onPointerDownCapture}
+                                onBlurCapture={function onBlurCapture}
+                              >
+                                <div className="manage-brand">
+                                  <LinkComponent href="/manage" title="Costivra O...">
+                                    <a title="Costivra O..." ref={function} onClick={function onClick} ...>
+                                      <span>
+                                      <div
+                                        className="manage-brand-copy"
++                                       aria-hidden={true}
+-                                       aria-hidden="false"
+                                      >
+                                  ...
+                                ...
+                              <main
++                               className="manage-main is-collapsed"
+-                               className="manage-main"
+                              >
+                                <header className="manage-topbar">
+                                  <div className="manage-top...">
+                                    <button
+                                      className="manage-menu"
+                                      onClick={function onClick}
++                                     aria-label="Expand sidebar"
+-                                     aria-label="Collapse sidebar"
+                                      aria-controls="manage-owner-sidebar"
++                                     aria-expanded={false}
+-                                     aria-expanded="true"
+                                    >
+                                    ...
+                                  ...
+                                ...
+                              ...
+                      ...
+                    ...
+          ...
+ 
+[browser] Failed to fetch RSC payload for http://localhost:3000/manage/outreach?tab=sequences. Falling back to browser navigation. TypeError: Failed to fetch

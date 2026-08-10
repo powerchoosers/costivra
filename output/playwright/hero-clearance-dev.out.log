@@ -3887,3 +3887,25 @@
 - Environments: .env.local
 ✓ Ready in 4.7s
 
+○ Compiling /api/manage/notifications ...
+ GET /api/manage/notifications 200 in 11.7s (next.js: 5.7s, application-code: 6.0s)
+ GET /api/manage/notifications 200 in 4.5s (next.js: 18ms, application-code: 4.4s)
+ GET /manage/outreach?tab=sequences 200 in 28.1s (next.js: 11.0s, proxy.ts: 7.6s, application-code: 9.5s)
+ GET /api/manage/notifications 200 in 2.6s (next.js: 55ms, application-code: 2.5s)
+ GET /api/manage/outreach/enrollments 200 in 2.7s (next.js: 2.0s, application-code: 674ms)
+ GET /api/manage/outreach/sequences 200 in 3.1s (next.js: 1273ms, application-code: 1810ms)
+ GET /api/manage/notifications 200 in 1063ms (next.js: 19ms, application-code: 1044ms)
+ GET /api/manage/notifications 200 in 971ms (next.js: 36ms, application-code: 936ms)
+ GET /api/manage/notifications 200 in 1173ms (next.js: 79ms, application-code: 1094ms)
+ GET /api/manage/notifications 200 in 1156ms (next.js: 25ms, application-code: 1131ms)
+ GET /api/manage/notifications 200 in 1021ms (next.js: 17ms, application-code: 1004ms)
+ GET /api/manage/notifications 200 in 1250ms (next.js: 14ms, application-code: 1236ms)
+ GET /api/manage/notifications 200 in 977ms (next.js: 13ms, application-code: 964ms)
+ GET /api/manage/notifications 200 in 1287ms (next.js: 19ms, application-code: 1268ms)
+ GET /api/manage/notifications 200 in 2.2s (next.js: 125ms, application-code: 2.1s)
+ GET /api/manage/notifications 200 in 1219ms (next.js: 14ms, application-code: 1205ms)
+✓ Compiled in 8.3s
+ GET /api/manage/notifications 200 in 1226ms (next.js: 11ms, application-code: 1214ms)
+ GET /api/manage/notifications 200 in 3.2s (next.js: 17ms, application-code: 3.1s)
+ GET /api/manage/notifications 200 in 1311ms (next.js: 15ms, application-code: 1296ms)
+ GET /api/manage/notifications 200 in 1522ms (next.js: 15ms, application-code: 1506ms)

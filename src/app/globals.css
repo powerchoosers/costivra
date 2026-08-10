@@ -6767,6 +6767,138 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .sequence-builder-preview__label{display:block;margin:12px 0 6px;color:#8590a1;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.sequence-builder-preview__rich{color:#26344d;font-size:.78rem;line-height:1.55}.sequence-builder-preview__rich p{margin:0 0 8px}.sequence-builder-preview__rich a{color:#315fb6;text-decoration:underline}
 @media (max-width: 760px){.sequence-preview-overrides{grid-template-columns:1fr!important}.sequence-enrollment-confirmation dl{grid-template-columns:1fr}.sequence-builder-preview__header{flex-direction:column}.sequence-builder-preview__widths{width:100%}.sequence-builder-preview__widths button{flex:1}.sequence-builder-preview__frame--desktop{max-width:100%}}
 
+/* Sequence builder: a focused work area with the timeline and controls visible together. */
+.sequence-detail-editor.sequence-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(270px, .75fr);
+  align-items: start;
+  gap: 0 26px;
+  padding: 26px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__header,
+.sequence-detail-editor.sequence-editor > .sequence-safety,
+.sequence-detail-editor.sequence-editor > .manage-inline-alert {
+  grid-column: 1 / -1;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__header {
+  padding-bottom: 22px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-safety {
+  margin-bottom: 4px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-timeline,
+.sequence-detail-editor.sequence-editor > .sequence-add-row {
+  grid-column: 1;
+}
+.sequence-detail-editor.sequence-editor > .sequence-timeline {
+  min-width: 0;
+  padding-top: 22px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-add-row {
+  align-self: start;
+  margin-top: 2px;
+  border: 1px dashed #cbd7e8;
+  border-radius: 14px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__footer,
+.sequence-detail-editor.sequence-editor > .sequence-business-days,
+.sequence-detail-editor.sequence-editor > .sequence-builder-preview {
+  grid-column: 2;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__footer {
+  align-self: start;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fbfcfe;
+  padding: 16px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__footer::before {
+  content: "Sequence settings";
+  color: #24324a;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__footer label {
+  width: 100%;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__footer input,
+.sequence-detail-editor.sequence-editor > .sequence-editor__footer select {
+  width: 100%;
+}
+.sequence-detail-editor.sequence-editor > .sequence-editor__footer button {
+  width: 100%;
+  margin: 4px 0 0;
+}
+.sequence-detail-editor.sequence-editor > .sequence-business-days {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  align-self: start;
+  margin-top: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-business-days > span {
+  grid-column: 1 / -1;
+  color: #65748a;
+  font-size: .68rem;
+}
+.sequence-detail-editor.sequence-editor > .sequence-business-days button {
+  min-width: 0;
+  padding: 7px 3px;
+  border: 1px solid #d6deea;
+  border-radius: 8px;
+  background: #fff;
+  color: #65748a;
+  font-size: .66rem;
+}
+.sequence-detail-editor.sequence-editor > .sequence-business-days button.is-selected {
+  border-color: #9db9e5;
+  background: #eef4ff;
+  color: #2457a6;
+}
+.sequence-detail-editor.sequence-editor > .sequence-builder-preview {
+  margin-top: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+  padding: 16px;
+}
+.sequence-detail-editor.sequence-editor > .sequence-builder-preview .sequence-builder-preview__frame {
+  box-shadow: none;
+}
+@media (max-width: 900px) {
+  .sequence-detail-editor.sequence-editor {
+    grid-template-columns: 1fr;
+  }
+  .sequence-detail-editor.sequence-editor > .sequence-editor__footer,
+  .sequence-detail-editor.sequence-editor > .sequence-business-days,
+  .sequence-detail-editor.sequence-editor > .sequence-builder-preview {
+    grid-column: 1;
+  }
+  .sequence-detail-editor.sequence-editor > .sequence-editor__footer {
+    margin-top: 18px;
+  }
+}
+@media (max-width: 760px) {
+  .sequence-detail-editor.sequence-editor {
+    gap: 0;
+    padding: 16px;
+  }
+  .sequence-detail-editor.sequence-editor > .sequence-add-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* Homepage hero clarity pass: one promise, one action, and one dominant product visual. */
 .hero-review-result-grid {
   display: grid;
