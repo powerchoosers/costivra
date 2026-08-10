@@ -678,6 +678,7 @@ function OpportunityTrustReview({ data }: { data: ManageOpportunityTrustReviewDa
 export function ManagePortal({
   section,
   detailId,
+  outreachSequenceId,
   data,
   invoiceReview,
   intakeOperations,
@@ -685,6 +686,7 @@ export function ManagePortal({
 }: {
   section: string;
   detailId?: string | null;
+  outreachSequenceId?: string | null;
   data: ManageData;
   invoiceReview?: ManageInvoiceReviewData | null;
   intakeOperations?: ManageIntakeOperationsData | null;
@@ -700,9 +702,9 @@ export function ManagePortal({
   const currentAccount = section === "accounts" && detailId ? data.accounts.find((item) => item.id === detailId) : null;
   const currentContact = section === "contacts" && detailId ? data.contacts.find((item) => item.id === detailId) : null;
   const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations", "trust-review": "Trust review" };
-  const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? managePageLabels[section] ?? pretty(section);
-  const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : "/manage";
-  const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : "Client operations";
+  const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? (outreachSequenceId ? "Sequence" : managePageLabels[section] ?? pretty(section));
+  const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : outreachSequenceId ? "/manage/outreach?tab=sequences" : "/manage";
+  const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : outreachSequenceId ? "Sequences" : "Client operations";
   useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
   const [mobileNav, setMobileNav] = useState(() => {
@@ -1384,20 +1386,13 @@ export function ManagePortal({
             );
           }}
         >
-          {section !== "overview" && !detailId && (
+          {section !== "overview" && !detailId && !outreachSequenceId && (
             section === "outreach" ? (
-              <div className="manage-outreach-context-row">
+              sequenceOutreachTab ? null : <div className="manage-outreach-context-row">
                 <GlobalBackControl className="manage-global-back" />
-                {sequenceOutreachTab ? <div className="sequence-actions">
-                  <button className="manage-button manage-button--quiet" onClick={() => window.dispatchEvent(new Event("costivra:sequence-enroll"))}>
-                    <Users size={15} /> Enroll contacts
-                  </button>
-                  <button className="manage-button manage-button--primary" onClick={() => window.dispatchEvent(new Event("costivra:sequence-new"))}>
-                    <Plus size={16} /> New sequence
-                  </button>
-                </div> : <button className="manage-button manage-button--primary" onClick={() => openDialog("task")}>
+                <button className="manage-button manage-button--primary" onClick={() => openDialog("task")}>
                   <Plus size={16} /> Add task
-                </button>}
+                </button>
               </div>
             ) : <GlobalBackControl className="manage-global-back" />
           )}
@@ -1422,6 +1417,7 @@ export function ManagePortal({
               data={data}
               query={search}
               run={run}
+              sequenceId={outreachSequenceId}
             />
           )}
           {section === "mail" && (
@@ -4322,10 +4318,12 @@ function Outreach({
   data,
   query,
   run,
+  sequenceId,
 }: {
   data: ManageData;
   query: string;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
+  sequenceId?: string | null;
 }) {
   const [priorityFilter, setPriorityFilter] = useState<"all" | "high" | "normal" | "low">("all");
   const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
@@ -4339,6 +4337,7 @@ function Outreach({
     const next = new URLSearchParams(searchParams.toString());
     if (tab === "tasks") next.delete("tab"); else next.set("tab", tab);
     if (tab !== "sequences") next.delete("sequence");
+    if (tab !== "enrollments") next.delete("sequenceId");
     if (tab !== "enrollments") next.delete("enrollment");
     router.replace(`/manage/outreach${next.toString() ? `?${next.toString()}` : ""}`);
   };
@@ -4390,6 +4389,12 @@ function Outreach({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [priorityFilterOpen]);
+
+  if (sequenceId) {
+    return <div id="outreach-panel-sequence-detail" role="main" aria-label="Sequence detail">
+      <SequenceWorkspace data={data} query={query} mode="sequences" sequenceId={sequenceId} />
+    </div>;
+  }
 
   return (
     <>

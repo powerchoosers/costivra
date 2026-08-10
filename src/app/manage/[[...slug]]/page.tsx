@@ -43,6 +43,10 @@ export default async function Page({
   const { slug = [] } = await params;
   const { folder, mailbox } = await searchParams;
   const section = slug[0] || "overview";
+  const outreachSequenceId =
+    section === "outreach" && slug[1] === "sequences"
+      ? slug[2] ?? null
+      : null;
   if (section === "mailboxes") redirect("/manage/settings#email-identities");
   const result = await loadManagePageData({
     folder,
@@ -63,6 +67,7 @@ export default async function Page({
   return <ManagePortal
     section={section}
     detailId={section === "accounts" || section === "contacts" ? slug[1] ?? null : null}
+    outreachSequenceId={outreachSequenceId}
     data={result.data}
     invoiceReview={invoiceReview}
     intakeOperations={intakeOperations}

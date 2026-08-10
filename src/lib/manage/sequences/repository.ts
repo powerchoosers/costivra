@@ -89,6 +89,25 @@ export async function getSequence(db: Db, id: string) {
   return mapSequence(row, rawSteps.map((item) => step(item as Row)).sort((a: SequenceStep, b: SequenceStep) => a.position - b.position));
 }
 
+export async function getSequenceWithStats(db: Db, id: string) {
+  const sequence = await getSequence(db, id);
+  if (!sequence) return null;
+
+  const [enrollments, messages, events] = await Promise.all([
+    db.from("crm_sequence_enrollments").select("sequence_id,state,next_action_at").eq("sequence_id", id),
+    db.from("crm_email_messages").select("sequence_id,provider_status").eq("sequence_id", id).eq("origin", "sequence"),
+    db.from("crm_sequence_events").select("sequence_id,event_type").eq("sequence_id", id).eq("event_type", "reply_received"),
+  ]);
+  if (enrollments.error) throw enrollments.error;
+  if (messages.error) throw messages.error;
+  if (events.error) throw events.error;
+
+  return {
+    ...sequence,
+    ...summarizeSequenceStats(id, enrollments.data as Row[], messages.data as Row[], events.data as Row[]),
+  };
+}
+
 export async function listEnrollments(db: Db, organizationId?: string) {
   let query = db.from("crm_sequence_enrollments").select("*, sequence:crm_sequences(name), contact:crm_contacts(full_name,email), mailbox:crm_mailboxes(address), organization:organizations(name)").order("created_at", { ascending: false }).limit(500);
   if (organizationId) query = query.eq("organization_id", organizationId);

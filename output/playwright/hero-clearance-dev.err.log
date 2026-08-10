@@ -16,3 +16,226 @@
   17 |       digest: error.digest ?? "unavailable",
   18 |       name: error.name,
   19 |     }); (src/app/error.tsx:16:13)
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+Owner portal API error: INTERNAL_ERROR
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RenderFromTemplateContext>
+      <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
+        <InnerScrollAndFocusHandlerOld focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
+          <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+            <LoadingBoundary name="outreach/" loading={null}>
+              <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+                <RedirectBoundary>
+                  <RedirectErrorBoundary router={{...}}>
+                    <InnerLayoutRouter url="/manage/ou..." tree={[...]} params={{slug:[...]}} ...>
+                      <SegmentViewNode type="page" pagePath="manage/[[....">
+                        <SegmentTrieNode>
+                        <Page>
+                          <ManagePortal section="outreach" detailId={null} data={{operator:{...}, ...}} ...>
+                            <div className="manage-app...">
+                              <ManageLiveNotifications>
+                              <aside
+                                id="manage-owner-sidebar"
+                                ref={{current:null}}
++                               className="manage-sidebar is-collapsed"
+-                               className="manage-sidebar is-open"
+                                onFocusCapture={function onFocusCapture}
+                                onPointerDownCapture={function onPointerDownCapture}
+                                onBlurCapture={function onBlurCapture}
+                              >
+                                <div className="manage-brand">
+                                  <LinkComponent href="/manage" title="Costivra O...">
+                                    <a title="Costivra O..." ref={function} onClick={function onClick} ...>
+                                      <span>
+                                      <div
+                                        className="manage-brand-copy"
++                                       aria-hidden={true}
+-                                       aria-hidden="false"
+                                      >
+                                  ...
+                                ...
+                              <main
++                               className="manage-main is-collapsed"
+-                               className="manage-main"
+                              >
+                                <header className="manage-topbar">
+                                  <div className="manage-top...">
+                                    <button
+                                      className="manage-menu"
+                                      onClick={function onClick}
++                                     aria-label="Expand sidebar"
+-                                     aria-label="Collapse sidebar"
+                                      aria-controls="manage-owner-sidebar"
++                                     aria-expanded={false}
+-                                     aria-expanded="true"
+                                    >
+                                    ...
+                                  ...
+                                ...
+                              ...
+                      ...
+                    ...
+          ...
+ 
+⚠ Fast Refresh had to perform a full reload when ./src/components/navigation-history.tsx changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⚠ Fast Refresh had to perform a full reload when ./src/components/navigation-history.tsx changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⨯ Error: useToast must be used inside ToastProvider
+    at useToast (src\components\toast-provider.tsx:143:23)
+    at ManagePortal (src\components\manage-portal.tsx:700:25)
+  141 | export function useToast() {
+  142 |   const context = useContext(ToastContext);
+> 143 |   if (!context) throw new Error("useToast must be used inside ToastProvider");
+      |                       ^
+  144 |   return context;
+  145 | }
+  146 | {
+  digest: '1990423611'
+}
+⨯ Error: useToast must be used inside ToastProvider
+    at useToast (src\components\toast-provider.tsx:143:23)
+    at ManagePortal (src\components\manage-portal.tsx:700:25)
+  141 | export function useToast() {
+  142 |   const context = useContext(ToastContext);
+> 143 |   if (!context) throw new Error("useToast must be used inside ToastProvider");
+      |                       ^
+  144 |   return context;
+  145 | }
+  146 | {
+  digest: '1990423611'
+}
+⨯ ReferenceError: summarySlot is not defined
+    at SequenceWorkspace (src\components\manage\outreach\sequence-workspace.tsx:316:6)
+  314 |
+  315 |   return <section className="sequence-workspace">
+> 316 |     {summarySlot && !loading ? createPortal(<SequenceSummaryStrip summary={summary} conte...
+      |      ^
+  317 |     {error && <div className="manage-inline-alert manage-inline-alert--error" role="alert...
+  318 |     {loading ? <div className="manage-empty"><LoaderCircle className="spin" size={20} /> ...
+  319 |       <div className="manage-panel-header"><div><h3>Enrollment review</h3><p>{visibleEnro... {
+  digest: '2274592250'
+}
+⨯ Error: useToast must be used inside ToastProvider
+    at useToast (src\components\toast-provider.tsx:143:23)
+    at ManagePortal (src\components\manage-portal.tsx:700:25)
+  141 | export function useToast() {
+  142 |   const context = useContext(ToastContext);
+> 143 |   if (!context) throw new Error("useToast must be used inside ToastProvider");
+      |                       ^
+  144 |   return context;
+  145 | }
+  146 | {
+  digest: '1990423611'
+}
+[browser] costivra.client_render_error { digest: [32m'unavailable'[39m, name: [32m'ReferenceError'[39m } 
+    at ErrorPage.useEffect (src/app/error.tsx:16:13)
+  14 | }) {
+  15 |   useEffect(() => {
+> 16 |     console.error("costivra.client_render_error", {
+     |             ^
+  17 |       digest: error.digest ?? "unavailable",
+  18 |       name: error.name,
+  19 |     }); (src/app/error.tsx:16:13)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RenderFromTemplateContext>
+      <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
+        <InnerScrollAndFocusHandlerOld focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
+          <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+            <LoadingBoundary name="outreach/" loading={null}>
+              <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+                <RedirectBoundary>
+                  <RedirectErrorBoundary router={{...}}>
+                    <InnerLayoutRouter url="/manage/ou..." tree={[...]} params={{slug:[...]}} ...>
+                      <SegmentViewNode type="page" pagePath="manage/[[....">
+                        <SegmentTrieNode>
+                        <Page>
+                          <ManagePortal section="outreach" detailId={null} outreachSequenceId={null} ...>
+                            <div className="manage-app...">
+                              <ManageLiveNotifications>
+                              <aside
+                                id="manage-owner-sidebar"
+                                ref={{current:null}}
++                               className="manage-sidebar is-collapsed"
+-                               className="manage-sidebar is-open"
+                                onFocusCapture={function onFocusCapture}
+                                onPointerDownCapture={function onPointerDownCapture}
+                                onBlurCapture={function onBlurCapture}
+                              >
+                                <div className="manage-brand">
+                                  <LinkComponent href="/manage" title="Costivra O...">
+                                    <a title="Costivra O..." ref={function} onClick={function onClick} ...>
+                                      <span>
+                                      <div
+                                        className="manage-brand-copy"
++                                       aria-hidden={true}
+-                                       aria-hidden="false"
+                                      >
+                                  ...
+                                ...
+                              <main
++                               className="manage-main is-collapsed"
+-                               className="manage-main"
+                              >
+                                <header className="manage-topbar">
+                                  <div className="manage-top...">
+                                    <button
+                                      className="manage-menu"
+                                      onClick={function onClick}
++                                     aria-label="Expand sidebar"
+-                                     aria-label="Collapse sidebar"
+                                      aria-controls="manage-owner-sidebar"
++                                     aria-expanded={false}
+-                                     aria-expanded="true"
+                                    >
+                                    ...
+                                  ...
+                                ...
+                              ...
+                      ...
+                    ...
+          ...
+ 
+⨯ Error: Module [project]/src/components/marketing-shell.tsx [app-ssr] (ecmascript) was instantiated because it was required from module [project]/node_modules/next/dist/esm/build/templates/app-page.js?page=/manage/[[...slug]]/page { METADATA_0 => "[project]/src/app/opengraph-image--metadata.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_1 => "[project]/src/app/layout.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_2 => "[project]/src/app/error.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_3 => "[project]/src/app/template.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_4 => "[project]/src/app/not-found.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_5 => "[project]/node_modules/next/dist/client/components/builtin/forbidden.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_6 => "[project]/node_modules/next/dist/client/components/builtin/unauthorized.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_7 => "[project]/src/app/global-error.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_8 => "[project]/src/app/manage/layout.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_9 => "[project]/src/app/manage/[[...slug]]/page.tsx [app-rsc] (ecmascript, Next.js Server Component)" } [app-rsc] (ecmascript) <locals>, but the module factory is not available.
+This is often caused by a stale browser cache, misconfigured Cache-Control headers, or a service worker serving outdated responses.
+To fix this, make sure your Cache-Control headers allow revalidation of chunks and review your service worker configuration. As an immediate workaround, try hard-reloading the page, clearing the browser cache, or unregistering any service workers.
+    at ignore-listed frames {
+  digest: '558013851'
+}
+⨯ Error: Module [project]/src/components/marketing-shell.tsx [app-ssr] (ecmascript) was instantiated because it was required from module [project]/node_modules/next/dist/esm/build/templates/app-page.js?page=/manage/[[...slug]]/page { METADATA_0 => "[project]/src/app/opengraph-image--metadata.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_1 => "[project]/src/app/layout.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_2 => "[project]/src/app/error.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_3 => "[project]/src/app/template.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_4 => "[project]/src/app/not-found.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_5 => "[project]/node_modules/next/dist/client/components/builtin/forbidden.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_6 => "[project]/node_modules/next/dist/client/components/builtin/unauthorized.js [app-rsc] (ecmascript, Next.js Server Component)", MODULE_7 => "[project]/src/app/global-error.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_8 => "[project]/src/app/manage/layout.tsx [app-rsc] (ecmascript, Next.js Server Component)", MODULE_9 => "[project]/src/app/manage/[[...slug]]/page.tsx [app-rsc] (ecmascript, Next.js Server Component)" } [app-rsc] (ecmascript) <locals>, but the module factory is not available.
+This is often caused by a stale browser cache, misconfigured Cache-Control headers, or a service worker serving outdated responses.
+To fix this, make sure your Cache-Control headers allow revalidation of chunks and review your service worker configuration. As an immediate workaround, try hard-reloading the page, clearing the browser cache, or unregistering any service workers.
+    at ignore-listed frames {
+  digest: '558013851'
+}

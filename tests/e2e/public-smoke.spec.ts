@@ -256,6 +256,11 @@ test("homepage CTA and public navigation route matrix stays consistent", async (
   await expect(page.locator('header a.sign-in')).toHaveAttribute("href", "/login");
   await expect(page.locator('footer a[href="/ucep-disclosure"]')).toBeVisible();
 
+  const marketingHeader = page.locator("header.marketing-header");
+  await page.evaluate(() => window.scrollTo(0, 360));
+  await expect(marketingHeader).toHaveClass(/is-scrolled/);
+  await page.evaluate(() => window.scrollTo(0, 0));
+
   const internalHrefs = await page.locator("header a, footer a").evaluateAll((links) => Array.from(new Set(links.map((link) => link.getAttribute("href") || "").filter((href) => href.startsWith("/")))));
   for (const href of internalHrefs) {
     const response = await request.get(href);
@@ -266,8 +271,16 @@ test("homepage CTA and public navigation route matrix stays consistent", async (
   expect(mobileNav).toEqual(desktopNav);
   if (testInfo.project.name.startsWith("mobile")) {
     await page.getByRole("button", { name: /open navigation/i }).click();
-    await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Start with 3 bills", exact: true })).toHaveAttribute("href", "/scan");
+    const mobileNavigation = page.getByRole("navigation", { name: "Mobile navigation" });
+    await expect(mobileNavigation).toBeVisible();
+    await expect(page.locator(".mobile-backdrop.is-open")).toBeVisible();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await expect(mobileNavigation.getByRole("link", { name: "Product", exact: true })).toBeFocused();
+    await expect(mobileNavigation.getByRole("link", { name: "Start with 3 bills", exact: true })).toHaveAttribute("href", "/scan");
+    await page.keyboard.press("Escape");
+    await expect(mobileNavigation).toBeHidden();
+    await expect(page.getByRole("button", { name: /open navigation/i })).toBeFocused();
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
   }
 });
 

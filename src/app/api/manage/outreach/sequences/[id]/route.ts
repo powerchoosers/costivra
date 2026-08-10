@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
-import { getSequence } from "@/lib/manage/sequences/repository";
+import { getSequenceWithStats } from "@/lib/manage/sequences/repository";
 import { cleanText, cleanUuid } from "@/lib/portal/http";
 import { isValidSequenceTimezone } from "@/lib/manage/sequences/schedule";
 import { isValidLocalTime } from "@/lib/manage/sequences/validation";
@@ -11,8 +11,10 @@ export async function GET(_request: Request, { params }: Context) {
   try {
     const { db } = await requireInternalOperator();
     const id = cleanUuid((await params).id);
-    const sequence = id ? await getSequence(db, id) : null;
-    return sequence ? NextResponse.json({ sequence }) : NextResponse.json({ error: "Sequence not found." }, { status: 404 });
+    const sequence = id ? await getSequenceWithStats(db, id) : null;
+    return sequence
+      ? NextResponse.json({ sequence, executionEnabled: process.env.COSTIVRA_SEQUENCE_EXECUTION_ENABLED === "true" }, { headers: { "Cache-Control": "private, no-store" } })
+      : NextResponse.json({ error: "Sequence not found." }, { status: 404 });
   } catch (error) {
     const result = manageApiError(error); return NextResponse.json({ error: result.error }, { status: result.status });
   }

@@ -1651,3 +1651,31 @@ Sequence activation requires the safety tables to exist and the existing server-
 ## Consequences
 
 The product can be tested and reviewed without accidental sends. A migration-history mismatch must be repaired deliberately before the new safety migration is pushed; the implementation does not silently repair or reorder remote history.
+
+# 2026-08-10 — Separate sequence directory from sequence detail
+
+## Context
+
+The Outreach Sequences screen was trying to act as both a campaign directory and a full workflow editor. The split pane left unused space, crowded the header with unrelated metrics, and made long sequences compete with the list.
+
+## Decision
+
+Use a full-width, paginated sequence table at `/manage/outreach?tab=sequences` and a dedicated workflow page at `/manage/outreach/sequences/[id]`. Keep directory metrics as quiet contextual copy, keep sequence-specific metrics on the detail page, and link to the existing filtered Enrollments table instead of duplicating contact lists.
+
+## Consequences
+
+Sequence discovery, workflow editing, and enrollment review have clear ownership. The existing server-side authorization, validation, consent, approval, audit, and release-gate behavior remains unchanged. The detail GET path now includes accurate live stats without changing the database schema.
+
+# 2026-08-10 — Use reference-inspired mechanics for the public header
+
+## Context
+
+The public Costivra header was visually polished but had a basic mobile dropdown and no meaningful scroll state. The CRM platform and Luxor public sites demonstrated stronger mechanics: a header that settles as visitors scroll, an animated mobile surface, a page scrim, and deliberate focus/scroll handling.
+
+## Decision
+
+Keep Costivra’s existing brand, navigation, and authenticated app shell, while adopting the useful public-header mechanics: a scroll-aware visual state, a scrim-backed mobile drawer, body-scroll locking, Escape-to-close, focus restoration, and reduced-motion behavior. The mobile drawer remains an in-page navigation surface and does not introduce a new dependency.
+
+## Consequences
+
+Public navigation is more consistent across desktop and mobile without coupling the marketing site to the CRM or Luxor implementations. The new behavior is covered by the public smoke test and direct desktop/mobile browser QA. The authenticated workspace header remains intentionally separate because it serves a different, higher-density task context.

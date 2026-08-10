@@ -69,7 +69,8 @@ function currentHref(pathname: string, search: string) {
 }
 
 function isManageRecordDetail(pathname: string) {
-  return /^\/manage\/(?:accounts|contacts)\/[^/]+$/.test(pathname);
+  return /^\/manage\/(?:accounts|contacts)\/[^/]+$/.test(pathname)
+    || /^\/manage\/outreach\/sequences\/[^/]+$/.test(pathname);
 }
 
 function defaultLabel(scope: NavigationScope) {
