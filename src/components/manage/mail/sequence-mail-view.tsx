@@ -22,6 +22,9 @@ type SequenceMailItem = {
   sentAt: string | null;
   nextActionAt: string | null;
   stopReason: string | null;
+  ownerId?: string | null;
+  sideEffect?: { status?: string; failure_class?: string | null; provider_reference?: string | null; last_error?: string | null; last_provider_event_at?: string | null } | null;
+  latestEvent?: { event_type?: string; occurred_at?: string } | null;
 };
 
 type SequenceMailMetrics = {
@@ -30,6 +33,7 @@ type SequenceMailMetrics = {
   delivered: number;
   replies: number;
   bounced: number;
+  needsAttention?: number;
 };
 
 type Props = {
@@ -37,7 +41,7 @@ type Props = {
   query: string;
 };
 
-const statusOptions = ["all", "scheduled", "sent", "delivered", "replied", "bounced", "failed"] as const;
+const statusOptions = ["all", "scheduled", "queued", "sent", "delivered", "delayed", "replied", "bounced", "complained", "suppressed", "failed", "canceled"] as const;
 
 function pretty(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -56,25 +60,33 @@ export function SequenceMailView({ selectedMailboxId, query }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [selected, setSelected] = useState<SequenceMailItem | null>(null);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams({ limit: "50" });
+    const params = new URLSearchParams({ limit: "25", page: String(page) });
     if (selectedMailboxId) params.set("mailbox", selectedMailboxId);
     if (status !== "all") params.set("status", status);
+    if (fromDate) params.set("from", fromDate);
+    if (toDate) params.set("to", toDate);
     try {
       const response = await fetch(`/api/manage/mail/sequence?${params.toString()}`, { cache: "no-store" });
-      const payload = await response.json() as { items?: SequenceMailItem[]; metrics?: SequenceMailMetrics; error?: string };
+      const payload = await response.json() as { items?: SequenceMailItem[]; metrics?: SequenceMailMetrics; hasMore?: boolean; error?: string };
       if (!response.ok) throw new Error(payload.error || "Sequence email records could not be loaded.");
       setItems(payload.items ?? []);
       setMetrics(payload.metrics ?? { scheduledToday: 0, sentToday: 0, delivered: 0, replies: 0, bounced: 0 });
+      setHasMore(Boolean(payload.hasMore));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Sequence email records could not be loaded.");
     } finally {
       setLoading(false);
     }
-  }, [selectedMailboxId, status]);
+  }, [selectedMailboxId, status, page, fromDate, toDate]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -116,12 +128,13 @@ export function SequenceMailView({ selectedMailboxId, query }: Props) {
             <button type="button" key={option} className={status === option ? "active" : ""} onClick={() => setStatus(option)}>{option === "all" ? "All" : pretty(option)}</button>
           ))}
         </div>
+        <div className="manage-sequence-mail-date-filters"><label>From<input type="date" value={fromDate} onChange={(event) => { setPage(1); setFromDate(event.target.value); }} /></label><label>To<input type="date" value={toDate} onChange={(event) => { setPage(1); setToDate(event.target.value); }} /></label></div>
         <button type="button" className="manage-button manage-button--quiet" onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "spin" : ""} /> Refresh</button>
       </div>
       {error && <div className="manage-sequence-mail-error"><AlertCircle size={16} /> {error}</div>}
       {loading ? <div className="manage-empty"><LoaderCircle size={20} className="spin" /><strong>Loading sequence email activity…</strong></div> : !visibleItems.length ? <div className="manage-empty"><strong>No sequence emails match this view.</strong><span>Scheduled and sent sequence messages will appear here after an enrollment runs.</span></div> : <div className="manage-sequence-mail-table" role="table" aria-label="Sequence email activity">
         <div className="manage-sequence-mail-row manage-sequence-mail-row--header" role="row"><span>Recipient</span><span>Sequence</span><span>Step</span><span>Provider state</span><span>Time</span><span aria-hidden="true" /></div>
-        {visibleItems.map((item) => <div className="manage-sequence-mail-row" role="row" key={item.id}>
+        {visibleItems.map((item) => <div className={`manage-sequence-mail-row ${selected?.id === item.id ? "is-selected" : ""}`} role="row" key={item.id} onClick={() => setSelected(item)}>
           <div><strong>{item.contactName}</strong><small>{item.recipient} · {item.accountName}</small></div>
           <div><strong>{item.sequenceName}</strong><small>{item.subject}</small></div>
           <div><span>Step {item.stepPosition || "—"}</span><small>{pretty(item.stepType)}</small></div>
@@ -138,6 +151,8 @@ export function SequenceMailView({ selectedMailboxId, query }: Props) {
           </div>
         </div>)}
       </div>}
+      {!loading && (page > 1 || hasMore) && <div className="manage-sequence-mail-pagination"><button type="button" className="manage-button manage-button--quiet" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>Previous</button><span>Page {page}</span><button type="button" className="manage-button manage-button--quiet" disabled={!hasMore || loading} onClick={() => setPage((value) => value + 1)}>Next</button></div>}
+      {selected && <aside className="manage-sequence-mail-context" aria-label="Sequence message context"><div className="manage-sequence-mail-context-head"><div><span>Sequence context</span><strong>{selected.contactName}</strong></div><button type="button" onClick={() => setSelected(null)} aria-label="Close context">×</button></div><dl><div><dt>Sequence</dt><dd>{selected.sequenceName}</dd></div><div><dt>Enrollment</dt><dd>{pretty(selected.enrollmentState)}</dd></div><div><dt>Next action</dt><dd>{selected.nextActionAt ? displayDate(selected.nextActionAt) : "None scheduled"}</dd></div><div><dt>Provider</dt><dd>{pretty(selected.providerStatus)}{selected.sideEffect?.failure_class ? ` · ${pretty(selected.sideEffect.failure_class)}` : ""}</dd></div><div><dt>Stop reason</dt><dd>{selected.stopReason ? pretty(selected.stopReason) : "No stop reason"}</dd></div><div><dt>Latest event</dt><dd>{selected.latestEvent?.event_type ? `${pretty(selected.latestEvent.event_type)} · ${displayDate(selected.latestEvent.occurred_at ?? null)}` : "No event yet"}</dd></div></dl>{selected.sideEffect?.last_error && <p className="manage-sequence-mail-context-warning">{selected.sideEffect.last_error}</p>}<Link className="manage-button manage-button--quiet" href={selected.threadId ? `/manage/mail/${selected.threadId}?view=all&folder=sent` : "/manage/mail?view=sequence"}>Open thread</Link></aside>}
     </section>
   );
 }

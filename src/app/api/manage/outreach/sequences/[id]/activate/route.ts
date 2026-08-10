@@ -4,6 +4,7 @@ import { getSequence } from "@/lib/manage/sequences/repository";
 import { validateSequenceDraft } from "@/lib/manage/sequences/validation";
 import { checkSystemReadiness } from "@/lib/manage/system-readiness";
 import { cleanUuid } from "@/lib/portal/http";
+import { checkSequenceReleaseReadiness } from "@/lib/manage/sequences/release-readiness";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -24,6 +25,11 @@ export async function POST(_request: Request, { params }: Context) {
     const validation = validateSequenceDraft(sequence, { forActivation: true });
     if (!validation.valid) {
       return NextResponse.json({ error: "This sequence needs attention before activation.", details: validation.errors }, { status: 409 });
+    }
+
+    const release = await checkSequenceReleaseReadiness(db);
+    if (!release.ready) {
+      return NextResponse.json({ error: "Sequence activation setup is incomplete. Apply the latest safety migration first.", missing: release.missing }, { status: 503 });
     }
 
     const readiness = await checkSystemReadiness(db, { runLiveMalwareProbe: false });

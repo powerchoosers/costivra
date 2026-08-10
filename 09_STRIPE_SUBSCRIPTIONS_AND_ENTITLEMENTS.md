@@ -36,11 +36,11 @@ Implemented today:
 
 Still open:
 
-- Full test subscription proof: the opened Test Checkout was completed with Stripe's test card, but signed webhook → subscription record → entitlement → Customer Portal proof is still pending because the current deployment predates the webhook secret.
+- Test subscription proof is now complete: a fresh Starter Checkout accepted Stripe's test card, and Supabase recorded processed signed Test events for `checkout.session.completed`, `customer.subscription.created`, and `invoice.paid`. The resulting subscription, five Starter entitlements, and paid onboarding record are present. Customer Portal browser proof is still open.
 - Remaining entitlement enforcement: document/upload limits, sequence enrollment/send limits, and premium category coverage still need explicit product policy before they can be safely gated.
-- The app-configured `Costivra sandbox` Test account now has an active event destination at `https://costivra.ai/api/webhooks/stripe` listening for the seven billing events used by the app. The production `STRIPE_WEBHOOK_SECRET` was added to Vercel; Vercel requires a new deployment before that secret is available to the running function.
+- The app-configured `Costivra sandbox` Test account has an active event destination at `https://costivra.ai/api/webhooks/stripe` listening for the seven billing events used by the app. The production `STRIPE_WEBHOOK_SECRET` is in Vercel, and signed delivery has been verified against the current production deployment.
 - Live-mode proof and live webhook setup.
-- Activation-link browser proof, delayed webhook recovery, and support handling for the manual-review case.
+- Activation-link browser proof, delayed webhook recovery, Customer Portal browser proof, and support handling for the manual-review case.
 - Stripe Customer Portal configuration policy and tax/legal approval.
 - Credential alignment: the local app key currently resolves to Stripe Test account `acct_1U2Mw8GiNqnczA1O` (display name `Costivra sandbox`), while the connected Stripe dashboard account is `acct_1U2MvqK7vdNK2m4p` (display name `Costivra`). These are different accounts. Replace the app/Vercel Test-mode keys and catalog rows, or intentionally use the sandbox account; do not describe the dashboard account as connected until this is aligned.
 
@@ -232,7 +232,7 @@ stripe listen --forward-to http://localhost:3000/api/webhooks/stripe
 
 Copy the signing secret printed by Stripe CLI into local `STRIPE_WEBHOOK_SECRET` for that session. Production proof requires a deployed HTTPS webhook endpoint with its own Dashboard webhook secret.
 
-The current deployment has passed the valid Test-mode POST and returned a Checkout URL. The Test endpoint and Vercel secret are now configured, but a new deployment is required before signed delivery can be verified. After Lewis deploys the current code, complete one Test checkout and verify the signed webhook creates the subscription, entitlement rows, onboarding record, and activation link. Do not use a real card or live-mode price.
+The current deployment has passed the valid Test-mode POST and returned a Checkout URL. A fresh Test checkout has now verified signed webhook delivery and subscription/entitlement projection. Do not use a real card or live-mode price while repeating the proof.
 
 Prove with signed test events or Stripe CLI fixtures:
 

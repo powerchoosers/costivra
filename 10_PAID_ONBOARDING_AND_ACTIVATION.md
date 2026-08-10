@@ -31,7 +31,7 @@ Implemented today:
 
 Still open:
 
-- Complete the real Stripe Test Checkout and signed-webhook proof, including delayed delivery. The app-configured `Costivra sandbox` account now has an active Test event destination for the Costivra webhook, and Vercel has the production signing secret; a new deployment is still required before the running function can receive it.
+- Test payment and signed-webhook proof are complete: a fresh Starter Checkout accepted Stripe's test card, and Supabase recorded processed `checkout.session.completed`, `customer.subscription.created`, and `invoice.paid` events with the resulting subscription, entitlements, and paid onboarding record. Activation-link and Customer Portal browser proof remain open.
 - Browser proof that the Supabase activation email opens `/set-password` with a usable session and lands in `/app`.
 - The paid invite now lands at `/auth/invite`, exchanges the Supabase invite token server-side, and then redirects to `/set-password`; this still needs a real-email browser proof.
 - Support tooling for the multiple-workspace manual-review case and expired activation links.
@@ -54,10 +54,10 @@ Do not treat a Checkout success redirect as proof of payment or activation. Sign
 - Multiple existing workspaces for the same email stop in manual review; the system must not guess which tenant to use.
 - The app’s working Stripe Test account is `Costivra sandbox` (`acct_1U2Mw8GiNqnczA1O`). The separately connected dashboard account `Costivra` (`acct_1U2MvqK7vdNK2m4p`) is not yet proven to be the app’s provider account.
 - Local and Vercel Stripe credentials still require intentional Lewis-owned alignment; never put secret keys in the packet, source tree, or chat.
-- A real Test Checkout Session was completed with Stripe's test card, but no signed webhook → subscription → entitlement → activation chain has been proven end to end because the current deployment predates the webhook secret.
+- A real Test Checkout Session was completed with Stripe's test card, and the signed webhook → subscription → entitlement → paid-onboarding chain is now proven end to end. The activation email/link still needs a browser proof.
 - Production smoke evidence confirms `/signup?plan=starter` renders the selected plan and collects the creation details needed for the direct paid path.
 - The current production deployment (`dpl_8esVNXQJxYVmW5wqFFJxbvuP9GYE`, commit `0ed5fac`) successfully opens a Starter Stripe Test Checkout from the public signup path. The request returned `201`, and Supabase recorded the intent as `checkout_open` with a Stripe customer and Checkout Session.
-- The Test card was accepted by Stripe, but the app has not yet reconciled the payment into a subscription or activation record. The next proof is the post-deployment signed webhook, provisioning, entitlements, activation link, and Customer Portal check.
+- The Test card was accepted by Stripe and the app created the subscription, entitlements, and paid onboarding record. The next proof is the activation link, password setup, and Customer Portal browser check.
 - The current local pre-auth route also records a safe `failed` intent state when Stripe rejects session creation, while retaining the customer for retry. Latest focused billing/entitlement/webhook/location/pre-auth tests pass (14 tests), ESLint and TypeScript pass, and the clean production build passes.
 - Do not call paid onboarding complete until payment, webhook delivery, activation-link browser proof, duplicate/retry recovery, and intended Stripe-account alignment are verified.
 
@@ -314,7 +314,7 @@ Every blocker needs a clear next action and must not silently grant paid access.
 
 Local paid-flow testing needs a reachable signed webhook. Stripe Checkout can open on `localhost`, but Stripe cannot call the local webhook unless Stripe CLI forwards it to `http://localhost:3000/api/webhooks/stripe`; do not treat a successful browser return alone as activation proof.
 
-The current production deployment has passed the valid selected-plan signup → Test Checkout opening check. The Test webhook destination and Vercel secret are configured, but the secret takes effect only after the next deployment. Complete the remaining test-card, signed-webhook, activation-link, and recovery checks before enabling paid self-service.
+The current production deployment has passed the selected-plan signup → Test Checkout → signed-webhook → provisioning check. Complete the remaining activation-link, Customer Portal, and recovery checks before enabling paid self-service.
 
 Unit and integration:
 

@@ -264,7 +264,10 @@ async function deferForDailySendLimit(
   db: Db,
   input: { enrollment: Row; sequence: Row; step: Row; lockToken: string },
 ) {
-  const limit = numberValue(input.sequence.daily_send_limit, 25);
+  // Conservative pilot ceiling. Operators may store a higher requested cap,
+  // but automatic execution cannot exceed ten sends per mailbox per day until
+  // the canary review explicitly raises this guardrail.
+  const limit = Math.min(numberValue(input.sequence.daily_send_limit, 10), 10);
   if (limit < 1) throw new Error("INVALID_SEQUENCE_DAILY_SEND_LIMIT");
   // UTC is deliberately used for the first bounded worker slice. It is a
   // conservative cap across overlapping Vercel regions; the sequence window

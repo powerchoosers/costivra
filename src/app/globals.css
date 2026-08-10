@@ -2694,6 +2694,16 @@ html { scroll-padding-top: 92px; }
 .manage-sequence-mail-actions { display:flex; align-items:center; justify-content:flex-end; gap:4px; }
 .manage-sequence-mail-actions a,.manage-sequence-mail-actions button { display:inline-flex; width:28px; height:28px; align-items:center; justify-content:center; border:1px solid #e4e9f0; border-radius:8px; background:#fff; color:#708096; cursor:pointer; text-decoration:none; }
 .manage-sequence-mail-actions a:hover,.manage-sequence-mail-actions button:hover { border-color:#cbd8ed; color:#1749c9; }
+.manage-sequence-mail-row.is-selected { background:#f0f5ff; }
+.manage-sequence-mail-date-filters { display:flex; gap:6px; align-items:center; }
+.manage-sequence-mail-date-filters label { display:grid; gap:3px; color:#8290a2; font-size:.58rem; text-transform:uppercase; letter-spacing:.04em; }
+.manage-sequence-mail-date-filters input { height:32px; border:1px solid #d6deea; border-radius:7px; padding:0 7px; color:#26344d; font-size:.68rem; }
+.manage-sequence-mail-pagination { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:12px; color:#718096; font-size:.68rem; }
+.manage-sequence-mail-context { position:fixed; z-index:30; top:90px; right:24px; width:min(360px,calc(100vw - 32px)); padding:18px; border:1px solid #dbe3ee; border-radius:16px; background:#fff; box-shadow:0 20px 50px rgba(24,38,59,.16); }
+.manage-sequence-mail-context-head { display:flex; justify-content:space-between; gap:12px; padding-bottom:14px; border-bottom:1px solid #edf0f4; }
+.manage-sequence-mail-context-head div { display:grid; gap:4px; }.manage-sequence-mail-context-head span { color:#718096; font-size:.62rem; text-transform:uppercase; letter-spacing:.08em; }.manage-sequence-mail-context-head strong { color:#24324a; font-size:.95rem; }.manage-sequence-mail-context-head button { width:28px; height:28px; border:1px solid #e2e8f0; border-radius:8px; background:#fff; color:#718096; font-size:1.2rem; }
+.manage-sequence-mail-context dl { display:grid; gap:10px; margin:16px 0; }.manage-sequence-mail-context dl div { display:flex; justify-content:space-between; gap:12px; }.manage-sequence-mail-context dt { color:#8290a2; font-size:.62rem; }.manage-sequence-mail-context dd { margin:0; color:#24324a; font-size:.7rem; text-align:right; }.manage-sequence-mail-context-warning { margin:0 0 12px; padding:9px; border-radius:8px; background:#fff7f7; color:#9a4949; font-size:.68rem; }
+.sequence-activation-review { display:grid; gap:16px; }.sequence-activation-review dl { display:grid; gap:10px; margin:0; }.sequence-activation-review dl div { display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid #edf0f4; padding-bottom:8px; }.sequence-activation-review dt { color:#718096; font-size:.7rem; }.sequence-activation-review dd { margin:0; color:#24324a; font-size:.72rem; text-align:right; }.sequence-activation-review h3 { margin:0; color:#24324a; font-size:.82rem; }.sequence-activation-review p { margin:0; color:#4a5c75; font-size:.76rem; }
 .manage-mail-compose-trigger { position:absolute; top:50%; right:14px; min-width:100px; margin:0; transform:translateY(-50%); }
 .manage-mail-compose-trigger:hover { transform:translateY(calc(-50% - 1px)); }
 .manage-mail-compose-trigger:active { transform:translateY(-50%) scale(.97); }

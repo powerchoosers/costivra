@@ -9,6 +9,7 @@ import {
   normalizeSubject,
   safeSnippet,
 } from "@/lib/manage/mail";
+import { createSequenceUnsubscribeToken } from "@/lib/manage/sequences/unsubscribe";
 
 type Db = Awaited<ReturnType<typeof requireInternalOperator>>["db"];
 
@@ -97,9 +98,10 @@ export async function sendOutboundEmail(
     attachmentDigests: attachments.map((attachment) => attachment.digest),
   });
 
+  let reusableEffect: { id: string } | null = null;
   const { data: existing, error: existingError } = await input.db
     .from("external_side_effects")
-    .select("id,request_hash,status,provider_reference")
+    .select("id,request_hash,status,provider_reference,failure_class,retry_count")
     .eq("idempotency_key", input.idempotencyKey)
     .maybeSingle();
   if (existingError) throw existingError;
@@ -123,13 +125,30 @@ export async function sendOutboundEmail(
         duplicate: true,
       };
     }
-    throw new Error("EMAIL_SEND_ALREADY_PROCESSING");
+    if (origin === "sequence" && existing.status === "failed" && !existing.provider_reference && existing.failure_class !== "provider_ambiguous") {
+      const { data: retried, error: retryError } = await input.db
+        .from("external_side_effects")
+        .update({ status: "pending", failure_class: null, last_error: null, retry_count: Number(existing.retry_count ?? 0) + 1, updated_at: new Date().toISOString() })
+        .eq("id", existing.id)
+        .eq("status", "failed")
+        .is("provider_reference", null)
+        .select("id")
+        .maybeSingle();
+      if (retryError) throw retryError;
+      if (retried) {
+        reusableEffect = retried;
+      } else {
+        throw new Error("EMAIL_SEND_ALREADY_PROCESSING");
+      }
+    } else {
+      throw new Error("EMAIL_SEND_ALREADY_PROCESSING");
+    }
   }
 
   const traceId = randomUUID();
-  const { data: effect, error: effectError } = await input.db
-    .from("external_side_effects")
-    .insert({
+  const { data: insertedEffect, error: effectError } = reusableEffect
+    ? { data: reusableEffect, error: null }
+    : await input.db.from("external_side_effects").insert({
       organization_id: input.organizationId,
       mailbox_id: input.mailbox.id,
       actor_id: input.actorId,
@@ -153,10 +172,9 @@ export async function sendOutboundEmail(
         sequence_enrollment_id: input.sequenceEnrollmentId ?? null,
         sequence_step_id: input.sequenceStepId ?? null,
       },
-    })
-    .select("id")
-    .single();
+    }).select("id").single();
   if (effectError) throw effectError;
+  const effect = insertedEffect;
 
   let acceptedProviderId: string | null = null;
   try {
@@ -182,6 +200,16 @@ export async function sendOutboundEmail(
     const headers: Record<string, string> = {};
     if (inReplyTo) headers["In-Reply-To"] = inReplyTo;
     if (references.length) headers.References = references.join(" ");
+    if (origin === "sequence" && input.contactId && input.sequenceId && input.to[0]) {
+      const unsubscribeUrl = await createSequenceUnsubscribeToken(input.db, {
+        contactId: input.contactId,
+        organizationId: input.organizationId,
+        sequenceId: input.sequenceId,
+        email: input.to[0],
+      });
+      headers["List-Unsubscribe"] = `<${unsubscribeUrl}>`;
+      headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+    }
     const { data: sent, error: sendError } = await getResendClient().emails.send(
       {
         from: input.mailbox.sender,

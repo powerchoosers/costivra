@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { randomUUID } from "node:crypto";
 import {
   processClaimedSequenceEnrollment,
   type ClaimedSequenceEnrollment,
@@ -37,12 +38,19 @@ export async function GET(request: Request) {
   }
 
   const db = createServerSupabaseClient();
+  const runId = randomUUID();
+  const { error: runInsertError } = await db.from("crm_sequence_worker_runs").insert({ id: runId, status: "running", started_at: checkedAt.toISOString() });
+  if (runInsertError) {
+    if (runInsertError.code === "42P01") return NextResponse.json({ error: "Sequence execution is blocked until the production safety migration is applied." }, { status: 503 });
+    return NextResponse.json({ error: "Sequence worker health could not be recorded." }, { status: 503 });
+  }
   const { data: claimed, error } = await db.rpc("claim_due_sequence_enrollments", {
     p_limit: CLAIM_BATCH_SIZE,
     p_now: checkedAt.toISOString(),
     p_lock_ttl_seconds: LOCK_TTL_SECONDS,
   });
   if (error) {
+    await db.from("crm_sequence_worker_runs").update({ status: "failed", finished_at: new Date().toISOString(), failed_count: 1 }).eq("id", runId);
     return NextResponse.json({ error: "Sequence work could not be claimed." }, { status: 500 });
   }
 
@@ -60,9 +68,12 @@ export async function GET(request: Request) {
     }
   }
 
+  const failedCount = results.filter((result) => result.status === "failed").length;
+  await db.from("crm_sequence_worker_runs").update({ status: failedCount ? "completed_with_errors" : "completed", finished_at: new Date().toISOString(), claimed_count: claimed?.length ?? 0, processed_count: results.length, failed_count: failedCount }).eq("id", runId);
   return NextResponse.json({
+    runId,
     checkedAt: checkedAt.toISOString(),
-    status: results.some((result) => result.status === "failed") ? "completed_with_errors" : "completed",
+    status: failedCount ? "completed_with_errors" : "completed",
     processed: results.length,
     claimed: claimed?.length ?? 0,
     results,
