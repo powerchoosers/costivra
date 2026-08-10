@@ -1,0 +1,18 @@
+[browser] costivra.client_render_error { digest: [32m'unavailable'[39m, name: [32m'ReferenceError'[39m } 
+    at ErrorPage.useEffect (src/app/error.tsx:16:13)
+  14 | }) {
+  15 |   useEffect(() => {
+> 16 |     console.error("costivra.client_render_error", {
+     |             ^
+  17 |       digest: error.digest ?? "unavailable",
+  18 |       name: error.name,
+  19 |     }); (src/app/error.tsx:16:13)
+[browser] costivra.client_render_error { digest: [32m'unavailable'[39m, name: [32m'ReferenceError'[39m } 
+    at ErrorPage.useEffect (src/app/error.tsx:16:13)
+  14 | }) {
+  15 |   useEffect(() => {
+> 16 |     console.error("costivra.client_render_error", {
+     |             ^
+  17 |       digest: error.digest ?? "unavailable",
+  18 |       name: error.name,
+  19 |     }); (src/app/error.tsx:16:13)

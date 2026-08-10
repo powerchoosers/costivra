@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Archive, ArrowDown, ArrowUp, Check, ChevronRight, CircleAlert, Copy, Eye, LoaderCircle, Pause, Play, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, Check, ChevronRight, CircleAlert, Copy, Eye, LoaderCircle, Pause, Play, Plus, Search, Trash2, X } from "lucide-react";
 import type { ManageData } from "@/lib/manage/types";
 import type { Sequence, SequenceStep, SequenceStepType, Enrollment } from "@/lib/manage/sequences/types";
 import { sanitizeEmailHtml } from "@/lib/manage/sanitize-email-html";
@@ -138,6 +138,18 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
   const selected = sequences.find((item) => item.id === sequenceQueryId) ?? null;
   const selectedEnrollment = enrollments.find((item) => item.id === enrollmentQueryId) ?? null;
   const selectedDraftValidation = selected ? validateSequenceDraft(selected, { forActivation: true }) : null;
+  useEffect(() => {
+    const openNew = () => setShowNew(true);
+    const openEnroll = () => {
+      if (selected && selected.status === "draft" && selectedDraftValidation?.valid) setShowEnroll(true);
+    };
+    window.addEventListener("costivra:sequence-new", openNew);
+    window.addEventListener("costivra:sequence-enroll", openEnroll);
+    return () => {
+      window.removeEventListener("costivra:sequence-new", openNew);
+      window.removeEventListener("costivra:sequence-enroll", openEnroll);
+    };
+  }, [selected, selectedDraftValidation?.valid]);
   const ownerOptions = useMemo(() => Array.from(new Set(sequences.map((item) => item.ownerName || "Unassigned"))).sort(), [sequences]);
   const visibleSequences = useMemo(() => sequences.filter((item) => {
     const searchTerm = `${query} ${sequenceSearch}`.trim().toLowerCase();
@@ -300,10 +312,6 @@ export function SequenceWorkspace({ data, query, mode = "sequences" }: Props) {
   }
 
   return <section className="sequence-workspace">
-    <header className="manage-page-heading sequence-workspace__heading">
-      <div><p className="manage-eyebrow">Outreach system</p><h2>{mode === "enrollments" ? "Enrollments" : "Sequences"}</h2><p>{mode === "enrollments" ? "Review staged contacts and why a record is waiting. Enrollment never sends until its sequence is active." : "Build a reviewable follow-up plan. Activation is gated by server-side readiness checks before any send."}</p></div>
-      <div className="sequence-actions">{mode === "sequences" && <><button className="manage-button manage-button--quiet" onClick={() => setShowEnroll(true)} disabled={!selected || selected.status !== "draft" || !selectedDraftValidation?.valid} title={!selected ? "Select a draft sequence first" : selected.status !== "draft" ? "Only draft sequences can stage enrollments" : !selectedDraftValidation?.valid ? "Finish the sequence setup before previewing enrollments" : undefined}><Users size={15} /> Enroll contacts</button><button className="manage-button manage-button--primary" onClick={() => setShowNew(true)}><Plus size={16} /> New sequence</button></>}</div>
-    </header>
     {error && <div className="manage-inline-alert manage-inline-alert--error" role="alert"><CircleAlert size={16} /> <span>{error}</span></div>}{notice && <div className="manage-inline-alert manage-inline-alert--success" role="status"><Check size={16} /> <span>{notice}</span></div>}
     {loading ? <div className="manage-empty"><LoaderCircle className="spin" size={20} /> Loading sequences…</div> : mode === "enrollments" ? <div className="manage-panel sequence-enrollment-summary">
       <div className="manage-panel-header"><div><h3>Enrollment review</h3><p>{visibleEnrollments.length} of {enrollments.length} staged record{enrollments.length === 1 ? "" : "s"}</p></div><div className="sequence-filter-row"><label className="sequence-search"><Search size={14} /><input value={enrollmentSearch} onChange={(event) => setEnrollmentSearch(event.target.value)} placeholder="Search contacts or sequences" aria-label="Search enrollments" /></label><label><span className="sr-only">Filter enrollment state</span><select value={enrollmentStateFilter} onChange={(event) => setEnrollmentStateFilter(event.target.value)}><option value="all">All states</option><option value="pending">Pending</option><option value="active">Active</option><option value="paused">Paused</option><option value="waiting_for_task">Waiting for task</option><option value="stopped">Stopped</option><option value="completed">Completed</option><option value="failed">Failed</option></select></label><label><span className="sr-only">Filter enrollment sequence</span><select value={enrollmentSequenceFilter} onChange={(event) => setEnrollmentSequenceFilter(event.target.value)}><option value="all">All sequences</option>{enrollmentSequenceOptions.map((sequence) => <option key={sequence.id} value={sequence.id}>{sequence.name}</option>)}</select></label><label><span className="sr-only">Filter enrollment mailbox</span><select value={enrollmentMailboxFilter} onChange={(event) => setEnrollmentMailboxFilter(event.target.value)}><option value="all">All mailboxes</option>{enrollmentMailboxOptions.map((mailbox) => <option key={mailbox} value={mailbox}>{mailbox}</option>)}</select></label><label><span className="sr-only">Filter enrollment account</span><select value={enrollmentAccountFilter} onChange={(event) => setEnrollmentAccountFilter(event.target.value)}><option value="all">All accounts</option>{enrollmentAccountOptions.map((account) => <option key={account} value={account}>{account}</option>)}</select></label><label><span className="sr-only">Filter enrollment owner</span><select value={enrollmentOwnerFilter} onChange={(event) => setEnrollmentOwnerFilter(event.target.value)}><option value="all">All owners</option>{enrollmentOwnerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label></div><div className="sequence-filter-row sequence-filter-row--dates"><label><span>From</span><input type="date" value={enrollmentFromDate} onChange={(event) => setEnrollmentFromDate(event.target.value)} /></label><label><span>To</span><input type="date" value={enrollmentToDate} onChange={(event) => setEnrollmentToDate(event.target.value)} /></label></div></div>

@@ -693,6 +693,7 @@ export function ManagePortal({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const routeSearch = searchParams.get("search") ?? "";
+  const sequenceOutreachTab = searchParams.get("tab") === "sequences";
   const router = useRouter();
   const toast = useToast();
   const { openComposer } = useManageComposer();
@@ -1387,9 +1388,16 @@ export function ManagePortal({
             section === "outreach" ? (
               <div className="manage-outreach-context-row">
                 <GlobalBackControl className="manage-global-back" />
-                <button className="manage-button manage-button--primary" onClick={() => openDialog("task")}>
+                {sequenceOutreachTab ? <div className="sequence-actions">
+                  <button className="manage-button manage-button--quiet" onClick={() => window.dispatchEvent(new Event("costivra:sequence-enroll"))}>
+                    <Users size={15} /> Enroll contacts
+                  </button>
+                  <button className="manage-button manage-button--primary" onClick={() => window.dispatchEvent(new Event("costivra:sequence-new"))}>
+                    <Plus size={16} /> New sequence
+                  </button>
+                </div> : <button className="manage-button manage-button--primary" onClick={() => openDialog("task")}>
                   <Plus size={16} /> Add task
-                </button>
+                </button>}
               </div>
             ) : <GlobalBackControl className="manage-global-back" />
           )}
