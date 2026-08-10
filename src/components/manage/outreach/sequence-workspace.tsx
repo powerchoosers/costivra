@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, CircleAlert, Copy, Eye, LoaderCircle, MoreHorizontal, Pause, Play, Plus, Search, Trash2, Users, X } from "lucide-react";
+import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarClock, Check, ChevronDown, ChevronUp, CircleAlert, Copy, Eye, FileText, LoaderCircle, Mail, MessageSquareText, MoreHorizontal, Pause, Play, Plus, RefreshCw, Search, Send, Settings2, Trash2, Users, X } from "lucide-react";
 import type { ManageData } from "@/lib/manage/types";
 import type { Sequence, SequenceStep, SequenceStepType, Enrollment } from "@/lib/manage/sequences/types";
 import { sanitizeEmailHtml } from "@/lib/manage/sanitize-email-html";
@@ -256,7 +256,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   }
 
   async function addStep(type: SequenceStepType) {
-    if (!selected) return;
+    if (!selected) return undefined;
     setBusy(true); setError(null);
     try {
       const position = selected.steps.length + 1;
@@ -265,8 +265,9 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
       const createdStep = createLocalStep(type, Number(payload.position) || position, payload.id, selected.id);
       setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: [...item.steps, createdStep] } : item));
       setNotice(`${stepLabel(type)} added.`);
+      return createdStep.id;
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "The step could not be added."); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "The step could not be added."); return undefined; }
     finally { setBusy(false); }
   }
 
@@ -283,13 +284,61 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   async function saveSequence(patch: Record<string, unknown>) {
     if (!selected) return;
     setBusy(true); setError(null);
-    try { await requestJson(`/api/manage/outreach/sequences/${selected.id}`, { method: "PATCH", body: JSON.stringify(patch) }); await load(); }
+    try {
+      await requestJson(`/api/manage/outreach/sequences/${selected.id}`, { method: "PATCH", body: JSON.stringify(patch) });
+      setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, ...patch } as Sequence : item));
+      setNotice("Delivery settings saved.");
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "The sequence could not be saved."); }
     finally { setBusy(false); }
   }
 
-  async function reorderSteps(stepIds: string[]) { if (!selected) return; setBusy(true); try { await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps/reorder`, { method: "POST", body: JSON.stringify({ stepIds }) }); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "The steps could not be reordered."); } finally { setBusy(false); } }
-  async function deleteStep(stepId: string) { if (!selected) return; setBusy(true); try { await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps/${stepId}`, { method: "DELETE" }); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "The step could not be deleted."); } finally { setBusy(false); } }
+  async function saveStep(stepId: string, patch: Record<string, unknown>) {
+    if (!selected) throw new Error("Choose a sequence before saving a step.");
+    setBusy(true); setError(null);
+    try {
+      await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps/${stepId}`, { method: "PATCH", body: JSON.stringify(patch) });
+      setSequences((current) => current.map((item) => item.id === selected.id
+        ? { ...item, steps: item.steps.map((step) => step.id === stepId ? { ...step, ...patch } as SequenceStep : step) }
+        : item));
+      setNotice("Step saved.");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "The step could not be saved.";
+      setError(message);
+      throw new Error(message);
+    } finally { setBusy(false); }
+  }
+
+  async function reorderSteps(stepIds: string[]) {
+    if (!selected) return;
+    const priorSteps = selected.steps;
+    const stepsById = new Map(priorSteps.map((step) => [step.id, step]));
+    const reorderedSteps = stepIds.map((id, index) => ({ ...stepsById.get(id)!, position: index + 1 }));
+    setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: reorderedSteps } : item));
+    setBusy(true); setError(null);
+    try {
+      await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps/reorder`, { method: "POST", body: JSON.stringify({ stepIds }) });
+      setNotice("Step order saved.");
+    } catch (cause) {
+      setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: priorSteps } : item));
+      setError(cause instanceof Error ? cause.message : "The steps could not be reordered.");
+    } finally { setBusy(false); }
+  }
+
+  async function deleteStep(stepId: string) {
+    if (!selected) return;
+    const priorSteps = selected.steps;
+    const remainingSteps = priorSteps.filter((step) => step.id !== stepId).map((step, index) => ({ ...step, position: index + 1 }));
+    setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: remainingSteps } : item));
+    setBusy(true); setError(null);
+    try {
+      await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps/${stepId}`, { method: "DELETE" });
+      setNotice("Step deleted.");
+    } catch (cause) {
+      setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: priorSteps } : item));
+      setError(cause instanceof Error ? cause.message : "The step could not be deleted.");
+    } finally { setBusy(false); }
+  }
   async function duplicateStep(step: SequenceStep) {
     if (!selected) return;
     setBusy(true); setError(null);
@@ -413,21 +462,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
             <button className="manage-button manage-button--primary" onClick={() => setShowEnroll(true)} disabled={selected.status !== "draft" || !selectedDraftValidation?.valid} title={selected.status !== "draft" ? "Only draft sequences can be enrolled in this packet." : selectedDraftValidation?.valid ? "Enroll contacts" : "Complete sequence setup before enrolling contacts."}><Users size={15} /> Enroll contacts</button>
           </div>
         </div>
-        <div className="sequence-detail-heading">
-          <div>
-            <span className="manage-eyebrow">Sequence · {selected.status}</span>
-            <h2>{selected.name}</h2>
-            <p>{selected.description || "A focused, human-reviewable follow-up plan."}</p>
-            <div className="sequence-detail-metrics" aria-label="Sequence performance">
-              <span><strong>{selected.activeEnrollments}</strong> active contacts</span>
-              <span><strong>{selected.scheduledNext24Hours}</strong> scheduled next 24h</span>
-              <span><strong>{selected.sent}</strong> sent</span>
-              <span><strong>{selected.replies}</strong> replies</span>
-            </div>
-          </div>
-        </div>
         <div className="sequence-editor manage-panel sequence-detail-editor">
-          <SequenceEditor sequence={selected} executionEnabled={sequenceExecutionEnabled} busy={busy} activating={activating} onActivate={requestActivation} onAdd={addStep} onSave={saveSequence} onReorder={reorderSteps} onDelete={deleteStep} onDuplicate={duplicateStep} onTestSend={sendTest} onClone={() => void sequenceAction(selected.id, "clone")} />
+          <SequenceEditor sequence={selected} executionEnabled={sequenceExecutionEnabled} busy={busy} activating={activating} onActivate={requestActivation} onAdd={addStep} onSave={saveSequence} onSaveStep={saveStep} onReorder={reorderSteps} onDelete={deleteStep} onDuplicate={duplicateStep} onTestSend={sendTest} onClone={() => void sequenceAction(selected.id, "clone")} />
         </div>
       </div> : <div className="manage-empty"><strong>Sequence not found.</strong><p>It may have been archived or removed.</p></div>
     ) : <>
@@ -542,17 +578,157 @@ function EnrollmentDrawer({ enrollment, onClose }: { enrollment: Enrollment; onC
   return <div className="portal-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="portal-sheet" role="dialog" aria-modal="true" aria-labelledby="enrollment-inspector-title"><header className="portal-sheet-header"><div><span className="manage-eyebrow">Enrollment inspector</span><h2 id="enrollment-inspector-title">{enrollment.contactName}</h2><p>{enrollment.contactEmail}</p></div><button type="button" className="manage-icon-button" onClick={onClose} aria-label="Close enrollment inspector"><X size={17} /></button></header><div className="portal-sheet-body"><dl className="sequence-inspector-list"><div><dt>Sequence</dt><dd>{enrollment.sequenceName}</dd></div><div><dt>Account</dt><dd>{enrollment.accountName}</dd></div><div><dt>State</dt><dd>{enrollment.state}</dd></div><div><dt>Current step</dt><dd>{enrollment.currentStepPosition || "Pending"}</dd></div><div><dt>Next action</dt><dd>{enrollment.nextActionAt ? formatSequenceDate(enrollment.nextActionAt) : "No action scheduled"}</dd></div><div><dt>Last touch</dt><dd>{enrollment.lastTouchAt ? formatSequenceDate(enrollment.lastTouchAt) : "No touch recorded"}</dd></div><div><dt>Sender mailbox</dt><dd>{enrollment.mailboxAddress}</dd></div><div><dt>Stop reason</dt><dd>{enrollment.stopReason || "—"}</dd></div><div><dt>Created</dt><dd>{formatSequenceDate(enrollment.createdAt)}</dd></div></dl><p className="muted">This view is read-only. Use the row controls to pause, resume, or stop the enrollment.</p><footer className="portal-sheet-actions"><button type="button" className="manage-button manage-button--quiet" onClick={onClose}>Close</button></footer></div></section></div>;
 }
 
-function SequenceEditor({ sequence, executionEnabled, busy, activating, onActivate, onAdd, onSave, onReorder, onDelete, onDuplicate, onTestSend, onClone }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; activating: boolean; onActivate: () => void; onAdd: (type: SequenceStepType) => void; onSave: (patch: Record<string, unknown>) => void; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void>; onClone: () => void }) {
+function SequenceEditor({ sequence, executionEnabled, busy, activating, onActivate, onAdd, onSave, onSaveStep, onReorder, onDelete, onDuplicate, onTestSend, onClone }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; activating: boolean; onActivate: () => void; onAdd: (type: SequenceStepType) => Promise<string | undefined>; onSave: (patch: Record<string, unknown>) => Promise<void>; onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void>; onClone: () => void }) {
   const sample = { first_name: "Jordan", full_name: "Jordan Lee", company_name: "Northstar Foods", sender_name: "Costivra team" };
   const validation = validateSequenceDraft(sequence, { forActivation: true });
   const activation = sequenceActivationUiState(sequence.status, validation.valid, activating, executionEnabled);
   const readOnly = sequence.status !== "draft";
   const [previewWidth, setPreviewWidth] = useState<"mobile" | "desktop">("desktop");
-  const previewStep = [...sequence.steps].sort((a, b) => a.position - b.position)[0] ?? null;
   const previewWarnings = validation.errors.filter((error) => error.toLowerCase().includes("unknown template token"));
-  const saveStep = async (stepId: string, patch: Record<string, unknown>) => { await requestJson(`/api/manage/outreach/sequences/${sequence.id}/steps/${stepId}`, { method: "PATCH", body: JSON.stringify(patch) }); };
-  const move = (index: number, direction: -1 | 1) => { const ids = sequence.steps.map((item) => item.id); const target = index + direction; if (target < 0 || target >= ids.length) return; [ids[index], ids[target]] = [ids[target], ids[index]]; onReorder(ids); };
+  return <SequenceBuilderCanvas sequence={sequence} executionEnabled={executionEnabled} busy={busy} activating={activating} activation={activation} validationErrors={validation.errors} readOnly={readOnly} onActivate={onActivate} onAdd={onAdd} onSave={onSave} onSaveStep={onSaveStep} onReorder={onReorder} onDelete={onDelete} onDuplicate={onDuplicate} onTestSend={onTestSend} onClone={onClone} />;
   return <div><div className="sequence-editor__header"><div><span className="manage-eyebrow">{sequence.status} · {sequence.steps.length} steps</span><h3>{sequence.name}</h3><p>{sequence.description || "Add a short description so another operator understands the intent."}</p></div><div className="sequence-editor__header-actions"><span className="sequence-disabled-badge">{activation.badge}</span><button className="manage-icon-button" onClick={onClone} disabled={busy} aria-label={`Clone ${sequence.name}`} title="Clone sequence"><Copy size={14} /></button></div></div><div className="sequence-safety"><div><strong>Safety controls</strong><span>Stop on reply, bounce, and unsubscribe are always required.</span></div><div className="sequence-safety__checks"><span><Check size={14} /> Reply</span><span><Check size={14} /> Bounce</span><span><Check size={14} /> Unsubscribe</span></div></div>{readOnly && <div className="manage-inline-alert manage-inline-alert--warning" role="status"><strong>This sequence is locked.</strong><span>{sequence.status === "active" ? "Active sequences cannot be edited while they are eligible to run." : "Paused sequences cannot be edited until they are returned to draft."}</span></div>}{!validation.valid && <div className="manage-inline-alert manage-inline-alert--warning" role="status"><strong>Execution setup required.</strong><span>{validation.errors.slice(0, 3).join(" ")}{validation.errors.length > 3 ? ` +${validation.errors.length - 3} more.` : ""}</span></div>}<div className="sequence-timeline">{sequence.steps.map((step, index) => <SequenceStepCard key={step.id} step={step} index={index} total={sequence.steps.length} sample={sample} readOnly={readOnly} onSave={saveStep} onMove={(direction) => move(index, direction)} onDelete={() => onDelete(step.id)} onDuplicate={() => onDuplicate(step)} onTestSend={onTestSend} />)}{!sequence.steps.length && <div className="manage-empty"><strong>Add the first step.</strong><p>Use an immediate manual email, automatic email, call task, or general task.</p></div>}</div><div className="sequence-add-row"><button className="manage-button manage-button--quiet" onClick={() => onAdd("manual_email")} disabled={busy || readOnly}><Plus size={15} /> Manual email</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("automatic_email")} disabled={busy || readOnly}><Plus size={15} /> Automatic email</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("call_task")} disabled={busy || readOnly}><Plus size={15} /> Call task</button><button className="manage-button manage-button--quiet" onClick={() => onAdd("general_task")} disabled={busy || readOnly}><Plus size={15} /> General task</button></div><div className="sequence-editor__footer"><label>Timezone<select disabled={readOnly || busy} defaultValue={sequence.timezone} onChange={(event) => onSave({ timezone: event.target.value })}><option value="America/Chicago">Central time</option><option value="America/New_York">Eastern time</option><option value="America/Los_Angeles">Pacific time</option><option value="UTC">UTC</option></select></label><label>Send window<select disabled={readOnly || busy} defaultValue={`${sequence.sendStartLocal}-${sequence.sendEndLocal}`} onChange={(event) => { const [sendStartLocal, sendEndLocal] = event.target.value.split("-"); onSave({ sendStartLocal, sendEndLocal }); }}><option value="09:00-17:00">09:00–17:00</option><option value="08:00-16:00">08:00–16:00</option><option value="10:00-18:00">10:00–18:00</option></select></label><label>Daily cap<input disabled={readOnly || busy} type="number" min={1} max={100} defaultValue={sequence.dailySendLimit} onBlur={(event) => onSave({ dailySendLimit: Number(event.target.value) })} /></label><button className="manage-button manage-button--primary" onClick={onActivate} disabled={activation.disabled}><Check size={15} /> {activation.buttonLabel}</button></div><div className="sequence-business-days"><span>Business days</span>{[1, 2, 3, 4, 5].map((day) => <button key={day} type="button" className={sequence.businessDays.includes(day) ? "is-selected" : ""} disabled={readOnly || busy} onClick={() => onSave({ businessDays: sequence.businessDays.includes(day) ? sequence.businessDays.filter((value) => value !== day) : [...sequence.businessDays, day].sort() })}>{["Mon", "Tue", "Wed", "Thu", "Fri"][day - 1]}</button>)}</div><SequenceBuilderPreview step={previewStep} sample={sample} width={previewWidth} warnings={previewWarnings} onWidthChange={setPreviewWidth} /></div>;
+}
+
+function SequenceBuilderCanvas({ sequence, executionEnabled, busy, activating, activation, validationErrors, readOnly, onActivate, onAdd, onSave, onSaveStep, onReorder, onDelete, onDuplicate, onTestSend, onClone }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; activating: boolean; activation: ReturnType<typeof sequenceActivationUiState>; validationErrors: string[]; readOnly: boolean; onActivate: () => void; onAdd: (type: SequenceStepType) => Promise<string | undefined>; onSave: (patch: Record<string, unknown>) => void; onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void>; onClone: () => void }) {
+  const [activeStepId, setActiveStepId] = useState<string | null>(() => sequence.steps[0]?.id ?? null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previewWidth, setPreviewWidth] = useState<"mobile" | "desktop">("desktop");
+  const sample = { first_name: "Jordan", full_name: "Jordan Lee", company_name: "Northstar Foods", sender_name: "Costivra team" };
+  const orderedSteps = [...sequence.steps].sort((left, right) => left.position - right.position);
+  const activeStep = orderedSteps.find((step) => step.id === activeStepId) ?? orderedSteps[0] ?? null;
+  const activeIndex = activeStep ? orderedSteps.findIndex((step) => step.id === activeStep.id) : -1;
+  const previewWarnings = validationErrors.filter((error) => error.toLowerCase().includes("unknown template token"));
+
+  useEffect(() => {
+    if (!activeStepId || !orderedSteps.some((step) => step.id === activeStepId)) setActiveStepId(orderedSteps[0]?.id ?? null);
+  }, [activeStepId, orderedSteps]);
+
+  const addStep = async (type: SequenceStepType) => {
+    const createdId = await onAdd(type);
+    if (createdId) setActiveStepId(createdId);
+    setAddMenuOpen(false);
+  };
+
+  const moveActiveStep = (direction: -1 | 1) => {
+    if (activeIndex < 0) return;
+    const target = activeIndex + direction;
+    if (target < 0 || target >= orderedSteps.length) return;
+    const nextIds = orderedSteps.map((step) => step.id);
+    [nextIds[activeIndex], nextIds[target]] = [nextIds[target], nextIds[activeIndex]];
+    onReorder(nextIds);
+  };
+
+  return <div className="sequence-builder-v2">
+    <header className="sequence-builder-v2__topbar">
+      <div>
+        <span className="sequence-builder-v2__eyebrow"><i className={`sequence-status-dot sequence-status-dot--${sequence.status}`} /> {sequence.status}</span>
+        <h3>{sequence.name}</h3>
+        <p>{sequence.description || "Build the follow-up one step at a time."}</p>
+      </div>
+      <div className="sequence-builder-v2__top-actions">
+        <span className={`sequence-builder-v2__readiness${validationErrors.length ? " is-blocked" : ""}`}>{validationErrors.length ? `${validationErrors.length} setup item${validationErrors.length === 1 ? "" : "s"}` : "Ready for review"}</span>
+        <button type="button" className="manage-button manage-button--quiet" onClick={onClone} disabled={busy}><Copy size={15} /> Duplicate</button>
+        <button type="button" className="manage-button manage-button--primary" onClick={onActivate} disabled={activation.disabled}><Send size={15} /> {activation.buttonLabel}</button>
+      </div>
+    </header>
+
+    {readOnly && <div className="manage-inline-alert manage-inline-alert--warning" role="status"><strong>This sequence is locked.</strong><span>{sequence.status === "active" ? "Pause it before changing its workflow." : "Return it to draft before editing."}</span></div>}
+    {!readOnly && validationErrors.length > 0 && <div className="sequence-builder-v2__setup-note" role="status"><CircleAlert size={16} /><span><strong>Before activation</strong>{validationErrors.slice(0, 2).join(" ")}{validationErrors.length > 2 ? ` +${validationErrors.length - 2} more.` : ""}</span></div>}
+
+    <div className="sequence-builder-v2__workspace">
+      <aside className="sequence-builder-v2__timeline" aria-label="Sequence steps">
+        <div className="sequence-builder-v2__timeline-head"><span>Workflow</span><strong>{orderedSteps.length} {orderedSteps.length === 1 ? "step" : "steps"}</strong></div>
+        <div className="sequence-builder-v2__timeline-list">
+          {orderedSteps.map((step, index) => {
+            const isEmail = step.stepType === "manual_email" || step.stepType === "automatic_email";
+            const title = step.subjectTemplate || step.taskTitleTemplate || stepLabel(step.stepType);
+            return <button type="button" key={step.id} className={`sequence-builder-v2__timeline-item${step.id === activeStep?.id ? " is-active" : ""}`} onClick={() => setActiveStepId(step.id)}>
+              <span className="sequence-builder-v2__timeline-number">{String(index + 1).padStart(2, "0")}</span>
+              <span><small>{isEmail ? "Email" : stepLabel(step.stepType)}</small><strong>{title}</strong><em>{index === 0 ? "Immediately" : `After ${step.delayValue} ${step.delayUnit.replace("_", " ")}`}</em></span>
+            </button>;
+          })}
+          {!orderedSteps.length && <div className="sequence-builder-v2__empty-steps"><Mail size={18} /><strong>No steps yet</strong><span>Add the first action below.</span></div>}
+        </div>
+        <div className="sequence-builder-v2__add-wrap">
+          <button type="button" className="sequence-builder-v2__add-trigger" onClick={() => setAddMenuOpen((open) => !open)} disabled={busy || readOnly} aria-expanded={addMenuOpen}><Plus size={16} /> Add step</button>
+          {addMenuOpen && <div className="sequence-builder-v2__add-menu" role="menu"><span>Add to the end of this workflow</span><button type="button" role="menuitem" onClick={() => void addStep("automatic_email")}><Mail size={15} /> Email</button><button type="button" role="menuitem" onClick={() => void addStep("manual_email")}><FileText size={15} /> Manual email</button><button type="button" role="menuitem" onClick={() => void addStep("call_task")}><Users size={15} /> Call task</button><button type="button" role="menuitem" onClick={() => void addStep("general_task")}><Check size={15} /> General task</button></div>}
+        </div>
+      </aside>
+
+      <main className="sequence-builder-v2__editor">
+        {activeStep ? <SequenceBuilderStepEditor key={activeStep.id} sequenceId={sequence.id} step={activeStep} index={activeIndex} total={orderedSteps.length} readOnly={readOnly} busy={busy} onSave={onSaveStep} onMove={moveActiveStep} onDelete={() => onDelete(activeStep.id)} onDuplicate={() => onDuplicate(activeStep)} onTestSend={onTestSend} /> : <div className="sequence-builder-v2__blank"><Mail size={21} /><h4>Start with the first touch</h4><p>Add an email or task. Nothing sends until you review, enroll contacts, and activate the sequence.</p></div>}
+      </main>
+
+      <aside className="sequence-builder-v2__rail">
+        <section className="sequence-builder-v2__queue-card">
+          <div><span>Delivery queue</span><strong>{sequence.scheduledNext24Hours} scheduled next 24h</strong></div>
+          <Link href="/manage/mail?view=sequence&status=scheduled" className="manage-button manage-button--quiet"><CalendarClock size={15} /> View queue</Link>
+        </section>
+        <section className="sequence-builder-v2__preview-card">
+          <SequenceBuilderPreview step={activeStep} sample={sample} width={previewWidth} warnings={previewWarnings} onWidthChange={setPreviewWidth} />
+        </section>
+        <section className="sequence-builder-v2__settings-card">
+          <button type="button" className="sequence-builder-v2__settings-toggle" onClick={() => setSettingsOpen((open) => !open)} aria-expanded={settingsOpen}><span><Settings2 size={15} /> Delivery settings</span>{settingsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
+          {settingsOpen && <div className="sequence-builder-v2__settings-body"><label>Timezone<select disabled={readOnly || busy} value={sequence.timezone} onChange={(event) => onSave({ timezone: event.target.value })}><option value="America/Chicago">Central time</option><option value="America/New_York">Eastern time</option><option value="America/Los_Angeles">Pacific time</option><option value="UTC">UTC</option></select></label><label>Send window<select disabled={readOnly || busy} value={`${sequence.sendStartLocal}-${sequence.sendEndLocal}`} onChange={(event) => { const [sendStartLocal, sendEndLocal] = event.target.value.split("-"); onSave({ sendStartLocal, sendEndLocal }); }}><option value="09:00-17:00">09:00–17:00</option><option value="08:00-16:00">08:00–16:00</option><option value="10:00-18:00">10:00–18:00</option></select></label><label>Daily cap<input disabled={readOnly || busy} type="number" min={1} max={100} value={sequence.dailySendLimit} onChange={(event) => onSave({ dailySendLimit: Number(event.target.value) })} /></label><div className="sequence-builder-v2__weekdays"><span>Business days</span>{[1, 2, 3, 4, 5].map((day) => <button key={day} type="button" className={sequence.businessDays.includes(day) ? "is-selected" : ""} disabled={readOnly || busy} onClick={() => onSave({ businessDays: sequence.businessDays.includes(day) ? sequence.businessDays.filter((value) => value !== day) : [...sequence.businessDays, day].sort() })}>{["Mon", "Tue", "Wed", "Thu", "Fri"][day - 1]}</button>)}</div><p><Check size={14} /> Stops on reply, bounce, and unsubscribe.</p></div>}
+        </section>
+      </aside>
+    </div>
+  </div>;
+}
+
+function SequenceBuilderStepEditor({ sequenceId, step, index, total, readOnly, busy, onSave, onMove, onDelete, onDuplicate, onTestSend }: { sequenceId: string; step: SequenceStep; index: number; total: number; readOnly: boolean; busy: boolean; onSave: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onMove: (direction: -1 | 1) => void; onDelete: () => void; onDuplicate: () => void; onTestSend: (stepId: string) => Promise<void> }) {
+  const isEmail = step.stepType === "manual_email" || step.stepType === "automatic_email";
+  const [subject, setSubject] = useState(step.subjectTemplate ?? step.taskTitleTemplate ?? "");
+  const [body, setBody] = useState(step.bodyText ?? step.taskNotesTemplate ?? "");
+  const [threadMode, setThreadMode] = useState<SequenceStep["threadMode"]>(step.threadMode ?? "new_thread");
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantIntent, setAssistantIntent] = useState("");
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const addToken = (field: string) => setBody((current) => `${current}${current && !current.endsWith("\n") ? "\n" : ""}{{${field}}}`);
+  const save = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await onSave(step.id, isEmail ? { subjectTemplate: subject, bodyText: body, bodyHtml: `<p>${body.replace(/\n/g, "</p><p>")}</p>`, threadMode } : { taskTitleTemplate: subject, taskNotesTemplate: body });
+      setMessage("Saved");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Could not save this step.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const generateDraft = async () => {
+    setAssistantBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/manage/outreach/sequences/${sequenceId}/steps/${step.id}/draft`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ intent: assistantIntent }) });
+      const payload = await response.json() as { subjectTemplate?: string; bodyText?: string; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not draft the email.");
+      if (typeof payload.subjectTemplate === "string") setSubject(payload.subjectTemplate);
+      if (typeof payload.bodyText === "string") setBody(payload.bodyText);
+      setAssistantOpen(false);
+      setMessage("Draft applied. Review it, then save the step.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Could not draft the email.");
+    } finally {
+      setAssistantBusy(false);
+    }
+  };
+
+  return <section className="sequence-builder-v2__step-editor" aria-labelledby="sequence-step-editor-title">
+    <header><div><span>Step {index + 1} of {total}</span><h4 id="sequence-step-editor-title">{isEmail ? "Email" : stepLabel(step.stepType)}</h4><p>{index === 0 ? "Sends or starts immediately" : `Starts after ${step.delayValue} ${step.delayUnit.replace("_", " ")}`}{step.pauseUntilTaskComplete ? " and waits for completion" : ""}</p></div><div className="sequence-builder-v2__step-actions"><button type="button" onClick={() => onMove(-1)} disabled={readOnly || busy || index === 0} aria-label="Move step earlier"><ArrowUp size={15} /></button><button type="button" onClick={() => onMove(1)} disabled={readOnly || busy || index === total - 1} aria-label="Move step later"><ArrowDown size={15} /></button><button type="button" onClick={onDuplicate} disabled={readOnly || busy} aria-label="Duplicate step"><Copy size={15} /></button><button type="button" onClick={onDelete} disabled={readOnly || busy} aria-label="Delete step"><Trash2 size={15} /></button></div></header>
+    {isEmail && <div className="sequence-builder-v2__assistant"><div><MessageSquareText size={16} /><span><strong>Draft with assistant</strong><small>Creates a template for review. It never sends anything.</small></span></div><button type="button" className="manage-button manage-button--quiet" onClick={() => setAssistantOpen((open) => !open)} disabled={readOnly || busy || assistantBusy}>{assistantOpen ? "Close" : "Draft email"}</button>{assistantOpen && <div className="sequence-builder-v2__assistant-form"><label>What should this email accomplish?<textarea value={assistantIntent} onChange={(event) => setAssistantIntent(event.target.value)} rows={3} placeholder="For example: introduce a review of telecom costs and ask for a 15-minute call." /></label><button type="button" className="manage-button manage-button--primary" onClick={() => void generateDraft()} disabled={assistantBusy}>{assistantBusy ? <><LoaderCircle className="spin" size={15} /> Drafting…</> : <><RefreshCw size={15} /> Generate draft</>}</button></div>}</div>}
+    <div className="sequence-builder-v2__form">
+      {isEmail && <label>Thread<select disabled={readOnly} value={threadMode ?? "new_thread"} onChange={(event) => setThreadMode(event.target.value as SequenceStep["threadMode"])}><option value="new_thread">Start a new thread</option><option value="reply_to_previous">Reply to the last email</option></select></label>}
+      <label>{isEmail ? "Subject" : "Task title"}<input readOnly={readOnly} value={subject} onChange={(event) => setSubject(event.target.value)} placeholder={isEmail ? "Write a clear subject" : "Describe the task"} /></label>
+      <label>{isEmail ? "Message" : "Notes"}<textarea readOnly={readOnly} value={body} onChange={(event) => setBody(event.target.value)} rows={isEmail ? 10 : 7} placeholder={isEmail ? "Write the message…" : "Add instructions for the owner…"} /></label>
+      <div className="sequence-builder-v2__form-footer"><label className="sequence-builder-v2__token-select">Insert a merge field<select disabled={readOnly} value="" onChange={(event) => addToken(event.target.value)}><option value="">Choose a field…</option>{TEMPLATE_TOKENS.map((field) => <option key={field} value={field}>{templateFieldLabel(field)}</option>)}</select></label><div><span aria-live="polite">{message}</span><button type="button" className="manage-button manage-button--primary" onClick={() => void save()} disabled={readOnly || saving || busy}>{saving ? "Saving…" : "Save changes"}</button>{isEmail && <button type="button" className="manage-button manage-button--quiet" onClick={() => void onTestSend(step.id)} disabled={readOnly || saving || busy}><Eye size={15} /> Test to me</button>}</div></div>
+    </div>
+  </section>;
 }
 
 function SequenceBuilderPreview({ step, sample, width, warnings, onWidthChange }: { step: SequenceStep | null; sample: Record<string, string>; width: "mobile" | "desktop"; warnings: string[]; onWidthChange: (width: "mobile" | "desktop") => void }) {
