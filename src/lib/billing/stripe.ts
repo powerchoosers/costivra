@@ -9,6 +9,8 @@ export type StripeBillingMode = "test" | "live" | "unknown";
 
 export type StripeAccountReadiness = {
   reachable: boolean;
+  accountId: string | null;
+  displayName: string | null;
   chargesEnabled: boolean | null;
   payoutsEnabled: boolean | null;
   detailsSubmitted: boolean | null;
@@ -62,6 +64,8 @@ export async function getStripeAccountReadiness(): Promise<StripeAccountReadines
   if (!stripeIsConfigured()) {
     return {
       reachable: false,
+      accountId: null,
+      displayName: null,
       chargesEnabled: null,
       payoutsEnabled: null,
       detailsSubmitted: null,
@@ -77,6 +81,9 @@ export async function getStripeAccountReadiness(): Promise<StripeAccountReadines
     const requirements = account.requirements;
     return {
       reachable: true,
+      accountId: typeof account.id === "string" ? account.id : null,
+      displayName: account.business_profile?.name
+        ?? (account.settings?.dashboard?.display_name || null),
       chargesEnabled: account.charges_enabled === true,
       payoutsEnabled: account.payouts_enabled === true,
       detailsSubmitted: account.details_submitted === true,
@@ -87,6 +94,8 @@ export async function getStripeAccountReadiness(): Promise<StripeAccountReadines
   } catch {
     return {
       reachable: false,
+      accountId: null,
+      displayName: null,
       chargesEnabled: null,
       payoutsEnabled: null,
       detailsSubmitted: null,

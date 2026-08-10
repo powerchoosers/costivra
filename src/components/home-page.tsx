@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Building2,
@@ -184,11 +184,12 @@ export function HomePage({ plans }: { plans: PublicBillingPlan[] }) {
 
       <section className="workflow" id="how-it-works">
         <div className="container">
-          <ScrollReveal className="workflow-reveal">
-            <h2 className="section-heading" style={{ maxWidth: "none", fontSize: "clamp(2.2rem, 3vw, 2.8rem)" }}>Your first review in three clear steps.</h2>
+          <div className="workflow-intro">
+            <span className="eyebrow">From bill to decision</span>
+            <h2 className="section-heading">Your first review in three clear steps.</h2>
             <p className="section-lede">Start with a few documents. Costivra keeps the source, shows the question, and leaves the decision with your team.</p>
-            <WorkflowSteps />
-          </ScrollReveal>
+          </div>
+          <WorkflowSteps />
         </div>
       </section>
 
@@ -420,29 +421,6 @@ function WorkflowSteps() {
       ))}
     </div>
   );
-}
-
-function ScrollReveal({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const [visible, setVisible] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || !("IntersectionObserver" in window)) {
-      setVisible(true);
-      return;
-    }
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setVisible(true);
-        observer.disconnect();
-      }
-    }, { threshold: 0.14 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return <div ref={ref} className={`scroll-reveal ${visible ? "is-visible" : ""} ${className}`}>{children}</div>;
 }
 
 function Plan({ planKey, name, interval, price, copy }: { planKey: PublicBillingPlan["key"]; name: string; interval: PublicBillingPlan["interval"]; price: string; copy: string }) {

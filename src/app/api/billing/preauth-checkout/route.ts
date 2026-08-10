@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const db = createServerSupabaseClient();
     const idempotencyKey = requestKey(body.requestKey || request.headers.get("x-request-id"));
     const existing = await db.from("billing_checkout_intents")
-      .select("id,email,full_name,company_name,plan_key,status,checkout_url")
+      .select("id,email,full_name,company_name,plan_key,status,stripe_customer_id,checkout_url")
       .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
     if (existing.error?.code === "42P01") return NextResponse.json({ error: "Paid signup is not ready until the billing migration is applied." }, { status: 503 });
@@ -89,25 +89,52 @@ export async function POST(request: Request) {
       if (intentError) throw intentError;
     }
 
-    const customer = await stripe.customers.create({
-      email,
-      name: companyName,
-      metadata: { checkout_intent_id: intentId, plan_key: plan.key },
-    }, { idempotencyKey: `costivra-preauth-customer-${intentId}` });
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customer.id,
-      client_reference_id: intentId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&billing=cancelled`,
-      metadata: { checkout_intent_id: intentId, plan_key: plan.key },
-      subscription_data: { metadata: { checkout_intent_id: intentId, plan_key: plan.key } },
-    }, { idempotencyKey: `costivra-preauth-checkout-${intentId}` });
+    // Persist the customer as soon as it exists. If Checkout creation times
+    // out or Stripe returns an error, a retry reuses this customer instead of
+    // creating a second provider record for the same intent.
+    let customerId = typeof existing.data?.stripe_customer_id === "string" ? existing.data.stripe_customer_id : null;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email,
+        name: companyName,
+        metadata: { checkout_intent_id: intentId, plan_key: plan.key },
+      }, { idempotencyKey: `costivra-preauth-customer-${intentId}` });
+      customerId = customer.id;
+      const { error: customerUpdateError } = await db.from("billing_checkout_intents").update({
+        stripe_customer_id: customerId,
+        updated_at: new Date().toISOString(),
+      }).eq("id", intentId);
+      if (customerUpdateError) throw customerUpdateError;
+    }
+    let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>;
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        customer: customerId,
+        client_reference_id: intentId,
+        // Costivra is the merchant of record for this pilot. Stripe Managed
+        // Payments requires product tax codes and tax registration, so keep it
+        // explicitly off until that separate compliance setup is approved.
+        managed_payments: { enabled: false },
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&billing=cancelled`,
+        metadata: { checkout_intent_id: intentId, plan_key: plan.key },
+        subscription_data: { metadata: { checkout_intent_id: intentId, plan_key: plan.key } },
+      }, { idempotencyKey: `costivra-preauth-checkout-${intentId}` });
+    } catch (error) {
+      const { error: intentFailureError } = await db.from("billing_checkout_intents").update({
+        status: "failed",
+        safe_error: "STRIPE_CHECKOUT_SESSION_CREATE_FAILED",
+        updated_at: new Date().toISOString(),
+      }).eq("id", intentId).in("status", ["created", "checkout_open"]);
+      if (intentFailureError) console.error("checkout intent failure state could not be saved", intentFailureError);
+      throw error;
+    }
 
     const { error: updateError } = await db.from("billing_checkout_intents").update({
       status: "checkout_open",
-      stripe_customer_id: customer.id,
+      stripe_customer_id: customerId,
       stripe_checkout_session_id: session.id,
       checkout_url: session.url,
       updated_at: new Date().toISOString(),

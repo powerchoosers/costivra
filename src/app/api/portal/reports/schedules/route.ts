@@ -3,6 +3,7 @@ import { apiError, cleanText, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { isValidTimeZone, nextReportRun } from "@/lib/reports/schedule";
 import { authorizedReportRecipients, normalizeReportRecipients } from "@/lib/reports/recipients";
+import { checkEntitlement, entitlementError } from "@/lib/billing/entitlements";
 
 export async function GET() {
   try { const { db, organizationId } = await requirePortalContext(); const { data, error } = await db.from("report_schedules").select("*, report_definitions(name,report_type)").eq("organization_id", organizationId).order("created_at", { ascending: false }); if (error) throw error; return NextResponse.json({ schedules: data ?? [] }); }
@@ -20,6 +21,10 @@ export async function POST(request: Request) {
     if (!isValidTimeZone(timezone)) return NextResponse.json({ error: "Choose a valid IANA timezone, such as America/Chicago." }, { status: 400 });
     const requestedRecipients = normalizeReportRecipients(body.recipientEmails);
     if (!reportDefinitionId || !requestedRecipients.length) return NextResponse.json({ error: "Choose a report and at least one workspace recipient." }, { status: 400 });
+    const { data: existingSchedules, error: schedulesError } = await db.from("report_schedules").select("id").eq("organization_id", organizationId);
+    if (schedulesError) throw schedulesError;
+    const entitlement = await checkEntitlement(db, organizationId, "scheduled_reports", Array.isArray(existingSchedules) ? existingSchedules.length : 0);
+    if (!entitlement.allowed) return NextResponse.json({ error: entitlementError(entitlement), code: "BILLING_LIMIT_REACHED", feature: entitlement.featureKey, limit: entitlement.limitValue, usage: entitlement.currentUsage }, { status: entitlement.reason === "limit_reached" ? 409 : 402 });
     const { data: definition } = await db.from("report_definitions").select("id").eq("id", reportDefinitionId).eq("organization_id", organizationId).maybeSingle(); if (!definition) return NextResponse.json({ error: "Report not found." }, { status: 404 });
     const { data: members } = await db.from("organization_memberships").select("user_id,profiles(email)").eq("organization_id", organizationId);
     const authorized = new Set((members ?? []).map((member) => (member.profiles as unknown as { email?: string } | null)?.email?.trim().toLowerCase()).filter((value): value is string => Boolean(value)));

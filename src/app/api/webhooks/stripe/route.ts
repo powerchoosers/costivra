@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getBillingPlan } from "@/lib/billing/catalog";
 import { assertStripeBillingMode, getStripeClient } from "@/lib/billing/stripe";
 import { markCheckoutIntentPaymentConfirmed, provisionPaidCheckout } from "@/lib/billing/provisioning";
+import { entitlementRows } from "@/lib/billing/entitlements";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -43,9 +44,10 @@ async function syncEntitlements(db: ReturnType<typeof createServerSupabaseClient
     ? await db.from("billing_subscriptions").select("id").eq("stripe_subscription_id", subscriptionId).maybeSingle()
     : { data: null };
   const sourceSubscriptionId = typeof subscription?.id === "string" ? subscription.id : null;
-  const rows = [
-    { organization_id: organizationId, plan_key: planKey, feature_key: "paid_workspace", enabled: active, source_subscription_id: sourceSubscriptionId, updated_at: new Date().toISOString() },
-  ];
+  const rows = entitlementRows(planKey, active, sourceSubscriptionId).map((row) => ({
+    organization_id: organizationId,
+    ...row,
+  }));
   const { error } = await db.from("billing_entitlements").upsert(rows, { onConflict: "organization_id,feature_key" });
   if (error) throw error;
 }

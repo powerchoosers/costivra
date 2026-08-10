@@ -29,7 +29,9 @@ test("public site navigates without runtime errors", async ({ page }, testInfo) 
   await expect(page).toHaveURL(/\/#evidence$/);
   await expect(page.locator("#evidence")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.getByRole("link", { name: "Pricing", exact: true }).first().click();
+  const headerPricing = page.locator("header").getByRole("link", { name: "Pricing", exact: true });
+  await expect(headerPricing).toBeVisible();
+  await headerPricing.click();
   await expect(page).toHaveURL(/\/pricing$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(failures).toEqual([]);
@@ -125,10 +127,9 @@ test("homepage uses the honest methodology proof fallback", async ({ page }) => 
   await expect(proof).toBeVisible();
   await expect(proof.getByRole("heading", { name: "We only count savings after they happen." })).toBeVisible();
   await expect(proof.getByText("A saving becomes real only when a lower bill, credit, or vendor record proves the result.", { exact: false })).toBeVisible();
-  const sequence = proof.getByRole("list");
-  await expect(sequence.getByText("We spot something to check", { exact: true })).toBeVisible();
-  await expect(sequence.getByText("You choose what to do", { exact: true })).toBeVisible();
-  await expect(sequence.getByText("The result is proved later", { exact: true })).toBeVisible();
+  await expect(proof.getByText("Something looks worth checking.", { exact: true })).toBeVisible();
+  await expect(proof.getByText("A lower bill or credit proves it.", { exact: true })).toBeVisible();
+  await expect(proof.locator(".public-proof-sequence")).toHaveCount(0);
   await expect(proof.getByText("trusted by leading companies", { exact: false })).toHaveCount(0);
 });
 

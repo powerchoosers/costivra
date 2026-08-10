@@ -1,12 +1,6 @@
-import { ArrowRight, Check, FileClock, FileSearch } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import { METHODOLOGY_PROOF, publicProofStageLabel, resolvePublicProof, type ApprovedPublicProof, type PublicProof } from "@/lib/public-proof";
-
-const methodologySteps = [
-  { title: "We spot something to check", copy: "For example, a bill went up, a charge looks duplicated, or a service may no longer be needed.", icon: FileSearch },
-  { title: "You choose what to do", copy: "Review it, ask the vendor a question, or leave it alone. Costivra does not make the decision for you.", icon: Check },
-  { title: "The result is proved later", copy: "A lower bill or vendor credit is what turns a possible saving into a real one.", icon: FileClock },
-] as const;
 
 export function PublicProofSection({ proof }: { proof?: PublicProof | null }) {
   const resolvedProof = resolvePublicProof(proof);
@@ -50,16 +44,6 @@ function MethodologyFallback() {
         <div className="public-proof-example-outcome"><span>Possible savings</span><strong>The increase is worth questioning.</strong></div>
         <div className="public-proof-example-outcome public-proof-example-outcome--verified"><span>Real savings</span><strong>Your provider lowers the bill or gives you a credit.</strong></div>
       </div>
-      <ol className="public-proof-sequence">
-        {methodologySteps.map(({ title, copy, icon: Icon }, index) => (
-          <li key={title}>
-            <span className="public-proof-step-number">{String(index + 1).padStart(2, "0")}</span>
-            <Icon aria-hidden="true" size={19} />
-            <div><strong>{title}</strong><p>{copy}</p></div>
-            {index < methodologySteps.length - 1 ? <span className="public-proof-step-rule" aria-hidden="true" /> : null}
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }

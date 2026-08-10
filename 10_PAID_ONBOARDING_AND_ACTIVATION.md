@@ -1,6 +1,6 @@
 # Packet 10: Paid Onboarding and Activation
 
-## Current status — August 10, 2026
+## Current status — August 9, 2026
 
 This packet is **partially implemented**. The durable activation checklist exists, and the direct paid creation handoff is now implemented. Full external payment, activation-email, and recovery proof remain open.
 
@@ -22,20 +22,42 @@ Implemented today:
 - An unauthenticated Starter/Growth visitor can submit name, company, and work email at `/signup?plan=...`, then open Stripe Test subscription Checkout without a pre-existing Costivra account.
 - The signed webhook provisions or reuses one user, one organization, one owner membership, onboarding source `paid_checkout`, and billing customer through the service-only `billing_checkout_intents` record.
 - Repeated webhook delivery is idempotent; an email linked to multiple workspaces goes to manual review rather than selecting a tenant silently.
+- A failed or retried pre-auth Checkout handoff reuses the saved Stripe customer for that intent instead of creating duplicates.
+- The creation form keeps a stable idempotency key for the current plan attempt, so a browser retry does not start a second handoff.
+- The real Test-mode Starter Checkout Session now opens successfully in the app-configured `Costivra sandbox` account after disabling Stripe Managed Payments for the pilot merchant-of-record setup.
+- Manage billing now displays the actual Stripe account identity used by the server, which makes account alignment a visible setup check rather than an assumption.
+- Subscription webhooks now project server-owned limits for monitored vendors, locations, team members, and scheduled reports; those four creation boundaries reject over-limit paid mutations without hiding existing data.
 
 Still open:
 
-- Real Stripe Test Checkout and signed-webhook proof, including delayed delivery.
+- Complete the real Stripe Test Checkout and signed-webhook proof, including delayed delivery.
 - Browser proof that the Supabase activation email opens `/set-password` with a usable session and lands in `/app`.
 - The paid invite now lands at `/auth/invite`, exchanges the Supabase invite token server-side, and then redirects to `/set-password`; this still needs a real-email browser proof.
 - Support tooling for the multiple-workspace manual-review case and expired activation links.
-- Plan entitlements enforced during onboarding and later paid actions.
+- Remaining plan policy: document/upload limits, sequence enrollment/send limits, and premium category coverage still require explicit product decisions before enforcement.
 - Paid welcome, reminder, forwarding, review-needed, and activation-complete email triggers.
 - Manage account views showing subscription, onboarding progress, blocker, and last customer action.
 - Automatic-forwarding test state distinct from manual monitoring state.
 - Recovery and browser proof for delayed webhooks, payment failure, duplicate provisioning, and expired invitations.
+- Stripe account alignment: the local app currently uses Test account `acct_1U2Mw8GiNqnczA1O` (`Costivra sandbox`), while the connected dashboard is Test account `acct_1U2MvqK7vdNK2m4p` (`Costivra`). The dashboard account must be intentionally selected and its keys/catalog configured before customer activation is considered connected end to end.
 
 Do not treat a Checkout success redirect as proof of payment or activation. Signed Stripe webhook state remains authoritative.
+
+## Context handoff — current paid-activation truth
+
+- Direct paid creation is implemented at `/signup?plan=starter|growth`; it collects name, company, and work email before opening subscription Checkout.
+- The Test-mode Supabase catalog points Starter and Growth at the active Prices in the app-configured `Costivra sandbox` account; live catalog rows remain intentionally unconfigured.
+- The webhook, not the browser, provisions or reuses the user, organization, owner membership, onboarding projection, and billing customer.
+- The pre-auth handoff migration is already applied to the Costivra Supabase project; do not recreate it or add a second checkout-intent table.
+- New users receive a secure Supabase activation link through `/auth/invite`, which exchanges the invite token server-side before `/set-password`.
+- Multiple existing workspaces for the same email stop in manual review; the system must not guess which tenant to use.
+- The app’s working Stripe Test account is `Costivra sandbox` (`acct_1U2Mw8GiNqnczA1O`). The separately connected dashboard account `Costivra` (`acct_1U2MvqK7vdNK2m4p`) is not yet proven to be the app’s provider account.
+- Local and Vercel Stripe credentials still require intentional Lewis-owned alignment; never put secret keys in the packet, source tree, or chat.
+- A real Test Checkout Session opens, but no test card has been submitted and no signed webhook → subscription → entitlement → activation chain has been proven end to end.
+- Production smoke evidence confirms `/signup?plan=starter` renders the selected plan and collects the creation details needed for the direct paid path.
+- The deployed valid Checkout request is still blocked by Stripe Managed Payments tax-code validation because production runs the pre-fix commit. The local code explicitly disables Managed Payments for this pilot and passes the production build; deployment remains the missing step.
+- The current local pre-auth route also records a safe `failed` intent state when Stripe rejects session creation, while retaining the customer for retry. Latest focused route tests (4), ESLint, TypeScript, and diff checks pass; a fresh build timed out in the existing multi-process environment after the prior build had passed.
+- Do not call paid onboarding complete until payment, webhook delivery, activation-link browser proof, duplicate/retry recovery, and the intended Stripe-account alignment are verified.
 
 ## Mission
 
@@ -224,7 +246,7 @@ Required behavior for the implemented direct path:
 
 ## Entitlement enforcement
 
-Use the central entitlement helper from Packet 09 once it exists. Gate only server-authorized mutations, including:
+The central entitlement helper from Packet 09 now gates server-authorized mutations for monitored vendors, locations, team seats, and scheduled reports. Continue the same pattern for:
 
 - uploads beyond the plan limit;
 - monitored vendors;
@@ -287,6 +309,10 @@ Handle and test:
 Every blocker needs a clear next action and must not silently grant paid access.
 
 ## Tests
+
+Local paid-flow testing needs a reachable signed webhook. Stripe Checkout can open on `localhost`, but Stripe cannot call the local webhook unless Stripe CLI forwards it to `http://localhost:3000/api/webhooks/stripe`; do not treat a successful browser return alone as activation proof.
+
+The current production deployment still contains the pre-fix Checkout behavior. After the next manual deployment, confirm that a valid selected-plan signup opens Checkout before testing payment or activation.
 
 Unit and integration:
 

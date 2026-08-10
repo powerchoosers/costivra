@@ -24,6 +24,13 @@ function createDatabase() {
       };
     }),
   };
+  const billingEntitlements = {
+    select: vi.fn(() => billingEntitlements),
+    eq: vi.fn(() => billingEntitlements),
+    in: vi.fn(() => billingEntitlements),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+  };
   const audit = {
     insert: vi.fn((payload: Record<string, unknown>) => {
       inserted.push({ table: "audit_events", payload });
@@ -32,7 +39,7 @@ function createDatabase() {
   };
   return {
     inserted,
-    db: { from: vi.fn((table: string) => table === "locations" ? locations : audit) },
+    db: { from: vi.fn((table: string) => table === "locations" ? locations : table === "billing_entitlements" || table === "billing_subscriptions" ? billingEntitlements : audit) },
   };
 }
 

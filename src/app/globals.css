@@ -6727,3 +6727,126 @@ body.modal-open .app-topbar { filter: blur(7px); }
 @media (max-width: 760px) {
   .hero-review-result-grid { grid-template-columns: 1fr; }
 }
+
+/* Homepage rhythm pass: alternate dense product evidence with calm explanatory surfaces. */
+.evidence-section {
+  padding-top: 108px;
+  padding-bottom: 108px;
+}
+
+.workflow {
+  border-top: 1px solid #dce3ec;
+  border-bottom: 1px solid #dce3ec;
+  color: var(--ink);
+  background: #f7f9fc;
+  padding: 88px 0 92px;
+}
+
+.workflow-intro {
+  display: grid;
+  grid-template-columns: minmax(0, .72fr) minmax(320px, 1.28fr);
+  grid-template-areas:
+    "kicker heading"
+    ". lede";
+  gap: 14px 64px;
+  align-items: start;
+}
+
+.workflow-intro > .eyebrow {
+  grid-area: kicker;
+  margin-top: 10px;
+  color: #55709a;
+}
+
+.workflow-intro > .section-heading {
+  grid-area: heading;
+  max-width: 760px;
+  color: #101c2f;
+  font-size: clamp(2.8rem, 4.2vw, 4.35rem);
+}
+
+.workflow-intro > .section-lede {
+  grid-area: lede;
+  max-width: 660px;
+  margin-top: 4px;
+  color: #617087;
+  font-size: .98rem;
+}
+
+.workflow .steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  margin-top: 64px;
+}
+
+.workflow .steps-progress {
+  background: #ccd5e1;
+}
+
+.workflow .steps-progress-fill {
+  background: linear-gradient(90deg, #315fa8, #83a43d);
+}
+
+.workflow .step-number {
+  color: #fff;
+  background: #315fa8;
+}
+
+.workflow .step:last-child .step-number {
+  color: #1d2a0d;
+  background: #cfee62;
+}
+
+.workflow .step h3 { color: #18263b; }
+.workflow .step p { color: #637188; }
+
+.workflow .workflow-artifact {
+  border-color: #d6dee9;
+  color: #42536b;
+  background: #fff;
+}
+
+.workflow .workflow-artifact svg { color: #426da9; }
+
+.public-proof-section {
+  padding-top: 82px;
+  padding-bottom: 86px;
+}
+
+.public-proof-example { margin-top: 8px; }
+.doctrine { padding-top: 92px; padding-bottom: 88px; }
+.pricing { padding-top: 96px; padding-bottom: 96px; }
+.faq { padding-top: 88px; padding-bottom: 88px; }
+
+@media (max-width: 900px) {
+  .evidence-layout {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+
+  .evidence-layout > div:first-child { position: static; }
+  .evidence-navigation .section-heading { max-width: 680px; }
+
+  .workflow-intro {
+    grid-template-columns: 1fr;
+    grid-template-areas: "kicker" "heading" "lede";
+    gap: 12px;
+  }
+
+  .workflow-intro > .eyebrow { margin-top: 0; }
+}
+
+@media (max-width: 760px) {
+  .evidence-section { padding-top: 74px; padding-bottom: 74px; }
+  .workflow { padding-top: 68px; padding-bottom: 72px; }
+  .workflow-intro > .section-heading { font-size: clamp(2.45rem, 11vw, 3.3rem); }
+  .workflow-intro > .section-lede { font-size: .9rem; }
+  .workflow .steps { grid-template-columns: 1fr; gap: 0; margin-top: 42px; }
+  .workflow .steps-progress-fill { background: linear-gradient(180deg, #315fa8, #83a43d); }
+  .public-proof-section { padding-top: 68px; padding-bottom: 72px; }
+  .public-proof-status-rail { grid-template-columns: 1fr; }
+  .public-proof-status { min-height: 0; }
+  .doctrine { padding-top: 74px; padding-bottom: 70px; }
+  .pricing { padding-top: 76px; padding-bottom: 78px; }
+  .faq { padding-top: 72px; padding-bottom: 72px; }
+}

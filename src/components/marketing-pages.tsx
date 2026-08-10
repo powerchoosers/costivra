@@ -410,6 +410,9 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === "1";
   const microsoftEnabled = process.env.NEXT_PUBLIC_MICROSOFT_OAUTH_ENABLED === "1";
   const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
+  // Keep one idempotency key for this signup attempt. If the browser retries
+  // after a lost response, the server can reuse the same intent/customer.
+  const preauthRequestKey = useRef<string | null>(null);
   const selectedPlanKey = searchParams?.get("plan");
   const selectedPlan = plans.find((plan) => plan.key === selectedPlanKey && plan.active && plan.key !== "enterprise");
   const preauthSignup = signup && Boolean(selectedPlan);
@@ -485,7 +488,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
             email,
             fullName: String(form.get("fullName") ?? "").trim(),
             companyName: String(form.get("companyName") ?? "").trim(),
-            requestKey: crypto.randomUUID(),
+            requestKey: preauthRequestKey.current ?? (preauthRequestKey.current = crypto.randomUUID()),
           }),
         });
         const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string };

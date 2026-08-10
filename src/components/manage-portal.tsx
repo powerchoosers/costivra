@@ -5040,6 +5040,7 @@ function BillingCatalogSettings() {
   const toast = useToast();
   const [plans, setPlans] = useState<ManageBillingPlan[]>([]);
   const [mode, setMode] = useState<"test" | "live" | "unknown">("unknown");
+  const [stripeAccount, setStripeAccount] = useState<{ accountId: string | null; displayName: string | null; reachable: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -5048,10 +5049,11 @@ function BillingCatalogSettings() {
     let cancelled = false;
     void fetch("/api/manage/billing/catalog", { cache: "no-store" })
       .then(async (response) => {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string; mode?: "test" | "live" | "unknown"; plans?: ManageBillingPlan[] };
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; mode?: "test" | "live" | "unknown"; stripeAccount?: { accountId: string | null; displayName: string | null; reachable: boolean } | null; plans?: ManageBillingPlan[] };
         if (!response.ok || !payload.plans) throw new Error(payload.error || "Pricing could not be loaded.");
         if (!cancelled) {
           setMode(payload.mode || "unknown");
+          setStripeAccount(payload.stripeAccount ?? null);
           setPlans(payload.plans);
         }
       })
@@ -5098,6 +5100,7 @@ function BillingCatalogSettings() {
         </div>
         <span className={`manage-enrichment-status manage-enrichment-status--${mode === "live" ? "connected" : mode === "test" ? "needs_access" : "unconfigured"}`}><i aria-hidden="true" /> Stripe {mode === "unknown" ? "not configured" : `${mode} mode`}</span>
       </header>
+      {stripeAccount && <p className="form-note" role="status">Stripe account: <strong>{stripeAccount.displayName || "Unnamed account"}</strong>{stripeAccount.accountId ? ` · ${stripeAccount.accountId}` : ""}{!stripeAccount.reachable ? " · account details unavailable" : ""}</p>}
       {error && <div className="manage-enrichment-message manage-enrichment-message--error" role="alert"><CircleAlert size={17} aria-hidden="true" /><div><strong>Pricing could not be updated</strong><small>{error}</small></div></div>}
       {loading ? <div className="manage-enrichment-loading" aria-live="polite"><span aria-hidden="true" /><div><strong>Loading pricing</strong><small>Reading the current Stripe catalog.</small></div></div> : (
         <div className="manage-billing-catalog-grid">

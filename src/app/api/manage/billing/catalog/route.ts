@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBillingCatalog, getBillingPlan, getConfiguredPriceId, type BillingPlanKey } from "@/lib/billing/catalog";
-import { getStripeBillingMode, getStripeClient, stripeBillingEnabled } from "@/lib/billing/stripe";
+import { getStripeAccountReadiness, getStripeBillingMode, getStripeClient, stripeBillingEnabled } from "@/lib/billing/stripe";
 import { manageApiError, requireInternalOwner } from "@/lib/manage/auth";
 import { cleanText } from "@/lib/portal/http";
 
@@ -19,7 +19,8 @@ function idempotencyKey(request: Request) {
 export async function GET() {
   try {
     await requireInternalOwner();
-    return NextResponse.json({ mode: getStripeBillingMode(), billingEnabled: stripeBillingEnabled(), plans: await getBillingCatalog() });
+    const providerConfigured = stripeBillingEnabled() || getStripeBillingMode() !== "unknown";
+    return NextResponse.json({ mode: getStripeBillingMode(), billingEnabled: stripeBillingEnabled(), stripeAccount: providerConfigured ? await getStripeAccountReadiness() : null, plans: await getBillingCatalog() });
   } catch (error) {
     const result = manageApiError(error);
     return NextResponse.json({ error: result.error }, { status: result.status });

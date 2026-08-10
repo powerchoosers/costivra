@@ -1,0 +1,63 @@
+
+> costivra@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+▲ Next.js 16.2.12 (Turbopack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env.local
+✓ Ready in 6.0s
+○ Compiling proxy ...
+
+○ Compiling / ...
+✓ Finished writing to filesystem cache in 30.5s
+ GET / 200 in 3.2s (next.js: 484ms, application-code: 2.7s)
+ GET / 200 in 3.3s (next.js: 320ms, application-code: 3.0s)
+ GET / 200 in 1175ms (next.js: 287ms, application-code: 888ms)
+ GET / 200 in 1665ms (next.js: 127ms, application-code: 1538ms)
+ GET / 200 in 1705ms (next.js: 144ms, application-code: 1562ms)
+ GET / 200 in 162ms (next.js: 64ms, application-code: 97ms)
+○ Compiling /[...slug] ...
+ GET /signup?plan=growth 200 in 2.1s (next.js: 327ms, proxy.ts: 118ms, application-code: 1691ms)
+ GET / 200 in 13.3s (next.js: 36ms, application-code: 13.3s)
+✓ Finished filesystem cache database compaction in 22.5s
+ GET / 200 in 632ms (next.js: 20ms, application-code: 612ms)
+ GET / 200 in 698ms (next.js: 19ms, application-code: 678ms)
+ GET / 200 in 611ms (next.js: 31ms, application-code: 580ms)
+ GET /security 200 in 559ms (next.js: 68ms, application-code: 492ms)
+ GET / 200 in 745ms (next.js: 25ms, application-code: 720ms)
+ GET / 200 in 622ms (next.js: 30ms, application-code: 592ms)
+ GET /product 200 in 572ms (next.js: 28ms, application-code: 544ms)
+ GET /solutions 200 in 515ms (next.js: 42ms, application-code: 473ms)
+ GET /how-it-works 200 in 782ms (next.js: 23ms, application-code: 760ms)
+ GET /security 200 in 1086ms (next.js: 25ms, application-code: 1061ms)
+ GET /pricing 200 in 1034ms (next.js: 176ms, application-code: 859ms)
+ GET /login 200 in 1479ms (next.js: 254ms, proxy.ts: 116ms, application-code: 1110ms)
+ GET /scan 200 in 817ms (next.js: 145ms, application-code: 672ms)
+ GET /solutions/software 200 in 389ms (next.js: 22ms, application-code: 367ms)
+ GET /solutions/telecom 200 in 437ms (next.js: 34ms, application-code: 403ms)
+ GET /solutions/energy 200 in 612ms (next.js: 62ms, application-code: 551ms)
+ GET /solutions/insurance 200 in 499ms (next.js: 20ms, application-code: 479ms)
+ GET /solutions/facilities 200 in 518ms (next.js: 30ms, application-code: 487ms)
+ GET /about 200 in 447ms (next.js: 16ms, application-code: 431ms)
+ GET /case-studies 200 in 322ms (next.js: 18ms, application-code: 304ms)
+ GET /partners 200 in 389ms (next.js: 20ms, application-code: 369ms)
+ GET /contact 200 in 470ms (next.js: 18ms, application-code: 453ms)
+ GET /help 200 in 372ms (next.js: 17ms, application-code: 355ms)
+ GET /status 200 in 388ms (next.js: 18ms, application-code: 370ms)
+ GET /privacy 200 in 525ms (next.js: 37ms, application-code: 488ms)
+ GET /terms 200 in 358ms (next.js: 22ms, application-code: 336ms)
+ GET /ucep-disclosure 200 in 301ms (next.js: 18ms, application-code: 282ms)
+○ Compiling /api/billing/preauth-checkout ...
+ POST /api/billing/preauth-checkout 400 in 6.6s (next.js: 6.4s, application-code: 192ms)
+ GET / 200 in 4.8s (next.js: 1286ms, application-code: 3.5s)
+ GET / 200 in 1238ms (next.js: 154ms, application-code: 1084ms)
+ GET / 200 in 1308ms (next.js: 26ms, application-code: 1282ms)
+ GET / 200 in 61ms (next.js: 21ms, application-code: 40ms)
+ GET /pricing 200 in 1116ms (next.js: 227ms, application-code: 889ms)
+ GET / 200 in 687ms (next.js: 201ms, application-code: 486ms)
+ GET / 200 in 648ms (next.js: 23ms, application-code: 625ms)
+ GET / 200 in 786ms (next.js: 107ms, application-code: 679ms)
+ GET / 200 in 673ms (next.js: 19ms, application-code: 654ms)
+ GET / 200 in 920ms (next.js: 20ms, application-code: 900ms)
+[?25h

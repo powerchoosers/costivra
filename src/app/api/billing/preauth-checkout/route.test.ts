@@ -16,12 +16,16 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: () => ({ f
 import { POST } from "./route";
 
 function query(data: unknown = null, error: unknown = null) {
+  const updateChain = {
+    eq: () => updateChain,
+    in: async () => ({ error: null }),
+  };
   const chain = {
     select: () => chain,
     eq: () => chain,
     maybeSingle: async () => ({ data, error }),
     insert: async () => ({ error: null }),
-    update: () => ({ eq: async () => ({ error: null }) }),
+    update: () => updateChain,
   };
   return chain;
 }
@@ -63,10 +67,61 @@ describe("POST /api/billing/preauth-checkout", () => {
     expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
       mode: "subscription",
       customer: "cus_test_preauth",
+      managed_payments: { enabled: false },
       success_url: "http://localhost:3000/signup?plan=starter&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}",
       cancel_url: "http://localhost:3000/signup?plan=starter&billing=cancelled",
       metadata: expect.objectContaining({ plan_key: "starter" }),
     }), expect.any(Object));
     expect(from).toHaveBeenCalledWith("billing_checkout_intents");
+  });
+
+  it("reuses a customer saved on an intent when Checkout must be retried", async () => {
+    from.mockImplementation(() => query({
+      id: "intent-retry",
+      email: "owner@example.com",
+      full_name: "Jordan Lee",
+      company_name: "Northstar Foods",
+      plan_key: "starter",
+      status: "created",
+      stripe_customer_id: "cus_existing_preauth",
+      checkout_url: null,
+    }));
+
+    const response = await POST(new Request("http://localhost:3000/api/billing/preauth-checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-request-id": "preauth-retry-1" },
+      body: JSON.stringify({ planKey: "starter", email: "owner@example.com", fullName: "Jordan Lee", companyName: "Northstar Foods" }),
+    }));
+
+    expect(response.status).toBe(201);
+    const stripe = getStripeClient.mock.results[0]?.value;
+    expect(stripe.customers.create).not.toHaveBeenCalled();
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({ customer: "cus_existing_preauth" }), expect.any(Object));
+  });
+
+  it("records a safe failed state when Stripe rejects session creation", async () => {
+    const updateChain = {
+      eq: () => updateChain,
+      in: async () => ({ error: null }),
+    };
+    const update = vi.fn(() => updateChain);
+    from.mockImplementation(() => ({
+      ...query(),
+      update,
+    }));
+    getStripeClient.mockReturnValue({
+      prices: { retrieve: vi.fn().mockResolvedValue({ active: true, livemode: false }) },
+      customers: { create: vi.fn().mockResolvedValue({ id: "cus_failed_preauth" }) },
+      checkout: { sessions: { create: vi.fn().mockRejectedValue(new Error("provider failure")) } },
+    });
+
+    const response = await POST(new Request("http://localhost:3000/api/billing/preauth-checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-request-id": "preauth-failure-1" },
+      body: JSON.stringify({ planKey: "starter", email: "owner@example.com", fullName: "Jordan Lee", companyName: "Northstar Foods" }),
+    }));
+
+    expect(response.status).toBe(500);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed", safe_error: "STRIPE_CHECKOUT_SESSION_CREATE_FAILED" }));
   });
 });

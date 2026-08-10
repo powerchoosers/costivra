@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
+import { checkEntitlement, entitlementError } from "@/lib/billing/entitlements";
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +12,20 @@ export async function POST(request: Request) {
     const fullName = cleanText(body.fullName, 120);
     const memberRole = cleanText(body.role, 20) || "member";
     if (!/^\S+@\S+\.\S+$/.test(email) || !['admin','member','viewer'].includes(memberRole)) return NextResponse.json({ error: "Enter a valid email and role." }, { status: 400 });
+    const { data: memberships, error: membershipsError } = await db
+      .from("organization_memberships")
+      .select("user_id")
+      .eq("organization_id", organizationId);
+    if (membershipsError) throw membershipsError;
+    const entitlement = await checkEntitlement(
+      db,
+      organizationId,
+      "team_seats",
+      Array.isArray(memberships) ? memberships.length : 0,
+    );
+    if (!entitlement.allowed) {
+      return NextResponse.json({ error: entitlementError(entitlement), code: "BILLING_LIMIT_REACHED", feature: entitlement.featureKey, limit: entitlement.limitValue, usage: entitlement.currentUsage }, { status: entitlement.reason === "limit_reached" ? 409 : 402 });
+    }
     // Always make team invitations land on the deployed Costivra app. Supabase
     // otherwise falls back to the project's Site URL, which can accidentally
     // be a developer's localhost address.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, cleanText, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { annualizeSpendCents, parseMoneyToCents, type BillingCadence } from "@/lib/vendors/spend";
+import { checkEntitlement, entitlementError } from "@/lib/billing/entitlements";
 
 function normalizeWebsite(value: unknown): string | null {
   const website = cleanText(value, 300);
@@ -48,6 +49,20 @@ export async function POST(request: Request) {
     const relationshipStatus = ["prospect", "active", "inactive", "terminated"].includes(String(body.relationshipStatus)) ? String(body.relationshipStatus) : "active";
     const { data: existing } = await db.from("organization_vendors").select("id").eq("organization_id", organizationId).eq("vendor_id", vendor.id).maybeSingle();
     if (existing) return NextResponse.json({ error: "This vendor is already in the workspace." }, { status: 409 });
+    if (relationshipStatus !== "terminated") {
+      const { data: relationships, error: relationshipsError } = await db
+        .from("organization_vendors")
+        .select("id,relationship_status")
+        .eq("organization_id", organizationId);
+      if (relationshipsError) throw relationshipsError;
+      const currentUsage = Array.isArray(relationships)
+        ? relationships.filter((relationship) => relationship.relationship_status !== "terminated").length
+        : 0;
+      const entitlement = await checkEntitlement(db, organizationId, "monitored_vendors", currentUsage);
+      if (!entitlement.allowed) {
+        return NextResponse.json({ error: entitlementError(entitlement), code: "BILLING_LIMIT_REACHED", feature: entitlement.featureKey, limit: entitlement.limitValue, usage: entitlement.currentUsage }, { status: entitlement.reason === "limit_reached" ? 409 : 402 });
+      }
+    }
     const { data: relationship, error } = await db.from("organization_vendors").insert({
       organization_id: organizationId,
       vendor_id: vendor.id,

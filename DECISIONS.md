@@ -1623,3 +1623,17 @@ Add a short-lived, service-role-only `billing_checkout_intents` record. The publ
 ## Consequences
 
 Paid creation now has a direct plan-to-payment path without granting access before Stripe confirmation. Webhook retries are safe at the intent, user, workspace, membership, and billing layers. Activation still depends on the secure Supabase invite/password flow and the signed subscription projection. Real test-mode Checkout plus signed webhook proof, delayed-invite recovery, and live-mode setup remain release gates.
+
+# 2026-08-10 — Keep Stripe Managed Payments disabled for the pilot
+
+## Context
+
+The Costivra Stripe Test account has Managed Payments enabled by default. Creating a recurring Checkout Session without a product tax code is rejected by Stripe before the customer ever sees Checkout. Managed Payments would also make Stripe the merchant of record, which has separate tax and compliance implications.
+
+## Decision
+
+Both authenticated and pre-auth subscription Checkout Sessions explicitly set `managed_payments.enabled = false`. Costivra remains the merchant of record for this pilot. Managed Payments can be reconsidered only after product tax codes, registrations, and the legal/compliance responsibilities are intentionally configured.
+
+## Consequences
+
+Test Checkout can open with the current dynamic catalog, while tax collection and merchant-of-record work remain visible release gates rather than an accidental Stripe default.

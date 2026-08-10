@@ -3,8 +3,8 @@ import { assertStripeBillingMode, getStripeBillingMode, stripeAccountReadyForLiv
 
 describe("Stripe billing mode guard", () => {
   it("requires a reachable account with charges and payouts enabled for live checkout", () => {
-    expect(stripeAccountReadyForLiveCheckout({ reachable: true, chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, currentlyDue: [], pastDue: [], disabledReason: null })).toBe(true);
-    expect(stripeAccountReadyForLiveCheckout({ reachable: true, chargesEnabled: true, payoutsEnabled: false, detailsSubmitted: true, currentlyDue: [], pastDue: [], disabledReason: null })).toBe(false);
+    expect(stripeAccountReadyForLiveCheckout({ reachable: true, accountId: "acct_test", displayName: "Costivra", chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, currentlyDue: [], pastDue: [], disabledReason: null })).toBe(true);
+    expect(stripeAccountReadyForLiveCheckout({ reachable: true, accountId: "acct_test", displayName: "Costivra", chargesEnabled: true, payoutsEnabled: false, detailsSubmitted: true, currentlyDue: [], pastDue: [], disabledReason: null })).toBe(false);
     expect(stripeAccountReadyForLiveCheckout(null)).toBe(false);
   });
   afterEach(() => {

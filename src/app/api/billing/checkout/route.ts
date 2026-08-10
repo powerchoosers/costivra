@@ -73,6 +73,10 @@ export async function POST(request: Request) {
       mode: "subscription",
       customer: customerId,
       client_reference_id: organizationId,
+      // Costivra is the merchant of record for this pilot. Stripe Managed
+      // Payments requires product tax codes and tax registration, so keep it
+      // explicitly off until that separate compliance setup is approved.
+      managed_payments: { enabled: false },
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&billing=success`,
       cancel_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&billing=cancelled`,
