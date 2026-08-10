@@ -259,6 +259,8 @@ test("homepage CTA and public navigation route matrix stays consistent", async (
   const marketingHeader = page.locator("header.marketing-header");
   await page.evaluate(() => window.scrollTo(0, 360));
   await expect(marketingHeader).toHaveClass(/is-scrolled/);
+  await page.evaluate(() => window.scrollTo(0, 180));
+  await expect(marketingHeader).not.toHaveClass(/is-scrolled/);
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const internalHrefs = await page.locator("header a, footer a").evaluateAll((links) => Array.from(new Set(links.map((link) => link.getAttribute("href") || "").filter((href) => href.startsWith("/")))));

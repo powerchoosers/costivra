@@ -381,3 +381,362 @@ https://react.dev/link/hydration-mismatch
                     ...
           ...
  
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RenderFromTemplateContext>
+      <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
+        <InnerScrollAndFocusHandlerOld focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
+          <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+            <LoadingBoundary name="outreach/" loading={null}>
+              <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+                <RedirectBoundary>
+                  <RedirectErrorBoundary router={{...}}>
+                    <InnerLayoutRouter url="/manage/ou..." tree={[...]} params={{slug:[...]}} ...>
+                      <SegmentViewNode type="page" pagePath="manage/[[....">
+                        <SegmentTrieNode>
+                        <Page>
+                          <ManagePortal section="outreach" detailId={null} outreachSequenceId={null} ...>
+                            <div className="manage-app...">
+                              <ManageLiveNotifications>
+                              <aside
+                                id="manage-owner-sidebar"
+                                ref={{current:null}}
++                               className="manage-sidebar is-collapsed"
+-                               className="manage-sidebar is-open"
+                                onFocusCapture={function onFocusCapture}
+                                onPointerDownCapture={function onPointerDownCapture}
+                                onBlurCapture={function onBlurCapture}
+                              >
+                                <div className="manage-brand">
+                                  <LinkComponent href="/manage" title="Costivra O...">
+                                    <a title="Costivra O..." ref={function} onClick={function onClick} ...>
+                                      <span>
+                                      <div
+                                        className="manage-brand-copy"
++                                       aria-hidden={true}
+-                                       aria-hidden="false"
+                                      >
+                                  ...
+                                ...
+                              <main
++                               className="manage-main is-collapsed"
+-                               className="manage-main"
+                              >
+                                <header className="manage-topbar">
+                                  <div className="manage-top...">
+                                    <button
+                                      className="manage-menu"
+                                      onClick={function onClick}
++                                     aria-label="Expand sidebar"
+-                                     aria-label="Collapse sidebar"
+                                      aria-controls="manage-owner-sidebar"
++                                     aria-expanded={false}
+-                                     aria-expanded="true"
+                                    >
+                                    ...
+                                  ...
+                                ...
+                              ...
+                      ...
+                    ...
+          ...
+ 
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RenderFromTemplateContext>
+      <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
+        <InnerScrollAndFocusHandlerOld focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
+          <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+            <LoadingBoundary name="outreach/s..." loading={null}>
+              <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+                <RedirectBoundary>
+                  <RedirectErrorBoundary router={{...}}>
+                    <InnerLayoutRouter url="/manage/ou..." tree={[...]} params={{slug:[...]}} ...>
+                      <SegmentViewNode type="page" pagePath="manage/[[....">
+                        <SegmentTrieNode>
+                        <Page>
+                          <ManagePortal section="outreach" detailId={null} outreachSequenceId="ead80fb5-5..." ...>
+                            <div className="manage-app...">
+                              <ManageLiveNotifications>
+                              <aside
+                                id="manage-owner-sidebar"
+                                ref={{current:null}}
++                               className="manage-sidebar is-collapsed"
+-                               className="manage-sidebar is-open"
+                                onFocusCapture={function onFocusCapture}
+                                onPointerDownCapture={function onPointerDownCapture}
+                                onBlurCapture={function onBlurCapture}
+                              >
+                                <div className="manage-brand">
+                                  <LinkComponent href="/manage" title="Costivra O...">
+                                    <a title="Costivra O..." ref={function} onClick={function onClick} ...>
+                                      <span>
+                                      <div
+                                        className="manage-brand-copy"
++                                       aria-hidden={true}
+-                                       aria-hidden="false"
+                                      >
+                                  ...
+                                ...
+                              <main
++                               className="manage-main is-collapsed"
+-                               className="manage-main"
+                              >
+                                <header className="manage-topbar">
+                                  <div className="manage-top...">
+                                    <button
+                                      className="manage-menu"
+                                      onClick={function onClick}
++                                     aria-label="Expand sidebar"
+-                                     aria-label="Collapse sidebar"
+                                      aria-controls="manage-owner-sidebar"
++                                     aria-expanded={false}
+-                                     aria-expanded="true"
+                                    >
+                                    ...
+                                  ...
+                                ...
+                              ...
+                      ...
+                    ...
+          ...
+ 
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RenderFromTemplateContext>
+      <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
+        <InnerScrollAndFocusHandlerOld focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
+          <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+            <LoadingBoundary name="outreach/" loading={null}>
+              <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+                <RedirectBoundary>
+                  <RedirectErrorBoundary router={{...}}>
+                    <InnerLayoutRouter url="/manage/ou..." tree={[...]} params={{slug:[...]}} ...>
+                      <SegmentViewNode type="page" pagePath="manage/[[....">
+                        <SegmentTrieNode>
+                        <Page>
+                          <ManagePortal section="outreach" detailId={null} outreachSequenceId={null} ...>
+                            <div className="manage-app...">
+                              <ManageLiveNotifications>
+                              <aside
+                                id="manage-owner-sidebar"
+                                ref={{current:null}}
++                               className="manage-sidebar is-collapsed"
+-                               className="manage-sidebar is-open"
+                                onFocusCapture={function onFocusCapture}
+                                onPointerDownCapture={function onPointerDownCapture}
+                                onBlurCapture={function onBlurCapture}
+                              >
+                                <div className="manage-brand">
+                                  <LinkComponent href="/manage" title="Costivra O...">
+                                    <a title="Costivra O..." ref={function} onClick={function onClick} ...>
+                                      <span>
+                                      <div
+                                        className="manage-brand-copy"
++                                       aria-hidden={true}
+-                                       aria-hidden="false"
+                                      >
+                                  ...
+                                ...
+                              <main
++                               className="manage-main is-collapsed"
+-                               className="manage-main"
+                              >
+                                <header className="manage-topbar">
+                                  <div className="manage-top...">
+                                    <button
+                                      className="manage-menu"
+                                      onClick={function onClick}
++                                     aria-label="Expand sidebar"
+-                                     aria-label="Collapse sidebar"
+                                      aria-controls="manage-owner-sidebar"
++                                     aria-expanded={false}
+-                                     aria-expanded="true"
+                                    >
+                                    ...
+                                  ...
+                                ...
+                              ...
+                      ...
+                    ...
+          ...
+ 
+⨯ ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  [90m89 |[0m       </div>
+  [90m90 |[0m     </header>
+[31m[1m>[0m [90m91 |[0m     <>
+  [90m   |[0m      [31m[1m^[0m
+  [90m92 |[0m       <div className={[32m`mobile-backdrop[0m${open ? [32m" is-open"[0m : [32m""[0m[32m}`[0m} aria-hidden=[32m"true"[0m onCli...
+  [90m93 |[0m       <nav ref={mobileNavigationRef} id=[32m"mobile-navigation"[0m className={[32m`mobile-drawer[0m${ope...
+  [90m94 |[0m         <span id=[32m"mobile-navigation-label"[0m className=[32m"mobile-drawer-label"[0m>[33mExplore[0m [33mCostivr.[0m..
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx
+
+
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 
+[browser] ./src/components/marketing-shell.tsx:91:6
+Expression expected
+  89 |       </div>
+  90 |     </header>
+> 91 |     <>
+     |      ^
+  92 |       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onCli...
+  93 |       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${ope...
+  94 |         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivr...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./src/components/marketing-shell.tsx
+    ./src/app/page.tsx 

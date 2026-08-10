@@ -1679,3 +1679,17 @@ Keep Costivra’s existing brand, navigation, and authenticated app shell, while
 ## Consequences
 
 Public navigation is more consistent across desktop and mobile without coupling the marketing site to the CRM or Luxor implementations. The new behavior is covered by the public smoke test and direct desktop/mobile browser QA. The authenticated workspace header remains intentionally separate because it serves a different, higher-density task context.
+
+# 2026-08-10 — Make the public header transition materially visible
+
+## Context
+
+The first reference-inspired pass only changed the marketing header's background and shadow after scrolling. In practice that looked like a faint flicker instead of the deliberate CRM/Luxor behavior Lewis was trying to match. The mobile drawer was also nested inside the blurred header, which could constrain its viewport overlay in the browser compositor.
+
+## Decision
+
+Use a fixed full-width marketing bar with a meaningful height transition: 88px at the top of the page and 68px after scrolling past 50px, with hysteresis so it does not chatter near the threshold. Render the mobile navigation outside the blurred header as a separate full-viewport overlay, while keeping the header and menu control above it. Keep the overlay solid, animated, scroll-locking, keyboard-accessible, and dependency-free.
+
+## Consequences
+
+The public header now has a clear before/after state instead of a barely perceptible style change. The mobile menu is no longer affected by the header's blur/compositing layer and covers the full viewport at 390×844. The public header remains separate from the authenticated app shell.

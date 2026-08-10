@@ -16,11 +16,25 @@ const nav = [
 export function MarketingHeader() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const previousScrollYRef = useRef(0);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileNavigationRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const updateScrolledState = () => setScrolled(window.scrollY > 24);
+    const updateScrolledState = () => {
+      const y = window.scrollY;
+      const previousY = previousScrollYRef.current;
+      const movedDown = y > previousY + 1;
+      const movedUp = y < previousY - 1;
+
+      if (y <= 12 || movedUp) {
+        setScrolled(false);
+      } else if (movedDown) {
+        setScrolled(true);
+      }
+
+      previousScrollYRef.current = y;
+    };
 
     updateScrolledState();
     window.addEventListener("scroll", updateScrolledState, { passive: true });
@@ -31,11 +45,13 @@ export function MarketingHeader() {
     if (!open) return;
 
     const previousOverflow = document.body.style.overflow;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
     const focusTimer = window.requestAnimationFrame(() => {
       mobileNavigationRef.current?.querySelector<HTMLAnchorElement>("a")?.focus();
     });
 
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -49,6 +65,7 @@ export function MarketingHeader() {
       window.cancelAnimationFrame(focusTimer);
       window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousDocumentOverflow;
     };
   }, [open]);
 
@@ -58,7 +75,8 @@ export function MarketingHeader() {
   };
 
   return (
-    <header className={`marketing-header${scrolled ? " is-scrolled" : ""}`}>
+    <>
+      <header className={`marketing-header${scrolled ? " is-scrolled" : ""}`}>
       <div className="container marketing-header-inner">
         <Brand />
         <nav className="marketing-nav" aria-label="Primary navigation">
@@ -73,6 +91,7 @@ export function MarketingHeader() {
           </button>
         </div>
       </div>
+      </header>
       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onClick={closeMenu} />
       <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${open ? " is-open" : ""}`} aria-label="Mobile navigation" aria-labelledby="mobile-navigation-label" aria-hidden={!open} inert={!open}>
         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivra</span>
@@ -80,7 +99,7 @@ export function MarketingHeader() {
         <Link href="/login" onClick={closeMenu}><span>06</span>Sign in<ArrowRight aria-hidden="true" size={17} /></Link>
         <Link className="button button-primary mobile-drawer-cta" href="/scan" onClick={closeMenu}>Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link>
       </nav>
-    </header>
+    </>
   );
 }
 
