@@ -1,0 +1,32 @@
+
+> costivra@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+▲ Next.js 16.2.12 (Turbopack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env.local
+✓ Ready in 6.1s
+
+○ Compiling / ...
+ GET / 200 in 6.6s (next.js: 5.1s, application-code: 1446ms)
+ GET / 200 in 1890ms (next.js: 33ms, application-code: 1856ms)
+ GET / 200 in 1481ms (next.js: 71ms, application-code: 1410ms)
+ GET / 200 in 1533ms (next.js: 328ms, application-code: 1204ms)
+ GET / 200 in 4.3s (next.js: 1043ms, application-code: 3.3s)
+ GET / 200 in 1976ms (next.js: 25ms, application-code: 1951ms)
+ GET / 200 in 8.0s (next.js: 5.0s, application-code: 3.0s)
+ GET /signup?plan=starter 200 in 13.9s (next.js: 9.4s, proxy.ts: 1941ms, application-code: 2.6s)
+ POST /api/billing/preauth-checkout 400 in 2.5s (next.js: 2.4s, application-code: 124ms)
+ GET / 200 in 1635ms (next.js: 176ms, application-code: 1459ms)
+ GET / 200 in 1643ms (next.js: 467ms, application-code: 1176ms)
+ GET /pricing 200 in 1022ms (next.js: 509ms, application-code: 513ms)
+ GET / 200 in 1160ms (next.js: 32ms, application-code: 1129ms)
+ GET / 200 in 1715ms (next.js: 275ms, application-code: 1440ms)
+ GET / 200 in 744ms (next.js: 76ms, application-code: 667ms)
+ GET / 200 in 389ms (next.js: 22ms, application-code: 367ms)
+ GET / 200 in 1289ms (next.js: 18ms, application-code: 1272ms)
+ GET / 200 in 1762ms (next.js: 282ms, application-code: 1480ms)
+ GET / 200 in 2.7s (next.js: 677ms, application-code: 2.0s)
+ GET / 200 in 1892ms (next.js: 114ms, application-code: 1778ms)
+ GET /pricing 200 in 1121ms (next.js: 65ms, application-code: 1056ms)

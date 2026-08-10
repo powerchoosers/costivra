@@ -6850,3 +6850,17 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .pricing { padding-top: 76px; padding-bottom: 78px; }
   .faq { padding-top: 72px; padding-bottom: 72px; }
 }
+
+/* Keep the opening content visibly clear of the floating marketing header. */
+@media (min-width: 1051px) {
+  .hero { min-height: 700px; }
+  .hero-inner { min-height: 700px; padding-top: 146px; padding-bottom: 54px; }
+}
+
+@media (max-width: 1050px) and (min-width: 761px) {
+  .hero-inner { padding-top: 134px; }
+}
+
+@media (max-width: 760px) {
+  .hero-inner { padding-top: 112px; }
+}

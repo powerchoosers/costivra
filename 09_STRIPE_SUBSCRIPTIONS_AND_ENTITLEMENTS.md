@@ -56,7 +56,7 @@ Do not treat this packet as permission to create live products, prices, customer
 - A real Starter Test Checkout Session was opened successfully, but no test payment, signed webhook, Customer Portal proof, or activation-email browser proof has been completed.
 - The deployed production signup page renders the selected Starter plan and the “Continue to secure checkout” creation flow; the deployed pre-auth endpoint also rejects malformed requests before touching Stripe.
 - Production valid-request smoke testing currently fails on deployment `dpl_64Txez67K223bSUAsgwXL5c16oVG` because that deployment predates the local `managed_payments.enabled = false` fix; Stripe returns the Managed Payments product-tax-code error. The fix is present in the working tree and must be deployed before production Checkout can open.
-- Latest local validation after the failed-state hardening: the pre-auth route test passes (4 tests), focused ESLint passes, TypeScript validation passes, and `git diff --check` passes. A fresh `npm run build` timed out in the existing multi-process environment; the prior build passed after the Managed Payments fix, and no deployment was performed.
+- Latest local validation after the failed-state and entitlement hardening: focused billing/entitlement/webhook/location/pre-auth tests pass (14 tests), focused ESLint passes, TypeScript validation passes, `npm run build` passes, and `git diff --check` passes. No deployment was performed.
 - Never paste secret keys or webhook secrets into chat. Lewis must align the keys/catalog in local and Vercel settings before account-specific proof is valid.
 
 ## Mission

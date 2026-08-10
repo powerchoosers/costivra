@@ -56,7 +56,7 @@ Do not treat a Checkout success redirect as proof of payment or activation. Sign
 - A real Test Checkout Session opens, but no test card has been submitted and no signed webhook → subscription → entitlement → activation chain has been proven end to end.
 - Production smoke evidence confirms `/signup?plan=starter` renders the selected plan and collects the creation details needed for the direct paid path.
 - The deployed valid Checkout request is still blocked by Stripe Managed Payments tax-code validation because production runs the pre-fix commit. The local code explicitly disables Managed Payments for this pilot and passes the production build; deployment remains the missing step.
-- The current local pre-auth route also records a safe `failed` intent state when Stripe rejects session creation, while retaining the customer for retry. Latest focused route tests (4), ESLint, TypeScript, and diff checks pass; a fresh build timed out in the existing multi-process environment after the prior build had passed.
+- The current local pre-auth route also records a safe `failed` intent state when Stripe rejects session creation, while retaining the customer for retry. Latest focused billing/entitlement/webhook/location/pre-auth tests pass (14 tests), ESLint and TypeScript pass, and the clean production build passes.
 - Do not call paid onboarding complete until payment, webhook delivery, activation-link browser proof, duplicate/retry recovery, and the intended Stripe-account alignment are verified.
 
 ## Mission

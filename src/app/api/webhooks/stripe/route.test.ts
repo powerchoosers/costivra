@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const constructEvent = vi.fn();
-const state = { eventStatus: new Map<string, string>(), customers: [] as Array<Record<string, unknown>>, onboardingSource: "internal" as string | null };
+const state = { eventStatus: new Map<string, string>(), customers: [] as Array<Record<string, unknown>>, subscriptions: [] as Array<Record<string, unknown>>, entitlements: [] as Array<Record<string, unknown>>, onboardingSource: "internal" as string | null };
 
 vi.mock("@/lib/billing/stripe", () => ({
   getStripeClient: () => ({ webhooks: { constructEvent } }),
@@ -21,6 +21,15 @@ vi.mock("@/lib/supabase/server", () => ({
       if (table === "billing_customers") {
         return { upsert: async (row: Record<string, unknown>) => { state.customers.push(row); return { error: null }; } };
       }
+      if (table === "billing_subscriptions") {
+        return {
+          select: () => ({ eq: (_column: string, value: string) => ({ maybeSingle: async () => ({ data: state.subscriptions.find((row) => row.stripe_subscription_id === value) ?? null, error: null }) }) }),
+          upsert: async (row: Record<string, unknown>) => { state.subscriptions.push({ id: "billing-subscription-row-1", ...row }); return { error: null }; },
+        };
+      }
+      if (table === "billing_entitlements") {
+        return { upsert: async (rows: Array<Record<string, unknown>>) => { state.entitlements.push(...rows); return { error: null }; } };
+      }
       if (table === "organization_onboarding") {
         return {
           select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: state.onboardingSource ? { source: state.onboardingSource } : null, error: null }) }) }),
@@ -39,6 +48,8 @@ describe("Stripe webhook boundary", () => {
     vi.clearAllMocks();
     state.eventStatus.clear();
     state.customers.length = 0;
+    state.subscriptions.length = 0;
+    state.entitlements.length = 0;
     state.onboardingSource = "internal";
     process.env.STRIPE_WEBHOOK_SECRET = "dummy-stripe-webhook-secret-for-tests";
     process.env.STRIPE_BILLING_LIVEMODE_ENABLED = "0";
@@ -70,5 +81,31 @@ describe("Stripe webhook boundary", () => {
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual({ received: true, duplicate: true });
     expect(state.customers).toHaveLength(1);
+  });
+
+  it("projects the server-owned plan limits on an active subscription", async () => {
+    constructEvent.mockReturnValue({
+      id: "evt_test_subscription_1",
+      type: "customer.subscription.created",
+      livemode: false,
+      data: { object: {
+        id: "sub_test_costivra",
+        customer: "cus_test_costivra",
+        status: "active",
+        cancel_at_period_end: false,
+        current_period_start: 1_700_000_000,
+        current_period_end: 1_702_592_000,
+        trial_end: null,
+        canceled_at: null,
+        ended_at: null,
+        latest_invoice: null,
+        metadata: { organization_id: "11111111-1111-4111-8111-111111111111", plan_key: "starter" },
+        items: { data: [{ current_period_start: 1_700_000_000, current_period_end: 1_702_592_000, price: { id: "price_starter_test" } }] },
+      } },
+    });
+    const response = await POST(new Request("https://costivra.ai/api/webhooks/stripe", { method: "POST", headers: { "stripe-signature": "dummy-signature" }, body: "{}" }));
+    expect(response.status).toBe(200);
+    expect(state.entitlements).toHaveLength(5);
+    expect(state.entitlements.find((row) => row.feature_key === "monitored_vendors")).toMatchObject({ enabled: true, limit_value: 3, plan_key: "starter" });
   });
 });
