@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { manageApiError, requireInternalOperator } from "@/lib/manage/auth";
+import { canUseMailbox } from "@/lib/manage/mailboxes";
+import { derivePlannedSequenceEmails, sequenceMessagePairKey } from "@/lib/manage/sequences/planned-email-queue";
 import { cleanUuid } from "@/lib/portal/http";
 
 export const runtime = "nodejs";
@@ -17,10 +19,12 @@ function statusFilter(value: string | null) {
 
 export async function GET(request: Request) {
   try {
-    const { db } = await requireInternalOperator();
+    const operator = await requireInternalOperator();
+    const { db } = operator;
     const url = new URL(request.url);
     const page = Math.max(1, Math.min(1000, Number(url.searchParams.get("page") || 1) || 1));
     const limit = Math.max(10, Math.min(50, Number(url.searchParams.get("limit") || 25) || 25));
+    const mode = url.searchParams.get("mode") === "queue" ? "queue" : "activity";
     const status = statusFilter(url.searchParams.get("status"));
     const mailboxId = cleanUuid(url.searchParams.get("mailbox"));
     const sequenceId = cleanUuid(url.searchParams.get("sequence"));
@@ -28,10 +32,123 @@ export async function GET(request: Request) {
     const ownerId = cleanUuid(url.searchParams.get("owner"));
     const fromDate = url.searchParams.get("from");
     const toDate = url.searchParams.get("to");
+
+    const { data: mailboxAccessRows, error: mailboxAccessError } = await db
+      .from("crm_mailboxes")
+      .select("id,mailbox_type,assigned_to,status")
+      .eq("status", "active");
+    if (mailboxAccessError) throw mailboxAccessError;
+    const accessibleMailboxIds = rows(mailboxAccessRows)
+      .filter((mailbox) => canUseMailbox(operator.role, operator.userId, {
+        mailboxType: text(mailbox.mailbox_type) === "shared" ? "shared" : "personal",
+        assignedTo: nullable(mailbox.assigned_to),
+        status: text(mailbox.status) === "disabled" ? "disabled" : "active",
+      }))
+      .map((mailbox) => text(mailbox.id))
+      .filter(Boolean);
+    if (mailboxId && !accessibleMailboxIds.includes(mailboxId)) throw new Error("MAILBOX_ACCESS_REQUIRED");
+    const readableMailboxIds = mailboxId ? [mailboxId] : accessibleMailboxIds;
+
+    if (!readableMailboxIds.length) {
+      return NextResponse.json({
+        mode,
+        items: [],
+        page,
+        limit,
+        hasMore: false,
+        metrics: { scheduledToday: 0, sentToday: 0, delivered: 0, replies: 0, bounced: 0, queued: 0, scheduledNext24Hours: 0, needsAttention: 0 },
+      }, { headers: { "Cache-Control": "private, no-store" } });
+    }
+
+    if (mode === "queue") {
+      let enrollmentsQuery = db
+        .from("crm_sequence_enrollments")
+        .select("id,sequence_id,organization_id,mailbox_id,contact_id,state,current_step_id,current_step_position,next_action_at,stop_reason,personalization,created_at")
+        .eq("state", "active")
+        .not("next_action_at", "is", null)
+        .in("mailbox_id", readableMailboxIds)
+        .order("next_action_at", { ascending: true })
+        .limit(500);
+      if (sequenceId) enrollmentsQuery = enrollmentsQuery.eq("sequence_id", sequenceId);
+      if (accountId) enrollmentsQuery = enrollmentsQuery.eq("organization_id", accountId);
+      if (fromDate && !Number.isNaN(Date.parse(fromDate))) enrollmentsQuery = enrollmentsQuery.gte("next_action_at", new Date(fromDate).toISOString());
+      if (toDate && !Number.isNaN(Date.parse(toDate))) enrollmentsQuery = enrollmentsQuery.lte("next_action_at", new Date(`${toDate}T23:59:59.999Z`).toISOString());
+      const { data: enrollments, error: enrollmentError } = await enrollmentsQuery;
+      if (enrollmentError) throw enrollmentError;
+
+      const enrollmentRows = rows(enrollments);
+      const sequenceIds = Array.from(new Set(enrollmentRows.map((row) => text(row.sequence_id)).filter(Boolean)));
+      const enrollmentIds = enrollmentRows.map((row) => text(row.id)).filter(Boolean);
+      const contactIds = Array.from(new Set(enrollmentRows.map((row) => text(row.contact_id)).filter(Boolean)));
+      const organizationIds = Array.from(new Set(enrollmentRows.map((row) => text(row.organization_id)).filter(Boolean)));
+      const mailboxIds = Array.from(new Set(enrollmentRows.map((row) => text(row.mailbox_id)).filter(Boolean)));
+      const [sequencesResult, stepsResult, contactsResult, organizationsResult, mailboxesResult, messagesResult] = await Promise.all([
+        sequenceIds.length
+          ? (() => {
+              let query = db.from("crm_sequences").select("id,name,owner_id,status,execution_enabled").in("id", sequenceIds);
+              if (ownerId) query = query.eq("owner_id", ownerId);
+              return query;
+            })()
+          : Promise.resolve({ data: [], error: null }),
+        sequenceIds.length ? db.from("crm_sequence_steps").select("id,sequence_id,position,step_type,subject_template,body_text,body_html").in("sequence_id", sequenceIds) : Promise.resolve({ data: [], error: null }),
+        contactIds.length ? db.from("crm_contacts").select("id,full_name,email,title").in("id", contactIds) : Promise.resolve({ data: [], error: null }),
+        organizationIds.length ? db.from("organizations").select("id,name").in("id", organizationIds) : Promise.resolve({ data: [], error: null }),
+        mailboxIds.length ? db.from("crm_mailboxes").select("id,address").in("id", mailboxIds) : Promise.resolve({ data: [], error: null }),
+        enrollmentIds.length
+          ? db.from("crm_email_messages").select("sequence_enrollment_id,sequence_step_id").eq("origin", "sequence").in("sequence_enrollment_id", enrollmentIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      const related = [sequencesResult, stepsResult, contactsResult, organizationsResult, mailboxesResult, messagesResult].find((result) => result.error);
+      if (related?.error) throw related.error;
+      const messagePairs = new Set(rows(messagesResult.data).map((message) => sequenceMessagePairKey(
+        nullable(message.sequence_enrollment_id),
+        nullable(message.sequence_step_id),
+      )).filter(Boolean));
+      const planned = derivePlannedSequenceEmails({
+        enrollments: enrollmentRows,
+        sequences: rows(sequencesResult.data),
+        steps: rows(stepsResult.data),
+        contacts: rows(contactsResult.data),
+        organizations: rows(organizationsResult.data),
+        mailboxes: rows(mailboxesResult.data),
+        messagePairs,
+      });
+      const queued = status && status !== "queued" ? [] : planned;
+      const offset = (page - 1) * limit;
+      const now = Date.now();
+      const nextDay = now + 86_400_000;
+      return NextResponse.json({
+        mode,
+        items: queued.slice(offset, offset + limit),
+        page,
+        limit,
+        hasMore: queued.length > offset + limit,
+        metrics: {
+          scheduledToday: queued.filter((item) => {
+            const scheduled = Date.parse(item.scheduledAt);
+            const start = new Date(); start.setHours(0, 0, 0, 0);
+            const end = new Date(start); end.setDate(end.getDate() + 1);
+            return Number.isFinite(scheduled) && scheduled >= start.getTime() && scheduled < end.getTime();
+          }).length,
+          sentToday: 0,
+          delivered: 0,
+          replies: 0,
+          bounced: 0,
+          queued: queued.length,
+          scheduledNext24Hours: queued.filter((item) => {
+            const scheduled = Date.parse(item.scheduledAt);
+            return Number.isFinite(scheduled) && scheduled >= now && scheduled <= nextDay;
+          }).length,
+          needsAttention: 0,
+        },
+      }, { headers: { "Cache-Control": "private, no-store" } });
+    }
+
     let query = db
       .from("crm_email_messages")
       .select("id,thread_id,organization_id,mailbox_id,contact_id,subject,to_addresses,provider_message_id,provider_status,sequence_id,sequence_enrollment_id,sequence_step_id,external_side_effect_id,sent_at,created_at,folder", { count: "exact" })
       .eq("origin", "sequence")
+      .in("mailbox_id", readableMailboxIds)
       .order("created_at", { ascending: false });
     if (status) query = query.eq("provider_status", status);
     if (mailboxId) query = query.eq("mailbox_id", mailboxId);
@@ -111,14 +228,21 @@ export async function GET(request: Request) {
 
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const { data: metricEnrollments, error: metricEnrollmentsError } = await db
+      .from("crm_sequence_enrollments")
+      .select("id")
+      .in("mailbox_id", readableMailboxIds);
+    if (metricEnrollmentsError) throw metricEnrollmentsError;
+    const metricEnrollmentIds = rows(metricEnrollments).map((row) => text(row.id)).filter(Boolean);
     const [{ count: scheduledToday }, { count: sentToday }, { count: delivered }, { count: replies }, { count: bounced }] = await Promise.all([
-      db.from("crm_email_messages").select("id", { count: "exact", head: true }).eq("origin", "sequence").eq("provider_status", "scheduled").gte("created_at", startOfDay),
-      db.from("crm_email_messages").select("id", { count: "exact", head: true }).eq("origin", "sequence").in("provider_status", ["sent", "delivered"]).gte("created_at", startOfDay),
-      db.from("crm_email_messages").select("id", { count: "exact", head: true }).eq("origin", "sequence").eq("provider_status", "delivered"),
-      db.from("crm_sequence_events").select("id", { count: "exact", head: true }).eq("event_type", "reply_received"),
-      db.from("crm_sequence_events").select("id", { count: "exact", head: true }).eq("event_type", "bounced"),
+      db.from("crm_email_messages").select("id", { count: "exact", head: true }).eq("origin", "sequence").in("mailbox_id", readableMailboxIds).eq("provider_status", "scheduled").gte("created_at", startOfDay),
+      db.from("crm_email_messages").select("id", { count: "exact", head: true }).eq("origin", "sequence").in("mailbox_id", readableMailboxIds).in("provider_status", ["sent", "delivered"]).gte("created_at", startOfDay),
+      db.from("crm_email_messages").select("id", { count: "exact", head: true }).eq("origin", "sequence").in("mailbox_id", readableMailboxIds).eq("provider_status", "delivered"),
+      metricEnrollmentIds.length ? db.from("crm_sequence_events").select("id", { count: "exact", head: true }).eq("event_type", "reply_received").in("enrollment_id", metricEnrollmentIds) : Promise.resolve({ count: 0 }),
+      metricEnrollmentIds.length ? db.from("crm_sequence_events").select("id", { count: "exact", head: true }).eq("event_type", "bounced").in("enrollment_id", metricEnrollmentIds) : Promise.resolve({ count: 0 }),
     ]);
     return NextResponse.json({
+      mode,
       items,
       page,
       limit,

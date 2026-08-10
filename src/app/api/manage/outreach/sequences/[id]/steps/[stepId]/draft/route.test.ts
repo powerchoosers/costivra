@@ -16,7 +16,7 @@ const sequenceId = "11111111-1111-4111-8111-111111111111";
 const stepId = "22222222-2222-4222-8222-222222222222";
 const organizationId = "33333333-3333-4333-8333-333333333333";
 
-function makeDb(options: { stepType?: string } = {}) {
+function makeDb(options: { stepType?: string; recentDraftCount?: number } = {}) {
   const calls: string[] = [];
   const auditInsert = vi.fn().mockResolvedValue({ error: null });
   const db = {
@@ -25,6 +25,7 @@ function makeDb(options: { stepType?: string } = {}) {
       const result: Record<string, unknown> = {};
       result.select = () => result;
       result.eq = () => result;
+      result.gte = async () => ({ count: options.recentDraftCount ?? 0, error: null });
       result.maybeSingle = async () => ({
         data: table === "crm_sequences"
           ? { id: sequenceId, organization_id: organizationId, name: "Renewal follow-up", description: "A calm check-in.", status: "draft" }
@@ -68,7 +69,7 @@ describe("POST sequence step email draft", () => {
       bodyHtml: expect.stringContaining("<p>Hi {{first_name}},</p>"),
     }));
     expect(generateJson).toHaveBeenCalledTimes(1);
-    expect(calls).toEqual(["crm_sequences", "crm_sequence_steps", "internal_audit_events"]);
+    expect(calls).toEqual(["crm_sequences", "crm_sequence_steps", "internal_audit_events", "internal_audit_events"]);
     expect(auditInsert).toHaveBeenCalledWith(expect.objectContaining({
       organization_id: organizationId,
       action: "crm.sequence_step_email_draft_generated",
@@ -103,6 +104,19 @@ describe("POST sequence step email draft", () => {
     );
 
     expect(response.status).toBe(502);
-    expect(calls).toEqual(["crm_sequences", "crm_sequence_steps"]);
+    expect(calls).toEqual(["crm_sequences", "crm_sequence_steps", "internal_audit_events"]);
+  });
+
+  it("rate limits repeated draft requests before invoking the model", async () => {
+    const { db } = makeDb({ recentDraftCount: 12 });
+    requireInternalOperator.mockResolvedValue({ db, userId: "operator-1" });
+
+    const response = await POST(
+      new Request("https://costivra.ai", { method: "POST", body: "{}" }),
+      { params: Promise.resolve({ id: sequenceId, stepId }) },
+    );
+
+    expect(response.status).toBe(429);
+    expect(generateJson).not.toHaveBeenCalled();
   });
 });

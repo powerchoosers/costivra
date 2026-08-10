@@ -7,6 +7,9 @@ import { cleanText, cleanUuid } from "@/lib/portal/http";
 type Context = { params: Promise<{ id: string; stepId: string }> };
 
 const PROMPT_VERSION = "outreach_sequence_email_draft_v1";
+const MAX_DRAFTS_PER_OPERATOR_WINDOW = 12;
+const DRAFT_WINDOW_MS = 10 * 60_000;
+const DRAFT_AUDIT_ACTION = "crm.sequence_step_email_draft_generated";
 
 const text = (value: unknown, fallback = "") =>
   typeof value === "string" ? value : fallback;
@@ -48,6 +51,16 @@ export async function POST(request: Request, { params }: Context) {
     if (step.step_type !== "manual_email" && step.step_type !== "automatic_email")
       return NextResponse.json({ error: "Only email steps can generate an email draft." }, { status: 400 });
 
+    const { count: recentDraftCount, error: rateLimitError } = await db
+      .from("internal_audit_events")
+      .select("id", { count: "exact", head: true })
+      .eq("actor_id", userId)
+      .eq("action", DRAFT_AUDIT_ACTION)
+      .gte("created_at", new Date(Date.now() - DRAFT_WINDOW_MS).toISOString());
+    if (rateLimitError) throw rateLimitError;
+    if ((recentDraftCount ?? 0) >= MAX_DRAFTS_PER_OPERATOR_WINDOW)
+      return NextResponse.json({ error: "Too many draft requests. Try again in a few minutes." }, { status: 429 });
+
     const generated = await generateJson({
       maxTokens: 1_100,
       temperature: 0.3,
@@ -85,7 +98,7 @@ export async function POST(request: Request, { params }: Context) {
     const { error: auditError } = await db.from("internal_audit_events").insert({
       actor_id: userId,
       organization_id: sequence.organization_id,
-      action: "crm.sequence_step_email_draft_generated",
+      action: DRAFT_AUDIT_ACTION,
       resource_type: "crm_sequence_step",
       resource_id: sequenceStepId,
       safe_metadata: {

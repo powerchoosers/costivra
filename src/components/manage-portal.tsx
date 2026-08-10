@@ -5577,7 +5577,7 @@ function MailPage({
         </label>
         <nav className="manage-mail-view-tabs" aria-label="Mail views">
           <Link className={!sequenceView ? "active" : ""} href={`/manage/mail?view=all&folder=${data.mail.folder}${mailboxQuery}`}>All mail</Link>
-          <Link className={sequenceView ? "active" : ""} href={`/manage/mail?view=sequence${mailboxQuery}`}>Sequence emails</Link>
+          <Link className={sequenceView ? "active" : ""} href={`/manage/mail?view=sequence${mailboxQuery}`}>Queue & activity</Link>
         </nav>
         <nav className="manage-mail-folder-tabs" aria-label="Mailbox folders">
           {folders.map(([key, label]) => (
