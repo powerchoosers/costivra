@@ -38,6 +38,7 @@ import {
   LoaderCircle,
   Link2,
   List,
+  ListFilter,
   ListOrdered,
   Mail,
   MailOpen,
@@ -4318,7 +4319,9 @@ function Outreach({
   query: string;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
 }) {
-  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | "high" | "normal" | "low">("all");
+  const [priorityFilterOpen, setPriorityFilterOpen] = useState(false);
+  const priorityFilterRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const requestedOutreachTab = searchParams.get("tab");
@@ -4354,6 +4357,29 @@ function Outreach({
     return matchesPriority && matchesQuery;
   });
 
+  const priorityFilterOptions = [
+    { value: "all" as const, label: "All priorities", count: data.tasks.length },
+    { value: "high" as const, label: "High priority", count: data.tasks.filter((task) => task.priority === "high").length },
+    { value: "normal" as const, label: "Normal priority", count: data.tasks.filter((task) => task.priority === "normal").length },
+    { value: "low" as const, label: "Low priority", count: data.tasks.filter((task) => task.priority === "low").length },
+  ];
+
+  useEffect(() => {
+    if (!priorityFilterOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!priorityFilterRef.current?.contains(event.target as Node)) setPriorityFilterOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPriorityFilterOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [priorityFilterOpen]);
+
   return (
     <>
       <nav className="manage-tabs manage-outreach-tabs" role="tablist" aria-label="Outreach workspace">
@@ -4362,31 +4388,32 @@ function Outreach({
         <button id="outreach-tab-enrollments" role="tab" aria-selected={outreachTab === "enrollments"} aria-controls="outreach-panel-enrollments" tabIndex={outreachTab === "enrollments" ? 0 : -1} className={outreachTab === "enrollments" ? "active" : ""} onKeyDown={handleOutreachTabKeyDown} onClick={() => setOutreachTab("enrollments")}>Enrollments</button>
       </nav>
       {outreachTab !== "tasks" ? <div id={`outreach-panel-${outreachTab}`} role="tabpanel" aria-labelledby={`outreach-tab-${outreachTab}`} tabIndex={0}><SequenceWorkspace data={data} query={query} mode={outreachTab === "enrollments" ? "enrollments" : "sequences"} /></div> : <div id="outreach-panel-tasks" role="tabpanel" aria-labelledby="outreach-tab-tasks" tabIndex={0}>
-      <div className="manage-tabs" style={{ marginBottom: 16, borderBottom: "1px solid #edf0f3" }}>
-        <button
-          className={priorityFilter === "all" ? "active" : ""}
-          onClick={() => setPriorityFilter("all")}
-        >
-          All Tasks <span>{data.tasks.length}</span>
-        </button>
-        <button
-          className={priorityFilter === "high" ? "active" : ""}
-          onClick={() => setPriorityFilter("high")}
-        >
-          High Priority <span>{data.tasks.filter((t) => t.priority === "high").length}</span>
-        </button>
-        <button
-          className={priorityFilter === "normal" ? "active" : ""}
-          onClick={() => setPriorityFilter("normal")}
-        >
-          Normal Priority <span>{data.tasks.filter((t) => t.priority === "normal").length}</span>
-        </button>
-        <button
-          className={priorityFilter === "low" ? "active" : ""}
-          onClick={() => setPriorityFilter("low")}
-        >
-          Low Priority <span>{data.tasks.filter((t) => t.priority === "low").length}</span>
-        </button>
+      <div className="manage-outreach-board-toolbar">
+        <div ref={priorityFilterRef} className={`manage-outreach-priority-filter${priorityFilterOpen ? " is-open" : ""}`}>
+          <button type="button" className="manage-outreach-priority-filter__trigger" aria-label="Filter tasks by priority" title="Filter tasks by priority" aria-haspopup="menu" aria-expanded={priorityFilterOpen} onClick={() => setPriorityFilterOpen((current) => !current)}>
+            <ListFilter size={16} strokeWidth={1.8} aria-hidden="true" />
+            {priorityFilter !== "all" && <span className="manage-outreach-priority-filter__count">1</span>}
+          </button>
+          <div className="manage-outreach-priority-filter__menu" role="menu" aria-label="Task priority filters">
+            <div className="manage-outreach-priority-filter__heading">Filter tasks</div>
+            {priorityFilterOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={priorityFilter === option.value}
+                className={`manage-outreach-priority-filter__option${priorityFilter === option.value ? " is-active" : ""}`}
+                onClick={() => {
+                  setPriorityFilter(option.value);
+                  setPriorityFilterOpen(false);
+                }}
+              >
+                <span className="manage-outreach-priority-filter__option-label"><span className="manage-outreach-priority-filter__option-check" aria-hidden="true" />{option.label}</span>
+                <span className="manage-outreach-priority-filter__option-count">{option.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <section className="manage-outreach-board">
         {["open", "in_progress", "completed"].map((status) => (
