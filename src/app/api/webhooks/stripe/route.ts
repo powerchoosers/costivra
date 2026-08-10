@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getBillingPlan } from "@/lib/billing/catalog";
 import { assertStripeBillingMode, getStripeClient } from "@/lib/billing/stripe";
+import { markCheckoutIntentPaymentConfirmed, provisionPaidCheckout } from "@/lib/billing/provisioning";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -26,6 +27,11 @@ async function planFromPrice(db: ReturnType<typeof createServerSupabaseClient>, 
 async function resolveOrganization(db: ReturnType<typeof createServerSupabaseClient>, customerId: string | null, metadata?: Stripe.Metadata) {
   const fromMetadata = typeof metadata?.organization_id === "string" ? metadata.organization_id : null;
   if (fromMetadata) return fromMetadata;
+  const intentId = typeof metadata?.checkout_intent_id === "string" ? metadata.checkout_intent_id : null;
+  if (intentId) {
+    const { data: intent } = await db.from("billing_checkout_intents").select("organization_id").eq("id", intentId).maybeSingle();
+    if (typeof intent?.organization_id === "string") return intent.organization_id;
+  }
   if (!customerId) return null;
   const { data } = await db.from("billing_customers").select("organization_id").eq("stripe_customer_id", customerId).maybeSingle();
   return typeof data?.organization_id === "string" ? data.organization_id : null;
@@ -47,6 +53,12 @@ async function syncEntitlements(db: ReturnType<typeof createServerSupabaseClient
 async function handleEvent(db: ReturnType<typeof createServerSupabaseClient>, event: Stripe.Event) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+    const checkoutIntentId = typeof session.metadata?.checkout_intent_id === "string" ? session.metadata.checkout_intent_id : null;
+    if (checkoutIntentId) {
+      await markCheckoutIntentPaymentConfirmed(db, checkoutIntentId, session);
+      const provisioning = await provisionPaidCheckout(db, session);
+      if (provisioning.manualReview) return;
+    }
     const organizationId = await resolveOrganization(db, typeof session.customer === "string" ? session.customer : session.customer?.id ?? null, session.metadata ?? undefined);
     if (!organizationId) throw new Error("Stripe checkout session has no Costivra organization mapping.");
     if (typeof session.customer === "string") {
@@ -75,7 +87,14 @@ async function handleEvent(db: ReturnType<typeof createServerSupabaseClient>, ev
     const priceId = subscription.items.data[0]?.price?.id ?? null;
     const planKey = await planFromPrice(db, priceId, subscription.metadata);
     const organizationId = await resolveOrganization(db, customerId, subscription.metadata);
-    if (!organizationId) throw new Error("Stripe subscription has no Costivra organization mapping.");
+    if (!organizationId) {
+      const intentId = typeof subscription.metadata?.checkout_intent_id === "string" ? subscription.metadata.checkout_intent_id : null;
+      if (intentId) {
+        const { data: intent } = await db.from("billing_checkout_intents").select("status").eq("id", intentId).maybeSingle();
+        if (intent?.status === "manual_review") return;
+      }
+      throw new Error("Stripe subscription has no Costivra organization mapping.");
+    }
     if (!planKey) throw new Error("Stripe subscription price is not configured for Costivra.");
     const status = event.type === "customer.subscription.deleted" ? "canceled" : subscription.status;
     const { error } = await db.from("billing_subscriptions").upsert({

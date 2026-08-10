@@ -1,6 +1,6 @@
 # Packet 09: Stripe Subscriptions, Dynamic Pricing, and Entitlements
 
-## Current status — August 9, 2026
+## Current status — August 10, 2026
 
 This packet is **partially implemented**. The subscription foundation exists, but the complete paid self-service proof and plan-specific entitlement enforcement are still open.
 
@@ -17,15 +17,19 @@ Implemented today:
 - Dynamic pricing now feeds the homepage, public pricing page, customer billing selector, Checkout, and webhook plan lookup.
 - Public Starter/Growth plan CTAs now carry the selected plan through `/signup?plan=...`; signup, sign-in, and email-confirmation redirects preserve that selection and land an authenticated user on `/app/settings?tab=billing&plan=...`.
 - The customer Billing tab preselects the requested plan and starts Checkout from the existing workspace context.
-- Checkout and Customer Portal return to `/app/settings?tab=billing` (not the retired `/portal/settings` route).
+- Checkout and Customer Portal return to `/app/settings?tab=billing` (not the retired `/portal/settings` route); Checkout also preserves the selected plan and reports `billing=success` or `billing=cancelled`.
+- A successful return is explicitly shown as waiting for signed webhook confirmation when the subscription record is not present yet; a cancelled return says that no subscription or access change was applied.
 - A completed Checkout webhook marks an existing workspace's onboarding source as `paid_checkout` when it was previously `internal`.
+- An unauthenticated Starter/Growth signup can now open Stripe Test Checkout directly from `/signup?plan=...` after collecting name, company, and work email.
+- `billing_checkout_intents` is a service-role-only, short-lived handoff record. It stores no browser session and grants no access.
+- A signed `checkout.session.completed` webhook now idempotently creates or reuses the auth user, one organization, one owner membership, onboarding projection, and billing customer. An email with multiple existing workspaces is sent to manual review instead of being guessed into a tenant.
 
 Still open:
 
-- Full test subscription proof: Checkout → signed webhook → subscription record → entitlement → Customer Portal.
+- Full test subscription proof: real Test Checkout → signed webhook → subscription record → entitlement → Customer Portal. The code path and focused tests exist, but this external proof has not been run in this turn.
 - A central entitlement helper and actual plan-limit enforcement.
 - Production webhook configuration and live-mode proof.
-- Direct pre-auth Checkout and idempotent organization provisioning for a visitor who has not created an account/workspace yet.
+- Activation-link browser proof, delayed webhook recovery, and support handling for the manual-review case.
 - Stripe Customer Portal configuration policy and tax/legal approval.
 
 Do not treat this packet as permission to create live products, prices, customers, subscriptions, or webhooks without Lewis's explicit approval and a mode check.
@@ -47,6 +51,8 @@ src/lib/billing/catalog.ts
 src/lib/billing/stripe.ts
 src/lib/billing/entitlements.ts       # create before plan-limit enforcement
 src/app/api/billing/checkout/route.ts
+src/app/api/billing/preauth-checkout/route.ts
+src/app/api/billing/checkout-status/route.ts
 src/app/api/billing/status/route.ts
 src/app/api/billing/portal/route.ts
 src/app/api/webhooks/stripe/route.ts
@@ -59,6 +65,7 @@ src/proxy.ts
 src/lib/supabase/
 supabase/migrations/20260809040000_packet_09_billing.sql
 supabase/migrations/20260809221900_billing_plan_catalog.sql
+supabase/migrations/20260810004950_packet_09_pre_auth_checkout_intents.sql
 ```
 
 Read current Stripe Billing, Checkout, webhook, and Customer Portal documentation before changing integration behavior.
@@ -138,9 +145,7 @@ All are service-role-only from the database. Customer users read safe billing st
 - records an audit event;
 - returns the Checkout URL.
 
-The remaining paid-onboarding work is to support a visitor who does not yet have an organization. Until that exists, Checkout is for an already-created workspace.
-
-The public plan-selection handoff is implemented, but it is not pre-auth billing: the visitor chooses a plan, creates or signs into an account, and then starts Checkout from the authenticated Billing tab. A visitor without an organization is not sent to Stripe yet.
+The authenticated route remains the existing-workspace path. For a visitor without an organization, `/api/billing/preauth-checkout` creates a short-lived intent and subscription Checkout Session using the same server-side catalog and mode checks.
 
 ## Webhook route
 
@@ -155,9 +160,9 @@ The public plan-selection handoff is implemented, but it is not pre-auth billing
 - writes subscription state and the current Stripe Price ID;
 - syncs the current `paid_workspace` entitlement.
 
-The webhook currently does **not** provision a new organization after Checkout. That belongs to Packet 10.
+For a Checkout Session carrying `checkout_intent_id`, the webhook first marks the intent payment-confirmed and provisions or reuses the user, organization, owner membership, onboarding projection, and billing customer. This provisioning is idempotent and does not run from a browser redirect.
 
-For an existing organization, `checkout.session.completed` also upserts `organization_onboarding.source = paid_checkout` when the row is new or still marked `internal`. It does not create users, organizations, or memberships.
+For an existing organization, `checkout.session.completed` also upserts `organization_onboarding.source = paid_checkout` when the row is new or still marked `internal`. Ambiguous emails with multiple workspaces are recorded as `manual_review`.
 
 ## Entitlement policy
 
@@ -211,6 +216,7 @@ Never use live payment details for proof. Never create live products or prices a
 - Duplicate events are safe.
 - Customer Portal works and returns to `/app/settings`.
 - Public plan selection survives signup/sign-in and opens the requested plan in the existing Billing tab.
+- Checkout success/cancel returns preserve the selected plan and never grant access from the redirect alone.
 - Entitlements update deterministically and are enforced at paid actions.
 - Billing remains visible in existing Settings.
 - No payment method data is stored in Costivra.

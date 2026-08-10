@@ -1609,3 +1609,17 @@ Use an auth-first paid handoff for the pilot: public Starter/Growth CTAs carry a
 ## Consequences
 
 Customers choose a plan before creating or entering their workspace and return directly to the correct Billing tab, while Costivra never grants paid access to an unowned organization. Direct pre-auth Checkout with signed user/workspace provisioning remains a separate future milestone rather than a shortcut around tenant authorization.
+
+# 2026-08-10 — Use a pending paid Checkout intent for self-service creation
+
+## Context
+
+The auth-first handoff was safe, but it made a visitor create an account and workspace before Costivra could collect payment. That added friction and did not satisfy the intended “choose a plan, pay, then activate” creation flow. Stripe Checkout can collect the subscription before a Costivra user exists, but a browser success URL must never be trusted to create access.
+
+## Decision
+
+Add a short-lived, service-role-only `billing_checkout_intents` record. The public signup form validates the selected plan and contact details, creates one idempotent Stripe subscription Checkout Session, and stores only the minimum pending handoff data. A signed `checkout.session.completed` webhook is the only path that creates or reuses the auth user, one organization, one owner membership, onboarding projection, and billing customer. A user email with multiple existing workspaces is sent to manual review instead of guessing a tenant. The existing authenticated owner/admin Checkout path remains supported for founder-led and existing-workspace billing.
+
+## Consequences
+
+Paid creation now has a direct plan-to-payment path without granting access before Stripe confirmation. Webhook retries are safe at the intent, user, workspace, membership, and billing layers. Activation still depends on the secure Supabase invite/password flow and the signed subscription projection. Real test-mode Checkout plus signed webhook proof, delayed-invite recovery, and live-mode setup remain release gates.

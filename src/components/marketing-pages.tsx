@@ -392,11 +392,15 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     searchParams?.get("mode") === "recovery",
   );
   const [messageTone, setMessageTone] = useState<"error" | "info" | "success">(
-    searchParams?.get("confirmed") === "1" ? "success" : "error",
+    searchParams?.get("confirmed") === "1" || searchParams?.get("billing") === "success" ? "success" : "error",
   );
   const [message, setMessage] = useState(
     searchParams?.get("confirmed") === "1"
       ? "Your email is confirmed. Sign in to continue."
+      : searchParams?.get("billing") === "success"
+        ? "Payment received. We are confirming your Costivra workspace."
+      : searchParams?.get("billing") === "cancelled"
+        ? "Checkout was cancelled. No subscription or workspace access change was applied."
       : searchParams?.get("error") === "no_access"
         ? "This account does not have an active Costivra workspace. Sign in with another account or contact support."
       : searchParams?.get("error") === "oauth_failed"
@@ -408,6 +412,38 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
   const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
   const selectedPlanKey = searchParams?.get("plan");
   const selectedPlan = plans.find((plan) => plan.key === selectedPlanKey && plan.active && plan.key !== "enterprise");
+  const preauthSignup = signup && Boolean(selectedPlan);
+  const checkoutSessionId = searchParams?.get("checkout_session_id");
+  const billingOutcome = searchParams?.get("billing");
+
+  useEffect(() => {
+    if (billingOutcome !== "success" || !checkoutSessionId) return;
+    let active = true;
+    let attempts = 0;
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/billing/checkout-status?session_id=${encodeURIComponent(checkoutSessionId)}`, { cache: "no-store" });
+        const result = (await response.json().catch(() => ({}))) as { status?: string; nextAction?: string | null };
+        if (!active) return;
+        if (result.status === "provisioned") {
+          setMessageTone("success");
+          setMessage(result.nextAction === "activate_password" ? "Payment confirmed. Check your email for the secure link to set your password." : "Payment confirmed. Your workspace is ready—sign in to continue.");
+          return;
+        }
+        if (result.status === "manual_review") {
+          setMessageTone("info");
+          setMessage("Payment was received, but this email is linked to more than one workspace. Support will help finish the setup.");
+          return;
+        }
+      } catch {
+        // Keep the honest initial state; the signed webhook may still be in flight.
+      }
+      attempts += 1;
+      if (active && attempts < 8) window.setTimeout(poll, 1500);
+    };
+    void poll();
+    return () => { active = false; };
+  }, [billingOutcome, checkoutSessionId]);
 
   async function signInWithProvider(provider: "google" | "azure") {
     const enabled = provider === "google" ? googleEnabled : microsoftEnabled;
@@ -439,6 +475,32 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
+    if (preauthSignup && selectedPlan) {
+      try {
+        const response = await fetch("/api/billing/preauth-checkout", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            planKey: selectedPlan.key,
+            email,
+            fullName: String(form.get("fullName") ?? "").trim(),
+            companyName: String(form.get("companyName") ?? "").trim(),
+            requestKey: crypto.randomUUID(),
+          }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+        if (!response.ok || !payload.url) {
+          setMessage(payload.error || "Paid signup could not be started. Please try again.");
+          setBusy(false);
+          return;
+        }
+        window.location.assign(payload.url);
+      } catch {
+        setMessage("Paid signup could not be started. Check your connection and try again.");
+        setBusy(false);
+      }
+      return;
+    }
     const client = createClient();
     if (resetMode) {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "https://costivra.ai";
@@ -469,7 +531,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     // transition can otherwise race the cookie write and be sent back to login.
     window.location.assign(destination);
   }
-  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span className="account-brand-wordmark">Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span>{selectedPlan && <span><CircleDollarSign aria-hidden="true" size={16} /> {selectedPlan.name} · {new Intl.NumberFormat("en-US", { style: "currency", currency: selectedPlan.currency, maximumFractionDigits: 0 }).format((selectedPlan.amountCents ?? 0) / 100)} / {selectedPlan.interval}</span>}</div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? selectedPlan ? `Create your account, then continue to secure checkout for ${selectedPlan.name}.` : "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : selectedPlan ? `Sign in to continue with ${selectedPlan.name}.` : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
+  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span className="account-brand-wordmark">Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span>{selectedPlan && <span><CircleDollarSign aria-hidden="true" size={16} /> {selectedPlan.name} · {new Intl.NumberFormat("en-US", { style: "currency", currency: selectedPlan.currency, maximumFractionDigits: 0 }).format((selectedPlan.amountCents ?? 0) / 100)} / {selectedPlan.interval}</span>}</div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? preauthSignup ? "Start with secure checkout." : "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? selectedPlan ? `Enter your details, then continue to secure checkout for ${selectedPlan.name}.` : "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : selectedPlan ? `Sign in to continue with ${selectedPlan.name}.` : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
   <div className="account-provider-grid" aria-label="Sign-in providers">
     {googleEnabled && (
       <button className="account-provider" type="button" disabled={Boolean(oauthProvider)} onClick={() => void signInWithProvider("google")}>
@@ -485,7 +547,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     )}
   </div>
 )}
-{!resetMode && (googleEnabled || microsoftEnabled) && <div className="account-divider"><span>or use email</span></div>}{signup && <div className="account-fields account-fields-double"><div className="field"><label htmlFor="full-name">Your name</label><input id="full-name" name="fullName" required autoComplete="name" /></div><div className="field"><label htmlFor="company-name">Company</label><input id="company-name" name="companyName" required autoComplete="organization" /></div></div>}<div className="account-fields"><div className="field"><label htmlFor="email">Work email</label><input id="email" name="email" required type="email" autoComplete="email" placeholder="you@company.com" /></div>{!resetMode && <div className="field"><div className="account-label-row"><label htmlFor="password">Password</label><button type="button" className="account-inline-link" onClick={() => { setResetMode(true); setMessage(""); router.replace("/login?mode=recovery"); }}>Forgot password?</button></div><input id="password" name="password" required type="password" minLength={10} autoComplete={signup ? "new-password" : "current-password"} /></div>}</div>{signup && <small className="account-hint">Use at least 10 characters.</small>}{message && <p role={messageTone === "error" ? "alert" : "status"} className={`account-message account-message--${messageTone}`}>{message}</p>}<button className="button button-primary account-submit" type="submit" disabled={busy || Boolean(oauthProvider)}>{busy ? "Working…" : resetMode ? "Email reset link" : signup ? "Create account" : "Sign in"}<ArrowRight aria-hidden="true" size={17} /></button><p className="account-switch">{resetMode ? <>Remember your password? <button type="button" className="account-inline-link" onClick={() => { setResetMode(false); setMessage(""); router.replace("/login"); }}>Back to sign in</button></> : signup ? <>Already have an account? <Link href={selectedPlan ? `/login?plan=${encodeURIComponent(selectedPlan.key)}` : "/login"}>Sign in</Link></> : <>New to Costivra? <Link href={selectedPlan ? `/signup?plan=${encodeURIComponent(selectedPlan.key)}` : "/signup"}>Create an account</Link></>}</p></form></div></PageFrame>;
+{!resetMode && (googleEnabled || microsoftEnabled) && <div className="account-divider"><span>or use email</span></div>}{signup && <div className="account-fields account-fields-double"><div className="field"><label htmlFor="full-name">Your name</label><input id="full-name" name="fullName" required autoComplete="name" /></div><div className="field"><label htmlFor="company-name">Company</label><input id="company-name" name="companyName" required autoComplete="organization" /></div></div>}<div className="account-fields"><div className="field"><label htmlFor="email">Work email</label><input id="email" name="email" required type="email" autoComplete="email" placeholder="you@company.com" /></div>{!resetMode && !preauthSignup && <div className="field"><div className="account-label-row"><label htmlFor="password">Password</label><button type="button" className="account-inline-link" onClick={() => { setResetMode(true); setMessage(""); router.replace("/login?mode=recovery"); }}>Forgot password?</button></div><input id="password" name="password" required type="password" minLength={10} autoComplete={signup ? "new-password" : "current-password"} /></div>}</div>{preauthSignup ? <small className="account-hint">You’ll set your password from the secure activation email after payment is confirmed.</small> : signup && <small className="account-hint">Use at least 10 characters.</small>}{message && <p role={messageTone === "error" ? "alert" : "status"} className={`account-message account-message--${messageTone}`}>{message}</p>}<button className="button button-primary account-submit" type="submit" disabled={busy || Boolean(oauthProvider)}>{busy ? preauthSignup ? "Opening secure checkout…" : "Working…" : resetMode ? "Email reset link" : preauthSignup ? "Continue to secure checkout" : signup ? "Create account" : "Sign in"}<ArrowRight aria-hidden="true" size={17} /></button><p className="account-switch">{resetMode ? <>Remember your password? <button type="button" className="account-inline-link" onClick={() => { setResetMode(false); setMessage(""); router.replace("/login"); }}>Back to sign in</button></> : signup ? <>Already have an account? <Link href={selectedPlan ? `/login?plan=${encodeURIComponent(selectedPlan.key)}` : "/login"}>Sign in</Link></> : <>New to Costivra? <Link href={selectedPlan ? `/signup?plan=${encodeURIComponent(selectedPlan.key)}` : "/signup"}>Create an account</Link></>}</p></form></div></PageFrame>;
 }
 
 function GoogleLogo() {

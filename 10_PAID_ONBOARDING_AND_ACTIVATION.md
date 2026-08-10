@@ -1,8 +1,8 @@
 # Packet 10: Paid Onboarding and Activation
 
-## Current status — August 9, 2026
+## Current status — August 10, 2026
 
-This packet remains the correct next milestone, but it is **partially implemented**. The durable activation checklist exists for already-created workspaces. True paid self-service onboarding does not exist yet.
+This packet is **partially implemented**. The durable activation checklist exists, and the direct paid creation handoff is now implemented. Full external payment, activation-email, and recovery proof remain open.
 
 Implemented today:
 
@@ -17,14 +17,18 @@ Implemented today:
 - Dynamic pricing is now managed from `/manage/settings` and displayed on public pages.
 - Public Starter/Growth plan cards carry the selected plan into `/signup?plan=...`; signup, sign-in, OAuth, and email-confirmation redirects preserve the choice and route an authenticated user to `/app/settings?tab=billing&plan=...`.
 - The Billing tab preselects that plan and offers the existing authenticated Checkout handoff.
+- Checkout returns preserve the selected plan; the Billing tab shows a truthful “waiting for signed webhook” state after success and a no-change message after cancellation.
 - A signed `checkout.session.completed` webhook marks an existing internal workspace's onboarding source as `paid_checkout`.
+- An unauthenticated Starter/Growth visitor can submit name, company, and work email at `/signup?plan=...`, then open Stripe Test subscription Checkout without a pre-existing Costivra account.
+- The signed webhook provisions or reuses one user, one organization, one owner membership, onboarding source `paid_checkout`, and billing customer through the service-only `billing_checkout_intents` record.
+- Repeated webhook delivery is idempotent; an email linked to multiple workspaces goes to manual review rather than selecting a tenant silently.
 
 Still open:
 
-- Direct pre-auth Checkout before an organization exists.
-- Signed-webhook-confirmed creation or reuse of the user, organization, and membership.
-- Idempotent reuse of an invited user or an already-created organization in the new paid path.
-- Preserving `paid_checkout` when the onboarding sync runs after the webhook.
+- Real Stripe Test Checkout and signed-webhook proof, including delayed delivery.
+- Browser proof that the Supabase activation email opens `/set-password` with a usable session and lands in `/app`.
+- The paid invite now lands at `/auth/invite`, exchanges the Supabase invite token server-side, and then redirects to `/set-password`; this still needs a real-email browser proof.
+- Support tooling for the multiple-workspace manual-review case and expired activation links.
 - Plan entitlements enforced during onboarding and later paid actions.
 - Paid welcome, reminder, forwarding, review-needed, and activation-complete email triggers.
 - Manage account views showing subscription, onboarding progress, blocker, and last customer action.
@@ -50,6 +54,7 @@ src/app/scan/
 src/app/login/
 src/app/set-password/
 src/app/auth/
+src/app/auth/invite/route.ts
 src/app/app/
 src/app/api/billing/checkout/route.ts
 src/app/api/webhooks/stripe/route.ts
@@ -76,16 +81,14 @@ supabase/migrations/20260809061921_packet_10_organization_onboarding.sql
 5. Customer enters the existing `/app` workspace.
 6. The Activation Checklist guides company details, documents, review, and monitoring.
 
-### Path B: Paid self-service — partial handoff implemented; provisioning is not complete
+### Path B: Paid self-service — direct paid creation implemented; proof gates remain
 
-1. Visitor selects a dynamic plan from public pricing.
-2. Visitor creates or signs into a Costivra account; the selected plan survives the auth/email-confirmation handoff.
-3. An authenticated owner/admin opens `/app/settings?tab=billing&plan=...` and starts Stripe Checkout for the existing workspace.
-4. Signed Stripe webhook confirms the Checkout/subscription and marks the existing onboarding row `paid_checkout`.
-5. Customer completes guided activation.
-6. Entitlements control paid actions.
-
-The missing future step is direct pre-auth Checkout with signed-webhook provisioning or reuse of exactly one user/workspace. Do not describe the current flow as if Stripe can create a Costivra workspace by itself.
+1. Visitor selects a dynamic Starter/Growth plan from public pricing.
+2. Visitor submits name, company, and work email at `/signup?plan=...`.
+3. `/api/billing/preauth-checkout` creates a short-lived intent and Stripe subscription Checkout Session in the configured mode.
+4. Signed Stripe webhook confirms the payment and provisions or reuses exactly one user, organization, owner membership, onboarding projection, and billing customer.
+5. A new user follows the secure activation email to set a password; an existing user signs in. Multiple-workspace matches go to support review.
+6. Customer completes guided activation; subscription events update billing and entitlements.
 
 Both paths must converge on the same organization, membership, billing, and activation records.
 
@@ -130,7 +133,7 @@ It stores:
 
 Current synchronization derives progress from authoritative records. It does not infer activation from the absence of errors.
 
-Current limitation: the sync route preserves the existing source and defaults new rows to `internal`. The Stripe webhook now explicitly writes `paid_checkout` for an existing workspace, but there is still no pre-auth provisioning path for a visitor who has no workspace row yet.
+Current limitation: the sync route preserves the existing source and defaults new rows to `internal`. The paid Checkout webhook explicitly writes `paid_checkout` for existing and newly provisioned workspaces; the remaining gap is external proof and support recovery, not the provisioning code path.
 
 ## Guided steps
 
@@ -201,22 +204,23 @@ Do not add another top-level customer navigation page. The customer may dismiss 
 
 ## Pricing CTA behavior
 
-The public homepage and `/pricing` now display the owner-managed catalog. Starter/Growth plan cards lead to `/signup?plan=...`, preserve the selection through authentication, and hand the customer to the existing Billing tab. They do not start Stripe Checkout directly for an unauthenticated visitor.
+The public homepage and `/pricing` now display the owner-managed catalog. Starter/Growth plan cards lead to `/signup?plan=...`; the signup form can start direct pre-auth Stripe Checkout. An existing signed-in user can still use the authenticated Billing tab for an existing workspace.
 
 Required behavior for the current handoff:
 
 - the free scan and contact paths remain honest;
 - a paid plan CTA carries a stable plan key into signup/sign-in;
-- an authenticated owner/admin can review that plan and open Checkout for the existing organization;
+- an authenticated owner/admin can review that plan and open Checkout for the existing organization, or a new visitor can continue directly to Checkout;
 - a signed-in non-owner cannot start billing for another organization;
-- Checkout cancellation/success return to `/app/settings?tab=billing` without granting access from the redirect alone;
+- Checkout cancellation/success return to `/app/settings?tab=billing&plan=...` with an explicit outcome message, without granting access from the redirect alone;
 - no paid button appears for an inactive or unconfigured plan.
 
-Required behavior for the future full self-service path:
+Required behavior for the implemented direct path:
 
 - an unauthenticated visitor may complete Checkout before a workspace exists;
 - the signed webhook provisions or reuses exactly one user, organization, and membership idempotently;
-- the webhook sets `organization_onboarding.source = paid_checkout` for that new/reused workspace.
+- the webhook sets `organization_onboarding.source = paid_checkout` for that new/reused workspace;
+- no access is granted from the success URL or from an unsigned client request.
 
 ## Entitlement enforcement
 
@@ -325,13 +329,13 @@ npm run test:e2e:authenticated
 - Founder-led and paid customers converge on the same system of record.
 - Signed Stripe webhook controls paid access.
 - Provisioning is idempotent and reuses existing users/organizations.
-- Existing paid Checkout sets onboarding source to `paid_checkout`; the future pre-auth provisioning path must do the same for a newly created/reused workspace.
+- Existing and direct pre-auth paid Checkout set onboarding source to `paid_checkout` for the newly created/reused workspace.
 - Onboarding is short, honest, and resumable.
 - Activation uses real authoritative states.
 - Automatic monitoring is not claimed complete without a successful test.
 - Entitlements gate paid actions server-side.
 - Existing data remains accessible when billing has an issue.
 - Manage shows onboarding and billing context.
-- Public paid CTAs carry the selected plan into the authenticated Billing flow; direct pre-auth Checkout remains an explicit follow-up milestone.
+- Public paid CTAs carry the selected plan into either direct pre-auth Checkout or the authenticated Billing flow for an existing workspace.
 - No unnecessary top-level app page is added.
 - No branch, commit, push, merge, or deployment is performed by the coding agent.
