@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, Copy, FileText, LockKeyhole, Pencil, X } from "lucide-react";
+import { Check, ChevronRight, Copy, FileText, LockKeyhole, Pencil, X } from "@/lib/icons";
 import { useState } from "react";
 import { useToast } from "@/components/toast-provider";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";

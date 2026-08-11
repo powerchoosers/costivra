@@ -3,7 +3,7 @@
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import { ResponseBlockRenderer } from "./response-block-renderer";
 import { useClientAssistant } from "./client-assistant-provider";
-import { FileText, ArrowRight } from "lucide-react";
+import { FileText, ArrowRight } from "@/lib/icons";
 import { useEffect, useRef, type CSSProperties } from "react";
 
 export function MessageThread() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, KeyboardEvent } from "react";
-import { Send, Paperclip, X, LoaderCircle } from "lucide-react";
+import { Send, Paperclip, X, LoaderCircle } from "@/lib/icons";
 import { useClientAssistant } from "./client-assistant-provider";
 
 export function AssistantComposer() {

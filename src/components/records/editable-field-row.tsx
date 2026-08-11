@@ -11,7 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { Check, ClipboardPaste, Copy, Edit2, LoaderCircle } from "lucide-react";
+import { Check, ClipboardPaste, Copy, Edit2, LoaderCircle } from "@/lib/icons";
 
 export type FieldInputConfig =
   | { kind: "text"; maxLength?: number }

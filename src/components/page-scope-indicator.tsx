@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Globe2, MapPin, ReceiptText } from "lucide-react";
+import { Building2, Globe2, MapPin, ReceiptText } from "@/lib/icons";
 import type { ReactNode } from "react";
 
 export type PageScopeMode = "global" | "vendor" | "account" | "invoice";

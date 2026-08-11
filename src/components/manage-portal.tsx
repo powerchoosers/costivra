@@ -70,7 +70,7 @@ import {
   UserPlus,
   Users,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 import type {
   ManageAccount,
   ManageApolloSearchResult,

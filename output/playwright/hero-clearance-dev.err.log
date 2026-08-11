@@ -1129,3 +1129,376 @@ Owner portal API error: INTERNAL_ERROR
     at ignore-listed frames {
   digest: '463561386@E394'
 }
+⨯ TypeError: {imported module ./nodemodules/next/dist/server/route-modules/app-page/vendored/rsc/react.js}.createContext is not a function
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive,
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/app'
+}
+⚠ Fast Refresh had to perform a full reload when ./src/components/toast-provider.tsx changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⚠ Fast Refresh had to perform a full reload when ./src/components/toast-provider.tsx changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⚠ Fast Refresh had to perform a full reload when ./src/components/toast-provider.tsx changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⨯ TypeError: {imported module ./nodemodules/next/dist/server/route-modules/app-page/vendored/rsc/react.js}.createContext is not a function
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive,
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach/sequences/ead80fb5-5298-4898-8c7c-d7b69e9fdbaf'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach/sequences/ead80fb5-5298-4898-8c7c-d7b69e9fdbaf'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach/sequences/ead80fb5-5298-4898-8c7c-d7b69e9fdbaf'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach/sequences/ead80fb5-5298-4898-8c7c-d7b69e9fdbaf'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach/sequences/ead80fb5-5298-4898-8c7c-d7b69e9fdbaf'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach/sequences/ead80fb5-5298-4898-8c7c-d7b69e9fdbaf'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: {imported module ./nodemodules/next/dist/server/route-modules/app-page/vendored/rsc/react.js}.createContext is not a function
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive,
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/favicon.ico'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/favicon.ico'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/favicon.ico'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage/outreach'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/manage'
+}
+[browser] Uncaught TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src/lib/icons.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:22:1)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive,
+[browser] Uncaught TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src/lib/icons.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:22:1)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive,
+[browser] Uncaught TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src/lib/icons.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:22:1)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive,
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/favicon.ico'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/favicon.ico'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/favicon.ico'
+}
+⨯ TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src\lib\icons.tsx:2:1)
+    at module evaluation (src\app\not-found.tsx:2:1)
+    at module evaluation (C:\Users\Lap3p\OneDrive\Documents\Costivra\.next\dev\server\chunks\ssr\src_07lx595._.js:766:47)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive, {
+  page: '/favicon.ico'
+}
+[browser] Uncaught TypeError: createContext only works in Client Components. Add the "use client" directive at the top of the file to use it. Read more: https://nextjs.org/docs/messages/context-in-server-component
+    at module evaluation (src/lib/icons.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:2:1)
+    at module evaluation (src/app/not-found.tsx:22:1)
+  1 | import { forwardRef } from "react";
+> 2 | import {
+    | ^
+  3 |   AlignLeft as PhosphorAlignLeft,
+  4 |   AlignRight as PhosphorAlignRight,
+  5 |   Archive as PhosphorArchive,

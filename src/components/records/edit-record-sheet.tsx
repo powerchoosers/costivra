@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { AlertTriangle, LoaderCircle, X } from "lucide-react";
+import { AlertTriangle, LoaderCircle, X } from "@/lib/icons";
 
 export type EditRecordSheetProps = {
   title: string;

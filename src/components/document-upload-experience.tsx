@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   UploadCloud,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 import {
   submitDocumentUpload,
   waitForDocumentBreakdown,

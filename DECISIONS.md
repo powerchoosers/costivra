@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-10 — Standardize the site on Phosphor icons
+
+### Context
+
+Lucide and Phosphor were being used together, which made the customer and internal navigation surfaces feel inconsistent and made future icon changes harder to control. Directly renaming every icon would also risk changing sizing and layout props across existing components.
+
+### Decision
+
+Use `@phosphor-icons/react` as the only icon package. Keep shared compatibility exports in `src/lib/icons.tsx` so existing Lucide-shaped props such as `size`, `className`, and `strokeWidth` continue to render consistently while the underlying glyphs come from Phosphor. Mark the adapter as a client boundary because Phosphor uses React context during module evaluation.
+
+### Consequences
+
+Customer, Manage, records, assistant, marketing, and shared UI components now use one icon family without changing their layout contracts. New icons should be added to the Phosphor-backed adapter or imported directly from Phosphor; do not reintroduce `lucide-react`.
+
 ## 2026-08-09 — Treat report timezones and empty-report behavior as server policy
 
 ### Context

@@ -23,7 +23,7 @@ import {
   Trash2,
   Users,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 import {
   DndContext,
   KeyboardSensor,
@@ -239,26 +239,32 @@ export function SequenceMachine({
           <li className="sequence-machine__start"><span>Start</span><strong>When a contact is enrolled</strong></li>
           {orderedSteps.length === 0
             ? <SequenceInsertControl afterStepId={null} first disabled={busy || readOnly} open={insertTarget?.afterStepId === null} closing={insertTarget?.closing === true} onOpen={() => setInsertTarget({ afterStepId: null, closing: false })} onClose={closeInsert} onAdd={addStep} />
-            : orderedSteps.map((step, index) => <SequenceFlowItem
-              key={step.id}
-              step={step}
-              index={index}
-              total={orderedSteps.length}
-              expanded={expandedStepId === step.id && stepIds.includes(step.id)}
-              busy={busy}
-              readOnly={readOnly}
-              onToggle={() => setExpandedStepId((current) => current === step.id ? null : step.id)}
-              onSave={onSaveStep}
-              onMove={moveStep}
-              onDelete={onDelete}
-              onDuplicate={onDuplicate}
-              onTestSend={onTestSend}
-              insertOpen={insertTarget?.afterStepId === step.id}
-              insertClosing={insertTarget?.afterStepId === step.id && insertTarget?.closing === true}
-              onOpenInsert={() => setInsertTarget({ afterStepId: step.id, closing: false })}
-              onCloseInsert={closeInsert}
-              onAdd={addStep}
-            />)}
+            : <>
+              {orderedSteps.map((step, index) => <SequenceFlowItem
+                key={step.id}
+                step={step}
+                index={index}
+                total={orderedSteps.length}
+                expanded={expandedStepId === step.id && stepIds.includes(step.id)}
+                busy={busy}
+                readOnly={readOnly}
+                onToggle={() => setExpandedStepId((current) => current === step.id ? null : step.id)}
+                onSave={onSaveStep}
+                onMove={moveStep}
+                onDelete={onDelete}
+                onDuplicate={onDuplicate}
+                onTestSend={onTestSend}
+              />)}
+              <SequenceInsertControl
+                afterStepId={orderedSteps[orderedSteps.length - 1].id}
+                disabled={busy || readOnly}
+                open={insertTarget?.afterStepId === orderedSteps[orderedSteps.length - 1].id}
+                closing={insertTarget?.afterStepId === orderedSteps[orderedSteps.length - 1].id && insertTarget?.closing === true}
+                onOpen={() => setInsertTarget({ afterStepId: orderedSteps[orderedSteps.length - 1].id, closing: false })}
+                onClose={closeInsert}
+                onAdd={addStep}
+              />
+            </>}
         </ol>
       </SortableContext>
     </DndContext>
@@ -289,11 +295,6 @@ function SequenceFlowItem({
   onDelete,
   onDuplicate,
   onTestSend,
-  insertOpen,
-  insertClosing,
-  onOpenInsert,
-  onCloseInsert,
-  onAdd,
 }: {
   step: SequenceStep;
   index: number;
@@ -307,16 +308,10 @@ function SequenceFlowItem({
   onDelete: (stepId: string) => void;
   onDuplicate: (step: SequenceStep) => void;
   onTestSend: (stepId: string) => Promise<void>;
-  insertOpen: boolean;
-  insertClosing: boolean;
-  onOpenInsert: () => void;
-  onCloseInsert: (immediate?: boolean) => void;
-  onAdd: (type: SequenceStepType, options?: SequenceStepAddOptions) => Promise<string | undefined>;
 }) {
   return <>
     <SequenceDelayConnector step={step} first={index === 0} />
     <SortableSequenceCard step={step} index={index} total={total} expanded={expanded} busy={busy} readOnly={readOnly} onToggle={onToggle} onSave={onSave} onMove={onMove} onDelete={onDelete} onDuplicate={onDuplicate} onTestSend={onTestSend} />
-    <SequenceInsertControl afterStepId={step.id} disabled={busy || readOnly} open={insertOpen} closing={insertClosing} onOpen={onOpenInsert} onClose={onCloseInsert} onAdd={onAdd} />
   </>;
 }
 
@@ -399,8 +394,36 @@ function SortableSequenceCard({ step, index, total, expanded, busy, readOnly, on
 }) {
   const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, transition, isDragging } = useSortable({ id: step.id, disabled: readOnly || busy });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteClosing, setDeleteClosing] = useState(false);
+  const deleteCloseTimer = useRef<number | null>(null);
   const style = { transform: CSS.Transform.toString(transform), transition };
   const Icon = step.stepType === "automatic_email" ? Mail : step.stepType === "manual_email" ? FileText : step.stepType === "call_task" ? Users : Check;
+
+  useEffect(() => () => {
+    if (deleteCloseTimer.current !== null) window.clearTimeout(deleteCloseTimer.current);
+  }, []);
+
+  const closeDelete = (immediate = false) => {
+    if (!deleteOpen || deleteClosing) return;
+    if (deleteCloseTimer.current !== null) window.clearTimeout(deleteCloseTimer.current);
+    if (immediate) {
+      setDeleteOpen(false);
+      setDeleteClosing(false);
+      return;
+    }
+    setDeleteClosing(true);
+    deleteCloseTimer.current = window.setTimeout(() => {
+      setDeleteOpen(false);
+      setDeleteClosing(false);
+      deleteCloseTimer.current = null;
+    }, 180);
+  };
+
+  const confirmDelete = () => {
+    closeDelete(true);
+    onDelete(step.id);
+  };
 
   return <li ref={setNodeRef} style={style} className={`sequence-machine__card${expanded ? " is-expanded" : ""}${isDragging ? " is-dragging" : ""}`}>
     <header className="sequence-machine__card-header">
@@ -411,9 +434,10 @@ function SortableSequenceCard({ step, index, total, expanded, busy, readOnly, on
       <div className="sequence-machine__card-actions">
         <button ref={setActivatorNodeRef} type="button" className="sequence-machine__icon-button sequence-machine__drag" aria-label={`Drag step ${index + 1}`} disabled={readOnly || busy} onClick={(event) => event.stopPropagation()} {...attributes} {...listeners}><GripVertical size={17} /></button>
         <button type="button" className="sequence-machine__icon-button" onClick={onToggle} aria-label={expanded ? "Collapse step" : "Edit step"}>{expanded ? <ArrowUp size={16} /> : <ArrowDown size={16} />}</button>
-        <div className="sequence-machine__more-wrap"><button type="button" className="sequence-machine__icon-button" onClick={() => setMenuOpen((value) => !value)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label="More step actions"><MoreHorizontal size={17} /></button>{menuOpen && <div className="sequence-machine__more-menu" role="menu"><button type="button" role="menuitem" disabled={readOnly || busy || index === 0} onClick={() => { onMove(step.id, -1); setMenuOpen(false); }}><ArrowUp size={14} /> Move earlier</button><button type="button" role="menuitem" disabled={readOnly || busy || index === total - 1} onClick={() => { onMove(step.id, 1); setMenuOpen(false); }}><ArrowDown size={14} /> Move later</button><button type="button" role="menuitem" disabled={readOnly || busy} onClick={() => { onDuplicate(step); setMenuOpen(false); }}><Copy size={14} /> Duplicate</button><button type="button" role="menuitem" className="is-danger" disabled={readOnly || busy} onClick={() => { onDelete(step.id); setMenuOpen(false); }}><Trash2 size={14} /> Delete</button></div>}</div>
+        <div className="sequence-machine__more-wrap"><button type="button" className="sequence-machine__icon-button" onClick={() => setMenuOpen((value) => !value)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label="More step actions"><MoreHorizontal size={17} /></button>{menuOpen && <div className="sequence-machine__more-menu" role="menu"><button type="button" role="menuitem" disabled={readOnly || busy || index === 0} onClick={() => { onMove(step.id, -1); setMenuOpen(false); }}><ArrowUp size={14} /> Move earlier</button><button type="button" role="menuitem" disabled={readOnly || busy || index === total - 1} onClick={() => { onMove(step.id, 1); setMenuOpen(false); }}><ArrowDown size={14} /> Move later</button><button type="button" role="menuitem" disabled={readOnly || busy} onClick={() => { onDuplicate(step); setMenuOpen(false); }}><Copy size={14} /> Duplicate</button><button type="button" role="menuitem" className="is-danger" disabled={readOnly || busy} onClick={() => { setDeleteOpen(true); setDeleteClosing(false); setMenuOpen(false); }}><Trash2 size={14} /> Delete</button></div>}</div>
       </div>
     </header>
+    {deleteOpen && <div className={`sequence-machine__delete-popover${deleteClosing ? " is-closing" : ""}`} role="dialog" aria-label={`Confirm deleting ${stepLabel(step.stepType)} step`}><strong>Delete this step?</strong><p>This removes it from the sequence and cannot be undone.</p><div><button type="button" className="manage-button manage-button--quiet" onClick={() => closeDelete()} disabled={busy}>Keep step</button><button type="button" className="manage-button manage-button--danger" onClick={confirmDelete} disabled={busy}><Trash2 size={14} /> Delete</button></div></div>}
     {expanded && <SequenceStepEditor step={step} index={index} busy={busy} readOnly={readOnly} onSave={onSave} onTestSend={onTestSend} />}
   </li>;
 }

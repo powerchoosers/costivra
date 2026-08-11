@@ -1,7 +1,7 @@
 "use client";
 
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
-import { Plus, History, Maximize2, Minimize2, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Plus, History, Maximize2, Minimize2, X, PanelLeftClose, PanelLeftOpen } from "@/lib/icons";
 import { useClientAssistant } from "./client-assistant-provider";
 
 export function AssistantHeader() {

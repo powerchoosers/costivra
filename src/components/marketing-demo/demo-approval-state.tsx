@@ -1,4 +1,4 @@
-import { Check, CircleAlert, ShieldCheck, X } from "lucide-react";
+import { Check, CircleAlert, ShieldCheck, X } from "@/lib/icons";
 
 export type DemoApprovalDecision = "pending" | "approved" | "declined";
 

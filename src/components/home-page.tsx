@@ -17,7 +17,7 @@ import {
   UserCheck,
   Users,
   Zap,
-} from "lucide-react";
+} from "@/lib/icons";
 import { Faq } from "@/components/faq";
 import { PublicProofSection } from "@/components/public-proof-section";
 

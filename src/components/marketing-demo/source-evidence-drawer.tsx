@@ -1,4 +1,4 @@
-import { ArrowRight, Check, X } from "lucide-react";
+import { ArrowRight, Check, X } from "@/lib/icons";
 import { useEffect, useRef, type RefObject } from "react";
 import { DEMO_FINDING, DEMO_SOURCE_LINES } from "./demo-data";
 

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Copy, FileSearch, Pencil, Search, UserRoundCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Copy, FileSearch, Pencil, Search, UserRoundCheck } from "@/lib/icons";
 import type { InvoiceReviewDetail, InvoiceReviewQueueItem, ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { useToast } from "@/components/toast-provider";

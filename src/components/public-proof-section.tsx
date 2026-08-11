@@ -1,4 +1,4 @@
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check } from "@/lib/icons";
 import Link from "next/link";
 import { METHODOLOGY_PROOF, publicProofStageLabel, resolvePublicProof, type ApprovedPublicProof, type PublicProof } from "@/lib/public-proof";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useId } from "react";
-import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, ChevronLeft, ChevronRight, X } from "@/lib/icons";
 
 export interface CostivraDateTimePickerProps {
   name?: string;

@@ -10,7 +10,7 @@ import {
   EyeOff,
   Info,
   LockKeyhole,
-} from "lucide-react";
+} from "@/lib/icons";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { CostivraMark } from "@/components/brand";

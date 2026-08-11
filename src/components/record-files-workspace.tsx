@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isDocumentDownloadableStatus } from "@/lib/documents/access";

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { ArrowLeft, RotateCcw } from "@/lib/icons";
 import { CostivraMark } from "@/components/brand";
 
 export default function ErrorPage({

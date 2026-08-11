@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   TrendingUp,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 
 export type BreakdownData = {

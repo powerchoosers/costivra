@@ -12,7 +12,7 @@ import {
   ListOrdered,
   Layers,
   ExternalLink,
-} from "lucide-react";
+} from "@/lib/icons";
 import type { AssistantBlockV1 } from "@/lib/client-assistant/types";
 import { AssistantCardShell } from "./assistant-card-shell";
 import { CardStatus, StatusTone } from "./card-status";

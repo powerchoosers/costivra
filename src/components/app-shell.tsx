@@ -4,23 +4,25 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
-  Building2,
-  ChartNoAxesCombined,
-  CheckSquare2,
-  ChevronsUpDown,
-  FileStack,
+  Building,
+  ChartLine,
+  CheckSquare,
+  CaretUpDown,
+  Files,
   FileText,
-  LayoutDashboard,
-  MoreHorizontal,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Layout,
+  List,
+  CaretLeft,
+  CaretRight,
   Plus,
-  ReceiptText,
-  Settings,
+  Receipt,
+  Gear,
   ShieldCheck,
   Target,
   Upload,
-} from "lucide-react";
+  MagnifyingGlass,
+  X,
+} from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/brand";
 import { CompanyLogo } from "@/components/company-logo";
@@ -44,13 +46,13 @@ export interface NavigationGroup {
 
 export const navigationGroups: readonly NavigationGroup[] = [
   {
-    items: [["Command Center", "/app", LayoutDashboard]],
+    items: [["Command Center", "/app", Layout]],
   },
   {
     section: "MONITOR",
     items: [
-      ["Vendors", "/app/vendors", Building2],
-      ["Bills & Spend", "/app/bills", ReceiptText],
+      ["Vendors", "/app/vendors", Building],
+      ["Bills & Spend", "/app/bills", Receipt],
       ["Contracts", "/app/contracts", FileText],
     ],
   },
@@ -58,17 +60,17 @@ export const navigationGroups: readonly NavigationGroup[] = [
     section: "OPTIMIZE",
     items: [
       ["Findings", "/app/findings", Target],
-      ["Actions", "/app/actions", CheckSquare2],
+      ["Actions", "/app/actions", CheckSquare],
     ],
   },
   {
     section: "PROVE",
     items: [
-      ["Results", "/app/results", ChartNoAxesCombined],
+      ["Results", "/app/results", ChartLine],
     ],
   },
   {
-    items: [["Settings", "/app/settings", Settings]],
+    items: [["Settings", "/app/settings", Gear]],
   },
 ];
 
@@ -114,7 +116,6 @@ export function isRouteActive(navHref: string, pathname: string): boolean {
 }
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
-import { Search, X } from "lucide-react";
 
 export interface AppSearchResult {
   id: string;
@@ -135,13 +136,13 @@ export const searchCategoryLabels: Record<AppSearchResult["category"], string> =
 };
 
 export const searchCategoryIcons = {
-  vendors: Building2,
-  bills: ReceiptText,
+  vendors: Building,
+  bills: Receipt,
   contracts: FileText,
   findings: Target,
-  actions: CheckSquare2,
-  documents: FileStack,
-  expenses: ReceiptText,
+  actions: CheckSquare,
+  documents: Files,
+  expenses: Receipt,
 };
 
 function appSearchResults(data: PortalData, query: string) {
@@ -490,7 +491,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         <button className="org-switcher" type="button" onClick={() => setOrgOpen(!orgOpen)}>
           <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-logo" />
           <span className="app-organization-copy"><strong>{data.organization.name}</strong><small>{data.locations.length} location{data.locations.length === 1 ? "" : "s"}</small></span>
-          <ChevronsUpDown aria-hidden="true" size={14} />
+          <CaretUpDown aria-hidden="true" size={14} />
         </button>
         {orgOpen && (
           <div className="app-organization-menu" role="dialog" aria-label="Workspace summary">
@@ -508,7 +509,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const globalSearch = (
     <div className="app-sidebar-search app-global-search-wrap" ref={searchContainerRef}>
       <label className="manage-search global-search">
-        <Search aria-hidden="true" size={15} />
+        <MagnifyingGlass aria-hidden="true" size={15} />
         <input aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search..." />
         <span className="manage-kbd">⌘K</span>
       </label>
@@ -532,7 +533,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         {orgOpen && <div className="app-organization-menu"><div className="app-organization-menu-heading"><CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-menu-logo" /><span><strong>{data.organization.name}</strong><small>{data.locations.length} location{data.locations.length === 1 ? "" : "s"}</small></span></div><div className="app-organization-menu-stat"><span>Source documents</span><strong>{data.documents.length}</strong></div><div className="app-organization-menu-stat"><span>Monitored spend</span><strong>{new Intl.NumberFormat("en-US", { style:"currency", currency:data.organization.currency, notation:"compact", maximumFractionDigits:1 }).format(spend)} / yr</strong></div></div>}
       </div>
       <div className="app-mobile-utility-search app-global-search-wrap">
-        <label className="manage-search global-search"><Search aria-hidden="true" size={15} /><input aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search..." /><span className="manage-kbd">⌘K</span></label>
+        <label className="manage-search global-search"><MagnifyingGlass aria-hidden="true" size={15} /><input aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search..." /><span className="manage-kbd">⌘K</span></label>
         {(searchFocused || searchClosing) && searchQuery.trim() && <div className={`app-global-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}</div>}
       </div>
     </div>
@@ -592,7 +593,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 href="/app/settings"
                 aria-label="Settings"
               >
-                <Settings aria-hidden="true" size={18} />
+                <Gear aria-hidden="true" size={18} />
                 <span className="nav-label">Settings</span>
               </Link>
             </nav>
@@ -641,7 +642,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 aria-pressed={sidebarCollapsed}
                 onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
               >
-                {sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" size={18} /> : <PanelLeftClose aria-hidden="true" size={18} />}
+                {sidebarCollapsed ? <CaretRight aria-hidden="true" size={18} /> : <CaretLeft aria-hidden="true" size={18} />}
               </button>
               <span className="app-topbar-divider" aria-hidden="true" />
               {appHeader.vendor && <CompanyLogo entity="vendor" id={appHeader.vendor.id} name={appHeader.vendor.name} className="app-topbar-record-logo" />}
@@ -668,7 +669,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                       <span className="app-create-label"><strong>Upload document</strong><small>Bill, contract, or source file</small></span>
                     </Link>
                     <Link href={pathname} role="menuitem" onClick={(event) => { event.preventDefault(); openGlobalCreateAction("add-vendor"); }}>
-                      <span className="app-create-icon"><Building2 aria-hidden="true" size={16} /></span>
+                      <span className="app-create-icon"><Building aria-hidden="true" size={16} /></span>
                       <span className="app-create-label"><strong>Add vendor</strong><small>Start a vendor relationship</small></span>
                     </Link>
                     <Link href={pathname} role="menuitem" onClick={(event) => { event.preventDefault(); openGlobalCreateAction("add-contract"); }}>
@@ -693,11 +694,11 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 
           <nav className="app-mobile-nav" aria-label="Mobile workspace navigation">
             <Link className={isRouteActive("/app", pathname) ? "active" : ""} href="/app" aria-label="Open Command Center" onClick={() => setMobileMenuOpen(false)}>
-              <LayoutDashboard aria-hidden="true" size={20} />
+              <Layout aria-hidden="true" size={20} />
               <span>Overview</span>
             </Link>
             <Link className={isRouteActive("/app/bills", pathname) ? "active" : ""} href="/app/bills" aria-label="Open Bills & Spend" onClick={() => setMobileMenuOpen(false)}>
-              <ReceiptText aria-hidden="true" size={20} />
+              <Receipt aria-hidden="true" size={20} />
               <span>Bills</span>
             </Link>
             <Link className={isRouteActive("/app/findings", pathname) ? "active" : ""} href="/app/findings" aria-label="Open Findings" onClick={() => setMobileMenuOpen(false)}>
@@ -705,7 +706,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
               <span>Findings</span>
             </Link>
             <Link className={isRouteActive("/app/actions", pathname) ? "active" : ""} href="/app/actions" aria-label="Open Actions" onClick={() => setMobileMenuOpen(false)}>
-              <CheckSquare2 aria-hidden="true" size={20} />
+              <CheckSquare aria-hidden="true" size={20} />
               <span>Actions</span>
             </Link>
             <button
@@ -715,7 +716,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
               aria-label="Toggle navigation menu"
               aria-expanded={mobileMenuOpen}
             >
-              <MoreHorizontal aria-hidden="true" size={21} />
+              <List aria-hidden="true" size={21} />
               <span>Menu</span>
             </button>
           </nav>

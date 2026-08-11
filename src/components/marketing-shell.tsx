@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X } from "@/lib/icons";
 import { useEffect, useRef, useState } from "react";
 import { Brand } from "@/components/brand";
 

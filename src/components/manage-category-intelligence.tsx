@@ -7,7 +7,7 @@ import {
   Globe,
   Layers,
   ShieldCheck,
-} from "lucide-react";
+} from "@/lib/icons";
 import { TRUSTED_SOURCES_REGISTRY } from "@/lib/category-intelligence/source-registry";
 import { getRegisteredExpertPacks } from "@/lib/category-intelligence/packs";
 

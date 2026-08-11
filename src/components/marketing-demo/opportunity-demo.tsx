@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Gauge, LayoutDashboard, RadioTower, ShieldCheck } from "lucide-react";
+import { FileText, Gauge, LayoutDashboard, RadioTower, ShieldCheck } from "@/lib/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEMO_FINDING, DEMO_STAGES, type DemoStageId } from "./demo-data";
 import { DemoApprovalState, type DemoApprovalDecision } from "./demo-approval-state";

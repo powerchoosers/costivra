@@ -14,7 +14,7 @@ import {
   Send,
   UserRound,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import type {
   ManageAssistantSource,

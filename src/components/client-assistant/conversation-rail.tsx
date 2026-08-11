@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
-import { Search, Pin, MessageSquare } from "lucide-react";
+import { Search, Pin, MessageSquare } from "@/lib/icons";
 import { useClientAssistant } from "./client-assistant-provider";
 
 export function ConversationRail() {

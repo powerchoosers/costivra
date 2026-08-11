@@ -36,7 +36,7 @@ import {
   Users,
   Warehouse,
   Zap,
-} from "lucide-react";
+} from "@/lib/icons";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { CostivraMark } from "@/components/brand";
 import { createClient } from "@/lib/supabase/client";

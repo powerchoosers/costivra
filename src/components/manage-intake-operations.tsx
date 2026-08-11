@@ -13,7 +13,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-} from "lucide-react";
+} from "@/lib/icons";
 import { useToast } from "@/components/toast-provider";
 import {
   canRescanInboundEvent,

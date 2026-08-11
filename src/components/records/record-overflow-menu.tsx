@@ -10,7 +10,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical } from "@/lib/icons";
 
 export type RecordMenuItem = {
   id: string;

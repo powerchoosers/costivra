@@ -1,4 +1,4 @@
-import { CircleCheck, Clock3, FileCheck2 } from "lucide-react";
+import { CircleCheck, Clock3, FileCheck2 } from "@/lib/icons";
 import { DEMO_FINDING } from "./demo-data";
 
 export function DemoVerificationState() {

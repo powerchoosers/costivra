@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from "lucide-react";
+import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from "@/lib/icons";
 import Link from "next/link";
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 

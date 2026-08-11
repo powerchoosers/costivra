@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarClock, Check, ChevronDown, ChevronUp, CircleAlert, Copy, Eye, FileText, LoaderCircle, Mail, MessageSquareText, MoreHorizontal, Pause, Play, Plus, RefreshCw, Search, Send, Settings2, Trash2, Users, X } from "lucide-react";
+import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarClock, Check, ChevronDown, ChevronUp, CircleAlert, Copy, Eye, FileText, LoaderCircle, Mail, MessageSquareText, MoreHorizontal, Pause, Play, Plus, RefreshCw, Search, Send, Settings2, Trash2, Users, X } from "@/lib/icons";
 import type { ManageData } from "@/lib/manage/types";
 import type { Sequence, SequenceStep, SequenceStepType, Enrollment } from "@/lib/manage/sequences/types";
 import { sanitizeEmailHtml } from "@/lib/manage/sanitize-email-html";
@@ -107,6 +107,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   const [showNew, setShowNew] = useState(false);
   const [newSheetClosing, setNewSheetClosing] = useState(false);
   const newSheetCloseTimer = useRef<number | null>(null);
+  const localMutationRevision = useRef(0);
   const [showEnroll, setShowEnroll] = useState(false);
   const [showActivationReview, setShowActivationReview] = useState(false);
   const [name, setName] = useState("");
@@ -229,17 +230,20 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   const pageSequences = visibleSequences.slice((currentSequencePage - 1) * sequencePageSize, currentSequencePage * sequencePageSize);
 
   const load = useCallback(async () => {
+    const requestRevision = localMutationRevision.current;
     setLoading(true); setError(null);
     try {
       const sequenceRequest = sequenceId
         ? requestJson(`/api/manage/outreach/sequences/${sequenceId}`)
         : requestJson("/api/manage/outreach/sequences");
       const [sequencePayload, enrollmentPayload] = await Promise.all([sequenceRequest, requestJson("/api/manage/outreach/enrollments")]);
-      setSequences(sequenceId
-        ? (sequencePayload.sequence ? [sequencePayload.sequence as Sequence] : [])
-        : ((sequencePayload.sequences as Sequence[]) ?? []));
-      setSequenceExecutionEnabled(sequencePayload.executionEnabled === true);
-      setEnrollments((enrollmentPayload.enrollments as Enrollment[]) ?? []);
+      if (requestRevision === localMutationRevision.current) {
+        setSequences(sequenceId
+          ? (sequencePayload.sequence ? [sequencePayload.sequence as Sequence] : [])
+          : ((sequencePayload.sequences as Sequence[]) ?? []));
+        setSequenceExecutionEnabled(sequencePayload.executionEnabled === true);
+        setEnrollments((enrollmentPayload.enrollments as Enrollment[]) ?? []);
+      }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "The outreach workspace could not load."); }
     finally { setLoading(false); }
   }, [sequenceId]);
@@ -337,6 +341,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
 
   async function deleteStep(stepId: string) {
     if (!selected) return;
+    localMutationRevision.current += 1;
     const priorSteps = selected.steps;
     const remainingSteps = priorSteps.filter((step) => step.id !== stepId).map((step, index) => ({ ...step, position: index + 1 }));
     setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: remainingSteps } : item));

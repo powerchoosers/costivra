@@ -42,7 +42,7 @@ import {
   TrendingUp,
   Upload,
   X,
-} from "lucide-react";
+} from "@/lib/icons";
 import type { PortalApprovalPolicy, PortalContract, PortalData, PortalInvoice, PortalLocation, PortalTeamMember, PortalVendor } from "@/lib/portal/types";
 import { useToast } from "@/components/toast-provider";
 import { useBillInspector } from "@/components/bill-inspector-provider";

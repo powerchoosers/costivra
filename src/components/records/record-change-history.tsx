@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, User } from "lucide-react";
+import { Clock, User } from "@/lib/icons";
 
 export type AuditHistoryItem = {
   id: string;

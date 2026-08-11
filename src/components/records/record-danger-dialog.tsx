@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "lucide-react";
+import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "@/lib/icons";
 
 export type DangerActionMode =
   | "archive"
