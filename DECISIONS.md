@@ -1723,3 +1723,17 @@ Use a fixed full-width marketing bar with a meaningful height transition: 88px a
 ## Consequences
 
 The public header now has a clear before/after state instead of a barely perceptible style change. The mobile menu is no longer affected by the header's blur/compositing layer and covers the full viewport at 390×844. The public header remains separate from the authenticated app shell.
+
+# 2026-08-11 — Use one quiet operational-surface system for Manage and the customer workspace
+
+## Context
+
+The authenticated customer workspace and internal Manage shell had accumulated different generations of container, panel, table, and modal styling. Similar work could therefore look like separate products: inconsistent corner radii, elevated panels that appeared clickable, uneven table headers, and a heavy selected-row accent. That read more like a generic dashboard than a calm operating workspace.
+
+## Decision
+
+Define a late, scoped set of workspace surface tokens and apply them only to `.manage-shell-v2` and `.app-body .app-work-canvas`. Both shells use the same neutral page ground, white work canvas, restrained one-pixel borders, 20px frame corners, 16px panel corners, quiet table states, and consistent controls. Panels do not lift on hover; status and selection remain legible without a colored left rail. Portal-based customer dialogs retain the same geometry through their explicit body-level selectors. Public marketing pages and structural layout/sticky-table rules remain outside this pass.
+
+## Consequences
+
+New and existing operational pages now share a clear visual grammar without changing their workflows or introducing a new component dependency. Future workspace surfaces should reuse these scoped primitives rather than adding another card/shadow variant. The legacy shell layers remain in place for compatibility and can be reduced deliberately in a later component migration.

@@ -7747,3 +7747,288 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .mobile-menu,
   .mobile-menu svg { transition: none !important; }
 }
+
+/* Unified operational surfaces
+   The customer workspace and Manage are one product. Keep their working
+   surfaces intentionally plain: a neutral frame, a white canvas, restrained
+   borders, and depth only where it helps separate a transient layer. */
+:root {
+  --workspace-ground: #f7f8fa;
+  --workspace-surface: #ffffff;
+  --workspace-surface-soft: #fbfcfd;
+  --workspace-line: #e2e7ee;
+  --workspace-line-soft: #edf0f4;
+  --workspace-ink: #243247;
+  --workspace-muted: #6f7e92;
+  --workspace-radius: 20px;
+  --workspace-panel-radius: 16px;
+  --workspace-shadow: 0 1px 2px rgba(16, 24, 40, .03), 0 12px 30px rgba(16, 24, 40, .035);
+}
+
+.manage-shell-v2,
+.app-body {
+  background-color: var(--workspace-ground) !important;
+  background-image: none !important;
+}
+
+.manage-shell-v2 .manage-main,
+.manage-shell-v2 .manage-main.is-collapsed,
+.manage-shell-v2.is-assistant-open .manage-main,
+.manage-shell-v2.is-assistant-open .manage-main.is-collapsed,
+.app-body .app-work-canvas {
+  border-color: var(--workspace-line);
+  border-radius: var(--workspace-radius);
+  background: var(--workspace-surface) !important;
+  box-shadow: var(--workspace-shadow);
+}
+
+.app-body .app-work-canvas {
+  /* The final app-shell layer deliberately clears its legacy elevation with
+     !important; restore the shared frame depth here. */
+  box-shadow: var(--workspace-shadow) !important;
+}
+
+.manage-shell-v2 .manage-topbar,
+.app-body .app-work-canvas > .app-topbar {
+  border-bottom: 1px solid var(--workspace-line);
+  background: var(--workspace-surface) !important;
+  box-shadow: none;
+}
+
+.manage-shell-v2 .manage-sidebar,
+.app-sidebar {
+  background: transparent !important;
+}
+
+.manage-shell-v2 .manage-sidebar-search .manage-search,
+.app-sidebar .global-search.manage-search,
+.app-sidebar .org-switcher {
+  border-color: var(--workspace-line);
+  background: rgba(255, 255, 255, .82);
+  box-shadow: none;
+}
+
+.manage-app .manage-panel,
+.app-body .app-work-canvas .portal-panel,
+.app-body .app-work-canvas .portal-card,
+.app-body .app-work-canvas .portal-metric,
+.app-body .app-work-canvas .record-section,
+.app-body .app-work-canvas .record-side-section,
+.app-body .app-work-canvas .record-empty,
+.app-body .app-work-canvas .record-detail-header {
+  border-color: var(--workspace-line);
+  border-radius: var(--workspace-panel-radius);
+  background: var(--workspace-surface);
+  box-shadow: none;
+}
+
+/* The record header joins directly to its tabs, so only its upper corners
+   should be rounded. */
+.app-body .app-work-canvas .record-detail-header {
+  border-radius: var(--workspace-radius) var(--workspace-radius) 0 0;
+}
+
+.manage-app .manage-panel:hover,
+.app-body .app-work-canvas .portal-panel:hover,
+.app-body .app-work-canvas .portal-card:hover,
+.app-body .app-work-canvas .portal-metric:hover {
+  border-color: #d7dee8;
+  box-shadow: none;
+  transform: none;
+}
+
+.manage-app .manage-panel > header,
+.manage-app .manage-panel-header,
+.app-body .app-work-canvas .portal-panel-heading {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--workspace-line-soft);
+  padding: 14px 18px;
+}
+
+.manage-app .manage-panel > header h3,
+.manage-app .manage-panel-header h2,
+.manage-app .manage-panel-header h3,
+.app-body .app-work-canvas .portal-panel-heading h2 {
+  color: var(--workspace-ink);
+  font-weight: 700;
+}
+
+.manage-app .manage-panel > header p,
+.manage-app .manage-panel-header p,
+.app-body .app-work-canvas .portal-panel-heading p {
+  color: var(--workspace-muted);
+}
+
+/* Preserve the deliberately roomier specialist headers. */
+.manage-app .manage-inspector > header {
+  min-height: 76px;
+  padding: 14px 20px;
+}
+
+.manage-app .manage-settings-enrichment > .manage-settings-enrichment-heading {
+  padding: 22px;
+}
+
+.manage-app .manage-page-heading h1,
+.manage-app .manage-page-heading h2 {
+  color: var(--workspace-ink);
+  letter-spacing: -.025em;
+}
+
+.manage-app .manage-page-heading p {
+  color: var(--workspace-muted);
+}
+
+.manage-app .manage-table-wrap th,
+.app-body .app-work-canvas .data-table th,
+.app-body .app-work-canvas .portal-table th {
+  background: var(--workspace-surface-soft);
+  border-bottom-color: var(--workspace-line);
+  color: #78869a;
+}
+
+.manage-app .manage-table-wrap td,
+.app-body .app-work-canvas .data-table td,
+.app-body .app-work-canvas .portal-table td {
+  border-bottom-color: var(--workspace-line-soft);
+}
+
+.manage-app .manage-table-wrap tr:hover td,
+.app-body .app-work-canvas .data-table tbody tr:hover,
+.app-body .app-work-canvas .portal-table tbody tr:hover {
+  background: #fafbfd;
+}
+
+.manage-app .manage-table-wrap tr.is-selected td,
+.app-body .app-work-canvas .data-table tbody tr.selected,
+.app-body .app-work-canvas .portal-table tbody tr.selected {
+  background: #f3f6fb;
+}
+
+.manage-app .manage-table-wrap tr.is-selected td:first-child::before {
+  display: none;
+}
+
+.manage-app .manage-button,
+.manage-app .manage-icon-button,
+.app-body .app-work-canvas .button,
+.app-body .app-work-canvas .button-quiet,
+.app-body .app-work-canvas .portal-field input,
+.app-body .app-work-canvas .portal-field select,
+.app-body .app-work-canvas .portal-field textarea {
+  border-radius: 10px;
+}
+
+.manage-app .manage-button--primary,
+.app-body .app-work-canvas .button-primary {
+  background: #2456c8;
+  border-color: #2456c8;
+  box-shadow: none;
+}
+
+.manage-app .manage-button--primary:hover,
+.app-body .app-work-canvas .button-primary:hover {
+  background: #1d48ac;
+  border-color: #1d48ac;
+  box-shadow: none;
+}
+
+.manage-app .manage-button--quiet,
+.manage-app .manage-icon-button,
+.app-body .app-work-canvas .button-quiet,
+.app-body .app-work-canvas .button-secondary {
+  border-color: var(--workspace-line);
+  background: var(--workspace-surface);
+  box-shadow: none;
+}
+
+.manage-app .manage-button--quiet:hover,
+.manage-app .manage-icon-button:hover,
+.app-body .app-work-canvas .button-quiet:hover,
+.app-body .app-work-canvas .button-secondary:hover {
+  border-color: #cad5e3;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.manage-app .manage-modal,
+.portal-modal,
+.manage-app .portal-sheet,
+.app-body .portal-sheet {
+  border-color: var(--workspace-line);
+  border-radius: var(--workspace-radius);
+  box-shadow: 0 18px 54px rgba(16, 24, 40, .16);
+}
+
+.manage-app .manage-modal > header,
+.portal-modal > header,
+.manage-app .portal-sheet-header,
+.app-body .portal-sheet-header {
+  border-bottom-color: var(--workspace-line-soft);
+}
+
+.manage-app .manage-modal-backdrop,
+.portal-modal-layer,
+.manage-app .portal-sheet-backdrop,
+.app-body .portal-sheet-backdrop {
+  background: rgba(15, 23, 42, .26);
+}
+
+/* Side sheets retain their lighter context veil. */
+.portal-modal-layer--side {
+  background: rgba(11, 16, 26, .14);
+}
+
+@media (max-width: 780px) {
+  .manage-shell-v2 .manage-main,
+  .manage-shell-v2 .manage-main.is-collapsed,
+  .manage-shell-v2.is-assistant-open .manage-main,
+  .manage-shell-v2.is-assistant-open .manage-main.is-collapsed {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .manage-shell-v2 .manage-topbar {
+    border-radius: 0;
+  }
+
+  .manage-shell-v2 .manage-page {
+    padding-inline: 16px;
+  }
+
+  .manage-app .manage-panel {
+    border-radius: 15px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-body .app-work-canvas {
+    border-radius: 0;
+    box-shadow: none !important;
+  }
+
+  .app-body .app-work-canvas > .app-topbar {
+    border-radius: 0;
+  }
+
+  .app-body .app-work-canvas > .app-content {
+    padding-inline: 16px;
+  }
+
+  .app-body .app-work-canvas .portal-panel,
+  .app-body .app-work-canvas .portal-card,
+  .app-body .app-work-canvas .portal-metric,
+  .app-body .app-work-canvas .record-section,
+  .app-body .app-work-canvas .record-side-section,
+  .app-body .app-work-canvas .record-empty {
+    border-radius: 15px;
+  }
+
+  .app-body .app-work-canvas .record-detail-header {
+    border-radius: 15px 15px 0 0;
+  }
+}
