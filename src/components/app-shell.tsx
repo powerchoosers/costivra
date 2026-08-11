@@ -634,8 +634,9 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
             </div>
             <div className="app-topbar-center">
               <div className="app-create-wrap" ref={createMenuRef}>
-                <button
-                  className={`button button-primary app-create-trigger${createMenuOpen ? " is-active" : ""}`}
+                <WorkspaceUtilityButton
+                  active={createMenuOpen}
+                  className="app-create-trigger"
                   type="button"
                   onClick={() => setCreateMenuOpen((open) => !open)}
                   aria-label="Add to workspace"
@@ -643,7 +644,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                   aria-haspopup="menu"
                 >
                   <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
-                </button>
+                </WorkspaceUtilityButton>
                 <div className={`app-create-menu${createMenuOpen ? " is-open" : ""}`} role="menu" aria-label="Add to workspace" aria-hidden={!createMenuOpen}>
                     <Link href={pathname} role="menuitem" onClick={(event) => { event.preventDefault(); openGlobalCreateAction("upload"); }}>
                       <span className="app-create-icon"><Upload aria-hidden="true" size={16} /></span>

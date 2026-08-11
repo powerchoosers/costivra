@@ -8007,10 +8007,14 @@ body.modal-open .app-topbar { filter: blur(7px); }
   background: var(--workspace-surface);
   box-shadow: none;
   cursor: pointer;
-  transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast);
+  transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast), transform var(--workspace-motion-fast);
 }
 
-.workspace-utility-button--round { border-radius: 50%; }
+.workspace-utility-button--round,
+.app-body .app-work-canvas .workspace-utility-button.workspace-utility-button--round,
+.manage-shell-v2 .workspace-utility-button.workspace-utility-button--round {
+  border-radius: 50%;
+}
 .workspace-utility-button--soft-square { border-radius: var(--workspace-control-radius); }
 
 .workspace-utility-button:hover,
@@ -8022,6 +8026,53 @@ body.modal-open .app-topbar { filter: blur(7px); }
   box-shadow: 0 4px 12px rgba(29, 78, 216, .12);
 }
 
+.workspace-utility-button:hover,
+.workspace-utility-button:focus-visible {
+  transform: translateY(-1px);
+}
+
+.workspace-utility-button:active {
+  transform: translateY(0);
+}
+
+/* The create controls still carry legacy button classes in a few routes.
+   Keep their hover treatment tied to the shared circle contract. */
+.workspace-utility-button.app-create-trigger:hover,
+.workspace-utility-button.app-create-trigger:focus-visible,
+.workspace-utility-button.app-create-trigger.is-active,
+.workspace-utility-button.manage-create-trigger:hover,
+.workspace-utility-button.manage-create-trigger:focus-visible,
+.workspace-utility-button.manage-create-trigger.is-active {
+  border-color: var(--workspace-control-line-hover) !important;
+  color: var(--workspace-control-ink-active) !important;
+  background: var(--workspace-control-surface-active) !important;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, .12) !important;
+}
+
+/* Assistant controls use the same hover surface as create and notification
+   controls; the open state keeps its stronger assistant accent. */
+.workspace-utility-button.assistant-trigger-btn-circle:not(.is-active):hover,
+.workspace-utility-button.assistant-trigger-btn-circle:not(.is-active):focus-visible,
+.workspace-utility-button.manage-topbar-icon--assistant:not(.is-active):hover,
+.workspace-utility-button.manage-topbar-icon--assistant:not(.is-active):focus-visible {
+  border-color: var(--workspace-control-line-hover) !important;
+  color: var(--workspace-control-ink-active) !important;
+  background: var(--workspace-control-surface-active) !important;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, .12) !important;
+}
+
+/* Final shell-level guard: notification and any future utility controls
+   inherit the exact same hover values even when legacy App selectors match. */
+.app-body .app-work-canvas .workspace-utility-button:not(.is-active):hover,
+.app-body .app-work-canvas .workspace-utility-button:not(.is-active):focus-visible,
+.manage-shell-v2 .workspace-utility-button:not(.is-active):hover,
+.manage-shell-v2 .workspace-utility-button:not(.is-active):focus-visible {
+  border-color: var(--workspace-control-line-hover) !important;
+  color: var(--workspace-control-ink-active) !important;
+  background: var(--workspace-control-surface-active) !important;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, .12) !important;
+}
+
 .workspace-utility-button:focus-visible {
   outline: 2px solid var(--workspace-accent);
   outline-offset: 2px;
@@ -8031,6 +8082,26 @@ body.modal-open .app-topbar { filter: blur(7px); }
   border-color: var(--assistant-accent, var(--workspace-accent));
   color: #ffffff;
   background: var(--assistant-accent, var(--workspace-accent));
+}
+
+/* Keep the approved assistant mark visible inside the shared utility circle.
+   Older shell rules can collapse Next/Image elements to a sub-pixel box. */
+.app-body .app-work-canvas .workspace-utility-button.assistant-trigger-btn-circle .assistant-icon-image,
+.manage-shell-v2 .workspace-utility-button.manage-topbar-icon--assistant .assistant-icon-image {
+  display: block;
+  width: 26px !important;
+  height: 26px !important;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  flex: 0 0 26px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-utility-button { transition: none; }
+  .workspace-utility-button:hover,
+  .workspace-utility-button:focus-visible,
+  .workspace-utility-button:active { transform: none; }
 }
 
 .workspace-status-badge {

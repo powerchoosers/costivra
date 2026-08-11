@@ -53,6 +53,7 @@ describe("buildManageAssistantSuggestions", () => {
 
     expect(suggestions).toHaveLength(3);
     expect(suggestions[0]).toMatchObject({ id: "accounts-next-step", kind: "account" });
+    expect(suggestions[0].label).toContain("Synthetic Account");
     expect(suggestions[0].detail).toContain("1 account");
     expect(suggestions.find((suggestion) => suggestion.id === "tasks-overdue")?.detail).toContain("1 overdue");
   });

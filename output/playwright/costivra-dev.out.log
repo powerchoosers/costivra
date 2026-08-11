@@ -1,0 +1,15 @@
+
+> costivra@0.1.0 dev:turbo
+> next dev --turbo
+
+▲ Next.js 16.2.12 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.202.158.152:3000
+- Environments: .env.local
+✓ Ready in 2.3s
+
+ GET /api/manage/notifications 401 in 734ms (next.js: 453ms, application-code: 281ms)
+○ Compiling /[...slug] ...
+ GET /login?next=%2Fapp%2Fvendors 200 in 20.8s (next.js: 10.9s, proxy.ts: 134ms, application-code: 9.8s)
+ GET /login?next=%2Fmanage%2Foutreach%2Fsequences%2Fead80fb5-5298-4898-8c7c-d7b69e9fdbaf 200 in 20.8s (next.js: 10.9s, proxy.ts: 133ms, application-code: 9.8s)
+ GET /login?next=%2Fapp 200 in 7.4s (next.js: 58ms, proxy.ts: 19ms, application-code: 7.3s)

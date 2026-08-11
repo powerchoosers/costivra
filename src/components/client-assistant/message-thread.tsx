@@ -10,6 +10,11 @@ export function MessageThread() {
   const { state, sendMessage } = useClientAssistant();
   const messages = state.messages;
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const fallbackPrompts = [
+    "Summarize our latest recurring expenses.",
+    "Which contracts have notice deadlines approaching?",
+    "Where did recurring spend increase most?",
+  ];
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -26,22 +31,37 @@ export function MessageThread() {
         <p>
           Search your Costivra records, understand what changed, or open the evidence behind a finding.
         </p>
-        <div className="assistant-welcome-prompts">
-          {[
-            "Summarize our latest recurring expenses.",
-            "Which contracts have notice deadlines approaching?",
-            "Where did recurring spend increase most?",
-          ].map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              className="button button-quiet assistant-welcome-prompt"
-              style={{ fontSize: "0.8rem", fontWeight: 500, textAlign: "left", justifyContent: "flex-start" }}
-              onClick={() => sendMessage(prompt)}
-            >
-              {prompt}
-            </button>
-          ))}
+        <div className="assistant-welcome-prompts" aria-live="polite">
+          {state.suggestionsLoading && !state.suggestions.length ? (
+            <p className="assistant-welcome-loading">Finding the most useful place to start…</p>
+          ) : state.suggestions.length ? (
+            state.suggestions.map((suggestion) => (
+              <button
+                key={suggestion.id}
+                type="button"
+                className="assistant-welcome-prompt"
+                onClick={() => sendMessage(suggestion.prompt)}
+              >
+                <span className="assistant-welcome-prompt-copy">
+                  <strong>{suggestion.label}</strong>
+                  <small>{suggestion.detail}</small>
+                </span>
+                <ArrowRight size={16} aria-hidden="true" />
+              </button>
+            ))
+          ) : (
+            fallbackPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="assistant-welcome-prompt"
+                onClick={() => sendMessage(prompt)}
+              >
+                <span className="assistant-welcome-prompt-copy"><strong>{prompt}</strong></span>
+                <ArrowRight size={16} aria-hidden="true" />
+              </button>
+            ))
+          )}
         </div>
       </div>
     );

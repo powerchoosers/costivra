@@ -4,7 +4,7 @@ import { useState, type CSSProperties } from "react";
 import { Search, Pin, MessageSquare } from "@/lib/icons";
 import { useClientAssistant } from "./client-assistant-provider";
 
-export function ConversationRail() {
+export function ConversationRail({ collapsed = false }: { collapsed?: boolean }) {
   const { state, selectSession } = useClientAssistant();
   const [query, setQuery] = useState("");
 
@@ -13,7 +13,7 @@ export function ConversationRail() {
   );
 
   return (
-    <aside className="assistant-rail">
+    <aside className={`assistant-rail${collapsed ? " is-collapsed" : ""}`} aria-hidden={collapsed}>
       <div className="assistant-rail-heading">
         <div>
           <span>Conversations</span>
@@ -27,6 +27,8 @@ export function ConversationRail() {
           type="text"
           placeholder="Search history..."
           value={query}
+          disabled={collapsed}
+          tabIndex={collapsed ? -1 : 0}
           onChange={(e) => setQuery(e.target.value)}
           className="assistant-history-search-input"
         />
@@ -40,6 +42,8 @@ export function ConversationRail() {
               type="button"
               className="assistant-session-row"
               onClick={() => selectSession(s.id)}
+              disabled={collapsed}
+              tabIndex={collapsed ? -1 : 0}
               style={{
                 "--session-index": index,
                 display: "flex",

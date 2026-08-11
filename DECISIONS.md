@@ -1835,3 +1835,47 @@ Use the vertical overflow icon for step-card actions and raise the Manage primar
 ## Consequences
 
 Overflow actions now share one recognizable convention across sequence cards, record lists, and detail menus. The navigation rail has a consistent visual baseline with the detail context control.
+
+# 2026-08-11 — Make product-design guidance explicit about icons, motion, loading, and performance
+
+## Context
+
+Costivra's product-design skill stated a calm visual direction but did not explicitly codify the codebase's Phosphor-compatible icon system, shared motion rules, skeleton loading expectations, or the requirement to keep Manage and the customer app visually aligned without indiscriminate browser caching.
+
+## Decision
+
+Expand the project-owned product-design skill with concrete rules for `@/lib/icons`, vertical overflow menus, consistent entry/exit motion, shared skeleton primitives, scoped shared operational styles, server-first rendering, and minimal non-persistent client data loading. Record `.agents/skills/costivra-product-design/SKILL.md` as the source of truth and require any future mirror to remain byte-for-byte identical.
+
+## Consequences
+
+Future UI work has an actionable, consistent design and engineering contract. It favors a smooth, fast product without turning users' browsers into a long-lived cache of workspace data.
+
+# 2026-08-11 — Share visual primitives before consolidating workspace shells
+
+## Context
+
+The customer workspace and Manage have accumulated separate shell selectors and several generations of CSS overrides. A small visual adjustment could therefore require parallel changes or be accidentally undone by a later legacy rule.
+
+## Decision
+
+Keep the existing late unified workspace layer in place and extend it with semantic `--workspace-*` tokens for controls, table states, overlays, motion, and accents. Introduce visual-only shared primitives for utility buttons, status badges, empty states, and route matching; mark both shells with the same frame-slot contract. Keep navigation maps, data sources, permissions, assistant drawers, and mobile behavior local to their respective platforms.
+
+The final shared layer also owns the customer mobile rail transition so an older sidebar rule cannot restore the desktop rail at small widths.
+
+## Consequences
+
+Future cosmetic changes can be made through the shared tokens and primitives without coupling customer and internal workflows. The legacy selectors remain temporarily, so later migrations should move one visually verified surface at a time instead of attempting a high-risk stylesheet rewrite.
+
+# 2026-08-11 — Share assistant chrome while keeping data boundaries separate
+
+## Context
+
+The customer assistant and internal Manage assistant had drifted in their headers, circular controls, composer sizing, history rail, and open/close motion. Their records and authorization scopes are intentionally different.
+
+## Decision
+
+Use shared React primitives and assistant CSS for the header, icon buttons, composer shell, textarea autoresize, attachment affordance, message treatment, rail geometry, and motion. Keep customer chat sessions and internal operator history in separate provider/API paths. Manage attachments remain a visual handoff until they can be tied to a selected client and the private intake workflow.
+
+## Consequences
+
+CSS and animation changes now apply predictably to both assistants without allowing internal CRM context to enter a customer session or vice versa. A future Manage attachment workflow must add explicit client selection, private storage, scanning, and auditability before sending file content to the assistant.

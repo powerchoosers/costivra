@@ -50,67 +50,77 @@ export function buildManageAssistantSuggestions(
       event.eventType.toLowerCase().includes("inbound"),
   );
   const unreadCount = data.mail.unreadCount;
+  const firstOverdueTask = overdueTasks
+    .slice()
+    .sort((left, right) => (left.dueAt ?? "").localeCompare(right.dueAt ?? ""))[0];
+  const firstAccountMissingNextStep = missingNextStep[0];
+  const firstUnreadThread = data.mail.threads.find((thread) => thread.unreadCount > 0);
+  const accountWithoutPrimaryContact = data.accounts.find((account) => !account.primaryContactId);
+
+  const overdueTaskSuggestion = (): ManageAssistantSuggestion => ({
+    id: "tasks-overdue",
+    kind: "task",
+    label: firstOverdueTask ? `Review: ${firstOverdueTask.title}` : "Review overdue follow-ups",
+    detail: firstOverdueTask
+      ? `${firstOverdueTask.organizationName} · ${overdueTasks.length} overdue · ${openTasks.length} open`
+      : `${overdueTasks.length} overdue · ${openTasks.length} open`,
+    prompt: firstOverdueTask
+      ? `What context is recorded for the overdue follow-up “${firstOverdueTask.title}” at ${firstOverdueTask.organizationName}, and what should I review first?`
+      : "Which follow-up tasks are overdue, and what should I review first?",
+  });
+
+  const mailSuggestion = (): ManageAssistantSuggestion => ({
+    id: "mail-inbound",
+    kind: "mail",
+    label: firstUnreadThread ? `Review: ${firstUnreadThread.subject}` : "Summarize new inbound mail",
+    detail: `${unreadCount} unread · ${counted(recentInboundEvents.length, "recent receiving event")}`,
+    prompt: firstUnreadThread
+      ? `Summarize the newest unread thread “${firstUnreadThread.subject}” and tell me what needs a response.`
+      : "Summarize the newest inbound email threads and tell me what needs a response.",
+  });
+
+  const nextStepSuggestion = (): ManageAssistantSuggestion => ({
+    id: "accounts-next-step",
+    kind: "account",
+    label: firstAccountMissingNextStep
+      ? `Set a next step for ${firstAccountMissingNextStep.name}`
+      : "Find accounts missing a next step",
+    detail: `${counted(missingNextStep.length, "account")} ${missingNextStep.length === 1 ? "needs" : "need"} a recorded next step`,
+    prompt: firstAccountMissingNextStep
+      ? `What context do we already have for ${firstAccountMissingNextStep.name}, and what next step is still missing?`
+      : "Which accounts are missing a next step, and what context do we already have for each?",
+  });
 
   const suggestions: ManageAssistantSuggestion[] = [];
   const addSectionSuggestion = () => {
     if (section === "mail") {
-      suggestions.push({
-        id: "mail-inbound",
-        kind: "mail",
-        label: "Summarize new inbound mail",
-        detail: `${unreadCount} unread · ${counted(recentInboundEvents.length, "recent receiving event")}`,
-        prompt: "Summarize the newest inbound email threads and tell me what needs a response.",
-      });
+      suggestions.push(mailSuggestion());
     } else if (section === "outreach") {
-      suggestions.push({
-        id: "tasks-overdue",
-        kind: "task",
-        label: "Review overdue follow-ups",
-        detail: `${overdueTasks.length} overdue · ${openTasks.length} open`,
-        prompt: "Which follow-up tasks are overdue, and what should I review first?",
-      });
+      suggestions.push(overdueTaskSuggestion());
     } else if (section === "contacts") {
       suggestions.push({
         id: "contacts-context",
         kind: "contact",
-        label: "Review contact coverage",
-        detail: `${counted(data.contacts.length, "contact")} across ${counted(data.accounts.length, "account")}`,
-        prompt: "Which accounts have weak contact coverage or no clear primary contact?",
+        label: accountWithoutPrimaryContact
+          ? `Check coverage for ${accountWithoutPrimaryContact.name}`
+          : "Review contact coverage",
+        detail: accountWithoutPrimaryContact
+          ? "No primary contact recorded"
+          : `${counted(data.contacts.length, "contact")} across ${counted(data.accounts.length, "account")}`,
+        prompt: accountWithoutPrimaryContact
+          ? `Which contacts are recorded for ${accountWithoutPrimaryContact.name}, and what coverage is still missing?`
+          : "Which accounts have weak contact coverage or no clear primary contact?",
       });
     } else if (section === "accounts") {
-      suggestions.push({
-        id: "accounts-next-step",
-        kind: "account",
-        label: "Find accounts missing a next step",
-        detail: `${counted(missingNextStep.length, "account")} ${missingNextStep.length === 1 ? "needs" : "need"} a recorded next step`,
-        prompt: "Which accounts are missing a next step, and what context do we already have for each?",
-      });
+      suggestions.push(nextStepSuggestion());
     }
   };
 
   addSectionSuggestion();
   suggestions.push(
-    {
-      id: "tasks-overdue",
-      kind: "task",
-      label: "Review overdue follow-ups",
-      detail: `${overdueTasks.length} overdue · ${openTasks.length} open`,
-      prompt: "Which follow-up tasks are overdue, and what should I review first?",
-    },
-    {
-      id: "mail-inbound",
-      kind: "mail",
-      label: "Summarize new inbound mail",
-      detail: `${unreadCount} unread · ${counted(recentInboundEvents.length, "recent receiving event")}`,
-      prompt: "Summarize the newest inbound email threads and tell me what needs a response.",
-    },
-    {
-      id: "accounts-next-step",
-      kind: "account",
-      label: "Find accounts missing a next step",
-      detail: `${counted(missingNextStep.length, "account")} ${missingNextStep.length === 1 ? "needs" : "need"} a recorded next step`,
-      prompt: "Which accounts are missing a next step, and what context do we already have for each?",
-    },
+    overdueTaskSuggestion(),
+    mailSuggestion(),
+    nextStepSuggestion(),
     {
       id: "accounts-stage",
       kind: "account",

@@ -16,6 +16,7 @@ export function ClientAssistantSurface() {
   const isFullscreen = state.mode === "fullscreen";
   const showHistoryOnly = !isFullscreen && state.historyOpen;
   const showHistoryRail = isFullscreen && !state.fullscreenHistoryCollapsed;
+  const shouldRenderHistoryRail = isFullscreen || state.historyOpen;
 
   const containerClass = isFullscreen ? "assistant-fullscreen-surface" : "assistant-drawer-surface";
 
@@ -30,7 +31,7 @@ export function ClientAssistantSurface() {
     >
       <AssistantHeader />
       <div className={`assistant-main-container${showHistoryOnly ? " assistant-main-container--history" : ""}`}>
-        {(showHistoryRail || state.historyOpen) && <ConversationRail />}
+        {shouldRenderHistoryRail && <ConversationRail collapsed={isFullscreen && !showHistoryRail} />}
         {!showHistoryOnly && (
           <div className="assistant-canvas">
             <MessageThread key={`${state.activeSessionId ?? "new"}-${state.viewRevision}`} />

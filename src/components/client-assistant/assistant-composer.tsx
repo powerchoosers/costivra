@@ -1,13 +1,22 @@
 "use client";
 
-import { useState, useRef, KeyboardEvent } from "react";
+import { useEffect, useState, useRef, KeyboardEvent } from "react";
 import { Send, Paperclip, X, LoaderCircle } from "@/lib/icons";
+import { AssistantComposerShell, AssistantIconButton } from "@/components/assistant-workspace";
+import { resizeAssistantComposer } from "@/lib/ui/assistant-composer";
 import { useClientAssistant } from "./client-assistant-provider";
 
 export function AssistantComposer() {
   const { state, sendMessage, uploadAttachment, removeAttachment } = useClientAssistant();
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    resizeAssistantComposer(textarea);
+  }, [text]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -69,7 +78,7 @@ export function AssistantComposer() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+      <AssistantComposerShell>
         <input
           type="file"
           ref={fileInputRef}
@@ -78,21 +87,23 @@ export function AssistantComposer() {
           style={{ display: "none" }}
           accept=".pdf,.png,.jpg,.jpeg,.txt,.docx"
         />
-        <button
-          type="button"
-          className="assistant-icon-btn"
+        <AssistantIconButton
+          label="Attach document"
           onClick={() => fileInputRef.current?.click()}
-          title="Attach document"
           style={{ marginBottom: 4 }}
         >
           <Paperclip size={18} />
-        </button>
+        </AssistantIconButton>
 
         <textarea
+          ref={textareaRef}
           className="assistant-composer-textarea"
           placeholder="Ask a question or upload a bill to review..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            resizeAssistantComposer(e.currentTarget);
+          }}
           onKeyDown={handleKeyDown}
           rows={1}
         />
@@ -119,7 +130,7 @@ export function AssistantComposer() {
         >
           {state.sending ? <LoaderCircle size={16} className="spin" /> : <Send size={16} />}
         </button>
-      </div>
+      </AssistantComposerShell>
     </div>
   );
 }

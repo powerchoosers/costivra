@@ -1304,9 +1304,9 @@ export function ManagePortal({
           <div className="manage-topbar-center">
           {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
             <div className="manage-create-wrap" ref={createMenuRef}>
-              <button className={`manage-button manage-button--primary manage-create-trigger${createMenuOpen ? " is-active" : ""}`} type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
+              <WorkspaceUtilityButton active={createMenuOpen} className="manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
                 <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
-              </button>
+              </WorkspaceUtilityButton>
               {(createMenuOpen || createMenuClosing) && (
                 <div className={`manage-create-menu${createMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="Create a new record">
                   <button type="button" role="menuitem" onClick={() => { openDialog("account"); closeCreateMenu(); }}>

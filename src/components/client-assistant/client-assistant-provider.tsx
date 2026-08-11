@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useReducer, ReactNode, useCallback, useEffect } from "react";
 import type { AssistantMode, AssistantContextRef, ChatSessionSummary, ClientChatMessage, ClientAssistantAttachment } from "@/lib/client-assistant/types";
+import type { ClientAssistantSuggestion } from "@/lib/client-assistant/suggestions";
 
 export type AssistantPhase = "closed" | "opening" | "open" | "transitioning" | "closing";
 
@@ -17,6 +18,8 @@ type AssistantState = {
   messages: ClientChatMessage[];
   currentContext: AssistantContextRef | null;
   pendingAttachments: ClientAssistantAttachment[];
+  suggestions: ClientAssistantSuggestion[];
+  suggestionsLoading: boolean;
   sending: boolean;
   error: string | null;
   viewRevision: number;
@@ -39,6 +42,8 @@ type AssistantAction =
   | { type: "UPDATE_ATTACHMENT"; clientUploadId: string; updates: Partial<ClientAssistantAttachment> }
   | { type: "REMOVE_ATTACHMENT"; clientUploadId: string }
   | { type: "CLEAR_ATTACHMENTS" }
+  | { type: "SET_SUGGESTIONS"; suggestions: ClientAssistantSuggestion[] }
+  | { type: "SET_SUGGESTIONS_LOADING"; loading: boolean }
   | { type: "SET_SENDING"; sending: boolean }
   | { type: "SET_ERROR"; error: string | null }
   | { type: "ADVANCE_VIEW" };
@@ -55,6 +60,8 @@ const initialState: AssistantState = {
   messages: [],
   currentContext: null,
   pendingAttachments: [],
+  suggestions: [],
+  suggestionsLoading: false,
   sending: false,
   error: null,
   viewRevision: 0,
@@ -118,6 +125,10 @@ function assistantReducer(state: AssistantState, action: AssistantAction): Assis
       return { ...state, pendingAttachments: state.pendingAttachments.filter((a) => a.clientUploadId !== action.clientUploadId) };
     case "CLEAR_ATTACHMENTS":
       return { ...state, pendingAttachments: [] };
+    case "SET_SUGGESTIONS":
+      return { ...state, suggestions: action.suggestions };
+    case "SET_SUGGESTIONS_LOADING":
+      return { ...state, suggestionsLoading: action.loading };
     case "SET_SENDING":
       return { ...state, sending: action.sending };
     case "SET_ERROR":
@@ -174,6 +185,22 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to load chat history." });
+    }
+  }, []);
+
+  const fetchSuggestions = useCallback(async () => {
+    dispatch({ type: "SET_SUGGESTIONS_LOADING", loading: true });
+    try {
+      const res = await fetch("/api/portal/chat/suggestions", { cache: "no-store" });
+      if (!res.ok) throw new Error("Suggestions unavailable");
+      const data = await res.json() as { suggestions?: ClientAssistantSuggestion[] };
+      dispatch({ type: "SET_SUGGESTIONS", suggestions: Array.isArray(data.suggestions) ? data.suggestions : [] });
+    } catch {
+      // The welcome view has a graceful generic fallback, so a prompt failure
+      // never blocks a person from asking a question directly.
+      dispatch({ type: "SET_SUGGESTIONS", suggestions: [] });
+    } finally {
+      dispatch({ type: "SET_SUGGESTIONS_LOADING", loading: false });
     }
   }, []);
 
@@ -319,15 +346,17 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_PHASE", phase: "opening" });
     dispatch({ type: "SET_MODE", mode: "drawer" });
     fetchSessions();
+    fetchSuggestions();
     setTimeout(() => dispatch({ type: "SET_PHASE", phase: "open" }), 20);
-  }, [fetchSessions]);
+  }, [fetchSessions, fetchSuggestions]);
 
   const openFullscreen = useCallback(() => {
     dispatch({ type: "SET_PHASE", phase: "opening" });
     dispatch({ type: "SET_MODE", mode: "fullscreen" });
     fetchSessions();
+    fetchSuggestions();
     setTimeout(() => dispatch({ type: "SET_PHASE", phase: "open" }), 20);
-  }, [fetchSessions]);
+  }, [fetchSessions, fetchSuggestions]);
 
   const closeAssistant = useCallback(() => {
     dispatch({ type: "SET_PHASE", phase: "closing" });
