@@ -1793,3 +1793,45 @@ On desktop widths, the terminal tray opens upward from the final plus control. M
 ## Consequences
 
 The complete add-step form remains visible without requiring the user to hunt for hidden fields or manually scroll the page.
+
+# 2026-08-11 — Keep sequence utilities available without crowding the header
+
+## Context
+
+The global create menu could be clipped against the right edge, and sequence detail actions disappeared with the header during long builder sessions. The sequence overflow trigger also used a horizontal ellipsis unlike the vertical action menus elsewhere in the CRM.
+
+## Decision
+
+Anchor the global create menu inward from the right edge, use the shared vertical ellipsis icon for sequence actions, and pass Enroll contacts plus the overflow menu through the existing floating Back strip when the detail header scrolls away.
+
+## Consequences
+
+Frequent sequence actions remain reachable without a second permanent toolbar, while less frequent actions stay in the same overflow menu. The floating menu has its own anchored popover so it remains usable after scrolling.
+
+# 2026-08-11 — Align the Manage rail with page context controls
+
+## Context
+
+On sequence detail pages, the first sidebar destination sat noticeably below the Back control in the content area. That made the shell feel vertically misregistered.
+
+## Decision
+
+Raise the shared Manage primary navigation rail by 20px so its first icon aligns with the Back control. Keep the adjustment scoped to the v2 Manage shell and leave the top bar, utility nav, and mobile structure unchanged.
+
+## Consequences
+
+Sidebar navigation and page context now share the same visual starting line, reducing unnecessary vertical drift without changing navigation behavior.
+
+# 2026-08-11 — Use vertical overflow affordances consistently
+
+## Context
+
+The sequence card overflow control still used a horizontal ellipsis even though the rest of the CRM uses vertical action dots. The sidebar also remained slightly below the floating Back control after the first alignment pass.
+
+## Decision
+
+Use the vertical overflow icon for step-card actions and raise the Manage primary rail another 14px to align the icon center with the floating Back control in the scrolled detail state.
+
+## Consequences
+
+Overflow actions now share one recognizable convention across sequence cards, record lists, and detail menus. The navigation rail has a consistent visual baseline with the detail context control.

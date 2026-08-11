@@ -1550,3 +1550,27 @@ Error [AuthApiError]: Invalid Refresh Token: Refresh Token Not Found
   status: 400,
   code: 'refresh_token_not_found'
 }
+⨯ Error: useToast must be used inside ToastProvider
+    at useToast (src\components\toast-provider.tsx:143:23)
+    at ManagePortal (src\components\manage-portal.tsx:701:25)
+  141 | export function useToast() {
+  142 |   const context = useContext(ToastContext);
+> 143 |   if (!context) throw new Error("useToast must be used inside ToastProvider");
+      |                       ^
+  144 |   return context;
+  145 | }
+  146 | {
+  digest: '2926648427'
+}
+⨯ Error: useToast must be used inside ToastProvider
+    at useToast (src\components\toast-provider.tsx:143:23)
+    at ManagePortal (src\components\manage-portal.tsx:701:25)
+  141 | export function useToast() {
+  142 |   const context = useContext(ToastContext);
+> 143 |   if (!context) throw new Error("useToast must be used inside ToastProvider");
+      |                       ^
+  144 |   return context;
+  145 | }
+  146 | {
+  digest: '2926648427'
+}

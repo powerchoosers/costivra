@@ -34,6 +34,8 @@ import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { ClientAssistantProvider, useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { ClientAssistantTrigger } from "@/components/client-assistant/client-assistant-trigger";
 import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
+import { WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
+import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 
 import type { ElementType } from "react";
 
@@ -76,43 +78,19 @@ export const navigationGroups: readonly NavigationGroup[] = [
 
 export const primaryNavigationItems = navigationGroups.flatMap((g) => g.items);
 
+const appRouteAliases: Record<string, readonly string[]> = {
+  "/app/bills": ["/app/expenses", "/app/documents"],
+  "/app/findings": ["/app/opportunities"],
+  "/app/results": ["/app/savings", "/app/reports"],
+};
+
 export function isRouteActive(navHref: string, pathname: string): boolean {
-  if (navHref === "/app") {
-    return pathname === "/app";
-  }
-  if (navHref === "/app/vendors") {
-    return pathname.startsWith("/app/vendors");
-  }
-  if (navHref === "/app/bills") {
-    return (
-      pathname.startsWith("/app/bills") ||
-      pathname.startsWith("/app/expenses") ||
-      pathname.startsWith("/app/documents")
-    );
-  }
-  if (navHref === "/app/contracts") {
-    return pathname.startsWith("/app/contracts");
-  }
-  if (navHref === "/app/findings") {
-    return (
-      pathname.startsWith("/app/findings") ||
-      pathname.startsWith("/app/opportunities")
-    );
-  }
-  if (navHref === "/app/actions") {
-    return pathname.startsWith("/app/actions");
-  }
-  if (navHref === "/app/results") {
-    return (
-      pathname.startsWith("/app/results") ||
-      pathname.startsWith("/app/savings") ||
-      pathname.startsWith("/app/reports")
-    );
-  }
-  if (navHref === "/app/settings") {
-    return pathname.startsWith("/app/settings");
-  }
-  return pathname.startsWith(navHref);
+  return isWorkspaceRouteActive({
+    href: navHref,
+    pathname,
+    exact: navHref === "/app",
+    aliases: appRouteAliases[navHref],
+  });
 }
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
@@ -539,9 +517,12 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     </div>
   );
   return (
-    <div className={`app-body${isDrawerOpen ? " has-assistant-drawer" : ""}`}>
+    <div
+      className={`app-body${isDrawerOpen ? " has-assistant-drawer" : ""}`}
+      data-workspace-shell="customer"
+    >
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
-        <aside className="app-sidebar">
+        <aside className="app-sidebar" data-workspace-slot="rail">
           <div className="sidebar-brand-row">
             <Brand light />
           </div>
@@ -631,8 +612,8 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         </aside>
 
         <main className="app-main">
-          <div className="app-work-canvas">
-            <div className="app-topbar">
+          <div className="app-work-canvas" data-workspace-slot="canvas">
+            <div className="app-topbar" data-workspace-slot="topbar">
             {mobileUtilities}
             <div className="app-topbar-leading">
               <button
@@ -682,10 +663,10 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 
             <div className="top-actions app-top-actions">
               <ClientAssistantTrigger />
-              <div className="topbar-popover-wrap"><button className="button button-quiet" type="button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setProfileOpen(false); }} style={{ position: "relative", borderRadius: "50%", width: 40, height: 40, padding: 0 }}>
-                <Bell aria-hidden="true" size={17} style={{ color: "#475569" }} />
+              <div className="topbar-popover-wrap"><WorkspaceUtilityButton className="button button-quiet" type="button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setProfileOpen(false); }} style={{ position: "relative" }}>
+                <Bell aria-hidden="true" size={17} />
                 {unread.length > 0 && <span style={{ position: "absolute", top: 9, right: 9, width: 7, height: 7, borderRadius: "50%", background: "#ef6b53" }} />}
-              </button>{notificationsOpen && <div className="topbar-popover notifications-popover"><header><strong>Notifications</strong>{unread.length>0&&<button onClick={() => void markNotificationsRead()}>Mark all read</button>}</header>{data.notifications.length ? data.notifications.slice(0,5).map(item=><div className={`notification-item${item.readAt?"":" unread"}`} key={item.id}><strong>{item.title}</strong><span>{item.body}</span></div>) : <p className="popover-empty">You&apos;re all caught up.</p>}</div>}</div>
+              </WorkspaceUtilityButton>{notificationsOpen && <div className="topbar-popover notifications-popover"><header><strong>Notifications</strong>{unread.length>0&&<button onClick={() => void markNotificationsRead()}>Mark all read</button>}</header>{data.notifications.length ? data.notifications.slice(0,5).map(item=><div className={`notification-item${item.readAt?"":" unread"}`} key={item.id}><strong>{item.title}</strong><span>{item.body}</span></div>) : <p className="popover-empty">You&apos;re all caught up.</p>}</div>}</div>
             </div>
             </div>
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarClock, Check, ChevronDown, ChevronUp, CircleAlert, Copy, Eye, FileText, LoaderCircle, Mail, MessageSquareText, MoreHorizontal, Pause, Play, Plus, RefreshCw, Search, Send, Settings2, Trash2, Users, X } from "@/lib/icons";
+import { Archive, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarClock, Check, ChevronDown, ChevronUp, CircleAlert, Copy, Eye, FileText, LoaderCircle, Mail, MessageSquareText, MoreVertical, Pause, Play, Plus, RefreshCw, Search, Send, Settings2, Trash2, Users, X } from "@/lib/icons";
 import type { ManageData } from "@/lib/manage/types";
 import type { Sequence, SequenceStep, SequenceStepType, Enrollment } from "@/lib/manage/sequences/types";
 import { sanitizeEmailHtml } from "@/lib/manage/sanitize-email-html";
@@ -113,6 +113,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   const [sequenceMenuClosing, setSequenceMenuClosing] = useState(false);
   const sequenceMenuRef = useRef<HTMLDivElement | null>(null);
   const sequenceMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const sequenceFloatingMenuRef = useRef<HTMLDivElement | null>(null);
+  const sequenceFloatingMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const sequenceMenuCloseTimer = useRef<number | null>(null);
   const [showActivationReview, setShowActivationReview] = useState(false);
   const [name, setName] = useState("");
@@ -153,7 +155,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
       setSequenceMenuOpen(false);
       setSequenceMenuClosing(false);
       sequenceMenuCloseTimer.current = null;
-      sequenceMenuButtonRef.current?.focus();
+      if (document.activeElement === sequenceFloatingMenuButtonRef.current) sequenceFloatingMenuButtonRef.current?.focus();
+      else sequenceMenuButtonRef.current?.focus();
     }, 160);
   }, [sequenceMenuOpen]);
 
@@ -170,7 +173,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   useEffect(() => {
     if (!sequenceMenuOpen) return;
     const handlePointerDown = (event: PointerEvent) => {
-      if (sequenceMenuRef.current && !sequenceMenuRef.current.contains(event.target as Node)) closeSequenceMenu();
+      const target = event.target as Node;
+      if (!sequenceMenuRef.current?.contains(target) && !sequenceFloatingMenuRef.current?.contains(target)) closeSequenceMenu();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -249,6 +253,20 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     const matchesArchive = showArchived || item.status !== "archived";
     return matchesSearch && matchesStatus && matchesOwner && matchesArchive;
   }), [ownerFilter, query, sequenceSearch, sequences, showArchived, statusFilter]);
+
+  const renderSequenceMenuItems = () => selected && <>
+    {selected.status === "draft" && activationAvailable && <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); setShowEnroll(true); }}><Users size={15} /> Enroll contacts</button>}
+    <Link role="menuitem" href={`/manage/outreach?tab=enrollments&sequenceId=${selected.id}`} onClick={() => closeSequenceMenu(true)}><Eye size={15} /> View enrollments</Link>
+    <Link role="menuitem" href="/manage/mail?view=sequence&mode=queue&status=queued" onClick={() => closeSequenceMenu(true)}><CalendarClock size={15} /> Queue &amp; activity</Link>
+    <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "clone"); }} disabled={busy}><Copy size={15} /> Duplicate sequence</button>
+    {selected.status === "active" && <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "pause"); }} disabled={busy}><Pause size={15} /> Pause sequence</button>}
+    {["draft", "paused"].includes(selected.status) && <button type="button" role="menuitem" className="is-danger" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "archive"); }} disabled={busy}><Archive size={15} /> Archive sequence</button>}
+  </>;
+
+  const renderSequenceActionsMenu = (floating = false) => <div className="sequence-detail-actions-menu" ref={floating ? sequenceFloatingMenuRef : sequenceMenuRef}>
+    <button ref={floating ? sequenceFloatingMenuButtonRef : sequenceMenuButtonRef} type="button" className="manage-icon-button" onClick={toggleSequenceMenu} aria-haspopup="menu" aria-expanded={sequenceMenuOpen} aria-label="More sequence actions" title="More sequence actions"><MoreVertical size={18} /></button>
+    {sequenceMenuOpen && <div className={`sequence-detail-actions-menu__popover${sequenceMenuClosing ? " is-closing" : ""}${floating ? " is-floating" : ""}`} role="menu" aria-label="More sequence actions">{renderSequenceMenuItems()}</div>}
+  </div>;
   // Keep ineligible contacts visible so the operator can understand why the
   // server will block them instead of mistaking a filtered list for consent.
   // Sequences are workspace-level campaigns. Contacts may come from different
@@ -525,24 +543,17 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     </div> : sequenceId ? (
       selected ? <div className="sequence-detail-page">
         <div className="sequence-detail-context-row">
-          <GlobalBackControl className="sequence-detail-back" />
+          <GlobalBackControl className="sequence-detail-back" floatingActions={<>
+            {selected.status === "draft" && <button type="button" className="global-back-control__action global-back-control__action--enroll" onClick={() => setShowEnroll(true)} aria-label="Enroll contacts" title="Enroll contacts"><Users size={16} /></button>}
+            {renderSequenceActionsMenu(true)}
+          </>} />
           <div className="sequence-detail-actions">
             {activationAvailable ? (
               <button className="manage-button manage-button--primary" onClick={requestActivation} disabled={activating}><Send size={15} /> {selectedActivation?.buttonLabel}</button>
             ) : selected.status === "draft" ? (
               <button className="manage-button manage-button--primary" onClick={() => setShowEnroll(true)} disabled={!selectedDraftValidation?.valid} title={selectedDraftValidation?.valid ? "Enroll contacts" : "Complete sequence setup before enrolling contacts."}><Users size={15} /> Enroll contacts</button>
             ) : null}
-            <div className="sequence-detail-actions-menu" ref={sequenceMenuRef}>
-              <button ref={sequenceMenuButtonRef} type="button" className="manage-icon-button" onClick={toggleSequenceMenu} aria-haspopup="menu" aria-expanded={sequenceMenuOpen} aria-label="More sequence actions" title="More sequence actions"><MoreHorizontal size={18} /></button>
-              {sequenceMenuOpen && <div className={`sequence-detail-actions-menu__popover${sequenceMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="More sequence actions">
-                {selected.status === "draft" && activationAvailable && <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); setShowEnroll(true); }}><Users size={15} /> Enroll contacts</button>}
-                <Link role="menuitem" href={`/manage/outreach?tab=enrollments&sequenceId=${selected.id}`} onClick={() => closeSequenceMenu(true)}><Eye size={15} /> View enrollments</Link>
-                <Link role="menuitem" href="/manage/mail?view=sequence&mode=queue&status=queued" onClick={() => closeSequenceMenu(true)}><CalendarClock size={15} /> Queue &amp; activity</Link>
-                <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "clone"); }} disabled={busy}><Copy size={15} /> Duplicate sequence</button>
-                {selected.status === "active" && <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "pause"); }} disabled={busy}><Pause size={15} /> Pause sequence</button>}
-                {["draft", "paused"].includes(selected.status) && <button type="button" role="menuitem" className="is-danger" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "archive"); }} disabled={busy}><Archive size={15} /> Archive sequence</button>}
-              </div>}
-            </div>
+            {renderSequenceActionsMenu()}
           </div>
         </div>
         <div className="sequence-editor manage-panel sequence-detail-editor">
@@ -647,7 +658,7 @@ function SequenceDirectory({ sequences, totalSequences, visibleCount, activeCoun
             <td data-label="Results"><strong>{item.sent ? `${item.sent} sent` : "No sends yet"}</strong><small>{item.replies} replies{item.sent ? ` · ${Math.round((item.replies / item.sent) * 100)}% reply rate` : ""}</small></td>
             <td data-label="Owner">{item.ownerName || "Unassigned"}</td>
             <td data-label="Updated">{formatSequenceDate(item.updatedAt)}</td>
-            <td className="sequence-directory-actions"><button ref={openMenuId === item.id ? menuTriggerRef : undefined} type="button" className="manage-icon-button" aria-label={`Actions for ${item.name}`} aria-haspopup="menu" aria-expanded={openMenuId === item.id} onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)} disabled={busy}><MoreHorizontal size={16} /></button>{openMenuId === item.id && <div className="sequence-directory-menu" role="menu"><button type="button" role="menuitem" onClick={() => runAction(item.id, "clone")}>Clone sequence</button>{item.status === "active" && <button type="button" role="menuitem" onClick={() => runAction(item.id, "pause")}>Pause sequence</button>}{["draft", "paused"].includes(item.status) && <button type="button" role="menuitem" onClick={() => runAction(item.id, "archive")}>Archive sequence</button>}</div>}</td>
+            <td className="sequence-directory-actions"><button ref={openMenuId === item.id ? menuTriggerRef : undefined} type="button" className="manage-icon-button" aria-label={`Actions for ${item.name}`} aria-haspopup="menu" aria-expanded={openMenuId === item.id} onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)} disabled={busy}><MoreVertical size={16} /></button>{openMenuId === item.id && <div className="sequence-directory-menu" role="menu"><button type="button" role="menuitem" onClick={() => runAction(item.id, "clone")}>Clone sequence</button>{item.status === "active" && <button type="button" role="menuitem" onClick={() => runAction(item.id, "pause")}>Pause sequence</button>}{["draft", "paused"].includes(item.status) && <button type="button" role="menuitem" onClick={() => runAction(item.id, "archive")}>Archive sequence</button>}</div>}</td>
           </tr>;
         })}</tbody>
       </table>

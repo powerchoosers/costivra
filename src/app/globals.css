@@ -7776,8 +7776,26 @@ body.modal-open .app-topbar { filter: blur(7px); }
   --workspace-line-soft: #edf0f4;
   --workspace-ink: #243247;
   --workspace-muted: #6f7e92;
+  --workspace-accent: #2456c8;
+  --workspace-accent-hover: #1d48ac;
+  --workspace-control-line: #dce3eb;
+  --workspace-control-line-hover: #b9cbe3;
+  --workspace-control-ink: #475569;
+  --workspace-control-ink-active: #1d4ed8;
+  --workspace-control-surface-active: #fbfdff;
+  --workspace-table-heading: #78869a;
+  --workspace-row-hover: #fafbfd;
+  --workspace-row-selected: #f3f6fb;
+  --workspace-subtle-hover: #f8fafc;
+  --workspace-subtle-line-hover: #cad5e3;
+  --workspace-overlay: rgba(15, 23, 42, .26);
+  --workspace-side-overlay: rgba(11, 16, 26, .14);
   --workspace-radius: 20px;
   --workspace-panel-radius: 16px;
+  --workspace-control-radius: 10px;
+  --workspace-status-radius: 999px;
+  --workspace-utility-size: 40px;
+  --workspace-motion-fast: 180ms cubic-bezier(.23, 1, .32, 1);
   --workspace-shadow: 0 1px 2px rgba(16, 24, 40, .03), 0 12px 30px rgba(16, 24, 40, .035);
 }
 
@@ -7848,7 +7866,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-body .app-work-canvas .portal-panel:hover,
 .app-body .app-work-canvas .portal-card:hover,
 .app-body .app-work-canvas .portal-metric:hover {
-  border-color: #d7dee8;
+  border-color: var(--workspace-control-line);
   box-shadow: none;
   transform: none;
 }
@@ -7904,7 +7922,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-body .app-work-canvas .portal-table th {
   background: var(--workspace-surface-soft);
   border-bottom-color: var(--workspace-line);
-  color: #78869a;
+  color: var(--workspace-table-heading);
 }
 
 .manage-app .manage-table-wrap td,
@@ -7916,13 +7934,13 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .manage-app .manage-table-wrap tr:hover td,
 .app-body .app-work-canvas .data-table tbody tr:hover,
 .app-body .app-work-canvas .portal-table tbody tr:hover {
-  background: #fafbfd;
+  background: var(--workspace-row-hover);
 }
 
 .manage-app .manage-table-wrap tr.is-selected td,
 .app-body .app-work-canvas .data-table tbody tr.selected,
 .app-body .app-work-canvas .portal-table tbody tr.selected {
-  background: #f3f6fb;
+  background: var(--workspace-row-selected);
 }
 
 .manage-app .manage-table-wrap tr.is-selected td:first-child::before {
@@ -7936,20 +7954,20 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-body .app-work-canvas .portal-field input,
 .app-body .app-work-canvas .portal-field select,
 .app-body .app-work-canvas .portal-field textarea {
-  border-radius: 10px;
+  border-radius: var(--workspace-control-radius);
 }
 
 .manage-app .manage-button--primary,
 .app-body .app-work-canvas .button-primary {
-  background: #2456c8;
-  border-color: #2456c8;
+  background: var(--workspace-accent);
+  border-color: var(--workspace-accent);
   box-shadow: none;
 }
 
 .manage-app .manage-button--primary:hover,
 .app-body .app-work-canvas .button-primary:hover {
-  background: #1d48ac;
-  border-color: #1d48ac;
+  background: var(--workspace-accent-hover);
+  border-color: var(--workspace-accent-hover);
   box-shadow: none;
 }
 
@@ -7966,10 +7984,126 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .manage-app .manage-icon-button:hover,
 .app-body .app-work-canvas .button-quiet:hover,
 .app-body .app-work-canvas .button-secondary:hover {
-  border-color: #cad5e3;
-  background: #f8fafc;
+  border-color: var(--workspace-subtle-line-hover);
+  background: var(--workspace-subtle-hover);
   box-shadow: none;
 }
+
+/* Visual-only primitives shared by the customer and internal workspaces.
+   They own geometry and interaction feedback; each surface keeps its own
+   data, permissions, wording, and action handlers. */
+.workspace-utility-button,
+.app-body .app-work-canvas .workspace-utility-button,
+.manage-shell-v2 .workspace-utility-button {
+  display: inline-grid;
+  width: var(--workspace-utility-size);
+  min-width: var(--workspace-utility-size);
+  height: var(--workspace-utility-size);
+  min-height: var(--workspace-utility-size);
+  box-sizing: border-box;
+  place-items: center;
+  border: 1px solid var(--workspace-control-line);
+  color: var(--workspace-control-ink);
+  background: var(--workspace-surface);
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast);
+}
+
+.workspace-utility-button--round { border-radius: 50%; }
+.workspace-utility-button--soft-square { border-radius: var(--workspace-control-radius); }
+
+.workspace-utility-button:hover,
+.workspace-utility-button:focus-visible,
+.workspace-utility-button.is-active {
+  border-color: var(--workspace-control-line-hover);
+  color: var(--workspace-control-ink-active);
+  background: var(--workspace-control-surface-active);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, .12);
+}
+
+.workspace-utility-button:focus-visible {
+  outline: 2px solid var(--workspace-accent);
+  outline-offset: 2px;
+}
+
+.app-body .app-work-canvas .workspace-utility-button.assistant-trigger-btn-circle.is-active {
+  border-color: var(--assistant-accent, var(--workspace-accent));
+  color: #ffffff;
+  background: var(--assistant-accent, var(--workspace-accent));
+}
+
+.workspace-status-badge {
+  display: inline-flex;
+  width: max-content;
+  align-items: center;
+  border-radius: var(--workspace-status-radius);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-status-badge__dot {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.workspace-empty-state {
+  display: grid;
+  grid-column: 1 / -1;
+  min-height: 220px;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 34px;
+  color: var(--workspace-muted);
+  text-align: center;
+}
+
+.workspace-empty-state__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--workspace-line);
+  border-radius: 13px;
+  color: var(--workspace-control-ink);
+  background: var(--workspace-surface-soft);
+}
+
+.workspace-empty-state h3 {
+  margin: 4px 0 0;
+  color: var(--workspace-ink);
+  font-size: .9rem;
+}
+
+.workspace-empty-state p {
+  max-width: 390px;
+  margin: 0;
+  color: var(--workspace-muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.workspace-empty-state__action { margin-top: 8px; }
+
+.workspace-empty-state--compact {
+  min-height: 0;
+  padding: 42px 24px;
+}
+
+.workspace-empty-state--compact h3 {
+  margin: 13px 0 5px;
+  font-size: .87rem;
+}
+
+.workspace-empty-state--compact p {
+  max-width: 380px;
+  font-size: .71rem;
+  line-height: 1.55;
+}
+
+.workspace-empty-state--compact .workspace-empty-state__action { margin-top: 16px; }
+.workspace-empty-state--compact .workspace-empty-state__action > .manage-button { margin-top: 0; }
 
 .manage-app .manage-modal,
 .portal-modal,
@@ -7991,12 +8125,12 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .portal-modal-layer,
 .manage-app .portal-sheet-backdrop,
 .app-body .portal-sheet-backdrop {
-  background: rgba(15, 23, 42, .26);
+  background: var(--workspace-overlay);
 }
 
 /* Side sheets retain their lighter context veil. */
 .portal-modal-layer--side {
-  background: rgba(11, 16, 26, .14);
+  background: var(--workspace-side-overlay);
 }
 
 @media (max-width: 780px) {
@@ -8081,6 +8215,35 @@ body.modal-open .app-topbar { filter: blur(7px); }
   box-shadow: 0 4px 12px rgba(29, 78, 216, .12);
 }
 
+/* Keep the universal record menu inside the shell when the trigger sits near
+   the right edge of the viewport. */
+.manage-shell-v2 .manage-create-menu {
+  right: 0;
+  left: auto;
+  max-width: calc(100vw - 24px);
+  transform: none;
+  transform-origin: top right;
+  animation-name: manage-create-menu-in-right;
+}
+.manage-shell-v2 .manage-create-menu.is-closing { animation-name: manage-create-menu-out-right; }
+@keyframes manage-create-menu-in-right { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes manage-create-menu-out-right { to { opacity: 0; transform: translateY(-5px) scale(.99); } }
+
+/* The floating Back strip carries the same two sequence actions while the
+   detail header is out of view. */
+.global-back-control__action--enroll { color: #1d4ed8; }
+.sequence-detail-actions-menu__popover.is-floating {
+  position: fixed;
+  top: 140px;
+  right: 16px;
+}
+.sequence-detail-actions-menu__popover.is-floating.is-closing { position: fixed; }
+
+/* Align the first sidebar destination with the detail-page Back control. */
+.manage-shell-v2 .manage-sidebar nav.manage-primary-nav {
+  transform: translateY(-34px);
+}
+
 /* The terminal insert control sits at the end of the flow, so its tray opens
    upward into the available canvas instead of being clipped below the scrollport. */
 @media (min-width: 781px) {
@@ -8088,4 +8251,12 @@ body.modal-open .app-topbar { filter: blur(7px); }
     top: auto;
     bottom: calc(50% + 12px);
   }
+}
+
+/* The shared frame owns the customer mobile transition. Earlier generations
+   of sidebar rules conflict here, so keep the final responsive intent beside
+   the shared workspace foundation rather than adding another local override. */
+@media (max-width: 760px) {
+  .app-body .app-sidebar { display: none; }
+  .app-body .app-mobile-utilities { display: flex; }
 }

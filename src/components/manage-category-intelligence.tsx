@@ -8,6 +8,7 @@ import {
   Layers,
   ShieldCheck,
 } from "@/lib/icons";
+import { WorkspaceStatusBadge } from "@/components/ui/workspace-primitives";
 import { TRUSTED_SOURCES_REGISTRY } from "@/lib/category-intelligence/source-registry";
 import { getRegisteredExpertPacks } from "@/lib/category-intelligence/packs";
 
@@ -31,19 +32,18 @@ const parentCategories = [
 
 const cardStyle = {
   padding: 16,
-  borderRadius: 12,
-  border: "1px solid #e4e4e7",
-  background: "#ffffff",
-  color: "#111827",
+  borderRadius: "var(--workspace-panel-radius)",
+  border: "1px solid var(--workspace-line)",
+  background: "var(--workspace-surface)",
+  color: "var(--workspace-ink)",
 } as const;
 
 function StatusBadge({ value }: { value: "draft" | "planned" }) {
   const isDraft = value === "draft";
   return (
-    <span
+    <WorkspaceStatusBadge
       style={{
         padding: "3px 8px",
-        borderRadius: 999,
         fontSize: 11,
         fontWeight: 700,
         letterSpacing: ".04em",
@@ -52,7 +52,7 @@ function StatusBadge({ value }: { value: "draft" | "planned" }) {
       }}
     >
       {value.toUpperCase()}
-    </span>
+    </WorkspaceStatusBadge>
   );
 }
 
@@ -105,7 +105,7 @@ export function ManageCategoryIntelligence() {
   }, []);
 
   return (
-    <div className="manage-page-body" style={{ padding: 24, color: "#f8fafc" }}>
+    <div className="manage-page-body" style={{ padding: 24, color: "var(--workspace-ink)" }}>
       <header style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div
@@ -122,14 +122,14 @@ export function ManageCategoryIntelligence() {
             <h1
               style={{
                 margin: 0,
-                color: "#f8fafc",
+                color: "var(--workspace-ink)",
                 fontSize: 22,
                 fontWeight: 650,
               }}
             >
               Category Intelligence &amp; Market Expertise
             </h1>
-            <p style={{ margin: "3px 0 0", color: "#aab6cf", fontSize: 14 }}>
+            <p style={{ margin: "3px 0 0", color: "var(--workspace-muted)", fontSize: 14 }}>
               Internal quality controls for category rules, source reviews, and
               items that need a human check.
             </p>

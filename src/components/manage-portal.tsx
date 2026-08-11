@@ -106,6 +106,7 @@ import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspa
 import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
+import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
@@ -113,6 +114,7 @@ import type { SystemReadiness } from "@/lib/manage/system-readiness";
 import { formatManageDate } from "@/lib/manage/date-format";
 import { sequenceTaskOriginLabel } from "@/lib/manage/task-origin";
 import { groupRecordedSpend, type SpendInterval } from "@/lib/manage/vendor-costs";
+import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 import {
   buildRecipientCandidates,
   isRecipientEmail,
@@ -384,10 +386,9 @@ async function api(url: string, init: RequestInit) {
 function Status({ value }: { value: string | null }) {
   const key = value || "unclassified";
   return (
-    <span className={`manage-status manage-status--${key}`}>
-      <i />
+    <WorkspaceStatusBadge withDot className={`manage-status manage-status--${key}`}>
       {stageLabel(value)}
-    </span>
+    </WorkspaceStatusBadge>
   );
 }
 
@@ -471,14 +472,14 @@ function Empty({
   action?: ReactNode;
 }) {
   return (
-    <div className="manage-empty">
-      <span>
-        <Icon size={22} />
-      </span>
-      <h3>{title}</h3>
-      <p>{copy}</p>
-      {action}
-    </div>
+    <WorkspaceEmptyState
+      compact
+      className="manage-empty"
+      icon={<Icon size={22} />}
+      title={title}
+      copy={copy}
+      action={action}
+    />
   );
 }
 
@@ -1069,7 +1070,10 @@ export function ManagePortal({
     </div>
   );
   return (
-    <div className={`manage-app manage-shell-v2${assistantOpen ? " is-assistant-open" : ""}`}>
+    <div
+      className={`manage-app manage-shell-v2${assistantOpen ? " is-assistant-open" : ""}`}
+      data-workspace-shell="operations"
+    >
       <ManageLiveNotifications soundEnabled={data.operator.notificationSoundEnabled} />
       <aside
         id="manage-owner-sidebar"
@@ -1077,6 +1081,7 @@ export function ManagePortal({
         className={`manage-sidebar${mobileNav ? " is-open" : ""}${
           sidebarIsCollapsed ? " is-collapsed" : ""
         }`}
+        data-workspace-slot="rail"
         onFocusCapture={() => {
           if (
             sidebarViewport !== "mobile" &&
@@ -1136,16 +1141,18 @@ export function ManagePortal({
             <div className="manage-nav-group" key={group.label}>
               <span className="manage-nav-group-label">{group.label}</span>
               {group.items.map(([label, href, Icon]) => {
-                const active =
-                  href === "/manage"
-                    ? pathname === href
-                    : pathname.startsWith(href);
+                const active = isWorkspaceRouteActive({
+                  href,
+                  pathname,
+                  exact: href === "/manage",
+                });
                 const unreadCount = label === "Mail" ? data.mail.unreadCount : 0;
                 return (
                   <Link
                     className={active ? "active" : ""}
                     href={href}
                     key={href}
+                    aria-current={active ? "page" : undefined}
                     aria-label={
                       unreadCount > 0
                         ? `${label}, ${unreadCount} unread messages`
@@ -1187,9 +1194,10 @@ export function ManagePortal({
         <div className="manage-sidebar-foot">
           <nav className="manage-sidebar-utility" aria-label="Workspace settings">
             <Link
-              className={pathname.startsWith(settingsNav[1]) ? "active" : ""}
+              className={isWorkspaceRouteActive({ href: settingsNav[1], pathname }) ? "active" : ""}
               href={settingsNav[1]}
               aria-label={settingsNav[0]}
+              aria-current={isWorkspaceRouteActive({ href: settingsNav[1], pathname }) ? "page" : undefined}
               onMouseEnter={(event) => showSidebarTooltip(settingsNav[0], event.currentTarget)}
               onMouseLeave={clearSidebarTooltip}
               onFocus={(event) => showSidebarTooltip(settingsNav[0], event.currentTarget)}
@@ -1267,8 +1275,8 @@ export function ManagePortal({
           onClick={() => setMobileNav(false)}
         />
       )}
-      <main className={`manage-main${sidebarIsCollapsed ? " is-collapsed" : ""}`}>
-        <header className="manage-topbar">
+      <main className={`manage-main${sidebarIsCollapsed ? " is-collapsed" : ""}`} data-workspace-slot="canvas">
+        <header className="manage-topbar" data-workspace-slot="topbar">
           <div className="manage-topbar-leading">
             <button
               className="manage-menu"
@@ -1330,8 +1338,8 @@ export function ManagePortal({
           )}
           </div>
           <div className="manage-top-actions">
-            <div className="manage-topbar-utilities" aria-label="Workspace utilities">
-              <button type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></button>
+            <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
+              <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
             </div>
           {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
               <button

@@ -48,6 +48,7 @@ import { useToast } from "@/components/toast-provider";
 import { useBillInspector } from "@/components/bill-inspector-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
+import { WorkspaceEmptyState, WorkspaceStatusBadge } from "@/components/ui/workspace-primitives";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
@@ -178,23 +179,24 @@ function PageHeader({
 
 function Empty({ title, copy, action }: { title: string; copy: string; action?: ReactNode }) {
   return (
-    <div className="portal-empty">
-      <FileText size={24} aria-hidden="true" />
-      <strong>{title}</strong>
-      <span>{copy}</span>
-      {action ? <div style={{ marginTop: 8 }}>{action}</div> : null}
-    </div>
+    <WorkspaceEmptyState
+      className="portal-empty"
+      icon={<FileText size={24} />}
+      title={title}
+      copy={copy}
+      action={action}
+    />
   );
 }
 
 function Status({ value }: { value: string }) {
   return (
-    <span className={`portal-status status-${value}`}>{titleCase(value)}</span>
+    <WorkspaceStatusBadge className={`portal-status status-${value}`}>{titleCase(value)}</WorkspaceStatusBadge>
   );
 }
 
 function TrustBadge({ state }: { state: PortalData["opportunities"][number]["trustState"] }) {
-  return <span className={`portal-status trust-${state}`}>{opportunityTrustLabel(state)}</span>;
+  return <WorkspaceStatusBadge className={`portal-status trust-${state}`}>{opportunityTrustLabel(state)}</WorkspaceStatusBadge>;
 }
 
 function SampleWorkspaceBanner() {
