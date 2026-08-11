@@ -42,6 +42,22 @@ Sequences, steps, enrollments, events, and suppressions are isolated in internal
 
 Operators can review timing, copy, stop controls, and eligible contacts in the existing Outreach workspace. A later execution packet must add explicit approvals, provider-side idempotency, reply/bounce/unsubscribe state transitions, and end-to-end proof before `execution_enabled` can become true.
 
+## 2026-08-10 — Build linear outreach sequences as a chronological machine
+
+### Context
+
+The first sequence-builder redesign still split a simple, linear workflow across a timeline, an editor, and a persistent settings rail. That made an ordinary follow-up plan feel harder to scan and edit than it should. Operators also need to insert a real step between two existing steps, set its delay at that point, and reorder cards without a full-page reload.
+
+### Decision
+
+Use one centered vertical sequence machine: compact chronological cards, visible arrow connectors, a delay attached to the following step, and a small plus control that opens a type-and-delay popover. Opening a card exposes that card's email, call, or task editor in place; only one editor is expanded at a time. Keep sequence-wide delivery settings behind a compact disclosure and link the existing Mail queue rather than duplicating queue data.
+
+Use `@dnd-kit` for pointer, touch, and keyboard-aware card ordering. The create-step route accepts a tenant-scoped `afterStepId` so an insert control represents a real database position rather than a visual-only control. Existing draft-only API checks, server validation, AI-draft review, and no-send safeguards remain authoritative.
+
+### Consequences
+
+The active builder no longer has a left timeline or persistent right rail. Adding, saving, and reordering steps updates local sequence state after a confirmed server response, so the operator keeps their place in the flow. There is no separate wait record or new queue table; existing step timing and Mail queue projections remain the system of record. The prior v2 builder is retained only as inactive archived source/Git history while the new flow settles.
+
 ## 2026-08-06 — Gate customer-facing finding claims on trust provenance
 
 ### Context

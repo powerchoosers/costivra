@@ -20,7 +20,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const { error } = await db.from("crm_sequence_steps").update({ position: (index + 1) * 1000, updated_at: new Date().toISOString() }).eq("id", stepId).eq("sequence_id", sequenceId); if (error) throw error;
     }
     for (const [index, stepId] of orderedIds.entries()) {
-      const { error } = await db.from("crm_sequence_steps").update({ position: index + 1, updated_at: new Date().toISOString() }).eq("id", stepId).eq("sequence_id", sequenceId); if (error) throw error;
+      // A step's delay is relative to the preceding step. When a later step
+      // is dragged into the first position it must start immediately, rather
+      // than retaining the delay it had in its prior position.
+      const { error } = await db.from("crm_sequence_steps").update({
+        position: index + 1,
+        ...(index === 0 ? { delay_value: 0 } : {}),
+        updated_at: new Date().toISOString(),
+      }).eq("id", stepId).eq("sequence_id", sequenceId); if (error) throw error;
     }
     return NextResponse.json({ ok: true });
   } catch (error) { const result = manageApiError(error); return NextResponse.json({ error: result.error }, { status: result.status }); }

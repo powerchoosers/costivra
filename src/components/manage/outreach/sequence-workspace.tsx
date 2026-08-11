@@ -10,6 +10,7 @@ import { sanitizeEmailHtml } from "@/lib/manage/sanitize-email-html";
 import { PERSONALIZATION_OVERRIDE_FIELDS, TEMPLATE_TOKENS, renderTemplate, validateSequenceDraft } from "@/lib/manage/sequences/validation";
 import { sequenceActivationUiState } from "@/lib/manage/sequences/ui-state";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
+import { SequenceMachine, type SequenceStepAddOptions } from "@/components/manage/outreach/sequence-machine";
 
 type Props = { data: ManageData; query: string; mode?: "sequences" | "enrollments"; sequenceId?: string | null };
 type SequenceAction = "clone" | "pause" | "archive";
@@ -49,14 +50,16 @@ function formatSequenceDate(value: string | null) {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(timestamp);
 }
 
-function stepDraft(type: SequenceStepType, position: number) {
+function stepDraft(type: SequenceStepType, position: number, options: Pick<SequenceStepAddOptions, "delayValue" | "delayUnit"> = {}) {
+  const delayValue = position === 1 ? 0 : options.delayValue ?? (type === "manual_email" || type === "automatic_email" ? 2 : 1);
+  const delayUnit = options.delayUnit ?? "business_days";
   return type === "manual_email" || type === "automatic_email"
-    ? { stepType: type, delayValue: position === 1 ? 0 : 2, delayUnit: "business_days", threadMode: position === 1 ? "new_thread" : "reply_to_previous", ...defaultEmail, taskPriority: "normal", pauseUntilTaskComplete: false }
-    : { stepType: type, delayValue: position === 1 ? 0 : 1, delayUnit: "business_days", taskTitleTemplate: type === "call_task" ? "Call {{full_name}}" : "Follow up with {{full_name}}", taskNotesTemplate: "Review the contact record before acting.", taskPriority: "normal", pauseUntilTaskComplete: true };
+    ? { stepType: type, delayValue, delayUnit, threadMode: position === 1 ? "new_thread" : "reply_to_previous", ...defaultEmail, taskPriority: "normal", pauseUntilTaskComplete: false }
+    : { stepType: type, delayValue, delayUnit, taskTitleTemplate: type === "call_task" ? "Call {{full_name}}" : "Follow up with {{full_name}}", taskNotesTemplate: "Review the contact record before acting.", taskPriority: "normal", pauseUntilTaskComplete: true };
 }
 
-function createLocalStep(type: SequenceStepType, position: number, id: string, sequenceId: string): SequenceStep {
-  const draft = stepDraft(type, position);
+function createLocalStep(type: SequenceStepType, position: number, id: string, sequenceId: string, options: Pick<SequenceStepAddOptions, "delayValue" | "delayUnit"> = {}): SequenceStep {
+  const draft = stepDraft(type, position, options);
   return {
     id,
     sequenceId,
@@ -255,15 +258,22 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     finally { setBusy(false); }
   }
 
-  async function addStep(type: SequenceStepType) {
+  async function addStep(type: SequenceStepType, options: SequenceStepAddOptions = {}) {
     if (!selected) return undefined;
     setBusy(true); setError(null);
     try {
-      const position = selected.steps.length + 1;
-      const payload = await requestJson(`/api/manage/outreach/sequences/${selected.id}/steps`, { method: "POST", body: JSON.stringify(stepDraft(type, position)) });
+      const selectedSequenceId = selected.id;
+      const orderedSteps = [...selected.steps].sort((left, right) => left.position - right.position);
+      const anchorIndex = options.afterStepId ? orderedSteps.findIndex((step) => step.id === options.afterStepId) : orderedSteps.length - 1;
+      const provisionalPosition = anchorIndex + 2;
+      const draft = stepDraft(type, provisionalPosition, options);
+      const payload = await requestJson(`/api/manage/outreach/sequences/${selectedSequenceId}/steps`, { method: "POST", body: JSON.stringify({ ...draft, afterStepId: options.afterStepId ?? null }) });
       if (typeof payload.id !== "string") throw new Error("The step was created but its identifier was missing.");
-      const createdStep = createLocalStep(type, Number(payload.position) || position, payload.id, selected.id);
-      setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: [...item.steps, createdStep] } : item));
+      const position = Number(payload.position) || provisionalPosition;
+      const createdStep = createLocalStep(type, position, payload.id, selectedSequenceId, options);
+      setSequences((current) => current.map((item) => item.id === selectedSequenceId
+        ? { ...item, steps: [...item.steps.map((step) => step.position >= position ? { ...step, position: step.position + 1 } : step), createdStep].sort((left, right) => left.position - right.position) }
+        : item));
       setNotice(`${stepLabel(type)} added.`);
       return createdStep.id;
     }
@@ -313,7 +323,7 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
     if (!selected) return;
     const priorSteps = selected.steps;
     const stepsById = new Map(priorSteps.map((step) => [step.id, step]));
-    const reorderedSteps = stepIds.map((id, index) => ({ ...stepsById.get(id)!, position: index + 1 }));
+    const reorderedSteps = stepIds.map((id, index) => ({ ...stepsById.get(id)!, position: index + 1, delayValue: index === 0 ? 0 : stepsById.get(id)!.delayValue }));
     setSequences((current) => current.map((item) => item.id === selected.id ? { ...item, steps: reorderedSteps } : item));
     setBusy(true); setError(null);
     try {
@@ -578,13 +588,15 @@ function EnrollmentDrawer({ enrollment, onClose }: { enrollment: Enrollment; onC
   return <div className="portal-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="portal-sheet" role="dialog" aria-modal="true" aria-labelledby="enrollment-inspector-title"><header className="portal-sheet-header"><div><span className="manage-eyebrow">Enrollment inspector</span><h2 id="enrollment-inspector-title">{enrollment.contactName}</h2><p>{enrollment.contactEmail}</p></div><button type="button" className="manage-icon-button" onClick={onClose} aria-label="Close enrollment inspector"><X size={17} /></button></header><div className="portal-sheet-body"><dl className="sequence-inspector-list"><div><dt>Sequence</dt><dd>{enrollment.sequenceName}</dd></div><div><dt>Account</dt><dd>{enrollment.accountName}</dd></div><div><dt>State</dt><dd>{enrollment.state}</dd></div><div><dt>Current step</dt><dd>{enrollment.currentStepPosition || "Pending"}</dd></div><div><dt>Next action</dt><dd>{enrollment.nextActionAt ? formatSequenceDate(enrollment.nextActionAt) : "No action scheduled"}</dd></div><div><dt>Last touch</dt><dd>{enrollment.lastTouchAt ? formatSequenceDate(enrollment.lastTouchAt) : "No touch recorded"}</dd></div><div><dt>Sender mailbox</dt><dd>{enrollment.mailboxAddress}</dd></div><div><dt>Stop reason</dt><dd>{enrollment.stopReason || "—"}</dd></div><div><dt>Created</dt><dd>{formatSequenceDate(enrollment.createdAt)}</dd></div></dl><p className="muted">This view is read-only. Use the row controls to pause, resume, or stop the enrollment.</p><footer className="portal-sheet-actions"><button type="button" className="manage-button manage-button--quiet" onClick={onClose}>Close</button></footer></div></section></div>;
 }
 
-function SequenceEditor({ sequence, executionEnabled, busy, activating, onActivate, onAdd, onSave, onSaveStep, onReorder, onDelete, onDuplicate, onTestSend, onClone }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; activating: boolean; onActivate: () => void; onAdd: (type: SequenceStepType) => Promise<string | undefined>; onSave: (patch: Record<string, unknown>) => Promise<void>; onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void>; onClone: () => void }) {
+function SequenceEditor({ sequence, executionEnabled, busy, activating, onActivate, onAdd, onSave, onSaveStep, onReorder, onDelete, onDuplicate, onTestSend, onClone }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; activating: boolean; onActivate: () => void; onAdd: (type: SequenceStepType, options?: SequenceStepAddOptions) => Promise<string | undefined>; onSave: (patch: Record<string, unknown>) => Promise<void>; onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void>; onClone: () => void }) {
   const validation = validateSequenceDraft(sequence, { forActivation: true });
   const activation = sequenceActivationUiState(sequence.status, validation.valid, activating, executionEnabled);
   const readOnly = sequence.status !== "draft";
-  return <SequenceBuilderCanvas sequence={sequence} executionEnabled={executionEnabled} busy={busy} activation={activation} validationErrors={validation.errors} readOnly={readOnly} onActivate={onActivate} onAdd={onAdd} onSave={onSave} onSaveStep={onSaveStep} onReorder={onReorder} onDelete={onDelete} onDuplicate={onDuplicate} onTestSend={onTestSend} onClone={onClone} />;
+  return <SequenceMachine sequence={sequence} executionEnabled={executionEnabled} busy={busy} activation={activation} validationErrors={validation.errors} readOnly={readOnly} onActivate={onActivate} onAdd={onAdd} onSave={onSave} onSaveStep={onSaveStep} onReorder={onReorder} onDelete={onDelete} onDuplicate={onDuplicate} onTestSend={onTestSend} onClone={onClone} />;
 }
 
+// Archived v2: retained here only while the new sequence machine settles in production.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SequenceBuilderCanvas({ sequence, executionEnabled, busy, activation, validationErrors, readOnly, onActivate, onAdd, onSave, onSaveStep, onReorder, onDelete, onDuplicate, onTestSend, onClone }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; activation: ReturnType<typeof sequenceActivationUiState>; validationErrors: string[]; readOnly: boolean; onActivate: () => void; onAdd: (type: SequenceStepType) => Promise<string | undefined>; onSave: (patch: Record<string, unknown>) => Promise<void>; onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void>; onClone: () => void }) {
   const [activeStepId, setActiveStepId] = useState<string | null>(() => sequence.steps[0]?.id ?? null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
