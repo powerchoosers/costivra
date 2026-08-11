@@ -1737,3 +1737,59 @@ Define a late, scoped set of workspace surface tokens and apply them only to `.m
 ## Consequences
 
 New and existing operational pages now share a clear visual grammar without changing their workflows or introducing a new component dependency. Future workspace surfaces should reuse these scoped primitives rather than adding another card/shadow variant. The legacy shell layers remain in place for compatibility and can be reduced deliberately in a later component migration.
+
+# 2026-08-11 — Keep sequence actions contextual instead of persistent
+
+## Context
+
+The sequence detail page exposed navigation, enrollment, queue monitoring, duplication, and execution state as neighboring button-like controls. That made the page feel busy and made a non-actionable “Execution disabled” state look clickable.
+
+## Decision
+
+Keep one state-dependent primary action in the detail context row: Enroll contacts while activation is unavailable, or Activate/Resume when the sequence is ready. Move View enrollments, Queue & activity, Duplicate, Pause, Archive, and the alternate enrollment action into an accessible three-dot menu. Remove the duplicate action cluster from the builder header. Connector arrows use a transparent SVG background so the timeline remains a clean line between cards.
+
+## Consequences
+
+The page has one clear next action and a predictable home for less frequent operations. The menu closes on outside click and Escape, restores focus after its exit animation, and respects reduced motion. Execution status remains explanatory UI rather than a fake disabled button.
+
+# 2026-08-11 — Align shared shell utilities with the workspace frame
+
+## Context
+
+The shared floating Back control could sit directly against the sticky Manage top bar, while the global create trigger inherited the visual treatment of a primary rectangular CTA. That made navigation feel cramped and the two utility controls look unrelated.
+
+## Decision
+
+Keep a small clear gap below the shell header for floating Back controls and give the Manage create trigger the same 40px circular, neutral utility treatment as Ask Costivra. The plus remains a global menu trigger; it is not promoted to a page-level primary action.
+
+## Consequences
+
+Sequence and other Manage detail pages retain their existing navigation behavior while gaining clearer separation from the header. The create and assistant controls now read as one utility group, with the page's actual actions remaining in the content area.
+
+# 2026-08-11 — Treat sequence connectors as one visual element
+
+## Context
+
+The sequence rail line used a light neutral stroke while its downward arrow used a darker gray. The mismatch made each transition look assembled from separate pieces.
+
+## Decision
+
+Use the same neutral color for the connector line and arrowhead, while keeping the arrow background transparent so it stays integrated with the rail.
+
+## Consequences
+
+Wait chips remain readable, but the timeline now reads as one continuous chronological path between steps.
+
+# 2026-08-11 — Open the terminal add-step tray into the available canvas
+
+## Context
+
+The only add-step control is at the end of the sequence. Its anchored tray opened downward, which pushed part of the dialog below the scroll viewport when the final plus button was near the bottom of the page.
+
+## Decision
+
+On desktop widths, the terminal tray opens upward from the final plus control. Mobile keeps the existing in-flow tray so it can use the full available width.
+
+## Consequences
+
+The complete add-step form remains visible without requiring the user to hunt for hidden fields or manually scroll the page.

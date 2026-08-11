@@ -109,6 +109,11 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   const newSheetCloseTimer = useRef<number | null>(null);
   const localMutationRevision = useRef(0);
   const [showEnroll, setShowEnroll] = useState(false);
+  const [sequenceMenuOpen, setSequenceMenuOpen] = useState(false);
+  const [sequenceMenuClosing, setSequenceMenuClosing] = useState(false);
+  const sequenceMenuRef = useRef<HTMLDivElement | null>(null);
+  const sequenceMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const sequenceMenuCloseTimer = useRef<number | null>(null);
   const [showActivationReview, setShowActivationReview] = useState(false);
   const [name, setName] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
@@ -132,7 +137,54 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
 
   useEffect(() => () => {
     if (newSheetCloseTimer.current !== null) window.clearTimeout(newSheetCloseTimer.current);
+    if (sequenceMenuCloseTimer.current !== null) window.clearTimeout(sequenceMenuCloseTimer.current);
   }, []);
+
+  const closeSequenceMenu = useCallback((immediate = false) => {
+    if (!sequenceMenuOpen) return;
+    if (sequenceMenuCloseTimer.current !== null) window.clearTimeout(sequenceMenuCloseTimer.current);
+    if (immediate) {
+      setSequenceMenuOpen(false);
+      setSequenceMenuClosing(false);
+      return;
+    }
+    setSequenceMenuClosing(true);
+    sequenceMenuCloseTimer.current = window.setTimeout(() => {
+      setSequenceMenuOpen(false);
+      setSequenceMenuClosing(false);
+      sequenceMenuCloseTimer.current = null;
+      sequenceMenuButtonRef.current?.focus();
+    }, 160);
+  }, [sequenceMenuOpen]);
+
+  const toggleSequenceMenu = () => {
+    if (sequenceMenuOpen) {
+      closeSequenceMenu();
+      return;
+    }
+    if (sequenceMenuCloseTimer.current !== null) window.clearTimeout(sequenceMenuCloseTimer.current);
+    setSequenceMenuClosing(false);
+    setSequenceMenuOpen(true);
+  };
+
+  useEffect(() => {
+    if (!sequenceMenuOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (sequenceMenuRef.current && !sequenceMenuRef.current.contains(event.target as Node)) closeSequenceMenu();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSequenceMenu();
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeSequenceMenu, sequenceMenuOpen]);
 
   const openSequence = (id: string) => {
     router.push(`/manage/outreach/sequences/${id}`);
@@ -185,6 +237,8 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
   const selected = sequences.find((item) => item.id === sequenceQueryId) ?? null;
   const selectedEnrollment = enrollments.find((item) => item.id === enrollmentQueryId) ?? null;
   const selectedDraftValidation = selected ? validateSequenceDraft(selected, { forActivation: true }) : null;
+  const selectedActivation = selected ? sequenceActivationUiState(selected.status, selectedDraftValidation?.valid ?? false, activating, sequenceExecutionEnabled) : null;
+  const activationAvailable = Boolean(selectedActivation && !selectedActivation.disabled);
   useNavigationLabel(sequenceId ? selected?.name ?? "Sequence" : mode === "sequences" ? "Sequences" : "Outreach", sequenceId ? "/manage/outreach?tab=sequences" : "/manage", sequenceId ? "Sequences" : "Outreach");
   const ownerOptions = useMemo(() => Array.from(new Set(sequences.map((item) => item.ownerName || "Unassigned"))).sort(), [sequences]);
   const visibleSequences = useMemo(() => sequences.filter((item) => {
@@ -473,19 +527,33 @@ export function SequenceWorkspace({ data, query, mode = "sequences", sequenceId 
         <div className="sequence-detail-context-row">
           <GlobalBackControl className="sequence-detail-back" />
           <div className="sequence-detail-actions">
-            <Link className="manage-button manage-button--quiet" href={`/manage/outreach?tab=enrollments&sequenceId=${selected.id}`}>View enrollments</Link>
-            <button className="manage-button manage-button--primary" onClick={() => setShowEnroll(true)} disabled={selected.status !== "draft" || !selectedDraftValidation?.valid} title={selected.status !== "draft" ? "Only draft sequences can be enrolled in this packet." : selectedDraftValidation?.valid ? "Enroll contacts" : "Complete sequence setup before enrolling contacts."}><Users size={15} /> Enroll contacts</button>
+            {activationAvailable ? (
+              <button className="manage-button manage-button--primary" onClick={requestActivation} disabled={activating}><Send size={15} /> {selectedActivation?.buttonLabel}</button>
+            ) : selected.status === "draft" ? (
+              <button className="manage-button manage-button--primary" onClick={() => setShowEnroll(true)} disabled={!selectedDraftValidation?.valid} title={selectedDraftValidation?.valid ? "Enroll contacts" : "Complete sequence setup before enrolling contacts."}><Users size={15} /> Enroll contacts</button>
+            ) : null}
+            <div className="sequence-detail-actions-menu" ref={sequenceMenuRef}>
+              <button ref={sequenceMenuButtonRef} type="button" className="manage-icon-button" onClick={toggleSequenceMenu} aria-haspopup="menu" aria-expanded={sequenceMenuOpen} aria-label="More sequence actions" title="More sequence actions"><MoreHorizontal size={18} /></button>
+              {sequenceMenuOpen && <div className={`sequence-detail-actions-menu__popover${sequenceMenuClosing ? " is-closing" : ""}`} role="menu" aria-label="More sequence actions">
+                {selected.status === "draft" && activationAvailable && <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); setShowEnroll(true); }}><Users size={15} /> Enroll contacts</button>}
+                <Link role="menuitem" href={`/manage/outreach?tab=enrollments&sequenceId=${selected.id}`} onClick={() => closeSequenceMenu(true)}><Eye size={15} /> View enrollments</Link>
+                <Link role="menuitem" href="/manage/mail?view=sequence&mode=queue&status=queued" onClick={() => closeSequenceMenu(true)}><CalendarClock size={15} /> Queue &amp; activity</Link>
+                <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "clone"); }} disabled={busy}><Copy size={15} /> Duplicate sequence</button>
+                {selected.status === "active" && <button type="button" role="menuitem" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "pause"); }} disabled={busy}><Pause size={15} /> Pause sequence</button>}
+                {["draft", "paused"].includes(selected.status) && <button type="button" role="menuitem" className="is-danger" onClick={() => { closeSequenceMenu(true); void sequenceAction(selected.id, "archive"); }} disabled={busy}><Archive size={15} /> Archive sequence</button>}
+              </div>}
+            </div>
           </div>
         </div>
         <div className="sequence-editor manage-panel sequence-detail-editor">
-          <SequenceEditor sequence={selected} executionEnabled={sequenceExecutionEnabled} busy={busy} activating={activating} onActivate={requestActivation} onAdd={addStep} onSave={saveSequence} onSaveStep={saveStep} onReorder={reorderSteps} onDelete={deleteStep} onDuplicate={duplicateStep} onTestSend={sendTest} onClone={() => void sequenceAction(selected.id, "clone")} />
+          <SequenceEditor sequence={selected} executionEnabled={sequenceExecutionEnabled} busy={busy} onAdd={addStep} onSave={saveSequence} onSaveStep={saveStep} onReorder={reorderSteps} onDelete={deleteStep} onDuplicate={duplicateStep} onTestSend={sendTest} />
         </div>
       </div> : <div className="manage-empty"><strong>Sequence not found.</strong><p>It may have been archived or removed.</p></div>
     ) : <>
       <div className="sequence-toolbar"><label className="sequence-search"><Search size={14} /><input value={sequenceSearch} onChange={(event) => setSequenceSearch(event.target.value)} placeholder="Search sequences" aria-label="Search sequences" /></label><label><span className="sr-only">Filter sequence status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | Sequence["status"])}><option value="all">All statuses</option><option value="draft">Draft</option><option value="active">Active</option><option value="paused">Paused</option><option value="archived">Archived</option></select></label><label><span className="sr-only">Filter sequence owner</span><select value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}><option value="all">All owners</option>{ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label><label className="sequence-checkbox"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} /> Show archived</label></div>
       <div className="sequence-layout">
         <div className="sequence-list manage-panel"><div className="manage-panel-header"><div><h3>Saved sequences</h3><p>{visibleSequences.length} plan{visibleSequences.length === 1 ? "" : "s"}</p></div></div>{visibleSequences.length ? visibleSequences.map((item) => <div key={item.id} className={`sequence-list-item${sequenceQueryId === item.id ? " is-selected" : ""}`}><button className="sequence-list-item__main" onClick={() => openSequence(item.id)}><span><strong>{item.name}</strong><small>{item.steps.length} steps · {item.status} · {item.ownerName || "Unassigned"}</small><small>{item.activeEnrollments} active contacts · {item.scheduledNext24Hours} scheduled · {item.sent} sent · {item.replies} replies · {item.sent ? `${Math.round((item.replies / item.sent) * 100)}% reply rate` : "— reply rate"}</small></span><ArrowRight size={16} /></button><div className="sequence-row-actions"><button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "clone")} disabled={busy} aria-label={`Clone ${item.name}`} title="Clone sequence"><Copy size={14} /></button>{item.status === "active" && <button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "pause")} disabled={busy} aria-label={`Pause ${item.name}`} title="Pause sequence"><Pause size={14} /></button>}{["draft", "paused"].includes(item.status) && <button className="manage-icon-button" onClick={() => void sequenceAction(item.id, "archive")} disabled={busy} aria-label={`Archive ${item.name}`} title="Archive sequence"><Archive size={14} /></button>}</div></div>) : <div className="manage-empty"><strong>No matching sequences.</strong><p>Start with one focused, human-reviewable follow-up plan.</p></div>}</div>
-        <div className="sequence-editor manage-panel">{selected ? <SequenceEditor sequence={selected} executionEnabled={sequenceExecutionEnabled} busy={busy} activating={activating} onActivate={requestActivation} onAdd={addStep} onSave={saveSequence} onSaveStep={saveStep} onReorder={reorderSteps} onDelete={deleteStep} onDuplicate={duplicateStep} onTestSend={sendTest} onClone={() => void sequenceAction(selected.id, "clone")} /> : <div className="manage-empty sequence-editor__empty"><strong>Select a sequence to edit it.</strong><p>Activation is checked server-side before any message can be sent.</p></div>}</div>
+        <div className="sequence-editor manage-panel">{selected ? <SequenceEditor sequence={selected} executionEnabled={sequenceExecutionEnabled} busy={busy} onAdd={addStep} onSave={saveSequence} onSaveStep={saveStep} onReorder={reorderSteps} onDelete={deleteStep} onDuplicate={duplicateStep} onTestSend={sendTest} /> : <div className="manage-empty sequence-editor__empty"><strong>Select a sequence to edit it.</strong><p>Activation is checked server-side before any message can be sent.</p></div>}</div>
       </div>
       {enrollments.length > 0 && <div className="manage-panel sequence-enrollment-summary"><div className="manage-panel-header"><div><h3>Pending enrollment review</h3><p>These records are staged only; no message has been sent.</p></div></div><div className="sequence-enrollment-table">{enrollments.slice(0, 12).map((item) => <div key={item.id}><span><strong>{item.contactName}</strong><small>{item.sequenceName} · {item.contactEmail}</small></span><em>{item.state}</em></div>)}</div></div>}
     </>}
@@ -593,11 +661,10 @@ function EnrollmentDrawer({ enrollment, onClose }: { enrollment: Enrollment; onC
   return <div className="portal-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="portal-sheet" role="dialog" aria-modal="true" aria-labelledby="enrollment-inspector-title"><header className="portal-sheet-header"><div><span className="manage-eyebrow">Enrollment inspector</span><h2 id="enrollment-inspector-title">{enrollment.contactName}</h2><p>{enrollment.contactEmail}</p></div><button type="button" className="manage-icon-button" onClick={onClose} aria-label="Close enrollment inspector"><X size={17} /></button></header><div className="portal-sheet-body"><dl className="sequence-inspector-list"><div><dt>Sequence</dt><dd>{enrollment.sequenceName}</dd></div><div><dt>Account</dt><dd>{enrollment.accountName}</dd></div><div><dt>State</dt><dd>{enrollment.state}</dd></div><div><dt>Current step</dt><dd>{enrollment.currentStepPosition || "Pending"}</dd></div><div><dt>Next action</dt><dd>{enrollment.nextActionAt ? formatSequenceDate(enrollment.nextActionAt) : "No action scheduled"}</dd></div><div><dt>Last touch</dt><dd>{enrollment.lastTouchAt ? formatSequenceDate(enrollment.lastTouchAt) : "No touch recorded"}</dd></div><div><dt>Sender mailbox</dt><dd>{enrollment.mailboxAddress}</dd></div><div><dt>Stop reason</dt><dd>{enrollment.stopReason || "—"}</dd></div><div><dt>Created</dt><dd>{formatSequenceDate(enrollment.createdAt)}</dd></div></dl><p className="muted">This view is read-only. Use the row controls to pause, resume, or stop the enrollment.</p><footer className="portal-sheet-actions"><button type="button" className="manage-button manage-button--quiet" onClick={onClose}>Close</button></footer></div></section></div>;
 }
 
-function SequenceEditor({ sequence, executionEnabled, busy, activating, onActivate, onAdd, onSave, onSaveStep, onReorder, onDelete, onDuplicate, onTestSend, onClone }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; activating: boolean; onActivate: () => void; onAdd: (type: SequenceStepType, options?: SequenceStepAddOptions) => Promise<string | undefined>; onSave: (patch: Record<string, unknown>) => Promise<void>; onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void>; onClone: () => void }) {
+function SequenceEditor({ sequence, executionEnabled, busy, onAdd, onSave, onSaveStep, onReorder, onDelete, onDuplicate, onTestSend }: { sequence: Sequence; executionEnabled: boolean; busy: boolean; onAdd: (type: SequenceStepType, options?: SequenceStepAddOptions) => Promise<string | undefined>; onSave: (patch: Record<string, unknown>) => Promise<void>; onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>; onReorder: (stepIds: string[]) => void; onDelete: (stepId: string) => void; onDuplicate: (step: SequenceStep) => void; onTestSend: (stepId: string) => Promise<void> }) {
   const validation = validateSequenceDraft(sequence, { forActivation: true });
-  const activation = sequenceActivationUiState(sequence.status, validation.valid, activating, executionEnabled);
   const readOnly = sequence.status !== "draft";
-  return <SequenceMachine sequence={sequence} executionEnabled={executionEnabled} busy={busy} activation={activation} validationErrors={validation.errors} readOnly={readOnly} onActivate={onActivate} onAdd={onAdd} onSave={onSave} onSaveStep={onSaveStep} onReorder={onReorder} onDelete={onDelete} onDuplicate={onDuplicate} onTestSend={onTestSend} onClone={onClone} />;
+  return <SequenceMachine sequence={sequence} executionEnabled={executionEnabled} busy={busy} validationErrors={validation.errors} readOnly={readOnly} onAdd={onAdd} onSave={onSave} onSaveStep={onSaveStep} onReorder={onReorder} onDelete={onDelete} onDuplicate={onDuplicate} onTestSend={onTestSend} />;
 }
 
 // Archived v2: retained here only while the new sequence machine settles in production.

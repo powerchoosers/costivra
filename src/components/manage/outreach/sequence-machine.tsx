@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
   ArrowDown,
   ArrowUp,
@@ -18,7 +17,6 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
-  Send,
   Settings2,
   Trash2,
   Users,
@@ -43,7 +41,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { Sequence, SequenceStep, SequenceStepType } from "@/lib/manage/sequences/types";
 import { TEMPLATE_TOKENS } from "@/lib/manage/sequences/validation";
-import { sequenceActivationUiState } from "@/lib/manage/sequences/ui-state";
 
 export type SequenceStepAddOptions = {
   afterStepId?: string | null;
@@ -55,10 +52,8 @@ type Props = {
   sequence: Sequence;
   executionEnabled: boolean;
   busy: boolean;
-  activation: ReturnType<typeof sequenceActivationUiState>;
   validationErrors: string[];
   readOnly: boolean;
-  onActivate: () => void;
   onAdd: (type: SequenceStepType, options?: SequenceStepAddOptions) => Promise<string | undefined>;
   onSave: (patch: Record<string, unknown>) => Promise<void>;
   onSaveStep: (stepId: string, patch: Record<string, unknown>) => Promise<void>;
@@ -66,7 +61,6 @@ type Props = {
   onDelete: (stepId: string) => void;
   onDuplicate: (step: SequenceStep) => void;
   onTestSend: (stepId: string) => Promise<void>;
-  onClone: () => void;
 };
 
 type InsertTarget = { afterStepId: string | null; closing: boolean } | null;
@@ -128,10 +122,8 @@ export function SequenceMachine({
   sequence,
   executionEnabled,
   busy,
-  activation,
   validationErrors,
   readOnly,
-  onActivate,
   onAdd,
   onSave,
   onSaveStep,
@@ -139,7 +131,6 @@ export function SequenceMachine({
   onDelete,
   onDuplicate,
   onTestSend,
-  onClone,
 }: Props) {
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
   const [insertTarget, setInsertTarget] = useState<InsertTarget>(null);
@@ -222,11 +213,6 @@ export function SequenceMachine({
         <span className="sequence-machine__status"><i className={`sequence-status-dot sequence-status-dot--${sequence.status}`} /> {sequence.status}</span>
         <h3>{sequence.name}</h3>
         <p>{sequence.description || "A clear, chronological follow-up plan."}</p>
-      </div>
-      <div className="sequence-machine__actions">
-        <Link href="/manage/mail?view=sequence&mode=queue&status=queued" className="manage-button manage-button--quiet"><CalendarClock size={15} /> Queue{sequence.scheduledNext24Hours > 0 ? ` (${sequence.scheduledNext24Hours})` : ""}</Link>
-        <button type="button" className="manage-button manage-button--quiet" onClick={onClone} disabled={busy}><Copy size={15} /> Duplicate</button>
-        <button type="button" className="manage-button manage-button--primary" onClick={onActivate} disabled={activation.disabled}><Send size={15} /> {activation.buttonLabel}</button>
       </div>
     </header>
 
