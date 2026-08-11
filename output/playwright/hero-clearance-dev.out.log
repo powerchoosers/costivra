@@ -4587,3 +4587,5 @@
  GET /manage/outreach?tab=sequences 200 in 9.5s (next.js: 5.1s, proxy.ts: 205ms, application-code: 4.2s)
  GET /api/manage/notifications 200 in 3.5s (next.js: 2.3s, application-code: 1144ms)
  GET /api/manage/notifications 200 in 1061ms (next.js: 15ms, application-code: 1046ms)
+ GET /api/manage/notifications 200 in 878ms (next.js: 23ms, application-code: 855ms)
+ GET /api/manage/notifications 200 in 1450ms (next.js: 16ms, application-code: 1434ms)
