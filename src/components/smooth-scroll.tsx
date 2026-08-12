@@ -52,29 +52,54 @@ const NATIVE_SCROLL_SELECTOR = [
 ].join(",");
 
 const SCROLLBAR_IDLE_DELAY = 700;
+const WORKSPACE_SCROLLBAR_ATTRIBUTE = "data-workspace-scrollbar";
+
+function isScrollableOverflow(value: string) {
+  return ["auto", "overlay", "scroll"].includes(value);
+}
 
 function canNativeScroll(element: Element, deltaX: number, deltaY: number) {
   if (!(element instanceof HTMLElement)) return false;
 
   const style = window.getComputedStyle(element);
-  const horizontal = Math.abs(deltaX) > Math.abs(deltaY);
+  const canScrollX = deltaX !== 0 && isScrollableOverflow(style.overflowX) && element.scrollWidth > element.clientWidth;
+  const canScrollY = deltaY !== 0 && isScrollableOverflow(style.overflowY) && element.scrollHeight > element.clientHeight;
 
-  if (horizontal) {
-    if (!["auto", "overlay", "scroll"].includes(style.overflowX) || element.scrollWidth <= element.clientWidth) return false;
+  if (canScrollX) {
     const maxScrollLeft = element.scrollWidth - element.clientWidth;
-    return deltaX < 0 ? element.scrollLeft > 0 : element.scrollLeft < maxScrollLeft;
+    if (deltaX < 0 ? element.scrollLeft > 0 : element.scrollLeft < maxScrollLeft) return true;
   }
 
-  if (!["auto", "overlay", "scroll"].includes(style.overflowY) || element.scrollHeight <= element.clientHeight) return false;
-  const maxScrollTop = element.scrollHeight - element.clientHeight;
-  return deltaY < 0 ? element.scrollTop > 0 : element.scrollTop < maxScrollTop;
+  if (canScrollY) {
+    const maxScrollTop = element.scrollHeight - element.clientHeight;
+    if (deltaY < 0 ? element.scrollTop > 0 : element.scrollTop < maxScrollTop) return true;
+  }
+
+  return false;
 }
 
-function findNativeScroller(event: Event) {
+function isScrollport(element: Element) {
+  if (!(element instanceof HTMLElement)) return false;
+
+  const style = window.getComputedStyle(element);
+  return (
+    (isScrollableOverflow(style.overflowX) && element.scrollWidth > element.clientWidth)
+    || (isScrollableOverflow(style.overflowY) && element.scrollHeight > element.clientHeight)
+  );
+}
+
+function findNativeScroller(event: Event, deltaX: number, deltaY: number) {
   for (const item of event.composedPath()) {
     if (!(item instanceof HTMLElement)) continue;
-    const scroller = item.closest(NATIVE_SCROLL_SELECTOR);
-    if (scroller instanceof HTMLElement) return scroller;
+    if (item.matches(NATIVE_SCROLL_SELECTOR) && canNativeScroll(item, deltaX, deltaY)) return item;
+  }
+  return null;
+}
+
+function findScrollport(event: Event) {
+  for (const item of event.composedPath()) {
+    if (!(item instanceof HTMLElement)) continue;
+    if (isScrollport(item)) return item;
   }
   return null;
 }
@@ -97,13 +122,12 @@ export function SmoothScroll() {
       allowNestedScroll: false,
       prevent: (node) => node.hasAttribute("data-lenis-prevent"),
       virtualScroll: ({ deltaX, deltaY, event }) => {
-        const nativeScroller = findNativeScroller(event);
-        return nativeScroller === null || !canNativeScroll(nativeScroller, deltaX, deltaY);
+        return findNativeScroller(event, deltaX, deltaY) === null;
       },
       stopInertiaOnNavigate: true,
     });
 
-    const scrollTimers = new WeakMap<HTMLElement, { x?: number; y?: number }>();
+    const scrollTimers = new Map<HTMLElement, { x?: number; y?: number }>();
     const scrollPositions = new WeakMap<HTMLElement, { left: number; top: number }>();
     let pageScrollTimer: number | undefined;
     const activatePageScrollbar = () => {
@@ -115,24 +139,46 @@ export function SmoothScroll() {
         pageScrollTimer = undefined;
       }, SCROLLBAR_IDLE_DELAY);
     };
+    const registerScrollbar = (target: HTMLElement) => {
+      if (!target.matches(NATIVE_SCROLL_SELECTOR)) return;
+      target.setAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE, "");
+      if (!scrollPositions.has(target)) {
+        scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
+      }
+    };
+    const registerAddedScrollbars = (node: Node) => {
+      if (!(node instanceof HTMLElement)) return;
+      registerScrollbar(node);
+      node.querySelectorAll<HTMLElement>(NATIVE_SCROLL_SELECTOR).forEach(registerScrollbar);
+    };
     const primeNativeScrollPosition = (event: Event) => {
-      const target = findNativeScroller(event);
+      const target = findScrollport(event);
       if (target !== null && !scrollPositions.has(target)) {
         scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
       }
     };
     const handleNativeScroll = (event: Event) => {
       const target = event.target;
-      if (!(target instanceof HTMLElement) || !target.matches(NATIVE_SCROLL_SELECTOR)) return;
+      if (!(target instanceof HTMLElement) || !isScrollport(target)) return;
 
-      const previous = scrollPositions.get(target) ?? { left: target.scrollLeft, top: target.scrollTop };
-      const movedX = target.scrollLeft !== previous.left;
-      const movedY = target.scrollTop !== previous.top;
+      registerScrollbar(target);
+
+      const hadPreviousPosition = scrollPositions.has(target);
+      const previous = scrollPositions.get(target) ?? { left: 0, top: 0 };
+      const movedX = hadPreviousPosition ? target.scrollLeft !== previous.left : target.scrollLeft !== 0;
+      const movedY = hadPreviousPosition ? target.scrollTop !== previous.top : target.scrollTop !== 0;
       scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
 
       if (!movedX && !movedY) return;
 
       const timers = scrollTimers.get(target) ?? {};
+      const deactivateAxis = (axis: "x" | "y") => {
+        const activeClass = axis === "x" ? "is-scroll-x-active" : "is-scroll-y-active";
+        const timerKey = axis === "x" ? "x" : "y";
+        target.classList.remove(activeClass);
+        if (timers[timerKey] !== undefined) window.clearTimeout(timers[timerKey]);
+        delete timers[timerKey];
+      };
       const activateAxis = (axis: "x" | "y") => {
         const activeClass = axis === "x" ? "is-scroll-x-active" : "is-scroll-y-active";
         const timerKey = axis === "x" ? "x" : "y";
@@ -141,9 +187,12 @@ export function SmoothScroll() {
         timers[timerKey] = window.setTimeout(() => {
           target.classList.remove(activeClass);
           delete timers[timerKey];
+          if (timers.x === undefined && timers.y === undefined) scrollTimers.delete(target);
         }, SCROLLBAR_IDLE_DELAY);
       };
 
+      if (movedX && !movedY) deactivateAxis("y");
+      if (movedY && !movedX) deactivateAxis("x");
       if (movedX) activateAxis("x");
       if (movedY) activateAxis("y");
       scrollTimers.set(target, timers);
@@ -151,9 +200,14 @@ export function SmoothScroll() {
 
     // Scroll events do not bubble from nested panels, so capture them once at
     // the document rather than attaching a listener to every table instance.
-    document.querySelectorAll<HTMLElement>(NATIVE_SCROLL_SELECTOR).forEach((target) => {
-      scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
+    document.documentElement.setAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE, "");
+    document.querySelectorAll<HTMLElement>(NATIVE_SCROLL_SELECTOR).forEach(registerScrollbar);
+    const scrollbarObserver = new MutationObserver((records) => {
+      for (const record of records) {
+        record.addedNodes.forEach(registerAddedScrollbars);
+      }
     });
+    scrollbarObserver.observe(document.body, { childList: true, subtree: true });
     document.addEventListener("wheel", primeNativeScrollPosition, { capture: true, passive: true });
     document.addEventListener("touchstart", primeNativeScrollPosition, { capture: true, passive: true });
     document.addEventListener("pointerdown", primeNativeScrollPosition, { capture: true, passive: true });
@@ -172,6 +226,13 @@ export function SmoothScroll() {
       document.removeEventListener("pointerdown", primeNativeScrollPosition, true);
       document.removeEventListener("keydown", primeNativeScrollPosition, true);
       document.removeEventListener("scroll", handleNativeScroll, true);
+      scrollbarObserver.disconnect();
+      scrollTimers.forEach((timers, target) => {
+        if (timers.x !== undefined) window.clearTimeout(timers.x);
+        if (timers.y !== undefined) window.clearTimeout(timers.y);
+        target.classList.remove("is-scroll-x-active", "is-scroll-y-active");
+      });
+      scrollTimers.clear();
       if (lenis) {
         lenis.off("scroll", activatePageScrollbar);
         lenis.destroy();
@@ -180,6 +241,7 @@ export function SmoothScroll() {
       }
       if (pageScrollTimer !== undefined) window.clearTimeout(pageScrollTimer);
       document.documentElement.classList.remove("is-scroll-y-active");
+      document.documentElement.removeAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE);
     };
   }, []);
 

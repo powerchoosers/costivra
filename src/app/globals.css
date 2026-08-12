@@ -10619,88 +10619,37 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .app-body .app-mobile-utilities { display: flex; }
 }
 
-/* Shared scrollport contract. App and Manage retain native nested scrolling
-   (fast on trackpads and keyboards), but their scrollbars now share one calm
-   interaction: transparent at rest, a muted public-site mint while moving,
-   then a short fade back to clear. Chrome/Safari can show each axis
-   independently; Firefox uses the same subtle active color for its native
-   scrollbar because it does not expose per-axis thumb styling. */
+/* Shared scrollport contract. The scroll listener identifies the actual native
+   scrollport and adds `data-workspace-scrollbar` only there. That keeps this
+   cosmetic behavior out of tab strips and other intentionally hidden rails. */
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 ) {
   --workspace-scroll-thumb-x: transparent;
   --workspace-scroll-thumb-y: transparent;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
   scrollbar-color: transparent var(--workspace-scroll-track);
   scrollbar-width: thin;
-  scroll-behavior: smooth;
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 )::-webkit-scrollbar {
-  display: block;
   width: 10px;
   height: 10px;
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 )::-webkit-scrollbar-track {
   background: var(--workspace-scroll-track);
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 )::-webkit-scrollbar-thumb {
   min-height: 40px;
   border: 3px solid transparent;
@@ -10711,147 +10660,50 @@ body.modal-open .app-topbar { filter: blur(7px); }
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 )::-webkit-scrollbar-thumb:horizontal {
   background-color: var(--workspace-scroll-thumb-x);
-  background-clip: padding-box;
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 )::-webkit-scrollbar-thumb:vertical {
   background-color: var(--workspace-scroll-thumb-y);
-  background-clip: padding-box;
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 ).is-scroll-x-active {
   --workspace-scroll-thumb-x: var(--workspace-scroll-thumb);
   scrollbar-color: var(--workspace-scroll-thumb) var(--workspace-scroll-track);
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 ).is-scroll-y-active {
   --workspace-scroll-thumb-y: var(--workspace-scroll-thumb);
   scrollbar-color: var(--workspace-scroll-thumb) var(--workspace-scroll-track);
 }
 
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 ).is-scroll-x-active::-webkit-scrollbar-thumb:horizontal:hover,
 :is(
-  html,
-  .app-body .app-work-canvas *,
-  .app-body .app-sidebar *,
-  .app-mobile-drawer *,
-  .mobile-drawer *,
-  .manage-shell-v2 .manage-main *,
-  .manage-shell-v2 .manage-sidebar *,
-  .manage-modal *,
-  .manage-sidepanel *,
-  .drawer-content *,
-  .drawer-body *,
-  .portal-modal-layer *,
-  .assistant-surface *
+  html[data-workspace-scrollbar],
+  [data-workspace-scrollbar]
 ).is-scroll-y-active::-webkit-scrollbar-thumb:vertical:hover {
   background-color: var(--workspace-scroll-thumb-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {
   :is(
-    html,
-    .app-body .app-work-canvas *,
-    .app-body .app-sidebar *,
-    .app-mobile-drawer *,
-    .mobile-drawer *,
-    .manage-shell-v2 .manage-main *,
-    .manage-shell-v2 .manage-sidebar *,
-    .manage-modal *,
-    .manage-sidepanel *,
-    .drawer-content *,
-    .drawer-body *,
-    .portal-modal-layer *,
-    .assistant-surface *
-  ) {
-    scroll-behavior: auto;
-  }
-
-  :is(
-    html,
-    .app-body .app-work-canvas *,
-    .app-body .app-sidebar *,
-    .app-mobile-drawer *,
-    .mobile-drawer *,
-    .manage-shell-v2 .manage-main *,
-    .manage-shell-v2 .manage-sidebar *,
-    .manage-modal *,
-    .manage-sidepanel *,
-    .drawer-content *,
-    .drawer-body *,
-    .portal-modal-layer *,
-    .assistant-surface *
+    html[data-workspace-scrollbar],
+    [data-workspace-scrollbar]
   )::-webkit-scrollbar-thumb {
     transition: none;
   }
