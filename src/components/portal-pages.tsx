@@ -1361,7 +1361,7 @@ function FindingsWorkspace({
       />
       <section className="portal-panel">
         {filtered.map((item) => (
-          <div className="portal-list-row workflow-list-row" id={item.id} key={item.id}>
+          <div className="portal-list-row workflow-list-row workspace-work-item" id={item.id} key={item.id}>
             <div className="grow">
               <strong><Link className="record-link" href={`/app/findings/${item.id}`}>{item.title}</Link></strong>
               <span>{item.vendorName} · {item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</span>
@@ -1566,7 +1566,7 @@ function Actions({
           const expense = finding?.sourceExpenseId ? data.expenses.find((candidate) => candidate.id === finding.sourceExpenseId) : undefined;
           const sourceId = invoice?.id ?? expense?.invoiceId ?? expense?.documentId;
           return (
-          <article className="portal-card action-card" key={item.id}>
+          <article className="portal-card action-card workspace-work-item-card" key={item.id}>
             <header>
               <Status value={item.priority} />
               <Status value={item.status} />

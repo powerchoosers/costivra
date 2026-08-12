@@ -9701,6 +9701,139 @@ body.modal-open .app-topbar { filter: blur(7px); }
   box-shadow: 0 0 0 3px #e1ebfb;
 }
 
+/* Findings and actions are decision work, not generic cards. Keep the title,
+   evidence, value, due/approval facts, and permitted action in a repeatable
+   scan order across both queue styles. */
+.app-body .app-work-canvas .workspace-work-item {
+  gap: 0;
+  min-height: 88px;
+  padding: 12px 16px;
+}
+
+.app-body .app-work-canvas .workspace-work-item > .grow {
+  align-content: center;
+  padding-right: 16px;
+}
+
+.app-body .app-work-canvas .workspace-work-item > div:not(.grow) {
+  align-content: center;
+  min-width: 94px;
+  padding-left: 14px;
+  border-left: 1px solid var(--workspace-line-soft);
+}
+
+.app-body .app-work-canvas .workspace-work-item > .portal-status,
+.app-body .app-work-canvas .workspace-work-item > .costivra-select-container {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: 14px;
+}
+
+.app-body .app-work-canvas .workspace-work-item-card {
+  min-height: 0;
+  padding: 18px;
+  border-color: var(--workspace-line);
+  border-radius: var(--workspace-panel-radius);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .025);
+}
+
+.app-body .app-work-canvas .workspace-work-item-card > header {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.app-body .app-work-canvas .workspace-work-item-card h2 {
+  margin: 17px 0 6px;
+  color: var(--workspace-ink);
+  font-size: .94rem;
+  line-height: 1.25;
+}
+
+.app-body .app-work-canvas .workspace-work-item-card > p {
+  color: var(--workspace-muted);
+  font-size: .72rem;
+  line-height: 1.48;
+}
+
+.app-body .app-work-canvas .workspace-work-item-card > dl {
+  gap: 0;
+  margin-top: 16px;
+  border-top: 1px solid var(--workspace-line-soft);
+}
+
+.app-body .app-work-canvas .workspace-work-item-card > dl > div {
+  min-width: 0;
+  padding: 10px 10px 10px 0;
+  border-bottom: 1px solid var(--workspace-line-soft);
+}
+
+.app-body .app-work-canvas .workspace-work-item-card > dl > div:nth-child(even) {
+  padding-right: 0;
+  padding-left: 10px;
+  border-left: 1px solid var(--workspace-line-soft);
+}
+
+.app-body .app-work-canvas .workspace-work-item-card > dl > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  padding-right: 0;
+  border-left: 0;
+}
+
+.app-body .app-work-canvas .workspace-work-item-card dt {
+  color: var(--workspace-table-heading);
+  font-size: .6rem;
+}
+
+.app-body .app-work-canvas .workspace-work-item-card dd {
+  overflow: hidden;
+  color: var(--workspace-control-ink);
+  font-size: .7rem;
+  line-height: 1.36;
+  text-overflow: ellipsis;
+}
+
+.app-body .app-work-canvas .workspace-work-item-card > footer {
+  min-height: 48px;
+  margin-top: 0;
+  padding-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .app-body .app-work-canvas .workspace-work-item {
+    gap: 10px 0;
+    padding: 14px;
+  }
+
+  .app-body .app-work-canvas .workspace-work-item > .grow {
+    padding-right: 0;
+  }
+
+  .app-body .app-work-canvas .workspace-work-item > div:not(.grow) {
+    min-width: calc(50% - 8px);
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .app-body .app-work-canvas .workspace-work-item > .portal-status,
+  .app-body .app-work-canvas .workspace-work-item > .costivra-select-container {
+    margin-left: 0;
+  }
+
+  .app-body .app-work-canvas .workspace-work-item-card {
+    padding: 16px;
+  }
+
+  .app-body .app-work-canvas .workspace-work-item-card > dl {
+    grid-template-columns: 1fr;
+  }
+
+  .app-body .app-work-canvas .workspace-work-item-card > dl > div,
+  .app-body .app-work-canvas .workspace-work-item-card > dl > div:nth-child(even) {
+    padding: 9px 0;
+    border-left: 0;
+  }
+}
+
 .manage-app .manage-table-wrap tr:focus-within td,
 .app-body .app-work-canvas .portal-table tbody tr:focus-within td,
 .app-body .app-work-canvas .data-table tbody tr:focus-within td {

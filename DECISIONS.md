@@ -8,7 +8,7 @@ Customer work queues, vendor records, onboarding, and organization preferences s
 
 ### Decision
 
-Use `WorkspaceViewTabs` as the shared labelled view switcher for customer queues, settings, and vendor records; it intentionally does not claim WAI-ARIA tab behavior that the routes do not implement. Give filter popovers explicit trigger relationships, Escape/focus-return behavior, and semantics that match their actual controls. Move activation, vendor value, data-completeness, vendor-health, and preference presentation onto semantic workspace classes. Render full account cards as the mobile counterpart to Manage’s dense desktop table, preserving direct access to each account.
+Use `WorkspaceViewTabs` as the shared labelled view switcher for customer queues, settings, and vendor records; it intentionally does not claim WAI-ARIA tab behavior that the routes do not implement. Give filter popovers explicit trigger relationships, Escape/focus-return behavior, and semantics that match their actual controls. Use one evidence-to-decision rhythm for Findings and Actions. Move activation, vendor value, data-completeness, vendor-health, and preference presentation onto semantic workspace classes. Render full account cards as the mobile counterpart to Manage’s dense desktop table, preserving direct access to each account.
 
 ### Consequences
 
