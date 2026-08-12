@@ -101,7 +101,7 @@ import { ManageCategoryIntelligence } from "@/components/manage-category-intelli
 import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
-import { ManageLiveNotifications } from "@/components/manage-live-notifications";
+import { ManageNotificationCenter } from "@/components/manage-live-notifications";
 import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspace";
 import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
@@ -1048,7 +1048,6 @@ export function ManagePortal({
       className={`manage-app manage-shell-v2${assistantOpen ? " is-assistant-open" : ""}`}
       data-workspace-shell="operations"
     >
-      <ManageLiveNotifications soundEnabled={data.operator.notificationSoundEnabled} />
       <aside
         id="manage-owner-sidebar"
         className={`manage-sidebar${mobileNav ? " is-open" : ""}${
@@ -1315,6 +1314,7 @@ export function ManagePortal({
           <div className="manage-top-actions">
             <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
               <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
+              <ManageNotificationCenter soundEnabled={data.operator.notificationSoundEnabled} />
             </div>
           {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
               <button

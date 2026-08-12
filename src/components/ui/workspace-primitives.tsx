@@ -1,7 +1,15 @@
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  ReactNode,
+"use client";
+
+import { Bell } from "@/lib/icons";
+import {
+  forwardRef,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type ReactNode,
 } from "react";
 
 function classNames(...values: Array<string | false | null | undefined>) {
@@ -17,13 +25,19 @@ type WorkspaceUtilityButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
  * A visual-only control shared by customer and internal workspace chrome.
  * It intentionally owns no navigation, authorization, or state behavior.
  */
-export function WorkspaceUtilityButton({
-  active = false,
-  className,
-  shape = "round",
-  type,
-  ...props
-}: WorkspaceUtilityButtonProps) {
+export const WorkspaceUtilityButton = forwardRef<
+  HTMLButtonElement,
+  WorkspaceUtilityButtonProps
+>(function WorkspaceUtilityButton(
+  {
+    active = false,
+    className,
+    shape = "round",
+    type,
+    ...props
+  },
+  ref,
+) {
   return (
     <button
       {...props}
@@ -33,8 +47,200 @@ export function WorkspaceUtilityButton({
         active && "is-active",
         className,
       )}
+      ref={ref}
       type={type ?? "button"}
     />
+  );
+});
+
+export type WorkspaceNotification = {
+  body: string;
+  createdAt: string;
+  href?: string | null;
+  id: string;
+  readAt: string | null;
+  title: string;
+};
+
+type WorkspaceNotificationCenterProps = {
+  className?: string;
+  emptyCopy?: string;
+  loading?: boolean;
+  notifications: WorkspaceNotification[];
+  onMarkAllRead?: () => void | Promise<void>;
+  onNotificationSelect?: (notification: WorkspaceNotification) => void | Promise<void>;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+};
+
+function notificationDateLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+/**
+ * Shared visual notification center for the customer and internal workspaces.
+ * It deliberately owns only browser interactions and presentation; each caller
+ * supplies its own authorized notification source and read-state actions.
+ */
+export function WorkspaceNotificationCenter({
+  className,
+  emptyCopy = "You’re all caught up.",
+  loading = false,
+  notifications,
+  onMarkAllRead,
+  onNotificationSelect,
+  onOpenChange,
+  open,
+}: WorkspaceNotificationCenterProps) {
+  const [rendered, setRendered] = useState(open);
+  const [closing, setClosing] = useState(false);
+  const centerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(open);
+  const popoverId = useId();
+  const unreadCount = notifications.reduce(
+    (count, notification) => count + (notification.readAt ? 0 : 1),
+    0,
+  );
+
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      setClosing(false);
+      return;
+    }
+    if (!rendered) return;
+    setClosing(true);
+    const timeout = window.setTimeout(() => {
+      setRendered(false);
+      setClosing(false);
+    }, 180);
+    return () => window.clearTimeout(timeout);
+  }, [open, rendered]);
+
+  useEffect(() => {
+    if (wasOpen.current && !open) {
+      queueMicrotask(() => triggerRef.current?.focus({ preventScroll: true }));
+    }
+    wasOpen.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeWhenLeaving = (event: PointerEvent) => {
+      if (centerRef.current?.contains(event.target as Node)) return;
+      onOpenChange(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onOpenChange(false);
+    };
+    document.addEventListener("pointerdown", closeWhenLeaving, true);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeWhenLeaving, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onOpenChange, open]);
+
+  const unreadLabel = unreadCount
+    ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+    : "No unread notifications";
+
+  return (
+    <div className={classNames("workspace-notification-center", className)} ref={centerRef}>
+      <WorkspaceUtilityButton
+        aria-controls={rendered ? popoverId : undefined}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label={`Notifications. ${unreadLabel}`}
+        className="workspace-notification-center__trigger"
+        onClick={() => onOpenChange(!open)}
+        ref={triggerRef}
+        title="Notifications"
+      >
+        <Bell aria-hidden="true" size={17} />
+        {unreadCount ? (
+          <span aria-hidden="true" className="workspace-notification-center__badge">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        ) : null}
+      </WorkspaceUtilityButton>
+
+      {rendered ? (
+        <section
+          aria-label="Notifications"
+          aria-modal="false"
+          className={classNames(
+            "workspace-notification-popover",
+            closing && "is-closing",
+          )}
+          id={popoverId}
+          role="dialog"
+        >
+          <header className="workspace-notification-popover__header">
+            <div>
+              <strong>Notifications</strong>
+              <span>{unreadLabel}</span>
+            </div>
+            {unreadCount && onMarkAllRead ? (
+              <button onClick={() => void onMarkAllRead()} type="button">
+                Mark all read
+              </button>
+            ) : null}
+          </header>
+          <div className="workspace-notification-popover__list" data-workspace-scrollbar>
+            {loading && !notifications.length ? (
+              <p className="workspace-notification-popover__empty">Loading notifications…</p>
+            ) : null}
+            {!loading && !notifications.length ? (
+              <p className="workspace-notification-popover__empty">{emptyCopy}</p>
+            ) : null}
+            {notifications.map((notification) => {
+              const content = (
+                <>
+                  <span aria-hidden="true" className="workspace-notification-row__status" />
+                  <span className="workspace-notification-row__copy">
+                    <strong>{notification.title}</strong>
+                    <span>{notification.body}</span>
+                  </span>
+                  <time dateTime={notification.createdAt}>{notificationDateLabel(notification.createdAt)}</time>
+                </>
+              );
+              return onNotificationSelect ? (
+                <button
+                  className={classNames(
+                    "workspace-notification-row",
+                    !notification.readAt && "is-unread",
+                  )}
+                  key={notification.id}
+                  onClick={() => void onNotificationSelect(notification)}
+                  type="button"
+                >
+                  {content}
+                </button>
+              ) : (
+                <article
+                  className={classNames(
+                    "workspace-notification-row",
+                    !notification.readAt && "is-unread",
+                  )}
+                  key={notification.id}
+                >
+                  {content}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+    </div>
   );
 }
 

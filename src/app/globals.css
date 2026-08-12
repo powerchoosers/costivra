@@ -8234,6 +8234,219 @@ body.modal-open .app-topbar { filter: blur(7px); }
   transform: translateY(0);
 }
 
+/* The customer and internal notification centers share this visual contract.
+   Data, permissions, and action routing stay with their respective callers. */
+.workspace-notification-center {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.workspace-notification-center__trigger {
+  position: relative;
+  overflow: visible;
+}
+
+.workspace-notification-center__badge {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  display: grid;
+  min-width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  place-items: center;
+  border: 2px solid var(--workspace-surface);
+  border-radius: 999px;
+  padding: 0 3px;
+  color: #fff;
+  background: var(--workspace-accent);
+  font-size: .58rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.workspace-notification-popover {
+  position: absolute;
+  z-index: 190;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(368px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid var(--workspace-control-line);
+  border-radius: 16px;
+  color: var(--workspace-ink);
+  background: var(--workspace-surface);
+  box-shadow: 0 18px 46px rgba(31, 47, 75, .16);
+  transform-origin: top right;
+  animation: workspace-notification-popover-in var(--workspace-motion-surface) both;
+}
+
+.workspace-notification-popover.is-closing {
+  pointer-events: none;
+  animation: workspace-notification-popover-out var(--workspace-motion-fast) both;
+}
+
+.workspace-notification-popover__header {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--workspace-control-line);
+  padding: 12px 14px 11px 16px;
+}
+
+.workspace-notification-popover__header > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.workspace-notification-popover__header strong {
+  color: var(--workspace-ink);
+  font-size: .84rem;
+  font-weight: 750;
+}
+
+.workspace-notification-popover__header span {
+  color: var(--workspace-muted);
+  font-size: .67rem;
+}
+
+.workspace-notification-popover__header button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 8px;
+  color: var(--workspace-accent);
+  background: transparent;
+  font: inherit;
+  font-size: .69rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--workspace-motion-fast), background-color var(--workspace-motion-fast);
+}
+
+.workspace-notification-popover__header button:hover,
+.workspace-notification-popover__header button:focus-visible {
+  outline: 0;
+  color: var(--workspace-ink);
+  background: var(--workspace-control-surface-active);
+}
+
+.workspace-notification-popover__list {
+  max-height: min(420px, 62vh);
+  overflow: auto;
+}
+
+.workspace-notification-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  border: 0;
+  border-bottom: 1px solid var(--workspace-control-line);
+  padding: 13px 14px 13px 16px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+button.workspace-notification-row { cursor: pointer; }
+
+button.workspace-notification-row:hover,
+button.workspace-notification-row:focus-visible {
+  outline: 0;
+  background: var(--workspace-control-surface-active);
+}
+
+.workspace-notification-row:last-child { border-bottom: 0; }
+
+.workspace-notification-row__status {
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.workspace-notification-row.is-unread .workspace-notification-row__status {
+  background: var(--workspace-accent);
+  box-shadow: 0 0 0 3px rgba(65, 103, 222, .09);
+}
+
+.workspace-notification-row__copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.workspace-notification-row__copy strong {
+  overflow: hidden;
+  color: var(--workspace-ink);
+  font-size: .77rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-notification-row__copy > span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--workspace-muted);
+  font-size: .68rem;
+  line-height: 1.42;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.workspace-notification-row time {
+  padding-top: 2px;
+  color: var(--workspace-muted);
+  font-size: .62rem;
+  white-space: nowrap;
+}
+
+.workspace-notification-popover__empty {
+  margin: 0;
+  padding: 30px 18px;
+  color: var(--workspace-muted);
+  font-size: .73rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@keyframes workspace-notification-popover-in {
+  from { opacity: 0; transform: translateY(-5px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes workspace-notification-popover-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-3px) scale(.985); }
+}
+
+@media (max-width: 760px) {
+  .workspace-notification-popover {
+    position: fixed;
+    top: 66px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    transform-origin: top center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-notification-popover,
+  .workspace-notification-popover.is-closing { animation: none; }
+}
+
 /* The create controls still carry legacy button classes in a few routes.
    Keep their hover treatment tied to the shared circle contract. */
 .workspace-utility-button.app-create-trigger:hover,

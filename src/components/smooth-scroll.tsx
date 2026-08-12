@@ -15,6 +15,7 @@ const NATIVE_SCROLL_SELECTOR = [
   ".mobile-drawer",
   ".app-global-results",
   ".manage-global-results",
+  ".workspace-notification-popover__list",
   ".manage-compose-recipient-results",
   ".manage-mail-list > div",
   ".manage-sequence-mail-view",

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Bell,
   Building,
   ChartLine,
   CheckSquare,
@@ -32,7 +31,7 @@ import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { ClientAssistantProvider, useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { ClientAssistantTrigger } from "@/components/client-assistant/client-assistant-trigger";
 import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
-import { WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
+import { WorkspaceNotificationCenter, WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 
 import type { ElementType } from "react";
@@ -464,7 +463,6 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     window.dispatchEvent(new CustomEvent("costivra:global-action", { detail: action }));
   }
 
-  const unread = data.notifications.filter((item) => !item.readAt);
   const initials = data.currentUser.fullName.split(/\s+/).map((part) => part[0]).slice(0,2).join("").toUpperCase();
   const spend = data.vendors.reduce((sum, vendor) => sum + vendor.annualizedSpend, 0);
   async function signOut() { await createClient().auth.signOut(); router.replace("/login"); router.refresh(); }
@@ -475,6 +473,19 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
       setNotificationsOpen(false);
       router.refresh();
       toast.success("Notifications cleared");
+    } catch (error) {
+      toast.error("That didn’t work", error instanceof Error ? error.message : "Please try again.");
+    }
+  }
+  async function markNotificationRead(notificationId: string) {
+    try {
+      const response = await fetch("/api/portal/notifications", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: notificationId }),
+      });
+      if (!response.ok) throw new Error("Notifications could not be updated.");
+      router.refresh();
     } catch (error) {
       toast.error("That didn’t work", error instanceof Error ? error.message : "Please try again.");
     }
@@ -691,10 +702,24 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 
             <div className="top-actions app-top-actions">
               <ClientAssistantTrigger />
-              <div className="topbar-popover-wrap"><WorkspaceUtilityButton className="button button-quiet" type="button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((value) => !value); setProfileOpen(false); }} style={{ position: "relative" }}>
-                <Bell aria-hidden="true" size={17} />
-                {unread.length > 0 && <span style={{ position: "absolute", top: 9, right: 9, width: 7, height: 7, borderRadius: "50%", background: "#ef6b53" }} />}
-              </WorkspaceUtilityButton>{notificationsOpen && <div className="topbar-popover notifications-popover"><header><strong>Notifications</strong>{unread.length>0&&<button onClick={() => void markNotificationsRead()}>Mark all read</button>}</header>{data.notifications.length ? data.notifications.slice(0,5).map(item=><div className={`notification-item${item.readAt?"":" unread"}`} key={item.id}><strong>{item.title}</strong><span>{item.body}</span></div>) : <p className="popover-empty">You&apos;re all caught up.</p>}</div>}</div>
+              <WorkspaceNotificationCenter
+                notifications={data.notifications.map((notification) => ({
+                  id: notification.id,
+                  title: notification.title,
+                  body: notification.body,
+                  createdAt: notification.createdAt,
+                  readAt: notification.readAt,
+                }))}
+                onMarkAllRead={() => markNotificationsRead()}
+                onNotificationSelect={(notification) => {
+                  if (!notification.readAt) return markNotificationRead(notification.id);
+                }}
+                onOpenChange={(open) => {
+                  setNotificationsOpen(open);
+                  if (open) setProfileOpen(false);
+                }}
+                open={notificationsOpen}
+              />
             </div>
             </div>
 
