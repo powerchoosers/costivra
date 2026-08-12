@@ -12,8 +12,6 @@ import {
   FileText,
   Layout,
   List,
-  CaretLeft,
-  CaretRight,
   Plus,
   Receipt,
   Gear,
@@ -22,7 +20,7 @@ import {
   Upload,
   MagnifyingGlass,
   X,
-} from "@phosphor-icons/react";
+} from "@/lib/icons";
 import type { ReactNode } from "react";
 import { Brand } from "@/components/brand";
 import { CompanyLogo } from "@/components/company-logo";
@@ -34,7 +32,7 @@ import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { ClientAssistantProvider, useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { ClientAssistantTrigger } from "@/components/client-assistant/client-assistant-trigger";
 import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
-import { WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
+import { WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 
 import type { ElementType } from "react";
@@ -91,6 +89,20 @@ export function isRouteActive(navHref: string, pathname: string): boolean {
     exact: navHref === "/app",
     aliases: appRouteAliases[navHref],
   });
+}
+
+function statusLabel(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function websiteLabel(website: string) {
+  try {
+    return new URL(website).hostname.replace(/^www\./, "");
+  } catch {
+    return website;
+  }
 }
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
@@ -352,7 +364,11 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     return {
       title: detailTitle ?? sectionTitles[section] ?? "Command Center",
       description: detailId
-        ? vendor?.category ?? `${sectionTitles[section] ?? "Workspace"} detail`
+        ? vendor
+          ? [vendor.category, vendor.website ? websiteLabel(vendor.website) : null]
+            .filter(Boolean)
+            .join(" · ")
+          : `${sectionTitles[section] ?? "Workspace"} detail`
         : descriptions[section] ?? "Cost intelligence for your workspace.",
       vendor,
     };
@@ -623,12 +639,22 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 aria-pressed={sidebarCollapsed}
                 onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
               >
-                {sidebarCollapsed ? <CaretRight aria-hidden="true" size={18} /> : <CaretLeft aria-hidden="true" size={18} />}
+                <List aria-hidden="true" size={18} />
               </button>
               <span className="app-topbar-divider" aria-hidden="true" />
               {appHeader.vendor && <CompanyLogo entity="vendor" id={appHeader.vendor.id} name={appHeader.vendor.name} className="app-topbar-record-logo" />}
               <div className="app-topbar-title">
-                <strong>{appHeader.title}</strong>
+                <div className="app-topbar-title-row">
+                  <strong>{appHeader.title}</strong>
+                  {appHeader.vendor ? (
+                    <WorkspaceStatusBadge
+                      className={`portal-status status-${appHeader.vendor.relationshipStatus} app-topbar-title-status`}
+                      withDot
+                    >
+                      {statusLabel(appHeader.vendor.relationshipStatus)}
+                    </WorkspaceStatusBadge>
+                  ) : null}
+                </div>
                 <small>{appHeader.description}</small>
               </div>
             </div>

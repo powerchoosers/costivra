@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-11 — Keep record identity and queue controls task-first
+
+### Context
+
+Signed-in review of the customer vendor workspace and Manage queues showed too many controls competing at the same level. A vendor status appeared detached from the vendor identity, direct review/contract/assistant actions formed a dense button row, and a seven-tile summary gave zero-value facts as much visual weight as spend. In Manage, Overview sat inside the Clients group and a second row of tabs repeated the first filter while pagination fell below the visible workspace.
+
+### Decision
+
+Put a vendor relationship state beside the vendor name in the persistent shell header. Keep **Ask Costivra** as the only direct record action and move secondary record work into the existing keyboard-aware overflow menu. Present spend and latest-bill information as the primary vendor summary, then show only operational counts that matter. For Manage queues, keep Overview independent of the Clients group; use one view switcher plus one clearly labelled compact status selector; and make the Accounts/Contacts table and inspector own scrolling while their surrounding page chrome and footer remain fixed.
+
+### Consequences
+
+The customer record is easier to scan and still exposes every permitted action without visual noise. Manage filters describe two distinct questions instead of pretending they are both the same tab set, and a user can retain pagination context while reviewing long tables. These choices change no records, calculations, routing, authorization, or workflow states.
+
 ## 2026-08-11 — Share operational view navigation and record-quality states
 
 ### Context

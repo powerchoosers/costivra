@@ -1,5 +1,14 @@
 # Costivra Status
 
+## August 11, 2026 — Signed-in workspace review and hierarchy repair
+
+- Reviewed the signed-in production customer Command Center, vendor workspace, Manage overview, and Manage Accounts queue at desktop size before changing the local source. The review confirmed the reported crowding: customer vendor records exposed too many equal-weight actions and empty summary tiles; Manage navigation overlapped its search control; and the Accounts/Contacts workspaces pushed their pagination footer beyond the viewport.
+- Customer vendor records now use the same three-line sidebar control as Manage. Relationship status is carried beside the vendor name in the persistent record header, and the body keeps only **Ask Costivra** plus a three-dot menu. Review, upload, and contract actions remain available in that menu instead of competing in the header.
+- Replaced the seven-tile vendor summary with a two-part relationship summary: spend and latest-bill information first, followed by only meaningful operational counts. Zero-value trend and count tiles no longer take space. The Command Center activation controls also now name the actual next task instead of saying only “Action.”
+- Manage now treats Overview as a standalone first destination, puts Clients beneath it, and keeps the navigation in its own scroll region below search. Accounts and Contacts now keep their back control, one clear primary view switcher, labelled record-status control, and pagination footer inside the desktop workspace while table rows and the inspector scroll independently.
+- **Validation:** `npm run typecheck` PASS; focused ESLint PASS with three pre-existing adapter warnings and no errors; `npx vitest run src/lib/manage/visibility.test.ts src/lib/vendors/monitoring.test.ts` PASS (7 tests); PostCSS parsing PASS; `git diff --check` PASS; `npm run build` PASS.
+- **Visual QA note:** the in-app browser reviewed the authenticated production baseline at 1186×742 before these local changes were deployed. It confirmed the reported live layout failures. Production cannot show the local fixes until a separate approved deployment; no production state was changed here.
+
 ## August 11, 2026 — Shared workspace facelift continuation
 
 - Replaced the repeated customer queue and settings tab implementations with the shared `WorkspaceViewTabs` control. Bills, Findings, Contracts, Actions, Results, Settings, and vendor records now carry one compact active state, count treatment, keyboard focus treatment, and accurate labelled-navigation semantics.

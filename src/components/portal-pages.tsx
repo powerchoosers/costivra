@@ -24,7 +24,6 @@ import {
   CircleDollarSign,
   Copy,
   Download,
-  ExternalLink,
   FileText,
   Info,
   ListFilter,
@@ -39,7 +38,6 @@ import {
   Search,
   ShieldCheck,
   Trash2,
-  TrendingUp,
   Upload,
   X,
 } from "@/lib/icons";
@@ -692,11 +690,11 @@ function ActivationChecklist({ data }: { data: PortalData }) {
   }, []);
 
   const steps = [
-    { id: "workspace", title: "Create workspace", done: true, copy: "Organization workspace created.", href: undefined },
-    { id: "details", title: "Add company & location details", done: locationCount > 0, copy: locationCount > 0 ? `${locationCount} location(s) assigned.` : "Add your primary business location.", href: "/app/settings?tab=locations" },
-    { id: "documents", title: "Upload 3 bills or contracts", done: docCount >= 3, copy: docCount >= 3 ? `${docCount} documents uploaded.` : `${docCount} of 3 uploaded. Add your recurring bills.`, href: "/app/bills?view=files" },
-    { id: "review", title: "Review one invoice or contract", done: authoritativeReview, copy: authoritativeReview ? "At least one source record has an authorized review." : needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "Review one source record before calling activation complete.", href: "/app/bills?view=review" },
-    { id: "monitoring", title: "Select first vendor to monitor", done: monitoredCount > 0, copy: monitoredCount > 0 ? `${monitoredCount} vendor(s) monitored.` : "Set up continuous monitoring for one vendor.", href: "/app/vendors" },
+    { id: "workspace", title: "Create workspace", done: true, copy: "Organization workspace created.", href: undefined, actionLabel: undefined },
+    { id: "details", title: "Add company & location details", done: locationCount > 0, copy: locationCount > 0 ? `${locationCount} location(s) assigned.` : "Add your primary business location.", href: "/app/settings?tab=locations", actionLabel: "Add details" },
+    { id: "documents", title: "Upload 3 bills or contracts", done: docCount >= 3, copy: docCount >= 3 ? `${docCount} documents uploaded.` : `${docCount} of 3 uploaded. Add your recurring bills.`, href: "/app/bills?view=files", actionLabel: "Upload files" },
+    { id: "review", title: "Review one invoice or contract", done: authoritativeReview, copy: authoritativeReview ? "At least one source record has an authorized review." : needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "Review one source record before calling activation complete.", href: "/app/bills?view=review", actionLabel: needsReviewInvoices > 0 ? "Review invoices" : "Open review" },
+    { id: "monitoring", title: "Select first vendor to monitor", done: monitoredCount > 0, copy: monitoredCount > 0 ? `${monitoredCount} vendor(s) monitored.` : "Set up continuous monitoring for one vendor.", href: "/app/vendors", actionLabel: "Choose vendor" },
   ];
 
   const completedCount = steps.filter((s) => s.done).length;
@@ -733,7 +731,7 @@ function ActivationChecklist({ data }: { data: PortalData }) {
             </div>
             {!step.done && step.href && (
               <Link className="button button-quiet button-sm workspace-progress-card__action" href={step.href}>
-                Action <ChevronRight size={14} />
+                {step.actionLabel} <ChevronRight size={14} />
               </Link>
             )}
           </li>
@@ -2316,6 +2314,15 @@ export function VendorDetail({
   };
 
   const menuItems = [
+    ...(primaryAction.href
+      ? [{
+          id: "primary-task",
+          label: primaryAction.label,
+          icon: <ArrowUpRight size={15} />,
+          href: primaryAction.href,
+          disabled: !canWrite,
+        }]
+      : []),
     {
       id: "edit",
       label: "Edit vendor relationship",
@@ -2390,6 +2397,18 @@ export function VendorDetail({
 
   const potentialValueTotal = opportunities.reduce((sum, o) => sum + (o.estimatedAnnualValue ?? 0), 0);
   const verifiedValueTotal = vendorSavings.filter((s) => s.status === "verified").reduce((sum, s) => sum + s.amount, 0);
+  const openFindingCount = opportunities.filter((item) => !["closed", "declined"].includes(item.status)).length;
+  const pendingActionCount = actions.filter((item) => !["complete", "cancelled"].includes(item.status)).length;
+  const relationshipFacts = [
+    { label: "Account", value: 1 },
+    ...(contracts.length ? [{ label: contracts.length === 1 ? "Contract" : "Contracts", value: contracts.length }] : []),
+    ...(openFindingCount
+      ? [{ label: "Open finding", value: openFindingCount }]
+      : []),
+    ...(pendingActionCount
+      ? [{ label: "Pending action", value: pendingActionCount }]
+      : []),
+  ];
 
   return (
     <div className="vendor-detail">
@@ -2398,46 +2417,9 @@ export function VendorDetail({
         <PageScopeIndicator mode="vendor" vendorName={vendor.name} vendorHref={`/app/vendors/${vendor.id}`} />
       </div>
 
-      <header className="vendor-detail-header" style={{ position: "relative" }}>
-        <div className="vendor-detail-status-group">
-          <Status value={vendor.relationshipStatus} />
-          {vendor.website && (
-            <a href={vendor.website} target="_blank" rel="noreferrer">
-              {new URL(vendor.website).hostname.replace(/^www\./, "")}
-              <ExternalLink size={12} />
-            </a>
-          )}
-        </div>
-        <div className="vendor-detail-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {canWrite && (
-            primaryAction.actionKind === "upload" ? (
-              <button className="button button-primary" onClick={() => onAdd("upload", vendor.relationshipId)}>
-                <Plus size={16} /> {primaryAction.label}
-              </button>
-            ) : primaryAction.actionKind === "monitor" || primaryAction.actionKind === "test_forwarding" ? (
-              <button className="button button-primary" onClick={() => onAdd("monitor", vendor.relationshipId)}>
-                <Mail size={16} /> {primaryAction.label}
-              </button>
-            ) : primaryAction.href ? (
-              <Link className="button button-primary" href={primaryAction.href}>
-                {primaryAction.label} <ArrowUpRight size={16} />
-              </Link>
-            ) : (
-              <button className="button button-primary" onClick={() => onAdd("expense", vendor.relationshipId)}>
-                <Plus size={16} /> {primaryAction.label}
-              </button>
-            )
-          )}
-          {canWrite && (
-            <>
-              <button className="button button-quiet" onClick={() => onAdd("contract", vendor.relationshipId)}>
-                Add contract
-              </button>
-              <Link className="button button-quiet" href="/app/ask">
-                Ask Costivra
-              </Link>
-            </>
-          )}
+      <header className="vendor-detail-header">
+        <div className="vendor-detail-actions">
+          {canWrite && <Link className="button button-quiet" href="/app/ask">Ask Costivra</Link>}
           <RecordOverflowMenu items={menuItems} ariaLabel="More vendor actions" />
         </div>
       </header>
@@ -2453,30 +2435,27 @@ export function VendorDetail({
 
       {activeTab === "overview" && (
         <div className="vendor-detail-stack">
-          {/* Relationship summary band */}
-          <section className="vendor-summary-band">
-            <div className="vendor-spend-stat">
-              <span>Annualized spend</span>
-              <strong>{money(vendor.annualizedSpend)}</strong>
-              <small>Current relationship record</small>
-            </div>
-            <div className="vendor-spend-stat">
-              <span>Latest bill</span>
-              <strong>{latest ? money(latest.amount) : "Not recorded"}</strong>
-              <small>
-                {latest
-                  ? `Period ending ${date(latest.periodEnd)}`
-                  : "Add a bill or source document"}
-              </small>
-            </div>
-            <SpendSparkline expenses={expenses} />
-            <VendorCount label="Active accounts" value={1} />
-            <VendorCount label="Contracts" value={contracts.length} />
-            <VendorCount
-              label="Open findings"
-              value={opportunities.filter((item) => !["closed", "declined"].includes(item.status)).length}
-            />
-            <VendorCount label="Pending actions" value={actions.filter((a) => !["complete", "cancelled"].includes(a.status)).length} />
+          <section className="vendor-overview-summary" aria-label={`${vendor.name} relationship summary`}>
+            <dl className="vendor-overview-summary__metrics">
+              <div>
+                <dt>Annualized spend</dt>
+                <dd>{money(vendor.annualizedSpend)}</dd>
+                <small>Current relationship record</small>
+              </div>
+              <div>
+                <dt>Latest bill</dt>
+                <dd>{latest ? money(latest.amount) : "Not recorded"}</dd>
+                <small>{latest ? `Period ending ${date(latest.periodEnd)}` : "Add a bill or source document"}</small>
+              </div>
+            </dl>
+            <dl className="vendor-overview-summary__facts">
+              {relationshipFacts.map((fact) => (
+                <div key={fact.label}>
+                  <dt>{fact.label}</dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
           </section>
 
           {/* Value summary */}
@@ -3390,51 +3369,6 @@ function DataCompletenessChecklist({
         ))}
       </div>
     </section>
-  );
-}
-
-function VendorCount({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="vendor-count">
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
-  );
-}
-function SpendSparkline({ expenses }: { expenses: PortalData["expenses"] }) {
-  const points = expenses.slice(0, 6).reverse();
-  const max = Math.max(...points.map((item) => item.amount), 1);
-  const path = points
-    .map(
-      (item, index) =>
-        `${index === 0 ? "M" : "L"} ${8 + index * (120 / Math.max(points.length - 1, 1))} ${48 - (item.amount / max) * 34}`,
-    )
-    .join(" ");
-  return (
-    <div className="vendor-spend-trend">
-      <span>
-        <TrendingUp size={15} /> Expense trend
-      </span>
-      {points.length > 1 ? (
-        <svg
-          viewBox="0 0 136 56"
-          role="img"
-          aria-label="Recent expense amount trend"
-        >
-          <path d={path} />
-          {points.map((item, index) => (
-            <circle
-              key={item.id}
-              cx={8 + index * (120 / Math.max(points.length - 1, 1))}
-              cy={48 - (item.amount / max) * 34}
-              r="2.5"
-            />
-          ))}
-        </svg>
-      ) : (
-        <small>Two expense periods are needed for a trend.</small>
-      )}
-    </div>
   );
 }
 

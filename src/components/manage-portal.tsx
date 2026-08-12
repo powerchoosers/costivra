@@ -106,7 +106,7 @@ import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspa
 import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
-import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
+import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
@@ -124,11 +124,12 @@ import {
   type RecipientCandidate,
 } from "@/lib/manage/recipient-search";
 
+const manageHomeNavigation = ["Overview", "/manage", LayoutDashboard] as const;
+
 const navGroups = [
   {
     label: "Clients",
     items: [
-      ["Overview", "/manage", LayoutDashboard],
       ["Accounts", "/manage/accounts", Building2],
       ["Contacts", "/manage/contacts", Users],
     ],
@@ -1137,6 +1138,44 @@ export function ManagePortal({
             );
           }}
         >
+          {(() => {
+            const [label, href, Icon] = manageHomeNavigation;
+            const active = isWorkspaceRouteActive({
+              href,
+              pathname,
+              exact: true,
+            });
+
+            return (
+              <div className="manage-nav-home">
+                <Link
+                  className={active ? "active" : ""}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  aria-label={label}
+                  onMouseEnter={(event) =>
+                    showSidebarTooltip(label, event.currentTarget)
+                  }
+                  onMouseLeave={clearSidebarTooltip}
+                  onFocus={(event) =>
+                    showSidebarTooltip(label, event.currentTarget)
+                  }
+                  onBlur={clearSidebarTooltip}
+                  onClick={() => {
+                    // Keep a collapsed rail collapsed after the browser moves focus to the clicked link.
+                    suppressSidebarFocusRef.current = true;
+                    setMobileNav(false);
+                    window.setTimeout(() => {
+                      suppressSidebarFocusRef.current = false;
+                    }, 300);
+                  }}
+                >
+                  <Icon size={18} />
+                  <span className="manage-nav-label">{label}</span>
+                </Link>
+              </div>
+            );
+          })()}
           {navGroups.map((group) => (
             <div className="manage-nav-group" key={group.label}>
               <span className="manage-nav-group-label">{group.label}</span>
@@ -1144,7 +1183,6 @@ export function ManagePortal({
                 const active = isWorkspaceRouteActive({
                   href,
                   pathname,
-                  exact: href === "/manage",
                 });
                 const unreadCount = label === "Mail" ? data.mail.unreadCount : 0;
                 return (
@@ -1830,6 +1868,32 @@ function TableFooter({
   );
 }
 
+function ManageQueueScopeControl({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ label: string; value: string }>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="manage-queue-scope">
+      <span>{label}</span>
+      <CostivraSelect
+        aria-label={label}
+        className="manage-queue-scope__select"
+        onChange={onChange}
+        options={options}
+        value={value}
+        variant="compact"
+      />
+    </div>
+  );
+}
+
 function BulkActionBar({
   count,
   noun,
@@ -2416,17 +2480,47 @@ function Accounts({
   );
   const [editing, setEditing] = useState<ManageAccount | null>(null);
 
-  const filtered = data.accounts.filter(
+  const accountMatchesVisibility = (
+    account: ManageAccount,
+    visibility: typeof visibilityFilter = visibilityFilter,
+  ) =>
+    visibility === "all" ||
+    (visibility === "active"
+      ? account.visibleInCrm !== false
+      : account.visibleInCrm === false);
+  const visibleAccounts = data.accounts.filter((account) =>
+    accountMatchesVisibility(account),
+  );
+  const filtered = visibleAccounts.filter(
     (account) =>
       (filter === "all" || (account.stage || "unclassified") === filter) &&
-      (visibilityFilter === "all" || (visibilityFilter === "active" ? account.visibleInCrm !== false : account.visibleInCrm === false)) &&
       `${account.name} ${account.primaryContact} ${account.primaryEmail}`
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  const accountStageTabs = [
+    { id: "all", label: "All", count: visibleAccounts.length },
+    ...stages.slice(0, 4).map((stage) => ({
+      id: stage,
+      label: pretty(stage),
+      count: visibleAccounts.filter((account) => account.stage === stage).length,
+    })),
+  ];
+  const accountScopeOptions = (["active", "archived", "all"] as const).map(
+    (state) => ({
+      value: state,
+      label: `${
+        state === "active"
+          ? "Active records"
+          : state === "archived"
+            ? "Archived records"
+            : "All records"
+      } · ${data.accounts.filter((account) => accountMatchesVisibility(account, state)).length}`,
+    }),
+  );
 
   const selectedAccount =
-    data.accounts.find((a) => a.id === selectedAccountId) ?? filtered[0];
+    filtered.find((account) => account.id === selectedAccountId) ?? filtered[0];
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -2474,34 +2568,32 @@ function Accounts({
     <>
       <div className="manage-overview-grid manage-record-workspace">
         <section className="manage-panel manage-account-table manage-account-table--full">
-          <div className="manage-tabs" style={{ "--active-tab": filter === "all" ? 0 : stages.slice(0, 4).indexOf(filter) + 1 } as CSSProperties}>
-            <button
-              className={filter === "all" ? "active" : ""}
-              onClick={() => { setFilter("all"); setPage(1); setSelectedIds(new Set()); }}
-            >
-              All <span>{data.accounts.length}</span>
-            </button>
-            {stages.slice(0, 4).map((stage) => (
-              <button
-                className={filter === stage ? "active" : ""}
-                onClick={() => { setFilter(stage); setPage(1); setSelectedIds(new Set()); }}
-                key={stage}
-              >
-                {pretty(stage)}{" "}
-                <span>
-                  {
-                    data.accounts.filter((account) => account.stage === stage)
-                      .length
-                  }
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="manage-tabs" aria-label="Account visibility filter">
-            {(["active", "archived", "all"] as const).map((state) => <button key={state} className={visibilityFilter === state ? "active" : ""} onClick={() => { setVisibilityFilter(state); setPage(1); setSelectedIds(new Set()); }}>{pretty(state)} <span>{data.accounts.filter((account) => state === "all" || (state === "active" ? account.visibleInCrm !== false : account.visibleInCrm === false)).length}</span></button>)}
+          <div className="manage-queue-toolbar">
+            <WorkspaceViewTabs
+              activeId={filter}
+              ariaLabel="Account lifecycle filter"
+              className="manage-queue-tabs"
+              onChange={(value) => {
+                setFilter(value);
+                setPage(1);
+                setSelectedIds(new Set());
+              }}
+              selectionMode="pressed"
+              tabs={accountStageTabs}
+            />
+            <ManageQueueScopeControl
+              label="Record status"
+              onChange={(value) => {
+                setVisibilityFilter(value as typeof visibilityFilter);
+                setPage(1);
+                setSelectedIds(new Set());
+              }}
+              options={accountScopeOptions}
+              value={visibilityFilter}
+            />
           </div>
           <AccountRows
-            key={`${filter}-${query}`}
+            key={`${filter}-${visibilityFilter}-${query}`}
             accounts={pageRows}
             selectedId={selectedAccount?.id}
             onSelectAccount={(account) => setSelectedAccountId(account.id)}
@@ -2647,7 +2739,14 @@ function Contacts({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [selectedContactId, setSelectedContactId] = useState<string | null>(data.contacts[0]?.id ?? null);
 
-  const rows = data.contacts.filter((contact) => {
+  const contactMatchesLifecycle = (
+    contact: ManageContact,
+    lifecycle: typeof lifecycleFilter = lifecycleFilter,
+  ) => lifecycle === "all" || contact.status === lifecycle;
+  const visibleContacts = data.contacts.filter((contact) =>
+    contactMatchesLifecycle(contact),
+  );
+  const rows = visibleContacts.filter((contact) => {
     const matchesFilter =
       filter === "all"
         ? true
@@ -2659,14 +2758,44 @@ function Contacts({
     const matchesQuery = `${contact.fullName} ${contact.email} ${contact.organizationName}`
       .toLowerCase()
       .includes(query.toLowerCase());
-    return matchesFilter && matchesQuery && (lifecycleFilter === "all" || contact.status === lifecycleFilter);
+    return matchesFilter && matchesQuery;
   });
+  const contactCategoryTabs = [
+    { id: "all", label: "All", count: visibleContacts.length },
+    {
+      id: "primary",
+      label: "Primary",
+      count: visibleContacts.filter((contact) => contact.isPrimary).length,
+    },
+    {
+      id: "workspace",
+      label: "Workspace",
+      count: visibleContacts.filter((contact) => contact.source === "workspace").length,
+    },
+    {
+      id: "crm",
+      label: "CRM",
+      count: visibleContacts.filter((contact) => contact.source === "crm").length,
+    },
+  ];
+  const contactScopeOptions = (["active", "inactive", "all"] as const).map(
+    (state) => ({
+      value: state,
+      label: `${
+        state === "active"
+          ? "Active contacts"
+          : state === "inactive"
+            ? "Inactive contacts"
+            : "All contacts"
+      } · ${data.contacts.filter((contact) => contactMatchesLifecycle(contact, state)).length}`,
+    }),
+  );
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const selectedContacts = rows.filter((contact) => selectedIds.has(contact.id));
-  const selectedContact = data.contacts.find((contact) => contact.id === selectedContactId) ?? rows[0];
+  const selectedContact = rows.find((contact) => contact.id === selectedContactId) ?? rows[0];
 
   const exportContactsCsv = (contacts = rows) => {
     const exportRows = contacts.map((c) => ({
@@ -2688,36 +2817,31 @@ function Contacts({
     <>
       <div className="manage-overview-grid manage-record-workspace">
       <section className="manage-panel manage-account-table manage-contact-table">
-        <div className="manage-tabs">
-          <button
-            className={filter === "all" ? "active" : ""}
-            onClick={() => { setFilter("all"); setPage(1); setSelectedIds(new Set()); }}
-          >
-            All <span>{data.contacts.length}</span>
-          </button>
-          <button
-            className={filter === "primary" ? "active" : ""}
-            onClick={() => { setFilter("primary"); setPage(1); setSelectedIds(new Set()); }}
-          >
-            Primary <span>{data.contacts.filter((c) => c.isPrimary).length}</span>
-          </button>
-          <button
-            className={filter === "workspace" ? "active" : ""}
-            onClick={() => { setFilter("workspace"); setPage(1); setSelectedIds(new Set()); }}
-          >
-            Workspace <span>{data.contacts.filter((c) => c.source === "workspace").length}</span>
-          </button>
-          <button
-            className={filter === "crm" ? "active" : ""}
-            onClick={() => { setFilter("crm"); setPage(1); setSelectedIds(new Set()); }}
-          >
-            CRM <span>{data.contacts.filter((c) => c.source === "crm").length}</span>
-          </button>
+        <div className="manage-queue-toolbar">
+          <WorkspaceViewTabs
+            activeId={filter}
+            ariaLabel="Contact type filter"
+            className="manage-queue-tabs"
+            onChange={(value) => {
+              setFilter(value as typeof filter);
+              setPage(1);
+              setSelectedIds(new Set());
+            }}
+            selectionMode="pressed"
+            tabs={contactCategoryTabs}
+          />
+          <ManageQueueScopeControl
+            label="Contact status"
+            onChange={(value) => {
+              setLifecycleFilter(value as typeof lifecycleFilter);
+              setPage(1);
+              setSelectedIds(new Set());
+            }}
+            options={contactScopeOptions}
+            value={lifecycleFilter}
+          />
         </div>
-        <div className="manage-tabs" aria-label="Contact lifecycle filter">
-          {(["active", "inactive", "all"] as const).map((state) => <button key={state} className={lifecycleFilter === state ? "active" : ""} onClick={() => { setLifecycleFilter(state); setPage(1); setSelectedIds(new Set()); }}>{pretty(state)} <span>{data.contacts.filter((contact) => state === "all" || contact.status === state).length}</span></button>)}
-        </div>
-        <div className="manage-table-wrap">
+        <div key={`${filter}-${lifecycleFilter}-${query}`} className="manage-table-wrap">
           <table className="manage-data-table manage-contact-data-table">
             <thead><tr>
               <th className="manage-row-number-cell"><BulkHeaderSelector state={pageRows.length && pageRows.every((c) => selectedIds.has(c.id)) ? "all" : pageRows.some((c) => selectedIds.has(c.id)) ? "some" : "none"} onChange={() => setSelectedIds((current) => { const next = new Set(current); const all = pageRows.every((c) => next.has(c.id)); pageRows.forEach((c) => all ? next.delete(c.id) : next.add(c.id)); return next; })} /></th>

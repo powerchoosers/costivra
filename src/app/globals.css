@@ -6125,14 +6125,32 @@ body.modal-open .app-topbar { filter: blur(7px); }
 }
 
 .manage-shell-v2 .manage-primary-nav {
+  position: relative;
+  z-index: 0;
   min-height: 0;
   flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scroll-padding-block: 12px;
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
   touch-action: pan-y;
+}
+
+.manage-shell-v2 .manage-sidebar-search {
+  position: relative;
+  z-index: 1;
+}
+
+.manage-shell-v2 .manage-nav-home {
+  display: grid;
+  gap: 3px;
+}
+
+.manage-shell-v2 .manage-sidebar.is-collapsed .manage-nav-home + .manage-nav-group {
+  padding-top: 10px;
+  border-top: 1px solid #e1e6ed;
 }
 
 .manage-shell-v2 .manage-sidebar-foot { flex: 0 0 auto; margin-top: auto; background: transparent; }
@@ -8373,6 +8391,181 @@ body.modal-open .app-topbar { filter: blur(7px); }
   box-shadow: 0 0 0 2px rgba(240, 68, 56, .18);
 }
 
+/* A vendor record has one decision surface: the top bar carries its identity
+   and relationship state, while the overview groups spend separately from
+   the smaller operational facts. This avoids a row of equally-weighted
+   zero-value tiles when a relationship has little history. */
+.app-body .app-topbar-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-body .app-topbar-title-row > strong { min-width: 0; }
+
+.app-body .app-topbar-title-status {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  font-size: .61rem;
+}
+
+.app-body .app-topbar-title-status .workspace-status-badge__dot {
+  width: 5px;
+  height: 5px;
+}
+
+.app-body .app-work-canvas .vendor-detail-header {
+  min-height: 40px;
+  justify-content: flex-end;
+}
+
+.app-body .app-work-canvas .vendor-detail-actions {
+  align-items: center;
+  gap: 8px;
+}
+
+.app-body .app-work-canvas .vendor-detail-actions .button {
+  min-height: 40px;
+  border-radius: var(--workspace-control-radius);
+  padding-inline: 14px;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, .46fr);
+  overflow: hidden;
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--workspace-panel-radius);
+  background: var(--workspace-surface);
+  box-shadow: var(--workspace-panel-shadow);
+}
+
+.app-body .app-work-canvas .vendor-overview-summary__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+  margin: 0;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary__metrics > div {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  gap: 7px;
+  padding: 20px 22px;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary__metrics > div + div {
+  border-left: 1px solid var(--workspace-line-soft);
+}
+
+.app-body .app-work-canvas .vendor-overview-summary dt {
+  color: var(--workspace-table-heading);
+  font-size: .67rem;
+  font-weight: 720;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary dd {
+  margin: 0;
+  color: var(--workspace-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary__metrics dd {
+  overflow: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.35rem, 2.25vw, 1.85rem);
+  font-weight: 400;
+  letter-spacing: -.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary small {
+  overflow: hidden;
+  color: var(--workspace-muted);
+  font-size: .69rem;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 14px 22px;
+  min-width: 0;
+  margin: 0;
+  border-left: 1px solid var(--workspace-line-soft);
+  padding: 18px 22px;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary__facts > div {
+  display: grid;
+  flex: 1 1 88px;
+  gap: 4px;
+}
+
+.app-body .app-work-canvas .vendor-overview-summary__facts dd {
+  font-size: 1rem;
+  font-weight: 730;
+  letter-spacing: -.015em;
+}
+
+@media (max-width: 1280px) {
+  .app-body .app-work-canvas .vendor-overview-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__facts {
+    border-top: 1px solid var(--workspace-line-soft);
+    border-left: 0;
+    padding-block: 14px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-body .app-topbar-title-status {
+    padding-inline: 6px;
+  }
+
+  .app-body .app-work-canvas .vendor-detail-header {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .app-body .app-work-canvas .vendor-detail-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .app-body .app-work-canvas .vendor-detail-actions .button {
+    flex: 1;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__metrics > div + div {
+    border-top: 1px solid var(--workspace-line-soft);
+    border-left: 0;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__metrics > div,
+  .app-body .app-work-canvas .vendor-overview-summary__facts {
+    padding-inline: 16px;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__metrics dd {
+    font-size: 1.5rem;
+  }
+}
+
 .manage-app .manage-summary {
   border-color: var(--workspace-line);
   border-radius: var(--workspace-radius);
@@ -9215,6 +9408,122 @@ body.modal-open .app-topbar { filter: blur(7px); }
   color: #795d25;
   background: #fff8e8;
   box-shadow: inset 0 0 0 1px #f0dfba;
+}
+
+/* Account and contact queues have two distinct filters: the main view and
+   record status. Keeping the first as a view switcher and the second as a
+   labelled compact control avoids a confusing stack of tabs. */
+.manage-app .manage-queue-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--workspace-line);
+  background: var(--workspace-surface);
+}
+
+.manage-app .manage-queue-toolbar .manage-queue-tabs {
+  min-width: 0;
+  flex: 1 1 360px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.manage-app .manage-queue-tabs .workspace-tab {
+  min-height: 34px;
+  border-bottom: 0;
+  border-radius: 10px;
+  padding-inline: 10px;
+}
+
+.manage-app .manage-queue-tabs .workspace-tab__count,
+.manage-app .manage-queue-tabs .workspace-tab.is-active .workspace-tab__count {
+  display: inline;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  font-size: .64rem;
+}
+
+.manage-app .manage-queue-scope {
+  display: inline-flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--workspace-muted);
+  font-size: .68rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.manage-app .manage-queue-scope__select {
+  width: 154px;
+}
+
+.manage-app .manage-queue-scope__select .costivra-select-trigger {
+  min-height: 34px;
+  border-color: var(--workspace-control-line);
+  border-radius: 10px;
+  color: var(--workspace-control-ink);
+  background: var(--workspace-surface);
+  font-size: .68rem;
+}
+
+.manage-app .manage-queue-scope__select .costivra-select-trigger:hover {
+  border-color: var(--workspace-control-line-hover);
+  background: var(--workspace-subtle-hover);
+}
+
+/* These routes are true desktop workspaces: page chrome and pagination stay
+   put while the table and its companion inspector own their own scrollbars. */
+@media (min-width: 781px) {
+  .manage-shell-v2 .manage-page--accounts,
+  .manage-shell-v2 .manage-page--contacts {
+    display: flex;
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .manage-shell-v2 .manage-page--accounts > .global-back-control,
+  .manage-shell-v2 .manage-page--contacts > .global-back-control {
+    flex: 0 0 auto;
+  }
+
+  .manage-shell-v2 .manage-page--accounts > .manage-record-workspace,
+  .manage-shell-v2 .manage-page--contacts > .manage-record-workspace {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .manage-shell-v2 .manage-page--accounts .manage-record-workspace > .manage-account-table,
+  .manage-shell-v2 .manage-page--contacts .manage-record-workspace > .manage-account-table {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .manage-app .manage-queue-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manage-app .manage-queue-scope {
+    justify-content: space-between;
+  }
+
+  .manage-app .manage-queue-scope__select {
+    width: min(220px, 62vw);
+  }
 }
 
 /* Activation is a short operational sequence, not a generic onboarding
@@ -10254,11 +10563,6 @@ body.modal-open .app-topbar { filter: blur(7px); }
   right: 16px;
 }
 .sequence-detail-actions-menu__popover.is-floating.is-closing { position: fixed; }
-
-/* Align the first sidebar destination with the detail-page Back control. */
-.manage-shell-v2 .manage-sidebar nav.manage-primary-nav {
-  transform: translateY(-34px);
-}
 
 /* The terminal insert control sits at the end of the flow, so its tray opens
    upward into the available canvas instead of being clipped below the scrollport. */

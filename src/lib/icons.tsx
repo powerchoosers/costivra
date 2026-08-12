@@ -5,6 +5,7 @@ import {
   AlignLeft as PhosphorAlignLeft,
   AlignRight as PhosphorAlignRight,
   Archive as PhosphorArchive,
+  Bell as PhosphorBell,
   ArrowBendUpLeft as PhosphorArrowBendUpLeft,
   ArrowClockwise as PhosphorArrowClockwise,
   ArrowDown as PhosphorArrowDown,
@@ -20,16 +21,22 @@ import {
   At as PhosphorAt,
   Bank as PhosphorBank,
   Broadcast as PhosphorBroadcast,
+  Building as PhosphorBuilding,
   Buildings as PhosphorBuildings,
   Calendar as PhosphorCalendar,
   CalendarDots as PhosphorCalendarDots,
   Camera as PhosphorCamera,
+  CaretLeft as PhosphorCaretLeft,
+  CaretRight as PhosphorCaretRight,
+  CaretUpDown as PhosphorCaretUpDown,
   Chat as PhosphorChat,
   ChatCircle as PhosphorChatCircle,
   ChatText as PhosphorChatText,
   Check as PhosphorCheck,
   CheckCircle as PhosphorCheckCircle,
+  CheckSquare as PhosphorCheckSquare,
   ChartBar as PhosphorChartBar,
+  ChartLine as PhosphorChartLine,
   CircleDashed as PhosphorCircleDashed,
   CircleNotch as PhosphorCircleNotch,
   Clipboard as PhosphorClipboard,
@@ -54,6 +61,7 @@ import {
   FileMagnifyingGlass as PhosphorFileMagnifyingGlass,
   FileText as PhosphorFileText,
   FileX as PhosphorFileX,
+  Files as PhosphorFiles,
   Folder as PhosphorFolder,
   FolderOpen as PhosphorFolderOpen,
   Funnel as PhosphorFunnel,
@@ -157,6 +165,7 @@ export const AlignCenter = adaptIcon(PhosphorTextAlignCenter);
 export const AlignLeft = adaptIcon(PhosphorAlignLeft);
 export const AlignRight = adaptIcon(PhosphorAlignRight);
 export const Archive = adaptIcon(PhosphorArchive);
+export const Bell = adaptIcon(PhosphorBell);
 export const ArrowDown = adaptIcon(PhosphorArrowDown);
 export const ArrowLeft = adaptIcon(PhosphorArrowLeft);
 export const ArrowRight = adaptIcon(PhosphorArrowRight);
@@ -174,13 +183,19 @@ export const AtSign = adaptIcon(PhosphorAt);
 export const BadgeCheck = adaptIcon(PhosphorSealCheck);
 export const BarChart3 = adaptIcon(PhosphorChartBar);
 export const Bold = adaptIcon(PhosphorTextB);
+export const Building = adaptIcon(PhosphorBuilding);
 export const Building2 = adaptIcon(PhosphorBuildings);
 export const Calendar = adaptIcon(PhosphorCalendar);
 export const CalendarClock = adaptIcon(PhosphorCalendarDots);
 export const Camera = adaptIcon(PhosphorCamera);
+export const CaretLeft = adaptIcon(PhosphorCaretLeft);
+export const CaretRight = adaptIcon(PhosphorCaretRight);
+export const CaretUpDown = adaptIcon(PhosphorCaretUpDown);
 export const Check = adaptIcon(PhosphorCheck);
 export const CheckCircle = adaptIcon(PhosphorCheckCircle);
 export const CheckCircle2 = adaptIcon(PhosphorCheckCircle);
+export const CheckSquare = adaptIcon(PhosphorCheckSquare);
+export const ChartLine = adaptIcon(PhosphorChartLine);
 export const ChevronDown = adaptIcon(PhosphorArrowDown);
 export const ChevronLeft = adaptIcon(PhosphorArrowLeft);
 export const ChevronRight = adaptIcon(PhosphorArrowRight);
@@ -210,12 +225,14 @@ export const FileSignature = adaptIcon(PhosphorSignature);
 export const FileText = adaptIcon(PhosphorFileText);
 export const FileType2 = adaptIcon(PhosphorFileCode);
 export const FileWarning = adaptIcon(PhosphorFileX);
+export const Files = adaptIcon(PhosphorFiles);
 export const Folder = adaptIcon(PhosphorFolder);
 export const FolderOpen = adaptIcon(PhosphorFolderOpen);
 export const Gauge = adaptIcon(PhosphorGauge);
 export const Globe = adaptIcon(PhosphorGlobe);
 export const Globe2 = adaptIcon(PhosphorGlobe);
 export const Grid2X2 = adaptIcon(PhosphorSquaresFour);
+export const Gear = adaptIcon(PhosphorGear);
 export const GripVertical = adaptIcon(PhosphorDotsSixVertical);
 export const Handshake = adaptIcon(PhosphorHandshake);
 export const History = adaptIcon(PhosphorClockCounterClockwise);
@@ -229,6 +246,7 @@ export const Italic = adaptIcon(PhosphorTextItalic);
 export const KeyRound = adaptIcon(PhosphorKey);
 export const Landmark = adaptIcon(PhosphorBank);
 export const Layers = adaptIcon(PhosphorStack);
+export const Layout = adaptIcon(PhosphorLayout);
 export const LayoutDashboard = adaptIcon(PhosphorLayout);
 export const LayoutList = adaptIcon(PhosphorRows);
 export const Link2 = adaptIcon(PhosphorLink);
@@ -239,6 +257,7 @@ export const LoaderCircle = adaptIcon(PhosphorCircleNotch);
 export const LockKeyhole = adaptIcon(PhosphorLockKey);
 export const Mail = adaptIcon(PhosphorEnvelope);
 export const MailOpen = adaptIcon(PhosphorEnvelopeOpen);
+export const MagnifyingGlass = adaptIcon(PhosphorMagnifyingGlass);
 export const MapPin = adaptIcon(PhosphorMapPin);
 export const Maximize2 = adaptIcon(PhosphorArrowsOut);
 export const Menu = adaptIcon(PhosphorList);
@@ -260,6 +279,7 @@ export const Pin = adaptIcon(PhosphorPushPin);
 export const Play = adaptIcon(PhosphorPlay);
 export const Plus = adaptIcon(PhosphorPlus);
 export const RadioTower = adaptIcon(PhosphorBroadcast);
+export const Receipt = adaptIcon(PhosphorReceipt);
 export const ReceiptText = adaptIcon(PhosphorReceipt);
 export const Redo2 = adaptIcon(PhosphorArrowUUpRight);
 export const RefreshCw = adaptIcon(PhosphorArrowClockwise);
