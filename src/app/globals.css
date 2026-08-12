@@ -4927,8 +4927,7 @@ html { scroll-padding-top: 92px; }
 .manage-sidebar nav a.active { border-color: #c8d8f5; color: #173e81; background: #e8f0ff; box-shadow: 0 4px 14px rgba(37,88,175,.08); }
 .manage-sidebar nav a.active svg { color: #245dcc; }
 .manage-sidebar nav a b { border-color: #f7f8fa; }
-.manage-sidebar nav.manage-primary-nav { flex: 1; min-height: 0; gap: 14px; overflow-x: hidden; overflow-y: auto; padding-top: 18px; padding-bottom: 14px; scrollbar-width: none; }
-.manage-sidebar nav.manage-primary-nav::-webkit-scrollbar { display: none; }
+.manage-sidebar nav.manage-primary-nav { flex: 1; min-height: 0; gap: 14px; overflow-x: hidden; overflow-y: auto; padding-top: 18px; padding-bottom: 14px; }
 .manage-sidebar .manage-nav-group { gap: 3px; }
 .manage-sidebar nav a { height: 40px; }
 .manage-sidebar nav.manage-sidebar-utility { border-color: #e1e6ed; }
@@ -5776,18 +5775,6 @@ body.modal-open .app-topbar { filter: blur(7px); }
   flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(116,131,153,.45) transparent;
-}
-.app-sidebar .app-nav::-webkit-scrollbar {
-  width: 5px;
-}
-.app-sidebar .app-nav::-webkit-scrollbar-track {
-  background: transparent;
-}
-.app-sidebar .app-nav::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(116,131,153,.45);
 }
 .app-sidebar .app-sidebar-foot {
   flex: 0 0 auto;
@@ -5821,19 +5808,6 @@ body.modal-open .app-topbar { filter: blur(7px); }
   flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(116,131,153,.45) transparent;
-}
-.app-sidebar .app-nav-scroll::-webkit-scrollbar {
-  width: 5px;
-}
-.app-sidebar .app-nav-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.app-sidebar .app-nav-scroll::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(116,131,153,.45);
-  transition: background 220ms ease;
 }
 .app-sidebar .app-nav {
   min-height: 0;
@@ -5843,10 +5817,6 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-shell.sidebar-collapsed .app-nav-scroll {
   width: 230px;
   margin-left: -12px;
-  scrollbar-color: transparent transparent;
-}
-.app-shell.sidebar-collapsed .app-nav-scroll::-webkit-scrollbar-thumb {
-  background: transparent;
 }
 .app-shell.sidebar-collapsed .app-nav {
   /* Match the actual 76px rail. The hover stage starts at the rail edge, so
@@ -6151,8 +6121,6 @@ body.modal-open .app-topbar { filter: blur(7px); }
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-padding-block: 12px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
   touch-action: pan-y;
 }
 
@@ -10817,13 +10785,16 @@ button.workspace-notification-row:focus-visible {
 
 /* Shared scrollport contract. Scrollable elements opt in with
    `data-workspace-scrollbar`; persistent rails include it in their initial
-   markup so route hydration cannot change their scrollbar gutter. */
+   markup so route hydration cannot change their scrollbar gutter. Legacy
+   rail-specific gray or hidden scrollbar rules must not be reintroduced: this
+   is the single visual owner for both authenticated shells. */
 :is(
   html[data-workspace-scrollbar],
   [data-workspace-scrollbar]
 ) {
   --workspace-scroll-thumb-x: transparent;
   --workspace-scroll-thumb-y: transparent;
+  scrollbar-gutter: stable;
   scrollbar-color: transparent var(--workspace-scroll-track);
   scrollbar-width: thin;
 }
