@@ -7,6 +7,7 @@ import { useEffect } from "react";
 // on every wheel event. This is a fixed selector so the hot path stays cheap.
 const NATIVE_SCROLL_SELECTOR = [
   "[data-lenis-prevent]",
+  ".workspace-scroll-region",
   ".app-sidebar nav",
   ".manage-sidebar nav.manage-primary-nav",
   ".app-mobile-drawer",

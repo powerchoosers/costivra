@@ -7849,6 +7849,9 @@ body.modal-open .app-topbar { filter: blur(7px); }
   --workspace-utility-size: 40px;
   --workspace-motion-fast: 160ms cubic-bezier(.23, 1, .32, 1);
   --workspace-motion-surface: 220ms cubic-bezier(.23, 1, .32, 1);
+  --workspace-scroll-thumb: #c1cbd8;
+  --workspace-scroll-thumb-hover: #9eacbd;
+  --workspace-scroll-track: transparent;
   --workspace-focus-ring: 0 0 0 3px rgba(33, 85, 199, .16);
   --workspace-control-shadow: 0 1px 1px rgba(15, 23, 42, .025);
   --workspace-primary-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 7px 14px rgba(33, 85, 199, .19);
@@ -10611,4 +10614,171 @@ body.modal-open .app-topbar { filter: blur(7px); }
 @media (max-width: 760px) {
   .app-body .app-sidebar { display: none; }
   .app-body .app-mobile-utilities { display: flex; }
+}
+
+/* Shared nested-scroll contract. These regions remain native for immediate
+   trackpad/keyboard response, while Lenis owns only page-level scrolling. */
+:is(
+  .workspace-scroll-region,
+  .app-body .app-sidebar nav,
+  .manage-shell-v2 .manage-sidebar nav.manage-primary-nav,
+  .app-body .app-global-results,
+  .manage-shell-v2 .manage-global-results,
+  .manage-shell-v2 .manage-table-wrap,
+  .app-body .table-scroll,
+  .app-body .table-wrap,
+  .app-body .chat-scroll,
+  .manage-shell-v2 .manage-assistant-body,
+  .manage-shell-v2 .manage-message-stack,
+  .manage-shell-v2 .manage-inspector-tab-panel,
+  .manage-shell-v2 .manage-record-right-rail,
+  .manage-shell-v2 .manage-mail-list > div,
+  .manage-shell-v2 .manage-mail-contact,
+  .manage-shell-v2 .manage-compose-message-scroll,
+  .app-body .vendor-table-wrap,
+  .app-body .vendor-panel-scroll,
+  .app-body .invoice-pdf-canvas,
+  .app-body .invoice-review-table-wrap,
+  .app-body .portal-modal-body
+) {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: var(--workspace-scroll-thumb) var(--workspace-scroll-track);
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+}
+
+:is(
+  .workspace-scroll-region,
+  .app-body .app-sidebar nav,
+  .manage-shell-v2 .manage-sidebar nav.manage-primary-nav,
+  .app-body .app-global-results,
+  .manage-shell-v2 .manage-global-results,
+  .manage-shell-v2 .manage-table-wrap,
+  .app-body .table-scroll,
+  .app-body .table-wrap,
+  .app-body .chat-scroll,
+  .manage-shell-v2 .manage-assistant-body,
+  .manage-shell-v2 .manage-message-stack,
+  .manage-shell-v2 .manage-inspector-tab-panel,
+  .manage-shell-v2 .manage-record-right-rail,
+  .manage-shell-v2 .manage-mail-list > div,
+  .manage-shell-v2 .manage-mail-contact,
+  .manage-shell-v2 .manage-compose-message-scroll,
+  .app-body .vendor-table-wrap,
+  .app-body .vendor-panel-scroll,
+  .app-body .invoice-pdf-canvas,
+  .app-body .invoice-review-table-wrap,
+  .app-body .portal-modal-body
+)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:is(
+  .workspace-scroll-region,
+  .app-body .app-sidebar nav,
+  .manage-shell-v2 .manage-sidebar nav.manage-primary-nav,
+  .app-body .app-global-results,
+  .manage-shell-v2 .manage-global-results,
+  .manage-shell-v2 .manage-table-wrap,
+  .app-body .table-scroll,
+  .app-body .table-wrap,
+  .app-body .chat-scroll,
+  .manage-shell-v2 .manage-assistant-body,
+  .manage-shell-v2 .manage-message-stack,
+  .manage-shell-v2 .manage-inspector-tab-panel,
+  .manage-shell-v2 .manage-record-right-rail,
+  .manage-shell-v2 .manage-mail-list > div,
+  .manage-shell-v2 .manage-mail-contact,
+  .manage-shell-v2 .manage-compose-message-scroll,
+  .app-body .vendor-table-wrap,
+  .app-body .vendor-panel-scroll,
+  .app-body .invoice-pdf-canvas,
+  .app-body .invoice-review-table-wrap,
+  .app-body .portal-modal-body
+)::-webkit-scrollbar-track {
+  background: var(--workspace-scroll-track);
+}
+
+:is(
+  .workspace-scroll-region,
+  .app-body .app-sidebar nav,
+  .manage-shell-v2 .manage-sidebar nav.manage-primary-nav,
+  .app-body .app-global-results,
+  .manage-shell-v2 .manage-global-results,
+  .manage-shell-v2 .manage-table-wrap,
+  .app-body .table-scroll,
+  .app-body .table-wrap,
+  .app-body .chat-scroll,
+  .manage-shell-v2 .manage-assistant-body,
+  .manage-shell-v2 .manage-message-stack,
+  .manage-shell-v2 .manage-inspector-tab-panel,
+  .manage-shell-v2 .manage-record-right-rail,
+  .manage-shell-v2 .manage-mail-list > div,
+  .manage-shell-v2 .manage-mail-contact,
+  .manage-shell-v2 .manage-compose-message-scroll,
+  .app-body .vendor-table-wrap,
+  .app-body .vendor-panel-scroll,
+  .app-body .invoice-pdf-canvas,
+  .app-body .invoice-review-table-wrap,
+  .app-body .portal-modal-body
+)::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--workspace-scroll-thumb);
+  background-clip: padding-box;
+}
+
+:is(
+  .workspace-scroll-region,
+  .app-body .app-sidebar nav,
+  .manage-shell-v2 .manage-sidebar nav.manage-primary-nav,
+  .app-body .app-global-results,
+  .manage-shell-v2 .manage-global-results,
+  .manage-shell-v2 .manage-table-wrap,
+  .app-body .table-scroll,
+  .app-body .table-wrap,
+  .app-body .chat-scroll,
+  .manage-shell-v2 .manage-assistant-body,
+  .manage-shell-v2 .manage-message-stack,
+  .manage-shell-v2 .manage-inspector-tab-panel,
+  .manage-shell-v2 .manage-record-right-rail,
+  .manage-shell-v2 .manage-mail-list > div,
+  .manage-shell-v2 .manage-mail-contact,
+  .manage-shell-v2 .manage-compose-message-scroll,
+  .app-body .vendor-table-wrap,
+  .app-body .vendor-panel-scroll,
+  .app-body .invoice-pdf-canvas,
+  .app-body .invoice-review-table-wrap,
+  .app-body .portal-modal-body
+)::-webkit-scrollbar-thumb:hover {
+  background: var(--workspace-scroll-thumb-hover);
+  background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .workspace-scroll-region,
+    .app-body .app-sidebar nav,
+    .manage-shell-v2 .manage-sidebar nav.manage-primary-nav,
+    .app-body .app-global-results,
+    .manage-shell-v2 .manage-global-results,
+    .manage-shell-v2 .manage-table-wrap,
+    .app-body .table-scroll,
+    .app-body .table-wrap,
+    .app-body .chat-scroll,
+    .manage-shell-v2 .manage-assistant-body,
+    .manage-shell-v2 .manage-message-stack,
+    .manage-shell-v2 .manage-inspector-tab-panel,
+    .manage-shell-v2 .manage-record-right-rail,
+    .manage-shell-v2 .manage-mail-list > div,
+    .manage-shell-v2 .manage-mail-contact,
+    .manage-shell-v2 .manage-compose-message-scroll,
+    .app-body .vendor-table-wrap,
+    .app-body .vendor-panel-scroll,
+    .app-body .invoice-pdf-canvas,
+    .app-body .invoice-review-table-wrap,
+    .app-body .portal-modal-body
+  ) { scroll-behavior: auto; }
 }
