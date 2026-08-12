@@ -9,6 +9,7 @@ const NATIVE_SCROLL_SELECTOR = [
   "[data-lenis-prevent]",
   ".workspace-scroll-region",
   ".app-sidebar nav",
+  ".app-nav-scroll",
   ".manage-sidebar nav.manage-primary-nav",
   ".app-mobile-drawer",
   ".mobile-drawer",
@@ -28,6 +29,11 @@ const NATIVE_SCROLL_SELECTOR = [
   ".manage-record-right-rail",
   ".manage-compose-message-scroll",
   ".manage-assistant-body",
+  ".assistant-history-rail",
+  ".assistant-session-list",
+  ".assistant-welcome",
+  ".assistant-thread",
+  ".assistant-composer-textarea",
   ".manage-table-wrap",
   ".table-scroll",
   ".table-wrap",
@@ -44,6 +50,8 @@ const NATIVE_SCROLL_SELECTOR = [
   ".demo-drawer-body",
   ".bills-table-wrap",
 ].join(",");
+
+const SCROLLBAR_IDLE_DELAY = 700;
 
 function canNativeScroll(element: Element, deltaX: number, deltaY: number) {
   if (!(element instanceof HTMLElement)) return false;
@@ -77,9 +85,8 @@ function findNativeScroller(event: Event) {
  */
 export function SmoothScroll() {
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const lenis = new Lenis({
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const lenis = reducedMotion ? null : new Lenis({
       anchors: true,
       autoRaf: true,
       // A slightly higher lerp keeps the page fluid while reaching the input
@@ -98,6 +105,16 @@ export function SmoothScroll() {
 
     const scrollTimers = new WeakMap<HTMLElement, { x?: number; y?: number }>();
     const scrollPositions = new WeakMap<HTMLElement, { left: number; top: number }>();
+    let pageScrollTimer: number | undefined;
+    const activatePageScrollbar = () => {
+      const root = document.documentElement;
+      root.classList.add("is-scroll-y-active");
+      if (pageScrollTimer !== undefined) window.clearTimeout(pageScrollTimer);
+      pageScrollTimer = window.setTimeout(() => {
+        root.classList.remove("is-scroll-y-active");
+        pageScrollTimer = undefined;
+      }, SCROLLBAR_IDLE_DELAY);
+    };
     const primeNativeScrollPosition = (event: Event) => {
       const target = findNativeScroller(event);
       if (target !== null && !scrollPositions.has(target)) {
@@ -124,7 +141,7 @@ export function SmoothScroll() {
         timers[timerKey] = window.setTimeout(() => {
           target.classList.remove(activeClass);
           delete timers[timerKey];
-        }, 450);
+        }, SCROLLBAR_IDLE_DELAY);
       };
 
       if (movedX) activateAxis("x");
@@ -139,12 +156,25 @@ export function SmoothScroll() {
     document.addEventListener("pointerdown", primeNativeScrollPosition, { capture: true, passive: true });
     document.addEventListener("scroll", handleNativeScroll, { capture: true, passive: true });
 
+    if (lenis) {
+      lenis.on("scroll", activatePageScrollbar);
+    } else {
+      window.addEventListener("scroll", activatePageScrollbar, { passive: true });
+    }
+
     return () => {
       document.removeEventListener("wheel", primeNativeScrollPosition, true);
       document.removeEventListener("touchstart", primeNativeScrollPosition, true);
       document.removeEventListener("pointerdown", primeNativeScrollPosition, true);
       document.removeEventListener("scroll", handleNativeScroll, true);
-      lenis.destroy();
+      if (lenis) {
+        lenis.off("scroll", activatePageScrollbar);
+        lenis.destroy();
+      } else {
+        window.removeEventListener("scroll", activatePageScrollbar);
+      }
+      if (pageScrollTimer !== undefined) window.clearTimeout(pageScrollTimer);
+      document.documentElement.classList.remove("is-scroll-y-active");
     };
   }, []);
 
