@@ -10834,7 +10834,7 @@ button.workspace-notification-row:focus-visible {
   background: var(--workspace-scroll-thumb);
   box-shadow: 0 1px 4px rgba(100, 133, 12, .14);
   opacity: 0;
-  pointer-events: auto;
+  pointer-events: none;
   transform: translate3d(-9999px, -9999px, 0);
   transition: opacity var(--workspace-scroll-fade), background-color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast);
   will-change: opacity, transform;
@@ -10842,6 +10842,7 @@ button.workspace-notification-row:focus-visible {
 
 .workspace-scrollbar-thumb.is-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .workspace-scrollbar-thumb:hover,
