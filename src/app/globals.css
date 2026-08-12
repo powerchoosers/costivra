@@ -3160,16 +3160,9 @@ html { scroll-padding-top: 92px; }
   .manage-sidebar:not(.is-open) .manage-operator { justify-content:flex-start; gap:0; padding:6px; }
   .manage-sidebar:not(.is-open) nav a::after { position:absolute; z-index:80; left:calc(100% + 10px); display:none; border:1px solid #273550; border-radius:7px; color:#fff; background:#111a2b; box-shadow:0 10px 28px rgba(0,0,0,.3); content:attr(aria-label); padding:7px 11px; font-size:.74rem; font-weight:600; white-space:nowrap; }
   .manage-sidebar:not(.is-open) nav a:hover::after,.manage-sidebar:not(.is-open) nav a:focus-visible::after { display:block; }
-  .manage-sidebar.is-open .manage-nav-group a { animation:manage-nav-row-open 230ms cubic-bezier(.23,1,.32,1) backwards; }
-  .manage-sidebar:not(.is-open) .manage-nav-group a { animation:manage-nav-row-close 190ms cubic-bezier(.23,1,.32,1) backwards; }
-  .manage-nav-group a:nth-of-type(2) { animation-delay:18ms; }
-  .manage-nav-group a:nth-of-type(3) { animation-delay:36ms; }
-  .manage-nav-group a:nth-of-type(4) { animation-delay:54ms; }
   .manage-mail-shell { grid-template-columns:190px 260px minmax(280px,1fr); }
   .manage-mail-contact { display:none; }
 }
-@keyframes manage-nav-row-open { from { opacity:.82; transform:translateY(-3px); } to { opacity:1; transform:translateY(0); } }
-@keyframes manage-nav-row-close { from { opacity:.88; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
 @media (max-width:1100px) {
   .manage-overview-grid { grid-template-columns:1fr; }
   .manage-inspector { display:none; }
@@ -4475,13 +4468,6 @@ html { scroll-padding-top: 92px; }
 .app-shell.sidebar-collapsed .app-operator-copy, .app-shell.sidebar-collapsed .app-profile-menu { display: none; }
 .app-shell.sidebar-collapsed .app-nav a::after, .app-shell.sidebar-collapsed .app-sidebar-utility a::after { position: absolute; z-index: 80; left: calc(100% + 10px); display: none; border: 1px solid #273550; border-radius: 7px; color: #fff; background: #111a2b; box-shadow: 0 10px 28px rgba(0,0,0,.3); content: attr(aria-label); padding: 7px 11px; font-size: .74rem; font-weight: 600; white-space: nowrap; }
 .app-shell.sidebar-collapsed .app-nav a:hover::after, .app-shell.sidebar-collapsed .app-nav a:focus-visible::after, .app-shell.sidebar-collapsed .app-sidebar-utility a:hover::after, .app-shell.sidebar-collapsed .app-sidebar-utility a:focus-visible::after { display: block; }
-.app-shell:not(.sidebar-collapsed) .app-nav-group a { animation: app-nav-row-open 230ms cubic-bezier(.23,1,.32,1) backwards; }
-.app-shell.sidebar-collapsed .app-nav-group a { animation: app-nav-row-close 190ms cubic-bezier(.23,1,.32,1) backwards; }
-.app-sidebar .app-nav-group a:nth-of-type(2) { animation-delay: 18ms; }
-.app-sidebar .app-nav-group a:nth-of-type(3) { animation-delay: 36ms; }
-.app-sidebar .app-nav-group a:nth-of-type(4) { animation-delay: 54ms; }
-@keyframes app-nav-row-open { from { opacity: .82; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes app-nav-row-close { from { opacity: .88; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes app-profile-menu-in { from { opacity: 0; transform: translateY(7px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 /* Keep the customer workspace header aligned with the internal manage header. */
@@ -10619,9 +10605,9 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .app-body .app-mobile-utilities { display: flex; }
 }
 
-/* Shared scrollport contract. The scroll listener identifies the actual native
-   scrollport and adds `data-workspace-scrollbar` only there. That keeps this
-   cosmetic behavior out of tab strips and other intentionally hidden rails. */
+/* Shared scrollport contract. Scrollable elements opt in with
+   `data-workspace-scrollbar`; persistent rails include it in their initial
+   markup so route hydration cannot change their scrollbar gutter. */
 :is(
   html[data-workspace-scrollbar],
   [data-workspace-scrollbar]

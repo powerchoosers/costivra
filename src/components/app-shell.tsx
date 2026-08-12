@@ -546,6 +546,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
           {globalSearch}
           <div
             className="app-nav-scroll"
+            data-workspace-scrollbar
             onWheelCapture={(event) => {
               const node = event.currentTarget;
               if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;

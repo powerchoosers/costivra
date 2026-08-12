@@ -741,10 +741,6 @@ export function ManagePortal({
   }, []);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const sidebarRef = useRef<HTMLElement>(null);
-  const sidebarPointerDownRef = useRef(false);
-  const suppressSidebarFocusRef = useRef(false);
-  const sidebarCloseTimerRef = useRef<number | null>(null);
   const dialogCloseTimerRef = useRef<number | null>(null);
   const [dialog, setDialog] = useState<"account" | "contact" | "task" | "note" | "mailbox" | null>(null);
   const [dialogClosing, setDialogClosing] = useState<"account" | "contact" | "task" | "note" | "mailbox" | null>(null);
@@ -765,16 +761,21 @@ export function ManagePortal({
             ? "compact"
             : "desktop";
       setSidebarViewport(nextViewport);
-      if (nextViewport === "mobile" || nextViewport === "compact") {
+      let storedCollapsed: boolean | null = null;
+      try {
+        const storedPreference = window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY);
+        if (storedPreference !== null) storedCollapsed = storedPreference === "true";
+      } catch {
+        // Keep the appropriate layout default when session storage is unavailable.
+      }
+
+      if (nextViewport === "mobile") {
+        setMobileNav(false);
+      } else if (nextViewport === "compact" && storedCollapsed === null) {
+        // Keep the compact rail calm until someone intentionally expands it.
         setMobileNav(false);
       } else {
-        let storedCollapsed = false;
-        try {
-          storedCollapsed = window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY) === "true";
-        } catch {
-          // Keep the expanded default when session storage is unavailable.
-        }
-        setMobileNav(!storedCollapsed);
+        setMobileNav(storedCollapsed !== true);
       }
       setSidebarPreferenceLoaded(true);
     }
@@ -823,7 +824,7 @@ export function ManagePortal({
   }, []);
 
   useEffect(() => {
-    if (!sidebarPreferenceLoaded || sidebarViewport !== "desktop") return;
+    if (!sidebarPreferenceLoaded || sidebarViewport === "mobile") return;
     try {
       window.sessionStorage.setItem(
         MANAGE_SIDEBAR_PREFERENCE_KEY,
@@ -833,6 +834,12 @@ export function ManagePortal({
       // Sidebar state remains usable when session storage is unavailable.
     }
   }, [mobileNav, sidebarPreferenceLoaded, sidebarViewport]);
+
+  const handleManageNavSelect = useCallback(() => {
+    // Customer and internal rails keep their desktop/compact state across route
+    // changes. Only a real mobile navigation closes after a selection.
+    if (sidebarViewport === "mobile") setMobileNav(false);
+  }, [sidebarViewport]);
 
   const closeSearch = useCallback(() => {
     if (!searchFocused || searchClosing) return;
@@ -893,39 +900,6 @@ export function ManagePortal({
     };
   }, [closeDialog, dialog, dialogClosing]);
 
-  const clearSidebarIntent = useCallback(() => {
-    if (sidebarCloseTimerRef.current !== null) {
-      window.clearTimeout(sidebarCloseTimerRef.current);
-      sidebarCloseTimerRef.current = null;
-    }
-  }, []);
-
-  const closeSidebarWithIntent = useCallback(() => {
-    if (sidebarViewport === "mobile" || !sidebarIsCollapsed) return;
-    if (sidebarCloseTimerRef.current !== null) {
-      window.clearTimeout(sidebarCloseTimerRef.current);
-    }
-    sidebarCloseTimerRef.current = window.setTimeout(() => {
-      if (!sidebarRef.current?.classList.contains("is-collapsed")) {
-        sidebarCloseTimerRef.current = null;
-        return;
-      }
-      const focusedElement = document.activeElement;
-      if (
-        focusedElement instanceof HTMLElement &&
-        sidebarRef.current?.contains(focusedElement)
-      ) {
-        return;
-      }
-      setMobileNav(false);
-      setProfileMenuOpen(false);
-      setProfileMenuClosing(false);
-      sidebarCloseTimerRef.current = null;
-    }, 460);
-  }, [sidebarIsCollapsed, sidebarViewport]);
-
-  useEffect(() => () => clearSidebarIntent(), [clearSidebarIntent]);
-
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
       if (!searchContainerRef.current?.contains(event.target as Node)) closeSearch();
@@ -935,7 +909,7 @@ export function ManagePortal({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         closeProfileMenu();
-        setMobileNav(false);
+        if (sidebarViewport === "mobile") setMobileNav(false);
       }
     }
     document.addEventListener("pointerdown", handlePointerDown);
@@ -944,7 +918,7 @@ export function ManagePortal({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeCreateMenu, closeProfileMenu, closeSearch]);
+  }, [closeCreateMenu, closeProfileMenu, closeSearch, sidebarViewport]);
 
   const results = useMemo(
     () => globalSearchResults(data, search),
@@ -1009,7 +983,6 @@ export function ManagePortal({
           onChange={(event) => setSearch(event.target.value)}
           onFocus={() => {
             if (sidebarIsCollapsed) {
-              clearSidebarIntent();
               setMobileNav(true);
             }
             setSearchFocused(true);
@@ -1078,35 +1051,13 @@ export function ManagePortal({
       <ManageLiveNotifications soundEnabled={data.operator.notificationSoundEnabled} />
       <aside
         id="manage-owner-sidebar"
-        ref={sidebarRef}
         className={`manage-sidebar${mobileNav ? " is-open" : ""}${
           sidebarIsCollapsed ? " is-collapsed" : ""
         }`}
         data-workspace-slot="rail"
-        onFocusCapture={() => {
-          if (
-            sidebarViewport !== "mobile" &&
-            !sidebarPointerDownRef.current &&
-            !suppressSidebarFocusRef.current
-          ) {
-            clearSidebarIntent();
-            setMobileNav(true);
-          }
-        }}
-        onPointerDownCapture={() => {
-          sidebarPointerDownRef.current = true;
-          window.setTimeout(() => {
-            sidebarPointerDownRef.current = false;
-          }, 120);
-        }}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            closeSidebarWithIntent();
-          }
-        }}
       >
         <div className="manage-brand">
-          <Link href="/manage" title="Costivra Owner Operations">
+          <Link href="/manage" title="Costivra Owner Operations" onClick={handleManageNavSelect}>
             <span className="manage-brand-mark">
               <CostivraMark size={34} />
             </span>
@@ -1127,6 +1078,7 @@ export function ManagePortal({
         <nav
           className="manage-primary-nav"
           aria-label="Owner portal"
+          data-workspace-scrollbar
           onWheelCapture={(event) => {
             const node = event.currentTarget;
             if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
@@ -1161,14 +1113,7 @@ export function ManagePortal({
                     showSidebarTooltip(label, event.currentTarget)
                   }
                   onBlur={clearSidebarTooltip}
-                  onClick={() => {
-                    // Keep a collapsed rail collapsed after the browser moves focus to the clicked link.
-                    suppressSidebarFocusRef.current = true;
-                    setMobileNav(false);
-                    window.setTimeout(() => {
-                      suppressSidebarFocusRef.current = false;
-                    }, 300);
-                  }}
+                  onClick={handleManageNavSelect}
                 >
                   <Icon size={18} />
                   <span className="manage-nav-label">{label}</span>
@@ -1200,14 +1145,7 @@ export function ManagePortal({
                     onMouseLeave={clearSidebarTooltip}
                     onFocus={(event) => showSidebarTooltip(unreadCount > 0 ? `${label}, ${unreadCount} unread messages` : label, event.currentTarget)}
                     onBlur={clearSidebarTooltip}
-                    onClick={() => {
-                      // Keep a collapsed rail collapsed after the browser moves focus to the clicked link.
-                      suppressSidebarFocusRef.current = true;
-                      setMobileNav(false);
-                      window.setTimeout(() => {
-                        suppressSidebarFocusRef.current = false;
-                      }, 300);
-                    }}
+                    onClick={handleManageNavSelect}
                   >
                     <Icon size={18} />
                     <span className="manage-nav-label">{label}</span>
@@ -1240,13 +1178,7 @@ export function ManagePortal({
               onMouseLeave={clearSidebarTooltip}
               onFocus={(event) => showSidebarTooltip(settingsNav[0], event.currentTarget)}
               onBlur={clearSidebarTooltip}
-              onClick={() => {
-                suppressSidebarFocusRef.current = true;
-                setMobileNav(false);
-                window.setTimeout(() => {
-                  suppressSidebarFocusRef.current = false;
-                }, 300);
-              }}
+              onClick={handleManageNavSelect}
             >
               <Settings size={18} />
               <span className="manage-nav-label">{settingsNav[0]}</span>
@@ -1265,7 +1197,6 @@ export function ManagePortal({
               onBlur={clearSidebarTooltip}
               onClick={() => {
                 if (sidebarIsCollapsed) {
-                  clearSidebarIntent();
                   setMobileNav(true);
                   window.setTimeout(() => setProfileMenuOpen(true), 240);
                   return;
@@ -1293,7 +1224,14 @@ export function ManagePortal({
                     <small>{data.operator.email}</small>
                   </span>
                 </div>
-                <Link href="/manage/settings#profile-settings-title" role="menuitem" onClick={() => closeProfileMenu()}>
+                <Link
+                  href="/manage/settings#profile-settings-title"
+                  role="menuitem"
+                  onClick={() => {
+                    handleManageNavSelect();
+                    closeProfileMenu();
+                  }}
+                >
                   <Settings size={15} aria-hidden="true" />
                   Profile &amp; photo
                 </Link>
@@ -1323,7 +1261,6 @@ export function ManagePortal({
                   setMobileNav(true);
                   return;
                 }
-                clearSidebarIntent();
                 clearSidebarTooltip();
                 if (!sidebarIsCollapsed) closeSearch();
                 setMobileNav((current) => !current);
