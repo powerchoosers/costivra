@@ -17,6 +17,7 @@ const NATIVE_SCROLL_SELECTOR = [
   ".manage-global-results",
   ".manage-compose-recipient-results",
   ".manage-mail-list > div",
+  ".manage-sequence-mail-view",
   ".manage-message-stack",
   ".manage-mail-contact",
   ".drawer-content",
@@ -35,6 +36,7 @@ const NATIVE_SCROLL_SELECTOR = [
   ".assistant-thread",
   ".assistant-composer-textarea",
   ".manage-table-wrap",
+  ".manage-outreach-task-table",
   ".table-scroll",
   ".table-wrap",
   ".invoice-review-table-wrap",
@@ -43,12 +45,15 @@ const NATIVE_SCROLL_SELECTOR = [
   ".invoice-pdf-canvas",
   ".portal-modal-layer",
   ".portal-modal-body",
+  ".portal-sheet",
   ".chat-scroll",
+  ".ask-conversation",
   ".vendor-table-wrap",
   ".vendor-panel-scroll",
   ".demo-drawer-layer",
   ".demo-drawer-body",
   ".bills-table-wrap",
+  ".metric-strip",
 ].join(",");
 
 const SCROLLBAR_IDLE_DELAY = 700;
