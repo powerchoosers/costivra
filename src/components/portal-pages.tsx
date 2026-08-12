@@ -47,7 +47,7 @@ import { useToast } from "@/components/toast-provider";
 import { useBillInspector } from "@/components/bill-inspector-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
-import { WorkspaceEmptyState, WorkspaceStatusBadge } from "@/components/ui/workspace-primitives";
+import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
@@ -701,34 +701,43 @@ function ActivationChecklist({ data }: { data: PortalData }) {
   const completedCount = steps.filter((s) => s.done).length;
 
   return (
-    <section className="portal-panel activation-panel" style={{ marginBottom: 24, padding: "20px 24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+    <section className="portal-panel activation-panel workspace-progress-card">
+      <div className="workspace-progress-card__header">
         <div>
-          <h2 style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0 }}>Activation Checklist</h2>
-          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.85rem" }}>Complete these steps to set up cost control and bill monitoring.{durableState?.status === "blocked" ? " An administrator has paused activation." : ""}</p>
+          <h2>Activation Checklist</h2>
+          <p>Complete these steps to set up cost control and bill monitoring.{durableState?.status === "blocked" ? " An administrator has paused activation." : ""}</p>
         </div>
-        <span style={{ fontSize: "0.82rem", fontWeight: 700, padding: "4px 12px", borderRadius: 12, background: completedCount === steps.length ? "rgba(16,185,129,0.12)" : "rgba(0,47,167,0.08)", color: completedCount === steps.length ? "#059669" : "#002FA7" }}>
+        <span
+          aria-label="Activation progress"
+          aria-valuemax={steps.length}
+          aria-valuemin={0}
+          aria-valuenow={completedCount}
+          aria-valuetext={`${completedCount} of ${steps.length} completed`}
+          className="workspace-progress-card__status"
+          data-complete={completedCount === steps.length || undefined}
+          role="progressbar"
+        >
           {completedCount} of {steps.length} completed
         </span>
       </div>
-      <div style={{ display: "grid", gap: 10 }}>
+      <ol className="workspace-progress-card__steps">
         {steps.map((step, idx) => (
-          <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: step.done ? "rgba(0,0,0,0.015)" : "var(--bg-subtle, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: "50%", background: step.done ? "#10b981" : "var(--blue, #002FA7)", color: "#fff", fontSize: "0.75rem", fontWeight: 700, flexShrink: 0 }}>
+          <li key={step.id} data-complete={step.done || undefined}>
+            <span className="workspace-progress-card__marker" aria-hidden="true">
               {step.done ? <Check size={14} /> : idx + 1}
             </span>
-            <div style={{ flex: 1 }}>
-              <strong style={{ fontSize: "0.92rem", color: step.done ? "var(--text-muted)" : "inherit" }}>{step.title}</strong>
-              <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 2 }}>{step.copy}</div>
+            <div className="workspace-progress-card__copy">
+              <strong>{step.title}</strong>
+              <span>{step.copy}</span>
             </div>
             {!step.done && step.href && (
-              <Link className="button button-quiet button-sm" href={step.href} style={{ fontSize: "0.8rem", padding: "6px 12px", gap: 4 }}>
+              <Link className="button button-quiet button-sm workspace-progress-card__action" href={step.href}>
                 Action <ChevronRight size={14} />
               </Link>
             )}
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
     </section>
   );
 }
@@ -965,14 +974,15 @@ function BillsWorkspace({
       />
 
       <div className="bills-tab-toolbar">
-        <div className="portal-tab-bar">
-          {tabs.map((tab) => (
-            <button key={tab.id} type="button" className={`portal-tab ${activeView === tab.id ? "is-active" : ""}`} onClick={() => handleTabChange(tab.id)}>
-              {tab.label}
-              {tab.count > 0 && <span style={{ fontSize: "0.74rem", padding: "1px 6px", borderRadius: 10, background: tab.id === "review" && tab.count > 0 ? "rgba(245, 158, 11, 0.15)" : "rgba(30, 41, 59, 0.06)", color: tab.id === "review" && tab.count > 0 ? "#b45309" : "inherit", fontWeight: 600 }}>{tab.count}</span>}
-            </button>
-          ))}
-        </div>
+        <WorkspaceViewTabs
+          activeId={activeView}
+          ariaLabel="Bills and spend views"
+          onChange={handleTabChange}
+          tabs={tabs.map((tab) => ({
+            ...tab,
+            countTone: tab.id === "review" ? "attention" : undefined,
+          }))}
+        />
         <div className={`bills-filter-control${filtersOpen ? " is-open" : ""}`}>
           <button type="button" className="bills-filter-trigger" aria-label="Filter bills and spend" aria-expanded={filtersOpen} onClick={toggleFilters}>
             <ListFilter size={16} />
@@ -1293,18 +1303,22 @@ function FindingsWorkspace({
         description="What Costivra discovered across every vendor, with evidence and limits visible."
         scope={<PageScopeIndicator mode="global" />}
       />
-      <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
-        {([
+      <WorkspaceViewTabs
+        activeId={activeView}
+        ariaLabel="Finding views"
+        onChange={(id) => updateParams({ view: id })}
+        tabs={([
           ["review", "Needs Review"],
           ["evidence_backed", "Evidence Backed"],
           ["needs_evidence", "Needs Evidence"],
           ["dismissed", "Dismissed"],
-        ] as const).map(([id, label]) => (
-          <button key={id} type="button" className={`portal-tab ${activeView === id ? "is-active" : ""}`} onClick={() => updateParams({ view: id })}>
-            {label} {counts[id] > 0 && <span>{counts[id]}</span>}
-          </button>
-        ))}
-      </div>
+        ] as const).map(([id, label]) => ({
+          id,
+          label,
+          count: counts[id],
+          countTone: id === "review" || id === "needs_evidence" ? "attention" as const : undefined,
+        }))}
+      />
       <Toolbar
         query={query}
         setQuery={(value) => updateParams({ q: value || null })}
@@ -1376,18 +1390,22 @@ function Contracts({ data }: { data: PortalData }) {
         title="Contracts & Renewals"
         description="Deadlines, notice periods, auto-renewals, and agreement risk across every vendor."
       />
-      <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
-        {([
+      <WorkspaceViewTabs
+        activeId={activeView}
+        ariaLabel="Contract views"
+        onChange={(id) => updateParams({ view: id })}
+        tabs={([
           ["upcoming", "Upcoming"],
           ["all", "All Contracts"],
           ["needs_details", "Needs Details"],
           ["expired", "Expired"],
-        ] as const).map(([id, label]) => (
-          <button key={id} type="button" className={`portal-tab ${activeView === id ? "is-active" : ""}`} onClick={() => updateParams({ view: id })}>
-            {label} {counts[id] > 0 && <span>{counts[id]}</span>}
-          </button>
-        ))}
-      </div>
+        ] as const).map(([id, label]) => ({
+          id,
+          label,
+          count: counts[id],
+          countTone: id === "upcoming" || id === "needs_details" ? "attention" as const : undefined,
+        }))}
+      />
       <section className="portal-panel">
         {rows.length ? (
           <div className="table-wrap">
@@ -1489,18 +1507,22 @@ function Actions({
         description="Work across all vendor relationships that requires approval, execution, or follow-up, with ownership and evidence attached."
         scope={<PageScopeIndicator mode="global" />}
       />
-      <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
-        {([
+      <WorkspaceViewTabs
+        activeId={activeView}
+        ariaLabel="Action views"
+        onChange={(id) => updateParams({ view: id })}
+        tabs={([
           ["approval", "Needs Approval"],
           ["assigned", "Assigned to Me"],
           ["in_progress", "In Progress"],
           ["completed", "Completed"],
-        ] as const).map(([id, label]) => (
-          <button key={id} type="button" className={`portal-tab ${activeView === id ? "is-active" : ""}`} onClick={() => updateParams({ view: id })}>
-            {label} {counts[id] > 0 && <span>{counts[id]}</span>}
-          </button>
-        ))}
-      </div>
+        ] as const).map(([id, label]) => ({
+          id,
+          label,
+          count: counts[id],
+          countTone: id === "approval" ? "attention" as const : undefined,
+        }))}
+      />
       <Toolbar query={query} setQuery={(value) => updateParams({ q: value || null })} placeholder="Search actions, findings, or vendors" />
       <div className="portal-card-grid">
         {filtered.map((item) => {
@@ -1666,18 +1688,17 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
         description="See verified value, work still in progress, and reports across all vendor relationships."
         scope={<PageScopeIndicator mode="global" />}
       />
-      <div className="portal-tab-bar" style={{ marginBottom: 16 }}>
-        {([
-          ["verified", "Verified Value"],
-          ["in_progress", "In Progress"],
-          ["reports", "Reports"],
-          ["summary", "Executive Summary"],
-        ] as const).map(([id, label]) => (
-          <button key={id} type="button" className={`portal-tab ${activeView === id ? "is-active" : ""}`} onClick={() => updateView(id)}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <WorkspaceViewTabs
+        activeId={activeView}
+        ariaLabel="Results views"
+        onChange={updateView}
+        tabs={[
+          { id: "verified", label: "Verified Value", count: data.savings.filter(resultIsVerified).length },
+          { id: "in_progress", label: "In Progress", count: inProgress.length },
+          { id: "reports", label: "Reports", count: data.reports.length },
+          { id: "summary", label: "Executive Summary" },
+        ]}
+      />
       {activeView === "verified" && <section className="portal-panel">
         <div className="portal-panel-heading"><div><h2>Verified value</h2><p>Only results supported by an accepted method and later source evidence appear here.</p></div><strong className="money-value">{money(verified, true)}</strong></div>
         {data.savings.filter(resultIsVerified).length ? <div className="portal-list">{data.savings.filter(resultIsVerified).map((item) => <div className="portal-list-row savings-workflow-row" key={item.id}><CheckCircle2 /><div className="grow"><Link className="record-link" href={`/app/results/${item.id}`}><strong>{item.title}</strong></Link><span>{item.method} · Verified {date(item.verifiedAt)}</span><small>Baseline {item.baselineAmount == null ? "not recorded" : money(item.baselineAmount)} · Later comparison {item.comparisonAmount == null ? "not recorded" : money(item.comparisonAmount)}</small></div><strong className="money-value">{money(item.amount)}</strong><Status value="verified" /></div>)}</div> : <Empty title="No verified value yet" copy="Verified results will appear after a baseline and later source evidence are reviewed." />}
@@ -1981,12 +2002,12 @@ function Vendors({ data }: { data: PortalData }) {
                         {latestExpense ? (
                           <div>
                             <strong>{money(latestExpense.amount)}</strong>
-                            <small style={{ display: "block", color: "var(--assistant-muted, #64748b)" }}>
+                            <small className="workspace-secondary-text">
                               {date(latestExpense.periodEnd)}
                             </small>
                           </div>
                         ) : (
-                          <span style={{ color: "var(--assistant-muted, #64748b)" }}>None recorded</span>
+                          <span className="workspace-secondary-text">None recorded</span>
                         )}
                       </td>
                       <td>
@@ -1994,11 +2015,11 @@ function Vendors({ data }: { data: PortalData }) {
                       </td>
                       <td>
                         {details.reasons.length ? (
-                          <span className="vendor-attention-pill" style={{ fontSize: "0.75rem", padding: "2px 8px", borderRadius: 12, background: "#fef3c7", color: "#92400e", fontWeight: 600 }}>
+                          <WorkspaceStatusBadge withDot className="workspace-inline-state workspace-inline-state--attention">
                             {details.reasons[0]}
-                          </span>
+                          </WorkspaceStatusBadge>
                         ) : (
-                          <span style={{ color: "#10b981", fontSize: "0.78rem", fontWeight: 600 }}>Healthy</span>
+                          <WorkspaceStatusBadge withDot className="workspace-inline-state workspace-inline-state--healthy">Healthy</WorkspaceStatusBadge>
                         )}
                       </td>
                       <td>{date(nextContractEnd)}</td>
@@ -2378,27 +2399,16 @@ export function VendorDetail({
       </header>
 
       {/* Record sections use the same tab system as the internal CRM. */}
-      <nav className="workspace-tab-list workspace-tab-list--record" aria-label="Vendor sections">
-        {vendorTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => handleTabChange(tab.id)}
-            className={`workspace-tab${activeTab === tab.id ? " is-active" : ""}`}
-            aria-current={activeTab === tab.id ? "page" : undefined}
-          >
-            {tab.label}
-            {tab.count != null && tab.count > 0 && (
-              <span className="workspace-tab__count">
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
+      <WorkspaceViewTabs
+        activeId={activeTab}
+        ariaLabel="Vendor sections"
+        className="workspace-tab-list--record"
+        onChange={handleTabChange}
+        tabs={vendorTabs}
+      />
 
       {activeTab === "overview" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div className="vendor-detail-stack">
           {/* Relationship summary band */}
           <section className="vendor-summary-band">
             <div className="vendor-spend-stat">
@@ -2426,27 +2436,27 @@ export function VendorDetail({
           </section>
 
           {/* Value summary */}
-          <section className="portal-panel" style={{ padding: "18px 22px" }}>
-            <h2 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 12px" }}>Value Summary</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-              <div>
-                <span style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)", display: "block" }}>Potential Value</span>
-                <strong style={{ fontSize: "1.2rem", color: "#002FA7" }}>{money(potentialValueTotal)}</strong>
-                <small style={{ display: "block", color: "var(--assistant-muted, #64748b)", fontSize: "0.72rem" }}>Rule-based estimate</small>
+          <section className="portal-panel workspace-value-summary">
+            <h2>Value Summary</h2>
+            <div className="workspace-value-summary__grid">
+              <div className="workspace-value-summary__metric" data-tone="potential">
+                <span>Potential Value</span>
+                <strong>{money(potentialValueTotal)}</strong>
+                <small>Rule-based estimate</small>
               </div>
-              <div>
-                <span style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)", display: "block" }}>Actions in Progress</span>
-                <strong style={{ fontSize: "1.2rem" }}>{actions.filter(a => a.status === "in_progress").length} work items</strong>
-                <small style={{ display: "block", color: "var(--assistant-muted, #64748b)", fontSize: "0.72rem" }}>Active execution</small>
+              <div className="workspace-value-summary__metric">
+                <span>Actions in Progress</span>
+                <strong>{actions.filter(a => a.status === "in_progress").length} work items</strong>
+                <small>Active execution</small>
               </div>
-              <div>
-                <span style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)", display: "block" }}>Verified Value</span>
-                <strong style={{ fontSize: "1.2rem", color: "#10b981" }}>{money(verifiedValueTotal)}</strong>
-                <small style={{ display: "block", color: "var(--assistant-muted, #64748b)", fontSize: "0.72rem" }}>Proven by later evidence</small>
+              <div className="workspace-value-summary__metric" data-tone="verified">
+                <span>Verified Value</span>
+                <strong>{money(verifiedValueTotal)}</strong>
+                <small>Proven by later evidence</small>
               </div>
             </div>
-            <p className="muted" style={{ fontSize: "0.76rem", margin: "14px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
-              <ShieldCheck size={14} style={{ color: "#002FA7" }} /> Potential value is an estimate based on rules and baseline data. Verified value is proven by later invoice evidence.
+            <p className="workspace-value-summary__note">
+              <ShieldCheck aria-hidden="true" size={14} /> Potential value is an estimate based on rules and baseline data. Verified value is proven by later invoice evidence.
             </p>
           </section>
 
@@ -3318,20 +3328,20 @@ function DataCompletenessChecklist({
   const score = Math.round((states.filter((item) => item.state === "complete").length / states.length) * 100);
 
   return (
-    <section className="portal-panel" style={{ marginBottom: 24, padding: "20px 24px" }}>
-      <div className="portal-panel-heading" style={{ marginBottom: 12 }}>
+    <section className="portal-panel workspace-completeness-card">
+      <div className="portal-panel-heading workspace-completeness-card__heading">
         <div>
           <h2>Data Completeness</h2>
           <p>{score}% of recommended relationship fields recorded.</p>
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      <div className="workspace-completeness-card__states">
         {states.map((item) => (
-          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: item.state === "complete" ? "#10b981" : item.state === "attention" ? "#b45309" : "#64748b", color: "#fff", flexShrink: 0 }}>
+          <div key={item.label} className="workspace-completeness-card__state" data-state={item.state}>
+            <span className="workspace-completeness-card__marker" aria-hidden="true">
               {item.state === "complete" ? <Check size={12} /> : item.state === "attention" ? <Info size={12} /> : <X size={12} />}
             </span>
-            <span style={{ color: item.state === "complete" ? "inherit" : "var(--text-muted)" }}>{item.label} · {item.state === "not_applicable" ? "Not applicable" : titleCase(item.state)}</span>
+            <span>{item.label} · {item.state === "not_applicable" ? "Not applicable" : titleCase(item.state)}</span>
           </div>
         ))}
       </div>
@@ -3941,18 +3951,27 @@ function Settings({
       setBusy(false);
     }
   };
+  const settingsTabs = [
+    { id: "organization", label: "Organization" },
+    { id: "integrations", label: "Integrations" },
+    { id: "team", label: "Team & approvals" },
+    ...(["owner", "admin"].includes(data.currentUser.role)
+      ? [{ id: "billing", label: "Billing" }]
+      : []),
+  ];
   return (
     <>
       <PageHeader
         title="Settings"
         description="Organization profile, alert preferences, and review thresholds."
       />
-      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
-        <button type="button" role="tab" aria-selected={tab === "organization"} className={tab === "organization" ? "active" : ""} onClick={() => setTab("organization")}>Organization</button>
-        <button type="button" role="tab" aria-selected={tab === "integrations"} className={tab === "integrations" ? "active" : ""} onClick={() => setTab("integrations")}>Integrations</button>
-        <button type="button" role="tab" aria-selected={tab === "team"} className={tab === "team" ? "active" : ""} onClick={() => setTab("team")}>Team & approvals</button>
-        {['owner', 'admin'].includes(data.currentUser.role) && <button type="button" role="tab" aria-selected={tab === "billing"} className={tab === "billing" ? "active" : ""} onClick={() => setTab("billing")}>Billing</button>}
-      </div>
+      <WorkspaceViewTabs
+        activeId={tab}
+        ariaLabel="Settings sections"
+        onChange={(id) => setTab(id as typeof tab)}
+        selectionMode="pressed"
+        tabs={settingsTabs}
+      />
       {tab === "organization" && <>
       <form className="portal-panel settings-form" onSubmit={submit}>
         <div className="form-grid">
@@ -3988,7 +4007,7 @@ function Settings({
             defaultValue={data.organization.currency}
           />
         </div>
-        <div className="preference-list">
+        <div className="workspace-preference-list">
           <label>
             <span>
               <strong>Weekly operating digest</strong>

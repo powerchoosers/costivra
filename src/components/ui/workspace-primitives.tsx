@@ -60,6 +60,69 @@ export function WorkspaceStatusBadge({
   );
 }
 
+export type WorkspaceViewTab = {
+  count?: number;
+  countTone?: "attention";
+  disabled?: boolean;
+  id: string;
+  label: ReactNode;
+};
+
+type WorkspaceViewTabsProps = {
+  activeId: string;
+  ariaLabel: string;
+  className?: string;
+  onChange: (id: string) => void;
+  selectionMode?: "current" | "pressed";
+  tabs: WorkspaceViewTab[];
+};
+
+/**
+ * Shared view navigation for work queues and workspace settings. It is a
+ * labelled view switcher, rather than a WAI-ARIA tab widget, so routes can
+ * retain their own URL state without promising unsupported arrow-key behavior.
+ */
+export function WorkspaceViewTabs({
+  activeId,
+  ariaLabel,
+  className,
+  onChange,
+  selectionMode = "current",
+  tabs,
+}: WorkspaceViewTabsProps) {
+  return (
+    <nav
+      aria-label={ariaLabel}
+      className={classNames("workspace-tab-list", "workspace-view-tabs", className)}
+    >
+      {tabs.map((tab) => {
+        const active = tab.id === activeId;
+        return (
+          <button
+            aria-current={selectionMode === "current" && active ? "true" : undefined}
+            aria-pressed={selectionMode === "pressed" ? active : undefined}
+            className={classNames("workspace-tab", active && "is-active")}
+            disabled={tab.disabled}
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            type="button"
+          >
+            {tab.label}
+            {typeof tab.count === "number" && tab.count > 0 ? (
+              <span
+                className="workspace-tab__count"
+                data-tone={tab.countTone}
+              >
+                {tab.count}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 type WorkspaceEmptyStateProps = {
   action?: ReactNode;
   className?: string;

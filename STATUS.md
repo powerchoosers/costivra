@@ -1,5 +1,13 @@
 # Costivra Status
 
+## August 11, 2026 — Shared workspace facelift continuation
+
+- Replaced the repeated customer queue and settings tab implementations with the shared `WorkspaceViewTabs` control. Bills, Findings, Contracts, Actions, Results, Settings, and vendor records now carry one compact active state, count treatment, keyboard focus treatment, and accurate labelled-navigation semantics.
+- Reworked the customer activation checklist, vendor value summary, data-completeness checks, preference controls, and vendor-health cues into semantic shared styles. Potential value, active work, and verified value are visibly distinct without implying that an estimate is verified.
+- Added a real mobile Manage account-card layout. At phone widths, the Overview and Accounts pages now show account identity, stage, contact, marketing consent, last touch, next step, and an explicit open-account action instead of hiding the desktop table with no replacement.
+- **Validation:** `npm run typecheck` PASS; PostCSS parsing of `src/app/globals.css` PASS; `git diff --check` PASS. Focused ESLint and Vitest runs did not complete within the local 124-second command limit while the existing local Next process and other user Node processes were active; neither emitted a test or lint failure before the timeout.
+- **Visual QA limitation:** the only available local browser state redirects protected `/app` and `/manage` to sign-in, so this continuation could not visually inspect the authenticated routes. No additional dev server was started; an authenticated desktop and mobile pass remains the next release check.
+
 ## August 11, 2026 — Shared customer and Manage visual facelift
 
 - Strengthened the existing shared operational surface system in `src/app/globals.css`: a clearer primary/secondary/destructive button hierarchy, consistent icon and utility controls, calmer panels, more readable tables, unified navigation states, field focus treatment, menus, overlays, status badges, and reduced-motion behavior. The customer app and Manage now use the same visual rules without changing their data or workflows.

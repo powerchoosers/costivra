@@ -1883,8 +1883,9 @@ function AccountRows({
   const pageSelection = accounts.length > 0 && accounts.every((account) => selectedIds?.has(account.id));
   const someSelected = accounts.some((account) => selectedIds?.has(account.id));
   return (
-    <div className={`manage-table-wrap${accounts.length === 0 ? " is-empty" : ""}`}>
-      <table className="manage-data-table manage-account-data-table">
+    <>
+      <div className={`manage-table-wrap${accounts.length === 0 ? " is-empty" : ""}`}>
+        <table className="manage-data-table manage-account-data-table">
         <thead>
           <tr>
             {(onToggle || showRowNumbers) && (
@@ -1958,9 +1959,73 @@ function AccountRows({
             );
           })}
         </tbody>
-      </table>
-      {accounts.length === 0 && empty ? <div className="manage-table-empty-state">{empty}</div> : null}
-    </div>
+        </table>
+        {accounts.length === 0 && empty ? <div className="manage-table-empty-state">{empty}</div> : null}
+      </div>
+      {accounts.length ? (
+        <div className="manage-account-cards">
+          {accounts.map((account, index) => {
+            const isBulkSelected = selectedIds?.has(account.id) ?? false;
+            return (
+              <article
+                key={account.id}
+                className={isBulkSelected || account.id === selectedId ? "is-selected" : undefined}
+              >
+                <header className="manage-account-card__header">
+                  {onToggle ? (
+                    <BulkRowSelector
+                      checked={isBulkSelected}
+                      index={index + 1}
+                      label={account.name}
+                      onChange={() => onToggle(account.id)}
+                    />
+                  ) : null}
+                  <Link href={`/manage/accounts/${account.id}`} className="manage-account-card__identity">
+                    <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />
+                    <span>
+                      <strong>{account.name}</strong>
+                      <small>{account.industry || "Industry not set"}</small>
+                    </span>
+                  </Link>
+                  <Status value={account.stage} />
+                </header>
+                <dl className="manage-account-card__details">
+                  <div>
+                    <dt>Primary contact</dt>
+                    <dd>
+                      <strong>{account.primaryContact || "No contact"}</strong>
+                      <small>{account.primaryEmail || "No email recorded"}</small>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Marketing</dt>
+                    <dd><MarketingConsent count={account.marketingOptInCount} compact /></dd>
+                  </div>
+                  <div>
+                    <dt>Last touch</dt>
+                    <dd>{date(account.lastContactedAt)}</dd>
+                  </div>
+                  <div className="manage-account-card__next-step">
+                    <dt>Next step</dt>
+                    <dd>
+                      <strong>{account.nextStep || "Not set"}</strong>
+                      <small>{date(account.nextFollowUpAt)}</small>
+                    </dd>
+                  </div>
+                </dl>
+                <footer className="manage-account-card__footer">
+                  <Link href={`/manage/accounts/${account.id}`}>
+                    Open account <ChevronRight aria-hidden="true" size={15} />
+                  </Link>
+                </footer>
+              </article>
+            );
+          })}
+        </div>
+      ) : empty ? (
+        <div className="manage-account-cards manage-account-cards--empty">{empty}</div>
+      ) : null}
+    </>
   );
 }
 

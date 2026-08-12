@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-11 — Share operational view navigation and record-quality states
+
+### Context
+
+Customer work queues, vendor records, onboarding, and organization preferences still carried several incompatible inline visual patterns. The mobile Manage overview also hid its account table without rendering a usable replacement, so a person could lose the account list entirely on a phone.
+
+### Decision
+
+Use `WorkspaceViewTabs` as the shared labelled view switcher for customer queues, settings, and vendor records; it intentionally does not claim WAI-ARIA tab behavior that the routes do not implement. Move activation, vendor value, data-completeness, vendor-health, and preference presentation onto semantic workspace classes. Render full account cards as the mobile counterpart to Manage’s dense desktop table, preserving direct access to each account.
+
+### Consequences
+
+The same active state, count treatment, focus ring, and compact operational hierarchy now appears across the most frequently switched customer views. Mobile Manage retains account identity, contact, stage, next step, consent status, and direct navigation instead of showing a blank table area. These changes do not alter records, calculations, permissions, routing, or workflow state.
+
 ## 2026-08-11 — Give shared record editing one workspace language
 
 ### Context
