@@ -30,7 +30,6 @@ import {
   LoaderCircle,
   Mail,
   MapPin,
-  MoreHorizontal,
   Pause,
   Pencil,
   Plus,
@@ -835,7 +834,6 @@ function BillsWorkspace({
 
   const defaultView = initialView ?? (reviewInvoices.length > 0 ? "review" : "all");
   const activeView = resolveBillsView(requestedView, defaultView);
-  const [overflowOpen, setOverflowOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersClosing, setFiltersClosing] = useState(false);
 
@@ -937,102 +935,32 @@ function BillsWorkspace({
         title="Bills & Spend"
         description="Upload, review, track, and prove operating expenses across all vendor relationships."
         action={
-          <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
-            <button
-              type="button"
-              className="button button-quiet"
-              onClick={() => setOverflowOpen(!overflowOpen)}
-              style={{ padding: "8px 12px" }}
-              aria-label="More actions"
-            >
-              <MoreHorizontal size={16} />
-            </button>
-            {overflowOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: 0,
-                  marginTop: 4,
-                  width: 200,
-                  background: "var(--card-bg, #ffffff)",
-                  border: "1px solid rgba(30, 41, 59, 0.12)",
-                  borderRadius: 12,
-                  boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-                  zIndex: 50,
-                  padding: "6px 0",
-                }}
-              >
-                {canWrite && (
-                  <button
-                    type="button"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      width: "100%",
-                      padding: "8px 14px",
-                      border: "none",
-                      background: "none",
-                      textAlign: "left",
-                      cursor: "pointer",
-                      fontSize: "0.85rem",
-                    }}
-                    onClick={() => {
-                      setOverflowOpen(false);
-                      onAddExpense();
-                    }}
-                  >
-                    <Plus size={14} /> Add spend manually
-                  </button>
-                )}
-                {canWrite && (
-                  <button
-                    type="button"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      width: "100%",
-                      padding: "8px 14px",
-                      border: "none",
-                      background: "none",
-                      textAlign: "left",
-                      cursor: "pointer",
-                      fontSize: "0.85rem",
-                    }}
-                    onClick={() => {
-                      setOverflowOpen(false);
-                      onAddContract();
-                    }}
-                  >
-                    <FileText size={14} /> Upload contract
-                  </button>
-                )}
-                <button
-                  type="button"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    padding: "8px 14px",
-                    border: "none",
-                    background: "none",
-                    textAlign: "left",
-                    cursor: "pointer",
-                    fontSize: "0.85rem",
-                  }}
-                  onClick={() => {
-                    setOverflowOpen(false);
-                    handleExportList();
-                  }}
-                >
-                  <Download size={14} /> Export bill list
-                </button>
-              </div>
-            )}
-          </div>
+          <RecordOverflowMenu
+            ariaLabel="More bill actions"
+            items={[
+              {
+                id: "add-spend",
+                label: "Add spend manually",
+                icon: <Plus size={14} />,
+                hidden: !canWrite,
+                onSelect: onAddExpense,
+              },
+              {
+                id: "upload-contract",
+                label: "Upload contract",
+                icon: <FileText size={14} />,
+                hidden: !canWrite,
+                onSelect: onAddContract,
+              },
+              {
+                id: "export-bill-list",
+                label: "Export bill list",
+                icon: <Download size={14} />,
+                separatorBefore: canWrite,
+                onSelect: handleExportList,
+              },
+            ]}
+          />
         }
       />
 

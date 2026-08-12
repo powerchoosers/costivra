@@ -1,0 +1,2 @@
+# Keep this legacy mixed-EOL source file stable on Windows while still diffing it as code.
+src/components/manage-portal.tsx -text diff

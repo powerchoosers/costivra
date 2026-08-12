@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-11 — Give shared record editing one workspace language
+
+### Context
+
+Customer and Manage record editing were built from the same behavioral primitives, but their presentation still leaked assistant-specific variables and dozens of inline styles. A bill action menu was separate again, which meant common actions behaved and looked slightly differently depending on where a person encountered them.
+
+### Decision
+
+Use semantic `workspace-record-*` classes for record sheets, dialogs, fields, menus, and form controls. Use the same tab and overflow-menu components for vendor, account, contact, and Bills workflows. Keep the data, authorization, save/discard, keyboard, and menu behavior intact; this decision changes presentation and interaction consistency only.
+
+### Consequences
+
+Dense record work now carries the same button hierarchy, focus state, motion, form rhythm, and overflow-menu behavior in both products. Future record routes can reuse the semantic classes instead of introducing page-specific visual rules.
+
 ## 2026-08-11 — Make the shared operational system decisive, not decorative
 
 ### Context
