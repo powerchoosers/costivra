@@ -151,9 +151,13 @@ export function SmoothScroll() {
 
     // Scroll events do not bubble from nested panels, so capture them once at
     // the document rather than attaching a listener to every table instance.
+    document.querySelectorAll<HTMLElement>(NATIVE_SCROLL_SELECTOR).forEach((target) => {
+      scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
+    });
     document.addEventListener("wheel", primeNativeScrollPosition, { capture: true, passive: true });
     document.addEventListener("touchstart", primeNativeScrollPosition, { capture: true, passive: true });
     document.addEventListener("pointerdown", primeNativeScrollPosition, { capture: true, passive: true });
+    document.addEventListener("keydown", primeNativeScrollPosition, { capture: true });
     document.addEventListener("scroll", handleNativeScroll, { capture: true, passive: true });
 
     if (lenis) {
@@ -166,6 +170,7 @@ export function SmoothScroll() {
       document.removeEventListener("wheel", primeNativeScrollPosition, true);
       document.removeEventListener("touchstart", primeNativeScrollPosition, true);
       document.removeEventListener("pointerdown", primeNativeScrollPosition, true);
+      document.removeEventListener("keydown", primeNativeScrollPosition, true);
       document.removeEventListener("scroll", handleNativeScroll, true);
       if (lenis) {
         lenis.off("scroll", activatePageScrollbar);
