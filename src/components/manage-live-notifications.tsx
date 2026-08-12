@@ -251,7 +251,7 @@ export function ManageNotificationCenter({
         .subscribe();
     }
 
-    void loadNotifications();
+    const initialLoad = window.setTimeout(() => void loadNotifications(), 0);
     void subscribe();
     const timer = window.setInterval(() => void loadNotifications(), fallbackPollIntervalMs);
     const handleVisibility = () => {
@@ -260,6 +260,7 @@ export function ManageNotificationCenter({
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       active.current = false;
+      window.clearTimeout(initialLoad);
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
       if (channel) void supabase.removeChannel(channel);

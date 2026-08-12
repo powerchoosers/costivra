@@ -6,7 +6,6 @@ import {
   useEffect,
   useId,
   useRef,
-  useState,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactNode,
@@ -97,8 +96,6 @@ export function WorkspaceNotificationCenter({
   onOpenChange,
   open,
 }: WorkspaceNotificationCenterProps) {
-  const [rendered, setRendered] = useState(open);
-  const [closing, setClosing] = useState(false);
   const centerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(open);
@@ -107,21 +104,6 @@ export function WorkspaceNotificationCenter({
     (count, notification) => count + (notification.readAt ? 0 : 1),
     0,
   );
-
-  useEffect(() => {
-    if (open) {
-      setRendered(true);
-      setClosing(false);
-      return;
-    }
-    if (!rendered) return;
-    setClosing(true);
-    const timeout = window.setTimeout(() => {
-      setRendered(false);
-      setClosing(false);
-    }, 180);
-    return () => window.clearTimeout(timeout);
-  }, [open, rendered]);
 
   useEffect(() => {
     if (wasOpen.current && !open) {
@@ -156,7 +138,7 @@ export function WorkspaceNotificationCenter({
   return (
     <div className={classNames("workspace-notification-center", className)} ref={centerRef}>
       <WorkspaceUtilityButton
-        aria-controls={rendered ? popoverId : undefined}
+        aria-controls={popoverId}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={`Notifications. ${unreadLabel}`}
@@ -173,24 +155,25 @@ export function WorkspaceNotificationCenter({
         ) : null}
       </WorkspaceUtilityButton>
 
-      {rendered ? (
-        <section
-          aria-label="Notifications"
-          aria-modal="false"
-          className={classNames(
-            "workspace-notification-popover",
-            closing && "is-closing",
-          )}
-          id={popoverId}
-          role="dialog"
-        >
+      <section
+        aria-hidden={!open}
+        aria-label="Notifications"
+        aria-modal="false"
+        className={classNames(
+          "workspace-notification-popover",
+          open && "is-open",
+        )}
+        id={popoverId}
+        inert={!open}
+        role="dialog"
+      >
           <header className="workspace-notification-popover__header">
             <div>
               <strong>Notifications</strong>
               <span>{unreadLabel}</span>
             </div>
             {unreadCount && onMarkAllRead ? (
-              <button onClick={() => void onMarkAllRead()} type="button">
+              <button disabled={!open} onClick={() => void onMarkAllRead()} type="button">
                 Mark all read
               </button>
             ) : null}
@@ -221,6 +204,7 @@ export function WorkspaceNotificationCenter({
                   )}
                   key={notification.id}
                   onClick={() => void onNotificationSelect(notification)}
+                  disabled={!open}
                   type="button"
                 >
                   {content}
@@ -238,8 +222,7 @@ export function WorkspaceNotificationCenter({
               );
             })}
           </div>
-        </section>
-      ) : null}
+      </section>
     </div>
   );
 }

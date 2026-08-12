@@ -1963,3 +1963,19 @@ Use shared React primitives and assistant CSS for the header, icon buttons, comp
 ## Consequences
 
 CSS and animation changes now apply predictably to both assistants without allowing internal CRM context to enter a customer session or vice versa. A future Manage attachment workflow must add explicit client selection, private storage, scanning, and auditability before sending file content to the assistant.
+
+# 2026-08-12 — Share notification presentation while preserving notification authority
+
+## Context
+
+The customer workspace had a notification bell, while Manage only displayed transient toast alerts and immediately marked them read. That meant internal operators could lose the alert history and the two workspace headers visibly diverged.
+
+## Decision
+
+Use one `WorkspaceNotificationCenter` for the circular bell, unread badge, recent-list popover, motion, keyboard dismissal, focus return, and reduced-motion behavior. Keep the notification controllers and data sources separate: customer notifications remain organization-scoped, while Manage reads internal operator/global notifications through its internal API.
+
+The Manage API now returns a bounded recent list with read state, marks alerts read only after a deliberate user action, validates each requested alert against the signed-in operator's visible scope, and permits only relative `/manage` action links.
+
+## Consequences
+
+Both workspaces now share one notification interaction and visual language without joining customer and internal data. Manage operators retain a clear recent-alert history, and a compromised browser request cannot mark another operator's alert as read.
