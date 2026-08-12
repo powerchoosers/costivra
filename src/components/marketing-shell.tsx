@@ -86,8 +86,7 @@ export function MarketingHeader() {
           <Link className="sign-in" href="/login">Sign in</Link>
           <Link className="button button-primary" href="/scan">Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link>
           <button ref={menuButtonRef} className={`mobile-menu${open ? " is-open" : ""}`} type="button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="mobile-navigation" onClick={() => open ? closeMenu() : setOpen(true)}>
-            <Menu className="mobile-menu-open-icon" aria-hidden="true" size={22} />
-            <X className="mobile-menu-close-icon" aria-hidden="true" size={22} />
+            {open ? <X aria-hidden="true" size={22} /> : <Menu aria-hidden="true" size={22} />}
           </button>
         </div>
       </div>

@@ -1906,6 +1906,34 @@ Expand the project-owned product-design skill with concrete rules for `@/lib/ico
 
 Future UI work has an actionable, consistent design and engineering contract. It favors a smooth, fast product without turning users' browsers into a long-lived cache of workspace data.
 
+# 2026-08-11 — Use one reliable marketing navigation control at compact widths
+
+## Context
+
+At tablet widths the marketing header could show the compact menu control alongside the desktop CTA, and both menu glyphs were mounted at once while transitioning. That made the header look like two controls and made the click target harder to reason about.
+
+## Decision
+
+Use one conditionally rendered Menu or X icon, hide the desktop CTA at the same compact breakpoint where the menu appears, and keep the menu trigger above the header surface with a clear pointer target.
+
+## Consequences
+
+Compact desktop/tablet and phone widths now share one predictable navigation mode. The open state has one visible close control and the closed state has one visible menu control.
+
+# 2026-08-11 — Make account feedback and password visibility explicit
+
+## Context
+
+Signup confirmation feedback appeared abruptly, and the account password field had no visible way to inspect the value while typing. The signup email question also required checking the real Supabase Auth record rather than guessing from the UI.
+
+## Decision
+
+Animate account status messages when they appear or change, add an accessible eye toggle to the password field, and verify account existence/confirmation through a read-only Supabase Auth query.
+
+## Consequences
+
+Signup and sign-in feedback is easier to notice without being disruptive, password entry is more recoverable, and account support answers can distinguish a missing account from a delivery problem.
+
 # 2026-08-11 — Share visual primitives before consolidating workspace shells
 
 ## Context

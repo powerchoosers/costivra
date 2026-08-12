@@ -261,6 +261,31 @@ textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .faq-toggle, .faq-answer-wrap, .faq-answer-wrap > .faq-answer { transition: none !important; }
 }
+
+/* Tablet widths use the same single mobile navigation mode as phones. Keep
+   the CTA out of the compact header so the menu trigger has one clear job. */
+@media (min-width: 761px) and (max-width: 1050px) {
+  .marketing-header .header-actions > .button-primary { display: none; }
+  .marketing-header .mobile-menu {
+    position: relative;
+    z-index: 2;
+    display: inline-grid;
+    width: 42px;
+    height: 42px;
+    min-height: 42px;
+    margin-left: auto;
+    place-items: center;
+    border: 1px solid rgba(70, 86, 112, .16);
+    border-radius: 12px;
+    color: var(--ink);
+    background: #fff;
+    cursor: pointer;
+  }
+  .marketing-header .mobile-menu.is-open {
+    color: var(--ink);
+    background: var(--mint);
+  }
+}
 .app-mobile-organization .org-switcher span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width:760px) {
   .vendor-list-controls { width: 100%; justify-content: stretch; }
@@ -643,6 +668,13 @@ textarea:focus-visible {
   color: #334155;
   border: 1px solid #cbd5e1;
 }
+.account-password-field { position: relative; }
+.account-password-field input { padding-right: 48px !important; }
+.account-password-toggle { position: absolute; top: 50%; right: 8px; display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 9px; color: #64748b; background: transparent; cursor: pointer; transform: translateY(-50%); transition: color .16s ease, background .16s ease; }
+.account-password-toggle:hover { color: var(--blue-dark); background: #f1f5fb; }
+.account-password-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.account-card .account-message { animation: account-message-in .22s cubic-bezier(.23,1,.32,1) both; }
+@keyframes account-message-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 .account-submit { width: 100%; min-height: 52px; margin-top: 22px; border-radius: 14px; }
 .account-submit:disabled { cursor: not-allowed; opacity: .58; }
 .account-switch { margin: 22px 0 0; color: var(--muted); font-size: .78rem; text-align: center; }
