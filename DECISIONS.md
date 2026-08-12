@@ -8,11 +8,11 @@ Customer work queues, vendor records, onboarding, and organization preferences s
 
 ### Decision
 
-Use `WorkspaceViewTabs` as the shared labelled view switcher for customer queues, settings, and vendor records; it intentionally does not claim WAI-ARIA tab behavior that the routes do not implement. Move activation, vendor value, data-completeness, vendor-health, and preference presentation onto semantic workspace classes. Render full account cards as the mobile counterpart to Manage’s dense desktop table, preserving direct access to each account.
+Use `WorkspaceViewTabs` as the shared labelled view switcher for customer queues, settings, and vendor records; it intentionally does not claim WAI-ARIA tab behavior that the routes do not implement. Give filter popovers explicit trigger relationships, Escape/focus-return behavior, and semantics that match their actual controls. Move activation, vendor value, data-completeness, vendor-health, and preference presentation onto semantic workspace classes. Render full account cards as the mobile counterpart to Manage’s dense desktop table, preserving direct access to each account.
 
 ### Consequences
 
-The same active state, count treatment, focus ring, and compact operational hierarchy now appears across the most frequently switched customer views. Mobile Manage retains account identity, contact, stage, next step, consent status, and direct navigation instead of showing a blank table area. These changes do not alter records, calculations, permissions, routing, or workflow state.
+The same active state, count treatment, focus ring, and compact operational hierarchy now appears across the most frequently switched customer views. Filter controls no longer make unsupported menu-navigation promises. Mobile Manage retains account identity, contact, stage, next step, consent status, and direct navigation instead of showing a blank table area. These changes do not alter records, calculations, permissions, routing, or workflow state.
 
 ## 2026-08-11 — Give shared record editing one workspace language
 

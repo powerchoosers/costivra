@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   FormEvent,
   ReactNode,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -845,6 +846,9 @@ function BillsWorkspace({
   const activeView = resolveBillsView(requestedView, defaultView);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersClosing, setFiltersClosing] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const filtersTriggerRef = useRef<HTMLButtonElement>(null);
+  const filtersCloseTimerRef = useRef<number | null>(null);
 
   const handleTabChange = (view: string) => {
     updateParams({ view }, "push");
@@ -918,15 +922,46 @@ function BillsWorkspace({
   const activeFilterCount = [Boolean(query), selectedVendorId !== "all", selectedAccountId !== "all", selectedLocationId !== "all", selectedStatus !== "all", Boolean(dateFrom), Boolean(dateTo), Boolean(searchParams?.get("min")), Boolean(searchParams?.get("max")), selectedDocumentType !== "all"].filter(Boolean).length;
   const hasFilters = activeFilterCount > 0;
   const clearFilters = () => updateParams({ q: null, vendor: null, account: null, location: null, status: null, from: null, to: null, min: null, max: null, type: null });
-  const closeFilters = () => {
+  const closeFilters = useCallback((restoreFocus = false) => {
     if (!filtersOpen || filtersClosing) return;
     setFiltersClosing(true);
-    window.setTimeout(() => {
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => filtersTriggerRef.current?.focus());
+    }
+    filtersCloseTimerRef.current = window.setTimeout(() => {
       setFiltersOpen(false);
       setFiltersClosing(false);
-    }, 180);
-  };
+      filtersCloseTimerRef.current = null;
+    }, 160);
+  }, [filtersClosing, filtersOpen]);
+  useEffect(() => {
+    if (!filtersOpen || filtersClosing) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!filtersRef.current?.contains(event.target as Node)) closeFilters();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        const target = event.target;
+        if (
+          target instanceof Element &&
+          target.closest(".costivra-select-container.is-open, .costivra-date-picker-container.is-open")
+        ) return;
+        event.preventDefault();
+        closeFilters(true);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeFilters, filtersClosing, filtersOpen]);
+  useEffect(() => () => {
+    if (filtersCloseTimerRef.current !== null) window.clearTimeout(filtersCloseTimerRef.current);
+  }, []);
   const toggleFilters = () => {
+    if (filtersClosing) return;
     if (filtersOpen) closeFilters();
     else setFiltersOpen(true);
   };
@@ -983,15 +1018,15 @@ function BillsWorkspace({
             countTone: tab.id === "review" ? "attention" : undefined,
           }))}
         />
-        <div className={`bills-filter-control${filtersOpen ? " is-open" : ""}`}>
-          <button type="button" className="bills-filter-trigger" aria-label="Filter bills and spend" aria-expanded={filtersOpen} onClick={toggleFilters}>
-            <ListFilter size={16} />
+        <div ref={filtersRef} className={`bills-filter-control${filtersOpen ? " is-open" : ""}`}>
+          <button ref={filtersTriggerRef} type="button" className="bills-filter-trigger" aria-label={`Filter bills and spend${hasFilters ? ` (${activeFilterCount} active)` : ""}`} aria-controls="bills-filter-popover" aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={toggleFilters}>
+            <ListFilter size={16} aria-hidden="true" />
             {hasFilters && <span className="bills-filter-count">{activeFilterCount}</span>}
           </button>
-          {(filtersOpen || filtersClosing) && <div className={`bills-filter-popover${filtersClosing ? " is-closing" : ""}`} role="dialog" aria-label="Bills and spend filters">
+          {(filtersOpen || filtersClosing) && <div id="bills-filter-popover" className={`bills-filter-popover${filtersClosing ? " is-closing" : ""}`} role="dialog" aria-label="Bills and spend filters">
             <header><div><strong>Filters</strong><small>Refine the records shown below.</small></div>{hasFilters && <button type="button" className="bills-filter-clear" onClick={clearFilters}>Clear all</button>}</header>
             <div className="bills-filter-grid">
-              <label><span>Vendor</span><CostivraSelect value={selectedVendorId} onChange={(value) => updateParams({ vendor: value === "all" ? null : value })} options={[{ value: "all", label: "All vendors" }, ...data.vendors.map((vendor) => ({ value: vendor.id, label: vendor.name }))]} /></label>
+              <label><span>Vendor</span><CostivraSelect autoFocus value={selectedVendorId} onChange={(value) => updateParams({ vendor: value === "all" ? null : value })} options={[{ value: "all", label: "All vendors" }, ...data.vendors.map((vendor) => ({ value: vendor.id, label: vendor.name }))]} /></label>
               <label><span>Account</span><CostivraSelect value={selectedAccountId} onChange={(value) => updateParams({ account: value === "all" ? null : value })} options={[{ value: "all", label: "All accounts" }, ...data.expenseAccounts.map((account) => ({ value: account.id, label: account.accountName ?? account.accountNumberLast4 ? `${account.accountName ?? "Account"}${account.accountNumberLast4 ? ` · …${account.accountNumberLast4}` : ""}` : "Vendor account" }))]} /></label>
               <label><span>Location</span><CostivraSelect value={selectedLocationId} onChange={(value) => updateParams({ location: value === "all" ? null : value })} options={[{ value: "all", label: "All locations" }, ...data.locations.map((location) => ({ value: location.id, label: location.name }))]} /></label>
               <label><span>Status</span><CostivraSelect value={selectedStatus} onChange={(value) => updateParams({ status: value === "all" ? null : value })} options={[{ value: "all", label: "All statuses" }, ...statusOptions.map((status) => ({ value: status, label: titleCase(status) }))]} /></label>
@@ -1809,14 +1844,23 @@ const vendorFilterOptions: Array<{ value: VendorFilter; label: string }> = [
 function VendorFilters({ value, onChange }: { value: VendorFilter; onChange: (value: VendorFilter) => void }) {
   const [open, setOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const close = useCallback((restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus) window.requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const handlePointerDown = (event: PointerEvent) => {
-      if (!filterRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!filterRef.current?.contains(event.target as Node)) close();
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close(true);
+      }
     };
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
@@ -1824,32 +1868,32 @@ function VendorFilters({ value, onChange }: { value: VendorFilter; onChange: (va
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [close, open]);
 
   return (
     <div ref={filterRef} className={`vendor-filter-control${open ? " is-open" : ""}`}>
       <button
+        ref={triggerRef}
         className="vendor-filter-trigger"
         type="button"
         aria-label="Filter vendors"
-        aria-haspopup="menu"
+        aria-controls="vendor-status-filters"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
         <ListFilter size={16} strokeWidth={1.8} aria-hidden="true" />
       </button>
-      <div className="vendor-filter-menu" role="menu" aria-label="Vendor status filters">
-        <div className="vendor-filter-menu-heading">Filter vendors</div>
+      <div id="vendor-status-filters" className="vendor-filter-menu" role="group" aria-labelledby="vendor-filter-menu-heading">
+        <div id="vendor-filter-menu-heading" className="vendor-filter-menu-heading">Filter vendors</div>
         {vendorFilterOptions.map((option) => (
           <button
             key={option.value}
             className={`vendor-filter-option${value === option.value ? " is-active" : ""}`}
             type="button"
-            role="menuitemradio"
-            aria-checked={value === option.value}
+            aria-pressed={value === option.value}
             onClick={() => {
               onChange(option.value);
-              setOpen(false);
+              close(true);
             }}
           >
             <span className="vendor-filter-option-check" aria-hidden="true" />

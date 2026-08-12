@@ -9642,6 +9642,65 @@ body.modal-open .app-topbar { filter: blur(7px); }
   background: var(--workspace-surface);
 }
 
+.app-body .app-work-canvas .bills-filter-popover {
+  color: var(--workspace-control-ink);
+}
+
+.app-body .app-work-canvas .bills-filter-popover > header strong {
+  color: var(--workspace-ink);
+}
+
+.app-body .app-work-canvas .bills-filter-popover > header small {
+  color: var(--workspace-muted);
+}
+
+.app-body .app-work-canvas .bills-filter-clear {
+  border-radius: 7px;
+}
+
+.app-body .app-work-canvas .bills-filter-clear:focus-visible {
+  outline: 0;
+  box-shadow: var(--workspace-focus-ring);
+}
+
+.app-body .app-work-canvas .vendor-filter-menu {
+  border-color: var(--workspace-line);
+  border-radius: 14px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, .14), 0 2px 7px rgba(15, 23, 42, .05);
+}
+
+.app-body .app-work-canvas .vendor-filter-menu-heading {
+  color: var(--workspace-table-heading);
+}
+
+.app-body .app-work-canvas .vendor-filter-option {
+  border-radius: 9px;
+  color: var(--workspace-control-ink);
+}
+
+.app-body .app-work-canvas .vendor-filter-option:hover {
+  border-color: var(--workspace-line-soft);
+  color: var(--workspace-ink);
+  background: var(--workspace-subtle-hover);
+}
+
+.app-body .app-work-canvas .vendor-filter-option:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 2px rgba(33, 85, 199, .5);
+}
+
+.app-body .app-work-canvas .vendor-filter-option.is-active {
+  border-color: #d6e2f8;
+  color: var(--workspace-control-ink-active);
+  background: var(--workspace-accent-soft);
+}
+
+.app-body .app-work-canvas .vendor-filter-option.is-active .vendor-filter-option-check {
+  border-color: var(--workspace-accent);
+  background: var(--workspace-accent);
+  box-shadow: 0 0 0 3px #e1ebfb;
+}
+
 .manage-app .manage-table-wrap tr:focus-within td,
 .app-body .app-work-canvas .portal-table tbody tr:focus-within td,
 .app-body .app-work-canvas .data-table tbody tr:focus-within td {
