@@ -7849,10 +7849,10 @@ body.modal-open .app-topbar { filter: blur(7px); }
   --workspace-utility-size: 40px;
   --workspace-motion-fast: 160ms cubic-bezier(.23, 1, .32, 1);
   --workspace-motion-surface: 220ms cubic-bezier(.23, 1, .32, 1);
-  /* A quiet echo of the public-site mint. It only appears while a person is
-     actively using a scrollport, so operational screens stay visually calm. */
-  --workspace-scroll-thumb: rgba(20, 121, 83, .52);
-  --workspace-scroll-thumb-hover: rgba(20, 121, 83, .72);
+  /* A quiet, translucent use of the public site's active yellow-green. It
+     appears only while a person is actively using a scrollport. */
+  --workspace-scroll-thumb: rgba(212, 255, 90, .46);
+  --workspace-scroll-thumb-hover: rgba(181, 219, 65, .7);
   --workspace-scroll-track: transparent;
   --workspace-scroll-fade: 200ms cubic-bezier(.23, 1, .32, 1);
   --workspace-focus-ring: 0 0 0 3px rgba(33, 85, 199, .16);
