@@ -8240,6 +8240,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
   position: relative;
   display: inline-flex;
   flex: 0 0 auto;
+  z-index: 191;
 }
 
 .workspace-notification-center__trigger {
