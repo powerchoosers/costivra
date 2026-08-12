@@ -95,12 +95,7 @@ export function EditableFieldRow({
   const renderedValue =
     displayValue ??
     (normalizedValue || (
-      <span
-        style={{
-          color: "var(--assistant-muted, #94a3b8)",
-          fontStyle: "italic",
-        }}
-      >
+      <span className="workspace-record-field__empty">
         Not set
       </span>
     ));
@@ -245,7 +240,7 @@ export function EditableFieldRow({
   return (
     <div
       ref={rootRef}
-      className="editable-field-row"
+      className={`workspace-record-field${compact ? " workspace-record-field--compact" : ""}${isEditing ? " workspace-record-field--editing" : ""}`}
       tabIndex={isEditing ? -1 : 0}
       data-actions-open={touchActionsOpen || undefined}
       aria-label={`${label}: ${normalizedValue || "Not set"}`}
@@ -261,35 +256,11 @@ export function EditableFieldRow({
           setFocusedWithin(false);
         }
       }}
-      style={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        padding: "6px 8px",
-        borderRadius: 8,
-        minWidth: 0,
-        transition: "background 140ms ease",
-      }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-        }}
-      >
+      <div className="workspace-record-field__header">
         <label
           htmlFor={isEditing ? fieldId : undefined}
-          className={!showLabel ? "sr-only" : undefined}
-          style={{
-            fontSize: "0.74rem",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.03em",
-            color: "var(--assistant-muted, #64748b)",
-          }}
+          className={showLabel ? "workspace-record-field__label" : "workspace-record-field__label sr-only"}
         >
           {label}
         </label>
@@ -297,14 +268,7 @@ export function EditableFieldRow({
           <span
             id={sourceId}
             title={sourceLabels[source]}
-            style={{
-              fontSize: "0.68rem",
-              padding: "1px 6px",
-              borderRadius: 4,
-              background: "rgba(0, 47, 167, 0.06)",
-              color: "var(--assistant-accent, #002FA7)",
-              fontWeight: 500,
-            }}
+            className="workspace-record-field__source"
           >
             {sourceLabels[source]}
           </span>
@@ -312,7 +276,7 @@ export function EditableFieldRow({
       </div>
 
       {isEditing ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+        <div className="workspace-record-field__editor">
           {input.kind === "enum" ? (
             <select
               ref={inputRef as React.RefObject<HTMLSelectElement>}
@@ -323,15 +287,7 @@ export function EditableFieldRow({
               disabled={saving}
               aria-invalid={Boolean(error)}
               aria-describedby={error ? errorId : undefined}
-              style={{
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: "0.88rem",
-                borderRadius: 6,
-                border: "1px solid var(--assistant-accent, #002FA7)",
-                outline: "none",
-                background: "#ffffff",
-              }}
+              className="workspace-record-field__input workspace-record-field__input--select"
             >
               {input.options.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -351,17 +307,7 @@ export function EditableFieldRow({
               maxLength={input.maxLength}
               aria-invalid={Boolean(error)}
               aria-describedby={error ? errorId : undefined}
-              style={{
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: "0.88rem",
-                borderRadius: 6,
-                border: "1px solid var(--assistant-accent, #002FA7)",
-                outline: "none",
-                fontFamily: "inherit",
-                resize: "vertical",
-                background: "#ffffff",
-              }}
+              className="workspace-record-field__input workspace-record-field__input--textarea"
             />
           ) : (
             <input
@@ -377,137 +323,66 @@ export function EditableFieldRow({
               maxLength={input.kind === "text" ? input.maxLength : undefined}
               aria-invalid={Boolean(error)}
               aria-describedby={error ? errorId : undefined}
-              style={{
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: "0.88rem",
-                borderRadius: 6,
-                border: "1px solid var(--assistant-accent, #002FA7)",
-                outline: "none",
-                background: "#ffffff",
-              }}
+              className="workspace-record-field__input"
             />
           )}
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className="workspace-record-field__editor-actions">
             {error ? (
               <span
                 id={errorId}
                 role="alert"
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--assistant-danger, #c44b4b)",
-                  marginRight: "auto",
-                }}
+                className="workspace-record-field__error workspace-record-field__error--editor"
               >
                 {error}
               </span>
             ) : null}
             <button
               type="button"
+              className="workspace-record-button workspace-record-button--quiet workspace-record-button--small"
               onClick={handleCancel}
               disabled={saving}
-              style={{
-                padding: "3px 10px",
-                fontSize: "0.78rem",
-                borderRadius: 6,
-                border: "1px solid rgba(30, 41, 59, 0.16)",
-                background: "transparent",
-                color: "var(--assistant-muted, #64748b)",
-                cursor: "pointer",
-              }}
             >
               Cancel
             </button>
             <button
               type="button"
+              className="workspace-record-button workspace-record-button--primary workspace-record-button--small"
               onClick={() => void handleSave()}
               disabled={saving}
-              style={{
-                padding: "3px 12px",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                borderRadius: 6,
-                border: "none",
-                background: "var(--assistant-accent, #002FA7)",
-                color: "#ffffff",
-                cursor: saving ? "not-allowed" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-              }}
             >
               {saving ? <LoaderCircle size={12} className="spin" /> : "Save"}
             </button>
           </div>
         </div>
       ) : (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            minWidth: 0,
-            width: "100%",
-          }}
-        >
+        <div className="workspace-record-field__display">
           <div
-            className="editable-field-row__value"
-            style={{
-              order: 2,
-              flex: "1 1 auto",
-              minWidth: 0,
-              fontSize: compact ? "0.68rem" : "0.88rem",
-              fontWeight: compact ? 660 : 500,
-              color: "var(--assistant-text, #0f172a)",
-              whiteSpace: input.kind === "textarea" ? "pre-wrap" : "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
+            className="workspace-record-field__value"
+            data-multiline={input.kind === "textarea" || undefined}
           >
             {renderedValue}
           </div>
 
           <div
-            className="editable-field-row__actions"
+            className="workspace-record-field__actions"
             aria-hidden={!actionsVisible}
-            style={{
-              order: 1,
-              position: "static",
-              flex: "0 0 auto",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              paddingLeft: 0,
-              background: "none",
-              visibility: actionsVisible ? "visible" : "hidden",
-              opacity: actionsVisible ? 1 : 0,
-              pointerEvents: actionsVisible ? "auto" : "none",
-              transition: "opacity 140ms ease, transform 140ms ease",
-            }}
+            data-visible={actionsVisible || undefined}
           >
             {copyable && normalizedValue ? (
               <button
                 type="button"
-                className="assistant-icon-btn"
+                className="workspace-record-icon-button workspace-record-field__action"
                 onClick={handleCopy}
                 title={`Copy ${label}`}
                 aria-label={`Copy ${label}`}
                 tabIndex={actionsVisible ? 0 : -1}
-                style={{ width: 28, height: 28 }}
               >
                 {copied ? (
                   <Check
                     size={14}
                     aria-hidden="true"
-                    style={{ color: "var(--assistant-success, #138a62)" }}
+                    className="workspace-record-field__action-icon workspace-record-field__action-icon--success"
                   />
                 ) : (
                   <Copy size={14} aria-hidden="true" />
@@ -518,12 +393,11 @@ export function EditableFieldRow({
             {editable && onSave && pasteable ? (
               <button
                 type="button"
-                className="assistant-icon-btn"
+                className="workspace-record-icon-button workspace-record-field__action"
                 onClick={handlePasteToDraft}
                 title={`Paste into ${label}`}
                 aria-label={`Paste into ${label}`}
                 tabIndex={actionsVisible ? 0 : -1}
-                style={{ width: 28, height: 28 }}
               >
                 <ClipboardPaste size={14} aria-hidden="true" />
               </button>
@@ -532,12 +406,11 @@ export function EditableFieldRow({
             {editable && onSave ? (
               <button
                 type="button"
-                className="assistant-icon-btn"
+                className="workspace-record-icon-button workspace-record-field__action"
                 onClick={handleStartEdit}
                 title={`Edit ${label}`}
                 aria-label={`Edit ${label}`}
                 tabIndex={actionsVisible ? 0 : -1}
-                style={{ width: 28, height: 28 }}
               >
                 <Edit2 size={14} aria-hidden="true" />
               </button>
@@ -550,11 +423,7 @@ export function EditableFieldRow({
         <span
           id={errorId}
           role="alert"
-          style={{
-            marginTop: 4,
-            fontSize: "0.74rem",
-            color: "var(--assistant-danger, #c44b4b)",
-          }}
+          className="workspace-record-field__error"
         >
           {error}
         </span>

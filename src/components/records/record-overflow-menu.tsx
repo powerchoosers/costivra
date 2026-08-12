@@ -170,69 +170,35 @@ export function RecordOverflowMenu({
     item.onSelect?.();
   };
 
-  const itemStyle = (item: RecordMenuItem, index: number) => ({
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "8px 14px",
-    border: "none",
-    background:
-      index === activeIndex
-        ? item.destructive
-          ? "rgba(196, 75, 75, 0.08)"
-          : "rgba(0, 47, 167, 0.06)"
-        : "transparent",
-    color: item.disabled
-      ? "var(--assistant-muted, #94a3b8)"
-      : item.destructive
-        ? "var(--assistant-danger, #c44b4b)"
-        : "var(--assistant-text, #0f172a)",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    textAlign: "left" as const,
-    textDecoration: "none",
-    cursor: item.disabled ? "not-allowed" : "pointer",
-    transition: "background 100ms ease",
-  });
+  const itemClassName = (item: RecordMenuItem, index: number) =>
+    [
+      "workspace-record-menu__item",
+      item.destructive ? "workspace-record-menu__item--destructive" : null,
+      item.disabled ? "workspace-record-menu__item--disabled" : null,
+      index === activeIndex ? "workspace-record-menu__item--active" : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
   const itemContent = (item: RecordMenuItem) => (
     <>
       {item.icon ? (
-        <span
-          aria-hidden="true"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: item.disabled ? 0.5 : 0.85,
-          }}
-        >
+        <span aria-hidden="true" className="workspace-record-menu__item-icon">
           {item.icon}
         </span>
       ) : null}
-      <span
-        style={{
-          flex: 1,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
+      <span className="workspace-record-menu__item-label">
         {item.label}
       </span>
     </>
   );
 
   return (
-    <div
-      className="record-overflow-menu-wrap"
-      style={{ position: "relative", display: "inline-block" }}
-    >
+    <div className="workspace-record-menu">
       <button
         ref={triggerRef}
         type="button"
-        className="record-overflow-trigger"
+        className="workspace-record-icon-button workspace-record-menu__trigger"
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-controls={open ? menuId : undefined}
@@ -242,20 +208,6 @@ export function RecordOverflowMenu({
           else openMenu("none");
         }}
         onKeyDown={handleTriggerKeyDown}
-        style={{
-          width: 42,
-          height: 42,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 10,
-          border: "1px solid transparent",
-          background: "transparent",
-          boxShadow: "none",
-          color: "var(--assistant-text-secondary, #475569)",
-          cursor: "pointer",
-          transition: "background 140ms ease, border-color 140ms ease",
-        }}
       >
         <MoreVertical size={18} aria-hidden="true" />
       </button>
@@ -266,24 +218,9 @@ export function RecordOverflowMenu({
           id={menuId}
           role="menu"
           aria-label={ariaLabel}
-          className="record-overflow-dropdown"
+          className="workspace-record-menu__popover"
+          data-placement={opensUpward ? "top" : "bottom"}
           onKeyDown={handleMenuKeyDown}
-          style={{
-            position: "absolute",
-            ...(opensUpward ? { bottom: "100%", marginBottom: 6 } : { top: "100%", marginTop: 6 }),
-            right: 0,
-            minWidth: 220,
-            maxWidth: 280,
-            maxHeight: "min(420px, calc(100vh - 32px))",
-            overflowY: "auto",
-            padding: "6px 0",
-            background: "#ffffff",
-            border: "1px solid rgba(30, 41, 59, 0.14)",
-            borderRadius: 12,
-            boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)",
-            zIndex: 1100,
-            animation: "recordMenuFadeIn 160ms ease-out both",
-          }}
         >
           {visibleItems.map((item, index) => {
             const commonProps = {
@@ -291,20 +228,16 @@ export function RecordOverflowMenu({
               tabIndex: index === activeIndex && !item.disabled ? 0 : -1,
               onMouseEnter: () => setActiveIndex(index),
               onFocus: () => setActiveIndex(index),
-              style: itemStyle(item, index),
+              className: itemClassName(item, index),
             };
 
             return (
               <div key={item.id}>
                 {item.separatorBefore ? (
-                  <div
-                    role="separator"
-                    style={{
-                      height: 1,
-                      background: "rgba(30, 41, 59, 0.08)",
-                      margin: "4px 0",
-                    }}
-                  />
+                    <div
+                      role="separator"
+                      className="workspace-record-menu__separator"
+                    />
                 ) : null}
                 {item.href && !item.disabled ? (
                   <Link

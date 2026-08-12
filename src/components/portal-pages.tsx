@@ -2449,36 +2449,25 @@ export function VendorDetail({
         </div>
       </header>
 
-      {/* 6-Tab Strip */}
-      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid rgba(30, 41, 59, 0.10)", margin: "16px 0 20px" }}>
+      {/* Record sections use the same tab system as the internal CRM. */}
+      <nav className="workspace-tab-list workspace-tab-list--record" aria-label="Vendor sections">
         {vendorTabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => handleTabChange(tab.id)}
-            style={{
-              padding: "8px 14px",
-              fontSize: "0.85rem",
-              fontWeight: activeTab === tab.id ? 600 : 500,
-              color: activeTab === tab.id ? "var(--assistant-accent, #002FA7)" : "var(--assistant-muted, #64748b)",
-              borderBottom: activeTab === tab.id ? "2px solid var(--assistant-accent, #002FA7)" : "2px solid transparent",
-              background: "transparent",
-              borderTop: 0, borderLeft: 0, borderRight: 0,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            className={`workspace-tab${activeTab === tab.id ? " is-active" : ""}`}
+            aria-current={activeTab === tab.id ? "page" : undefined}
           >
             {tab.label}
             {tab.count != null && tab.count > 0 && (
-              <span style={{ fontSize: "0.74rem", padding: "1px 6px", borderRadius: 10, background: "rgba(30, 41, 59, 0.06)" }}>
+              <span className="workspace-tab__count">
                 {tab.count}
               </span>
             )}
           </button>
         ))}
-      </div>
+      </nav>
 
       {activeTab === "overview" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -2592,9 +2581,9 @@ export function VendorDetail({
         onReloadLatest={() => router.refresh()}
         onKeepDraft={() => setEditError(null)}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+        <div className="workspace-record-form">
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Workspace Display Name
             </label>
             <input
@@ -2602,12 +2591,12 @@ export function VendorDetail({
               value={displayNameOverride}
               onChange={(e) => setDisplayNameOverride(e.target.value)}
               placeholder={vendor.canonicalName}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Category
             </label>
             <input
@@ -2615,12 +2604,12 @@ export function VendorDetail({
               value={categoryOverride}
               onChange={(e) => setCategoryOverride(e.target.value)}
               placeholder={vendor.canonicalCategory}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Website URL
             </label>
             <input
@@ -2628,19 +2617,19 @@ export function VendorDetail({
               value={websiteOverride}
               onChange={(e) => setWebsiteOverride(e.target.value)}
               placeholder={vendor.canonicalWebsite ?? "https://..."}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Relationship Status
             </label>
             <select
               value={relationshipStatus}
               onChange={(e) => setRelationshipStatus(e.target.value)}
               disabled={!canManageLifecycle && vendor.relationshipStatus === "terminated"}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             >
               <option value="active">Active</option>
               <option value="prospect">Prospect</option>
@@ -2649,35 +2638,35 @@ export function VendorDetail({
             </select>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__grid">
+            <div className="workspace-record-form__field">
+              <label className="workspace-record-form__label">
                 Annualized Spend ($)
               </label>
               <input
                 type="number"
                 value={annualizedSpend}
                 onChange={(e) => setAnnualizedSpend(e.target.value)}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+                className="workspace-record-form__control"
               />
             </div>
-            <div>
-              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+            <div className="workspace-record-form__field">
+              <label className="workspace-record-form__label">
                 Spend Cadence
               </label>
               <select
                 value={spendCadence}
                 onChange={(e) => setSpendCadence(e.target.value)}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+                className="workspace-record-form__control"
               >
                 <option value="monthly">Monthly</option>
                 <option value="annual">Annual</option>
               </select>
             </div>
           </div>
-          <div className="portal-panel" style={{ padding: 14 }}>
-            <strong style={{ fontSize: "0.82rem" }}>Canonical vendor reference</strong>
-            <p className="muted" style={{ margin: "6px 0 10px", fontSize: "0.8rem" }}>These catalog values are read-only here. Your overrides above affect only this workspace.</p>
+          <div className="workspace-record-form__context">
+            <strong>Canonical vendor reference</strong>
+            <p>These catalog values are read-only here. Your overrides above affect only this workspace.</p>
             <dl className="record-summary-list"><div><dt>Canonical name</dt><dd>{vendor.canonicalName}</dd></div><div><dt>Canonical category</dt><dd>{vendor.canonicalCategory}</dd></div><div><dt>Canonical website</dt><dd>{vendor.canonicalWebsite ?? "Not recorded"}</dd></div><div><dt>Created at</dt><dd>{date(vendor.createdAt)}</dd></div><div><dt>Updated at</dt><dd>{date(vendor.updatedAt)}</dd></div><div><dt>Terminated at</dt><dd>{vendor.endedAt ? date(vendor.endedAt) : "Not terminated"}</dd></div></dl>
           </div>
         </div>

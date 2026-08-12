@@ -1,5 +1,19 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-11 — Make the shared operational system decisive, not decorative
+
+### Context
+
+The customer application and internal Manage workspace already shared a late style layer, but their buttons, controls, panels, tables, menus, and assistant surfaces had accumulated different shapes, spacing, borders, and interaction states. That made two parts of one product feel less intentional than they should, especially in dense financial workflows where a person needs to spot the next action quickly.
+
+### Decision
+
+Strengthen the existing scoped `--workspace-*` design system instead of restyling pages one at a time. Use a single clear blue primary action, quiet outlined secondary actions, restrained destructive controls, consistent control geometry, neutral elevated panels, readable table rhythm, visible keyboard focus, and short explicit motion. The shared assistant inherits these same tokens. Mobbin research informs control hierarchy and density only; Costivra keeps its own evidence-first, calm visual language.
+
+### Consequences
+
+Both shells improve together without changing records, permissions, calculations, or workflows. Inline-heavy routes can be refined incrementally without splitting the system again. Authenticated desktop and mobile visual checks remain a release gate whenever the local browser environment can reach the app reliably.
+
 ## 2026-08-10 — Standardize the site on Phosphor icons
 
 ### Context

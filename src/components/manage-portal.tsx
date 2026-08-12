@@ -2702,7 +2702,7 @@ function RecordTabs({
   active: string;
   onChange: (id: string) => void;
 }) {
-  return <nav className="manage-record-tabs" aria-label="Record sections">{tabs.map((tab) => <button type="button" key={tab.id} className={active === tab.id ? "is-active" : ""} aria-current={active === tab.id ? "page" : undefined} onClick={() => onChange(tab.id)}>{tab.label}{typeof tab.count === "number" && <span>{tab.count}</span>}</button>)}</nav>;
+  return <nav className="manage-record-tabs workspace-tab-list" aria-label="Record sections">{tabs.map((tab) => <button type="button" key={tab.id} className={`workspace-tab${active === tab.id ? " is-active" : ""}`} aria-current={active === tab.id ? "page" : undefined} onClick={() => onChange(tab.id)}>{tab.label}{typeof tab.count === "number" && <span className="workspace-tab__count">{tab.count}</span>}</button>)}</nav>;
 }
 
 function money(value: number | null, currency: string) {
@@ -3441,21 +3441,21 @@ function AccountDetailPage({
         onReloadLatest={() => router.refresh()}
         onKeepDraft={() => setEditError(null)}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+        <div className="workspace-record-form">
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Organization Name
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Legal Name
             </label>
             <input
@@ -3463,30 +3463,30 @@ function AccountDetailPage({
               value={legalName}
               onChange={(e) => setLegalName(e.target.value)}
               placeholder="e.g. Acme Corporation Inc."
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__grid">
+            <div className="workspace-record-form__field">
+              <label className="workspace-record-form__label">
                 Industry
               </label>
               <input
                 type="text"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+                className="workspace-record-form__control"
               />
             </div>
-            <div>
-              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+            <div className="workspace-record-form__field">
+              <label className="workspace-record-form__label">
                 Lifecycle Stage
               </label>
               <select
                 value={stage}
                 onChange={(e) => setStage(e.target.value)}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+                className="workspace-record-form__control"
               >
                 <option value="lead">Lead</option>
                 <option value="onboarding">Onboarding</option>
@@ -3498,15 +3498,15 @@ function AccountDetailPage({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label><span>Employee range</span><input value={employeeCountRange} onChange={(e) => setEmployeeCountRange(e.target.value)} placeholder="e.g. 51–200" /></label>
-            <label><span>Revenue range</span><input value={annualRevenueRange} onChange={(e) => setAnnualRevenueRange(e.target.value)} placeholder="e.g. $10M–$50M" /></label>
-            <label><span>Timezone</span><input value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="e.g. America/Chicago" /></label>
-            <label><span>Currency</span><input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={10} /></label>
+          <div className="workspace-record-form__grid workspace-record-form__grid--four">
+            <label className="workspace-record-form__field"><span>Employee range</span><input className="workspace-record-form__control" value={employeeCountRange} onChange={(e) => setEmployeeCountRange(e.target.value)} placeholder="e.g. 51–200" /></label>
+            <label className="workspace-record-form__field"><span>Revenue range</span><input className="workspace-record-form__control" value={annualRevenueRange} onChange={(e) => setAnnualRevenueRange(e.target.value)} placeholder="e.g. $10M–$50M" /></label>
+            <label className="workspace-record-form__field"><span>Timezone</span><input className="workspace-record-form__control" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="e.g. America/Chicago" /></label>
+            <label className="workspace-record-form__field"><span>Currency</span><input className="workspace-record-form__control" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={10} /></label>
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Website URL
             </label>
             <input
@@ -3514,26 +3514,26 @@ function AccountDetailPage({
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://..."
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Assigned internal owner</label>
-            <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">Assigned internal owner</label>
+            <select className="workspace-record-form__control" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
               <option value="">Unassigned</option>
               {data.staff.map((member) => <option key={member.id} value={member.id}>{member.fullName}</option>)}
             </select>
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Primary Contact
             </label>
             <select
               value={primaryContactId}
               onChange={(e) => setPrimaryContactId(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             >
               <option value="">-- None Selected --</option>
               {contacts.map((c) => (
@@ -3544,13 +3544,13 @@ function AccountDetailPage({
             </select>
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Next follow-up</label>
-            <input type="datetime-local" value={nextFollowUpAt ? nextFollowUpAt.slice(0, 16) : ""} onChange={(e) => setNextFollowUpAt(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }} />
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">Next follow-up</label>
+            <input className="workspace-record-form__control" type="datetime-local" value={nextFollowUpAt ? nextFollowUpAt.slice(0, 16) : ""} onChange={(e) => setNextFollowUpAt(e.target.value)} />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Next Step
             </label>
             <input
@@ -3558,19 +3558,19 @@ function AccountDetailPage({
               value={nextStep}
               onChange={(e) => setNextStep(e.target.value)}
               placeholder="e.g. Schedule baseline invoice review call"
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Private Operator Notes
             </label>
             <textarea
               value={privateNotes}
               onChange={(e) => setPrivateNotes(e.target.value)}
               rows={4}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)", fontFamily: "inherit" }}
+              className="workspace-record-form__control workspace-record-form__control--textarea"
             />
           </div>
         </div>
@@ -4221,33 +4221,33 @@ function ContactDetailPage({
         onReloadLatest={() => router.refresh()}
         onKeepDraft={() => setEditError(null)}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+        <div className="workspace-record-form">
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Full Name
             </label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Email Address
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Phone Number
             </label>
             <input
@@ -4255,12 +4255,12 @@ function ContactDetailPage({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+1 (555) 000-0000"
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">
               Job Title
             </label>
             <input
@@ -4268,40 +4268,41 @@ function ContactDetailPage({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Chief Financial Officer"
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}
+              className="workspace-record-form__control"
             />
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Account</label>
-            <select value={organizationId} onChange={(e) => setOrganizationId(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">Account</label>
+            <select className="workspace-record-form__control" value={organizationId} onChange={(e) => setOrganizationId(e.target.value)}>
               {data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
             </select>
-            {organizationId !== contact.organizationId && <small>Only the CRM contact relationship moves. Workspace access, profile links, and memberships remain unchanged.</small>}
+            {organizationId !== contact.organizationId && <small className="workspace-record-form__help">Only the CRM contact relationship moves. Workspace access, profile links, and memberships remain unchanged.</small>}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+          <div className="workspace-record-form__check">
             <input
               type="checkbox"
               id="isPrimaryCheck"
               checked={isPrimary}
               onChange={(e) => setIsPrimary(e.target.checked)}
             />
-            <label htmlFor="isPrimaryCheck" style={{ fontSize: "0.85rem", fontWeight: 500 }}>
+            <label htmlFor="isPrimaryCheck">
               Primary contact for {contact.organizationName}
             </label>
           </div>
 
-          <div>
-            <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--assistant-text-secondary, #475569)" }}>Contact status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(30, 41, 59, 0.2)" }}>
+          <div className="workspace-record-form__field">
+            <label className="workspace-record-form__label">Contact status</label>
+            <select className="workspace-record-form__control" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="active">Active</option><option value="inactive">Inactive</option><option value="bounced">Bounced</option><option value="unsubscribed">Unsubscribed</option>
             </select>
           </div>
 
-          <section className="manage-context-card" aria-label="Read-only workspace context">
-            <div className="manage-context-card__heading"><div><span>Workspace context</span><h3>Read only</h3></div></div>
-            <p className="manage-context-copy">CRM contact record. Workspace access is governed separately and is never changed when this contact moves accounts.</p>
+          <section className="workspace-record-form__context" aria-label="Read-only workspace context">
+            <strong>Workspace context</strong>
+            <p><strong>Read only</strong></p>
+            <p>CRM contact record. Workspace access is governed separately and is never changed when this contact moves accounts.</p>
           </section>
         </div>
       </EditRecordSheet>
@@ -7384,3 +7385,4 @@ function Compose({
     </div>
   );
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             

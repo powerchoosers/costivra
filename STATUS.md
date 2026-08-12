@@ -1,5 +1,14 @@
 # Costivra Status
 
+## August 11, 2026 — Shared customer and Manage visual facelift
+
+- Strengthened the existing shared operational surface system in `src/app/globals.css`: a clearer primary/secondary/destructive button hierarchy, consistent icon and utility controls, calmer panels, more readable tables, unified navigation states, field focus treatment, menus, overlays, status badges, and reduced-motion behavior. The customer app and Manage now use the same visual rules without changing their data or workflows.
+- Updated `src/components/client-assistant/client-assistant.css` so both assistant surfaces inherit the shared workspace palette, controls, focus treatment, mobile spacing, and explicit motion rules. Removed the remaining broad `transition: all` rules and replaced the colored active-history rail with a quiet selected state.
+- Design direction was informed by Mobbin Finance+ patterns for clear action hierarchy, dense-but-legible operational tables, and restrained split-workspace inspection, without copying another product's visual styling.
+- **Validation:** `npm run typecheck` PASS; PostCSS parsing passed for both changed stylesheets; `git diff --check` PASS. `npm run lint` and `npm test` each exceeded the local 184-second command limit without emitting an error; `npm run build` exceeded the local 304-second limit without emitting an error and its launched child processes had exited by cleanup time.
+- **Visual QA:** Mobbin research loaded in the in-app browser, but local navigation to `/app` and `/login` timed out before rendering, despite the existing local server returning a redirect/200 response. Authenticated desktop and mobile checks for `/app` and `/manage` still need to be rerun once the local browser attachment is responsive.
+- **Next:** rerun lint, unit tests, build, and authenticated desktop/mobile browser checks in a less constrained local runtime before treating this facelift as release-ready.
+
 ## August 10, 2026 — Site-wide Phosphor icon migration
 
 - Replaced the remaining Lucide imports across customer, Manage, records, assistant, marketing, and shared UI surfaces with a Phosphor-backed compatibility adapter at `src/lib/icons.tsx`.

@@ -176,17 +176,7 @@ export function EditRecordSheet({
 
   return (
     <div
-      className="record-sheet-overlay"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15, 23, 42, 0.35)",
-        backdropFilter: "blur(4px)",
-        zIndex: 1200,
-        display: "flex",
-        justifyContent: "flex-end",
-        animation: "recordOverlayFadeIn 200ms ease-out both",
-      }}
+      className="workspace-record-sheet__overlay"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) handleRequestClose();
       }}
@@ -198,51 +188,16 @@ export function EditRecordSheet({
         aria-labelledby={titleId}
         aria-describedby={describedBy}
         tabIndex={-1}
-        className="record-sheet-container"
-        style={{
-          width: "min(540px, 100vw)",
-          height: "100dvh",
-          background: "#ffffff",
-          boxShadow: "-20px 0 50px rgba(15, 23, 42, 0.15)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          animation: "recordSheetSlideIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both",
-        }}
+        className="workspace-record-sheet"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "16px 24px",
-            borderBottom: "1px solid rgba(30, 41, 59, 0.10)",
-            background: "#ffffff",
-          }}
-        >
-          <div>
-            <h2
-              id={titleId}
-              style={{
-                fontSize: "1.1rem",
-                fontWeight: 700,
-                color: "var(--assistant-text, #0f172a)",
-                margin: 0,
-              }}
-            >
+        <div className="workspace-record-sheet__header">
+          <div className="workspace-record-sheet__heading">
+            <h2 id={titleId} className="workspace-record-sheet__title">
               {title}
             </h2>
             {subtitle ? (
-              <span
-                id={subtitleId}
-                style={{
-                  fontSize: "0.8rem",
-                  color: "var(--assistant-muted, #64748b)",
-                  display: "block",
-                  marginTop: 2,
-                }}
-              >
+              <span id={subtitleId} className="workspace-record-sheet__subtitle">
                 {subtitle}
               </span>
             ) : null}
@@ -250,7 +205,7 @@ export function EditRecordSheet({
           <button
             ref={closeButtonRef}
             type="button"
-            className="assistant-icon-btn"
+            className="workspace-record-icon-button workspace-record-sheet__close"
             onClick={handleRequestClose}
             disabled={saving}
             aria-label={`Close ${title}`}
@@ -263,34 +218,40 @@ export function EditRecordSheet({
         <form
           id={formId}
           onSubmit={handleFormSubmit}
-          style={{ flex: 1, overflowY: "auto", padding: "24px" }}
+          className="workspace-record-sheet__body"
         >
           {error ? (
             <div
               id={errorId}
               role="alert"
               aria-live="assertive"
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 10,
-                padding: "12px 14px",
-                borderRadius: 10,
-                background: "var(--assistant-danger-soft, #fff3f3)",
-                border: "1px solid rgba(196, 75, 75, 0.2)",
-                color: "var(--assistant-danger, #c44b4b)",
-                fontSize: "0.85rem",
-                marginBottom: 20,
-              }}
+              className="workspace-record-sheet__alert workspace-record-sheet__alert--error"
             >
-              <AlertTriangle size={18} aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }} />
-              <div>
-                <strong style={{ display: "block" }}>Update error</strong>
-                <span>{error}</span>
+              <AlertTriangle
+                size={18}
+                aria-hidden="true"
+                className="workspace-record-sheet__alert-icon"
+              />
+              <div className="workspace-record-sheet__alert-content">
+                <strong className="workspace-record-sheet__alert-title">Update error</strong>
+                <span className="workspace-record-sheet__alert-message">{error}</span>
                 {error.includes("changed in another session") ? (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <button type="button" onClick={onReloadLatest} disabled={!onReloadLatest}>Reload latest</button>
-                    <button type="button" onClick={onKeepDraft}>Keep my draft</button>
+                  <div className="workspace-record-sheet__alert-actions">
+                    <button
+                      type="button"
+                      className="workspace-record-button workspace-record-button--quiet workspace-record-button--small"
+                      onClick={onReloadLatest}
+                      disabled={!onReloadLatest}
+                    >
+                      Reload latest
+                    </button>
+                    <button
+                      type="button"
+                      className="workspace-record-button workspace-record-button--quiet workspace-record-button--small"
+                      onClick={onKeepDraft}
+                    >
+                      Keep my draft
+                    </button>
                   </div>
                 ) : null}
               </div>
@@ -301,49 +262,22 @@ export function EditRecordSheet({
         </form>
 
         {showConfirmClose ? (
-          <div
-            role="alert"
-            style={{
-              padding: "12px 20px",
-              background: "var(--assistant-warning-soft, #fff8ed)",
-              borderTop: "1px solid rgba(169, 104, 24, 0.2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              fontSize: "0.84rem",
-              color: "var(--assistant-warning, #a96818)",
-            }}
-          >
-            <span>You have unsaved changes. Discard them?</span>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div role="alert" className="workspace-record-sheet__discard-confirm">
+            <span className="workspace-record-sheet__discard-message">
+              You have unsaved changes. Discard them?
+            </span>
+            <div className="workspace-record-sheet__discard-actions">
               <button
                 type="button"
+                className="workspace-record-button workspace-record-button--warning-quiet workspace-record-button--small"
                 onClick={() => setShowConfirmClose(false)}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: "0.78rem",
-                  borderRadius: 6,
-                  border: "1px solid rgba(169, 104, 24, 0.3)",
-                  background: "#ffffff",
-                  cursor: "pointer",
-                }}
               >
                 Keep editing
               </button>
               <button
                 type="button"
+                className="workspace-record-button workspace-record-button--danger workspace-record-button--small"
                 onClick={discardChanges}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: "0.78rem",
-                  fontWeight: 600,
-                  borderRadius: 6,
-                  border: "none",
-                  background: "var(--assistant-danger, #c44b4b)",
-                  color: "#ffffff",
-                  cursor: "pointer",
-                }}
               >
                 Discard
               </button>
@@ -351,61 +285,29 @@ export function EditRecordSheet({
           </div>
         ) : null}
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "14px 24px",
-            borderTop: "1px solid rgba(30, 41, 59, 0.10)",
-            background: "var(--assistant-surface-subtle, #fbfcfe)",
-          }}
-        >
+        <div className="workspace-record-sheet__footer">
           <span
             role="status"
             aria-live="polite"
-            style={{ fontSize: "0.78rem", color: "var(--assistant-muted, #64748b)" }}
+            className="workspace-record-sheet__save-status"
+            data-state={saving ? "saving" : isDirty ? "dirty" : "saved"}
           >
             {saving ? "Saving changes" : isDirty ? "Unsaved changes" : "All changes saved"}
           </span>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="workspace-record-sheet__footer-actions">
             <button
               type="button"
+              className="workspace-record-button workspace-record-button--secondary"
               onClick={handleRequestClose}
               disabled={saving}
-              style={{
-                padding: "8px 16px",
-                fontSize: "0.86rem",
-                borderRadius: 8,
-                border: "1px solid rgba(30, 41, 59, 0.16)",
-                background: "#ffffff",
-                color: "var(--assistant-text, #0f172a)",
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               form={formId}
+              className="workspace-record-button workspace-record-button--primary"
               disabled={saving || !isDirty}
-              style={{
-                padding: "8px 20px",
-                fontSize: "0.86rem",
-                fontWeight: 600,
-                borderRadius: 8,
-                border: "none",
-                background:
-                  saving || !isDirty
-                    ? "rgba(0, 47, 167, 0.35)"
-                    : "var(--assistant-accent, #002FA7)",
-                color: "#ffffff",
-                cursor: saving || !isDirty ? "not-allowed" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
             >
               {saving ? (
                 <>
