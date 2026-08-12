@@ -35,6 +35,7 @@ const cardStyle = {
   borderRadius: "var(--workspace-panel-radius)",
   border: "1px solid var(--workspace-line)",
   background: "var(--workspace-surface)",
+  boxShadow: "var(--workspace-panel-shadow)",
   color: "var(--workspace-ink)",
 } as const;
 
@@ -309,6 +310,7 @@ export function ManageCategoryIntelligence() {
 
       {selectedTab === "packs" && (
         <div
+          className="workspace-elevated-surface"
           style={{
             overflowX: "auto",
             border: "1px solid #e4e4e7",

@@ -4064,7 +4064,7 @@ html { scroll-padding-top: 92px; }
 
 /* Shared private-file workspace. Collections are metadata views; source files remain immutable. */
 .record-files-anchor { scroll-margin-top: 148px; }
-.record-files-workspace { overflow: hidden; border: 1px solid rgba(15, 23, 42, .09); border-radius: 20px; background: rgba(255,255,255,.9); box-shadow: 0 14px 36px rgba(15,23,42,.035); }
+.record-files-workspace { overflow: hidden; border: 1px solid rgba(15, 23, 42, .09); border-radius: 20px; background: rgba(255,255,255,.9); box-shadow: var(--workspace-panel-shadow); }
 .record-files-workspace__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 25px 27px 22px; border-bottom: 1px solid #e7ebf1; }
 .record-files-workspace__eyebrow { display: block; margin-bottom: 7px; color: #768399; font-size: .65rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
 .record-files-workspace__header h2 { margin: 0; color: #1c2738; font-size: 1.05rem; font-weight: 730; letter-spacing: -.02em; }
@@ -4187,7 +4187,7 @@ html { scroll-padding-top: 92px; }
 .manage-record-action-icon--phone:hover { border-color:#9ed7c9; background:#f1faf7; }
 .manage-record-refresh:disabled { cursor: not-allowed; opacity: .55; }
 .manage-record-source-note { max-width: 205px; color: #8793a3; font-size: .65rem; line-height: 1.4; text-align: right; }
-.manage-record-highlights { display: grid; grid-template-columns: .8fr 1.55fr 1fr .72fr .72fr .72fr; overflow: hidden; margin-bottom: 16px; border: 1px solid #e0e6ed; border-radius: 18px; background: rgba(255,255,255,.86); box-shadow: 0 11px 28px rgba(15,23,42,.025); }
+.manage-record-highlights { display: grid; grid-template-columns: .8fr 1.55fr 1fr .72fr .72fr .72fr; overflow: hidden; margin-bottom: 16px; border: 1px solid #e0e6ed; border-radius: 18px; background: rgba(255,255,255,.86); box-shadow: var(--workspace-panel-shadow); }
 .manage-record-highlights > div { display: grid; align-content: center; gap: 8px; min-width: 0; min-height: 83px; padding: 14px 17px; border-right: 1px solid #e9edf2; }
 .manage-record-highlights > div:last-child { border-right: 0; }
 .manage-record-highlights span { color: #8994a4; font-size: .61rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
@@ -4355,7 +4355,7 @@ html { scroll-padding-top: 92px; }
 @media (prefers-reduced-motion: reduce) { .manage-location-form-transition { transition: none; transform: none; } }
 .manage-context-footnote { display: block; margin-top: 9px; color: #8793a3; font-size: .59rem; }
 .manage-vendor-overview { display: grid; grid-template-columns: minmax(0,1.18fr) minmax(260px,.82fr); gap: 16px; }
-.manage-cost-trend { min-width: 0; padding: 19px; border: 1px solid #dfe6ee; border-radius: 18px; background: rgba(255,255,255,.88); }
+.manage-cost-trend { min-width: 0; padding: 19px; border: 1px solid #dfe6ee; border-radius: 18px; background: rgba(255,255,255,.88); box-shadow: var(--workspace-panel-shadow); }
 .manage-cost-trend > header,.manage-vendor-preview > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .manage-cost-trend header span,.manage-vendor-workspace__collection header span,.manage-vendor-detail__heading span { display: block; margin-bottom: 6px; color: #8593a6; font-size: .6rem; font-weight: 760; letter-spacing: .09em; text-transform: uppercase; }
 .manage-cost-trend h3,.manage-vendor-preview h3,.manage-vendor-workspace__collection h3,.manage-vendor-detail h3 { margin: 0; color: #304158; font-size: .91rem; letter-spacing: -.015em; }
@@ -4386,7 +4386,7 @@ html { scroll-padding-top: 92px; }
 .manage-vendor-row__spend { display: grid; justify-items: end; gap: 4px; }
 .manage-vendor-row__spend strong { font-variant-numeric: tabular-nums; }
 .manage-vendor-row > svg { color: #9ba6b5; }
-.manage-vendor-workspace { display: grid; grid-template-columns: minmax(300px,.86fr) minmax(0,1.14fr); overflow: hidden; border: 1px solid #dfe6ee; border-radius: 18px; background: rgba(255,255,255,.88); }
+.manage-vendor-workspace { display: grid; grid-template-columns: minmax(300px,.86fr) minmax(0,1.14fr); overflow: hidden; border: 1px solid #dfe6ee; border-radius: 18px; background: rgba(255,255,255,.88); box-shadow: var(--workspace-panel-shadow); }
 .manage-vendor-workspace__collection { min-height: 540px; border-right: 1px solid #e7ebf0; }
 .manage-vendor-workspace__collection > header { padding: 18px 18px 14px; border-bottom: 1px solid #edf0f4; }
 .manage-vendor-detail { display: grid; align-content: start; gap: 17px; min-width: 0; padding: 23px; }
@@ -7781,7 +7781,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 /* Unified operational surfaces
    The customer workspace and Manage are one product. Keep their working
    surfaces intentionally plain: a neutral frame, a white canvas, restrained
-   borders, and depth only where it helps separate a transient layer. */
+   borders, and shallow shared depth for meaningful work surfaces. */
 :root {
   --workspace-ground: #f5f7fa;
   --workspace-surface: #ffffff;
@@ -7822,7 +7822,10 @@ body.modal-open .app-topbar { filter: blur(7px); }
   --workspace-focus-ring: 0 0 0 3px rgba(33, 85, 199, .16);
   --workspace-control-shadow: 0 1px 1px rgba(15, 23, 42, .025);
   --workspace-primary-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 7px 14px rgba(33, 85, 199, .19);
-  --workspace-panel-shadow: 0 1px 2px rgba(15, 23, 42, .025);
+  /* Persistent table, summary, and inspector surfaces sit one quiet layer
+     above the workspace ground. Controls and nested rows intentionally stay
+     flatter, while overlays use their purpose-specific elevation. */
+  --workspace-panel-shadow: 0 1px 2px rgba(15, 23, 42, .035), 0 8px 20px -10px rgba(15, 23, 42, .12);
   --workspace-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 18px 42px rgba(16, 24, 40, .045);
 }
 
@@ -7873,6 +7876,8 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-body .app-work-canvas .portal-panel,
 .app-body .app-work-canvas .portal-card,
 .app-body .app-work-canvas .portal-metric,
+.manage-shell-v2 .workspace-elevated-surface,
+.app-body .app-work-canvas .workspace-elevated-surface,
 .app-body .app-work-canvas .record-section,
 .app-body .app-work-canvas .record-side-section,
 .app-body .app-work-canvas .record-empty,
@@ -10255,7 +10260,7 @@ button.workspace-notification-row:focus-visible {
   padding: 18px;
   border-color: var(--workspace-line);
   border-radius: var(--workspace-panel-radius);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, .025);
+  box-shadow: var(--workspace-panel-shadow);
 }
 
 .app-body .app-work-canvas .workspace-work-item-card > header {
@@ -10423,7 +10428,7 @@ button.workspace-notification-row:focus-visible {
     border-color: var(--workspace-line);
     border-radius: 16px;
     background: var(--workspace-surface);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, .02);
+    box-shadow: var(--workspace-panel-shadow);
   }
 
   .manage-app .manage-account-cards article.is-selected {
