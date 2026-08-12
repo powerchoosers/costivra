@@ -237,14 +237,27 @@ textarea:focus-visible {
 .trust-item p { margin: 0; color: #aeb8b4; font-size: .86rem; line-height: 1.55; }
 
 .pricing { padding: 100px 0; }
-.pricing-layout { display: grid; grid-template-columns: .65fr repeat(3, 1fr); margin-top: 48px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.pricing-layout { display: grid; grid-template-columns: minmax(0, .65fr) repeat(3, minmax(0, 1fr)); margin-top: 48px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .pricing-intro, .plan { min-height: 250px; padding: 34px 28px; }
-.plan { border-left: 1px solid var(--line); }
+.plan { display: flex; flex-direction: column; align-items: flex-start; border-left: 1px solid var(--line); }
 .plan-name { color: var(--blue); font-weight: 800; }
 .plan:nth-child(3) .plan-name { color: var(--mint-dark); }
 .plan:nth-child(4) .plan-name { color: var(--orange); }
 .price { margin: 16px 0; font-size: 2.2rem; font-weight: 750; letter-spacing: -.05em; }
 .plan p { color: var(--muted); line-height: 1.55; }
+.pricing .plan .button-secondary {
+  margin-top: auto;
+  border-color: #aab4c5;
+  color: #172033;
+  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(20, 34, 58, 0.08);
+}
+.pricing .plan .button-secondary:hover,
+.pricing .plan .button-secondary:focus-visible {
+  border-color: #315cff;
+  color: #173ecf;
+  background: #eef2ff;
+}
 
 .faq { border-bottom: 1px solid var(--line); padding-bottom: 90px; }
 .faq-layout { display: grid; grid-template-columns: .5fr 1.5fr; gap: 70px; }
@@ -6107,9 +6120,6 @@ body.modal-open .app-topbar { filter: blur(7px); }
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
 }
 
 .manage-shell-v2 .manage-primary-nav {
@@ -10784,94 +10794,85 @@ button.workspace-notification-row:focus-visible {
 }
 
 /* Shared scrollport contract. Scrollable elements opt in with
-   `data-workspace-scrollbar`; persistent rails include it in their initial
-   markup so route hydration cannot change their scrollbar gutter. Legacy
-   rail-specific gray or hidden scrollbar rules must not be reintroduced: this
-   is the single visual owner for both authenticated shells. */
+   `data-workspace-scrollbar`; persistent rails and page canvases include it
+   in their initial markup. Browser-painted scrollbar thumbs cannot reliably
+   fade in Chromium, so the one overlay below is the visual owner for both
+   authenticated shells. */
 :is(
   html[data-workspace-scrollbar],
   [data-workspace-scrollbar]
 ) {
-  --workspace-scroll-thumb-x: transparent;
-  --workspace-scroll-thumb-y: transparent;
-  scrollbar-gutter: stable;
-  scrollbar-color: transparent var(--workspace-scroll-track);
-  scrollbar-width: thin;
+  /* Browser-painted scrollbar thumbs do not animate reliably in Chromium.
+     The shared overlay below owns the visible affordance instead. */
+  scrollbar-width: none;
 }
 
 :is(
   html[data-workspace-scrollbar],
   [data-workspace-scrollbar]
 )::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 0;
+  height: 0;
 }
 
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-)::-webkit-scrollbar-track {
-  background: var(--workspace-scroll-track);
+.workspace-scrollbar-layer {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  pointer-events: none;
 }
 
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-)::-webkit-scrollbar-thumb {
-  min-height: 40px;
-  border: 3px solid transparent;
+.workspace-scrollbar-thumb {
+  position: fixed;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  min-width: 6px;
+  min-height: 6px;
+  border: 1px solid rgba(116, 157, 0, .14);
   border-radius: 999px;
-  background-color: transparent;
-  background-clip: padding-box;
-  transition: background-color var(--workspace-scroll-fade);
+  background: var(--workspace-scroll-thumb);
+  box-shadow: 0 1px 4px rgba(100, 133, 12, .14);
+  opacity: 0;
+  pointer-events: auto;
+  transform: translate3d(-9999px, -9999px, 0);
+  transition: opacity var(--workspace-scroll-fade), background-color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast);
+  will-change: opacity, transform;
 }
 
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-)::-webkit-scrollbar-thumb:horizontal {
-  background-color: var(--workspace-scroll-thumb-x);
+.workspace-scrollbar-thumb.is-visible {
+  opacity: 1;
 }
 
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-)::-webkit-scrollbar-thumb:vertical {
-  background-color: var(--workspace-scroll-thumb-y);
-}
-
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-).is-scroll-x-active {
-  --workspace-scroll-thumb-x: var(--workspace-scroll-thumb);
-  scrollbar-color: var(--workspace-scroll-thumb) var(--workspace-scroll-track);
-}
-
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-).is-scroll-y-active {
-  --workspace-scroll-thumb-y: var(--workspace-scroll-thumb);
-  scrollbar-color: var(--workspace-scroll-thumb) var(--workspace-scroll-track);
-}
-
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-).is-scroll-x-active::-webkit-scrollbar-thumb:horizontal:hover,
-:is(
-  html[data-workspace-scrollbar],
-  [data-workspace-scrollbar]
-).is-scroll-y-active::-webkit-scrollbar-thumb:vertical:hover {
-  background-color: var(--workspace-scroll-thumb-hover);
+.workspace-scrollbar-thumb:hover,
+.workspace-scrollbar-thumb:active {
+  background: var(--workspace-scroll-thumb-hover);
+  box-shadow: 0 1px 6px rgba(100, 133, 12, .22);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .workspace-scrollbar-thumb {
+    transition: none;
+  }
+}
+
+@media (hover: none), (pointer: coarse), (forced-colors: active) {
   :is(
     html[data-workspace-scrollbar],
     [data-workspace-scrollbar]
-  )::-webkit-scrollbar-thumb {
-    transition: none;
+  ) {
+    scrollbar-width: auto;
+  }
+
+  :is(
+    html[data-workspace-scrollbar],
+    [data-workspace-scrollbar]
+  )::-webkit-scrollbar {
+    width: initial;
+    height: initial;
+  }
+
+  .workspace-scrollbar-layer {
+    display: none;
   }
 }

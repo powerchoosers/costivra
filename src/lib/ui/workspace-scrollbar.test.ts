@@ -1,0 +1,43 @@
+import { describe, expect, it } from "vitest";
+import { getWorkspaceScrollbarThumbMetrics } from "./workspace-scrollbar";
+
+describe("getWorkspaceScrollbarThumbMetrics", () => {
+  it("does not paint a thumb when the content fits", () => {
+    expect(getWorkspaceScrollbarThumbMetrics({
+      viewportOffset: 0,
+      viewportSize: 200,
+      scrollSize: 200,
+      scrollOffset: 0,
+    })).toBeNull();
+  });
+
+  it("keeps a usable thumb and tracks scroll progress", () => {
+    const metrics = getWorkspaceScrollbarThumbMetrics({
+      viewportOffset: 12,
+      viewportSize: 100,
+      scrollSize: 1_000,
+      scrollOffset: 450,
+    });
+
+    expect(metrics).toMatchObject({
+      trackOffset: 16,
+      trackSize: 92,
+      size: 28,
+    });
+    expect(metrics?.offset).toBe(48);
+  });
+
+  it("clamps an overscrolled measurement to the end of its track", () => {
+    const metrics = getWorkspaceScrollbarThumbMetrics({
+      viewportOffset: 0,
+      viewportSize: 200,
+      scrollSize: 800,
+      scrollOffset: 9_999,
+    });
+
+    expect(metrics).not.toBeNull();
+    expect((metrics?.offset ?? 0) + (metrics?.size ?? 0)).toBeCloseTo(
+      (metrics?.trackOffset ?? 0) + (metrics?.trackSize ?? 0),
+    );
+  });
+});

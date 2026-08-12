@@ -539,6 +539,7 @@ export function PortalPage({
     <>
       <div
         key={slug?.join("/") ?? page}
+        data-workspace-scrollbar
         className={
           page === "ask"
             ? "app-content app-content-chat motion-page"
@@ -4095,7 +4096,7 @@ function BillingPanel() {
      {billingOutcome === "success" && current && <p className="form-note" role="status">Subscription confirmed: {current.plan_key} is {current.status}.</p>}
      {billingOutcome === "cancelled" && <p className="form-note" role="status">Checkout was cancelled. No subscription or access change was applied.</p>}
      {status?.setupReasons?.length ? <div className="form-note" role="status"><strong>Checkout setup still needs:</strong><ul>{status.setupReasons.map((reason) => <li key={reason}>{setupReasonLabel(reason)}</li>)}</ul></div> : null}
-    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><select id="billing-plan" value={planKey} onChange={(event) => setPlanKey(event.target.value)}>{checkoutPlans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name} · {formatPlanPrice(plan)}</option>)}</select>{requestedPlan && <p className="form-note" role="status">Your selected plan is ready. Review it, then continue to secure checkout.</p>}<button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
+    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span><button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button></div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><CostivraSelect id="billing-plan" aria-label="Plan" value={planKey} onChange={setPlanKey} options={checkoutPlans.map((plan) => ({ value: plan.key, label: `${plan.name} · ${formatPlanPrice(plan)}` }))} />{requestedPlan && <p className="form-note" role="status">Your selected plan is ready. Review it, then continue to secure checkout.</p>}<button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
   </section>;
 }
 

@@ -1,0 +1,377 @@
+export type WorkspaceScrollbarAxis = "x" | "y";
+
+export type WorkspaceScrollbarThumbMetrics = {
+  offset: number;
+  size: number;
+  trackOffset: number;
+  trackSize: number;
+};
+
+type WorkspaceScrollbarThumbInput = {
+  viewportOffset: number;
+  viewportSize: number;
+  scrollSize: number;
+  scrollOffset: number;
+  inset?: number;
+  minThumbSize?: number;
+};
+
+/**
+ * Calculates a scrollbar thumb without depending on a browser-painted native
+ * scrollbar. The same geometry works for the page frame, rails, and nested
+ * scrollports, while the browser retains responsibility for actual scrolling.
+ */
+export function getWorkspaceScrollbarThumbMetrics({
+  viewportOffset,
+  viewportSize,
+  scrollSize,
+  scrollOffset,
+  inset = 4,
+  minThumbSize = 28,
+}: WorkspaceScrollbarThumbInput): WorkspaceScrollbarThumbMetrics | null {
+  const maxScroll = scrollSize - viewportSize;
+  const trackOffset = viewportOffset + inset;
+  const trackSize = Math.max(0, viewportSize - inset * 2);
+
+  if (
+    !Number.isFinite(viewportOffset)
+    || !Number.isFinite(viewportSize)
+    || !Number.isFinite(scrollSize)
+    || !Number.isFinite(scrollOffset)
+    || viewportSize <= 0
+    || scrollSize <= viewportSize
+    || trackSize <= 0
+  ) {
+    return null;
+  }
+
+  const size = Math.min(
+    trackSize,
+    Math.max(minThumbSize, trackSize * (viewportSize / scrollSize)),
+  );
+  const travel = Math.max(0, trackSize - size);
+  const progress = Math.min(1, Math.max(0, scrollOffset / maxScroll));
+
+  return {
+    offset: trackOffset + travel * progress,
+    size,
+    trackOffset,
+    trackSize,
+  };
+}
+
+type ActiveScrollbar = {
+  target: HTMLElement;
+};
+
+type AxisLayout = {
+  height: number;
+  left: number;
+  maxScroll: number;
+  scrollOffset: number;
+  top: number;
+  trackSize: number;
+  width: number;
+};
+
+type DragState = {
+  axis: WorkspaceScrollbarAxis;
+  maxScroll: number;
+  pointerStart: number;
+  scrollStart: number;
+  target: HTMLElement;
+  trackTravel: number;
+};
+
+const OVERLAY_INSET = 4;
+const OVERLAY_THICKNESS = 6;
+
+function isViewportScrollport(target: HTMLElement) {
+  return target === document.documentElement
+    || target === document.body
+    || target === document.scrollingElement;
+}
+
+function getScrollElement(target: HTMLElement) {
+  return isViewportScrollport(target)
+    ? (document.scrollingElement as HTMLElement | null) ?? document.documentElement
+    : target;
+}
+
+function getScrollOffset(target: HTMLElement, axis: WorkspaceScrollbarAxis) {
+  if (isViewportScrollport(target)) return axis === "x" ? window.scrollX : window.scrollY;
+  return axis === "x" ? target.scrollLeft : target.scrollTop;
+}
+
+function setScrollOffset(target: HTMLElement, axis: WorkspaceScrollbarAxis, offset: number) {
+  if (isViewportScrollport(target)) {
+    window.scrollTo({
+      left: axis === "x" ? offset : window.scrollX,
+      top: axis === "y" ? offset : window.scrollY,
+      behavior: "auto",
+    });
+    return;
+  }
+
+  if (axis === "x") target.scrollLeft = offset;
+  else target.scrollTop = offset;
+}
+
+function getAxisLayout(target: HTMLElement, axis: WorkspaceScrollbarAxis): AxisLayout | null {
+  const scrollElement = getScrollElement(target);
+  const isViewport = isViewportScrollport(target);
+  const rect = isViewport
+    ? { left: 0, top: 0 }
+    : target.getBoundingClientRect();
+  const viewportSize = isViewport
+    ? axis === "x" ? window.innerWidth : window.innerHeight
+    : axis === "x" ? scrollElement.clientWidth : scrollElement.clientHeight;
+  const scrollSize = axis === "x" ? scrollElement.scrollWidth : scrollElement.scrollHeight;
+  const viewportOffset = isViewport
+    ? 0
+    : axis === "x" ? rect.left + scrollElement.clientLeft : rect.top + scrollElement.clientTop;
+  const metrics = getWorkspaceScrollbarThumbMetrics({
+    viewportOffset,
+    viewportSize,
+    scrollSize,
+    scrollOffset: getScrollOffset(target, axis),
+    inset: OVERLAY_INSET,
+  });
+
+  if (!metrics) return null;
+
+  const contentLeft = isViewport ? 0 : rect.left + scrollElement.clientLeft;
+  const contentTop = isViewport ? 0 : rect.top + scrollElement.clientTop;
+  const contentWidth = isViewport ? window.innerWidth : scrollElement.clientWidth;
+  const contentHeight = isViewport ? window.innerHeight : scrollElement.clientHeight;
+  const contentRight = contentLeft + contentWidth;
+  const contentBottom = contentTop + contentHeight;
+
+  if (contentRight <= 0 || contentBottom <= 0 || contentLeft >= window.innerWidth || contentTop >= window.innerHeight) {
+    return null;
+  }
+
+  const maxScroll = Math.max(0, scrollSize - viewportSize);
+
+  return axis === "x"
+    ? {
+      left: metrics.offset,
+      top: contentBottom - OVERLAY_INSET - OVERLAY_THICKNESS,
+      width: metrics.size,
+      height: OVERLAY_THICKNESS,
+      trackSize: metrics.trackSize,
+      maxScroll,
+      scrollOffset: getScrollOffset(target, axis),
+    }
+    : {
+      left: contentRight - OVERLAY_INSET - OVERLAY_THICKNESS,
+      top: metrics.offset,
+      width: OVERLAY_THICKNESS,
+      height: metrics.size,
+      trackSize: metrics.trackSize,
+      maxScroll,
+      scrollOffset: getScrollOffset(target, axis),
+    };
+}
+
+/**
+ * A single lightweight visual layer for browser-native scrolling. Native
+ * scrollbar thumbs cannot reliably animate in Chromium, so this layer only
+ * paints their affordance; wheel, keyboard, touch, and scroll physics remain
+ * fully native.
+ */
+export function createWorkspaceScrollbarOverlay() {
+  const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const forcedColors = window.matchMedia("(forced-colors: active)");
+  const canPaint = () => finePointer.matches && !forcedColors.matches;
+  const noop = {
+    destroy: () => undefined,
+    refresh: () => undefined,
+    setActive: (_target: HTMLElement, _axis: WorkspaceScrollbarAxis, _active: boolean) => undefined,
+  };
+
+  if (!canPaint()) return noop;
+
+  const layer = document.createElement("div");
+  layer.className = "workspace-scrollbar-layer";
+  layer.setAttribute("aria-hidden", "true");
+
+  const thumbs = {
+    x: document.createElement("div"),
+    y: document.createElement("div"),
+  };
+
+  (Object.keys(thumbs) as WorkspaceScrollbarAxis[]).forEach((axis) => {
+    const thumb = thumbs[axis];
+    thumb.className = `workspace-scrollbar-thumb workspace-scrollbar-thumb--${axis}`;
+    thumb.dataset.workspaceScrollbarAxis = axis;
+    layer.appendChild(thumb);
+  });
+
+  document.body.appendChild(layer);
+
+  const active: Record<WorkspaceScrollbarAxis, ActiveScrollbar | null> = { x: null, y: null };
+  const observed = new Set<HTMLElement>();
+  let animationFrame: number | undefined;
+  let drag: DragState | null = null;
+
+  const resizeObserver = typeof ResizeObserver === "undefined"
+    ? null
+    : new ResizeObserver(() => scheduleRender());
+
+  const syncObservedTargets = () => {
+    const next = new Set(
+      (Object.values(active).filter((entry): entry is ActiveScrollbar => entry !== null))
+        .map((entry) => entry.target),
+    );
+
+    observed.forEach((target) => {
+      if (!next.has(target)) {
+        resizeObserver?.unobserve(target);
+        observed.delete(target);
+      }
+    });
+
+    next.forEach((target) => {
+      if (!observed.has(target)) {
+        resizeObserver?.observe(target);
+        observed.add(target);
+      }
+    });
+  };
+
+  const renderAxis = (axis: WorkspaceScrollbarAxis) => {
+    const thumb = thumbs[axis];
+    const entry = active[axis];
+
+    if (!canPaint() || !entry || !entry.target.isConnected) {
+      thumb.classList.remove("is-visible");
+      return;
+    }
+
+    const layout = getAxisLayout(entry.target, axis);
+    if (!layout) {
+      thumb.classList.remove("is-visible");
+      return;
+    }
+
+    thumb.style.width = `${layout.width}px`;
+    thumb.style.height = `${layout.height}px`;
+    thumb.style.transform = `translate3d(${layout.left}px, ${layout.top}px, 0)`;
+    thumb.classList.add("is-visible");
+  };
+
+  const render = () => {
+    animationFrame = undefined;
+    renderAxis("x");
+    renderAxis("y");
+  };
+
+  function scheduleRender() {
+    if (animationFrame !== undefined) return;
+    animationFrame = window.requestAnimationFrame(render);
+  }
+
+  const setActive = (target: HTMLElement, axis: WorkspaceScrollbarAxis, visible: boolean) => {
+    if (!canPaint()) return;
+
+    if (visible) {
+      active[axis] = { target };
+    } else if (active[axis]?.target === target) {
+      active[axis] = null;
+      thumbs[axis].classList.remove("is-visible");
+    }
+
+    syncObservedTargets();
+    scheduleRender();
+  };
+
+  const clear = () => {
+    active.x = null;
+    active.y = null;
+    thumbs.x.classList.remove("is-visible");
+    thumbs.y.classList.remove("is-visible");
+    syncObservedTargets();
+  };
+
+  const handlePointerDown = (event: PointerEvent) => {
+    const thumb = event.currentTarget as HTMLElement;
+    const axis = thumb.dataset.workspaceScrollbarAxis as WorkspaceScrollbarAxis | undefined;
+    if (!axis) return;
+
+    const target = active[axis]?.target;
+    if (!target) return;
+
+    const layout = getAxisLayout(target, axis);
+    if (!layout) return;
+
+    const trackTravel = layout.trackSize - (axis === "x" ? layout.width : layout.height);
+    if (trackTravel <= 0 || layout.maxScroll <= 0) return;
+
+    event.preventDefault();
+    drag = {
+      axis,
+      target,
+      pointerStart: axis === "x" ? event.clientX : event.clientY,
+      scrollStart: layout.scrollOffset,
+      trackTravel,
+      maxScroll: layout.maxScroll,
+    };
+    thumb.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event: PointerEvent) => {
+    if (!drag) return;
+    const coordinate = drag.axis === "x" ? event.clientX : event.clientY;
+    const delta = coordinate - drag.pointerStart;
+    const offset = Math.min(
+      drag.maxScroll,
+      Math.max(0, drag.scrollStart + (delta * drag.maxScroll) / drag.trackTravel),
+    );
+    setScrollOffset(drag.target, drag.axis, offset);
+    scheduleRender();
+  };
+
+  const handlePointerEnd = () => {
+    drag = null;
+  };
+
+  (Object.values(thumbs) as HTMLElement[]).forEach((thumb) => {
+    thumb.addEventListener("pointerdown", handlePointerDown);
+    thumb.addEventListener("pointermove", handlePointerMove);
+    thumb.addEventListener("pointerup", handlePointerEnd);
+    thumb.addEventListener("pointercancel", handlePointerEnd);
+    thumb.addEventListener("lostpointercapture", handlePointerEnd);
+  });
+
+  const handleCapabilityChange = () => {
+    if (!canPaint()) clear();
+    else scheduleRender();
+  };
+
+  finePointer.addEventListener("change", handleCapabilityChange);
+  forcedColors.addEventListener("change", handleCapabilityChange);
+  window.addEventListener("resize", scheduleRender, { passive: true });
+  window.addEventListener("scroll", scheduleRender, { passive: true });
+
+  return {
+    setActive,
+    refresh: scheduleRender,
+    destroy: () => {
+      if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
+      resizeObserver?.disconnect();
+      finePointer.removeEventListener("change", handleCapabilityChange);
+      forcedColors.removeEventListener("change", handleCapabilityChange);
+      window.removeEventListener("resize", scheduleRender);
+      window.removeEventListener("scroll", scheduleRender);
+      (Object.values(thumbs) as HTMLElement[]).forEach((thumb) => {
+        thumb.removeEventListener("pointerdown", handlePointerDown);
+        thumb.removeEventListener("pointermove", handlePointerMove);
+        thumb.removeEventListener("pointerup", handlePointerEnd);
+        thumb.removeEventListener("pointercancel", handlePointerEnd);
+        thumb.removeEventListener("lostpointercapture", handlePointerEnd);
+      });
+      layer.remove();
+    },
+  };
+}

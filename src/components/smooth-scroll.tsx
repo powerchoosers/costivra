@@ -2,6 +2,10 @@
 
 import Lenis from "lenis";
 import { useEffect } from "react";
+import {
+  createWorkspaceScrollbarOverlay,
+  type WorkspaceScrollbarAxis,
+} from "@/lib/ui/workspace-scrollbar";
 
 // Keep nested panels native without asking Lenis to inspect the entire DOM tree
 // on every wheel event. This is a fixed selector so the hot path stays cheap.
@@ -10,7 +14,9 @@ const NATIVE_SCROLL_SELECTOR = [
   ".workspace-scroll-region",
   ".app-sidebar nav",
   ".app-nav-scroll",
+  ".app-work-canvas > .app-content",
   ".manage-sidebar nav.manage-primary-nav",
+  ".manage-shell-v2 .manage-page",
   ".app-mobile-drawer",
   ".mobile-drawer",
   ".app-global-results",
@@ -133,18 +139,9 @@ export function SmoothScroll() {
       stopInertiaOnNavigate: true,
     });
 
+    const scrollbarOverlay = createWorkspaceScrollbarOverlay();
     const scrollTimers = new Map<HTMLElement, { x?: number; y?: number }>();
     const scrollPositions = new WeakMap<HTMLElement, { left: number; top: number }>();
-    let pageScrollTimer: number | undefined;
-    const activatePageScrollbar = () => {
-      const root = document.documentElement;
-      root.classList.add("is-scroll-y-active");
-      if (pageScrollTimer !== undefined) window.clearTimeout(pageScrollTimer);
-      pageScrollTimer = window.setTimeout(() => {
-        root.classList.remove("is-scroll-y-active");
-        pageScrollTimer = undefined;
-      }, SCROLLBAR_IDLE_DELAY);
-    };
     const registerScrollbar = (target: HTMLElement) => {
       if (!target.matches(NATIVE_SCROLL_SELECTOR)) return;
       target.setAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE, "");
@@ -163,11 +160,41 @@ export function SmoothScroll() {
         scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
       }
     };
+    const deactivateAxis = (target: HTMLElement, axis: WorkspaceScrollbarAxis) => {
+      const activeClass = axis === "x" ? "is-scroll-x-active" : "is-scroll-y-active";
+      const timerKey = axis === "x" ? "x" : "y";
+      const timers = scrollTimers.get(target);
+
+      target.classList.remove(activeClass);
+      scrollbarOverlay.setActive(target, axis, false);
+
+      if (!timers) return;
+      if (timers[timerKey] !== undefined) window.clearTimeout(timers[timerKey]);
+      delete timers[timerKey];
+      if (timers.x === undefined && timers.y === undefined) scrollTimers.delete(target);
+    };
+    const activateAxis = (target: HTMLElement, axis: WorkspaceScrollbarAxis) => {
+      const activeClass = axis === "x" ? "is-scroll-x-active" : "is-scroll-y-active";
+      const timerKey = axis === "x" ? "x" : "y";
+      const timers = scrollTimers.get(target) ?? {};
+
+      target.classList.add(activeClass);
+      scrollbarOverlay.setActive(target, axis, true);
+      if (timers[timerKey] !== undefined) window.clearTimeout(timers[timerKey]);
+      timers[timerKey] = window.setTimeout(() => {
+        deactivateAxis(target, axis);
+      }, SCROLLBAR_IDLE_DELAY);
+      scrollTimers.set(target, timers);
+    };
+    const activatePageScrollbar = () => {
+      activateAxis(document.documentElement, "y");
+    };
     const handleNativeScroll = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement) || !isScrollport(target)) return;
 
       registerScrollbar(target);
+      if (!target.hasAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE)) return;
 
       const hadPreviousPosition = scrollPositions.has(target);
       const previous = scrollPositions.get(target) ?? { left: 0, top: 0 };
@@ -177,31 +204,10 @@ export function SmoothScroll() {
 
       if (!movedX && !movedY) return;
 
-      const timers = scrollTimers.get(target) ?? {};
-      const deactivateAxis = (axis: "x" | "y") => {
-        const activeClass = axis === "x" ? "is-scroll-x-active" : "is-scroll-y-active";
-        const timerKey = axis === "x" ? "x" : "y";
-        target.classList.remove(activeClass);
-        if (timers[timerKey] !== undefined) window.clearTimeout(timers[timerKey]);
-        delete timers[timerKey];
-      };
-      const activateAxis = (axis: "x" | "y") => {
-        const activeClass = axis === "x" ? "is-scroll-x-active" : "is-scroll-y-active";
-        const timerKey = axis === "x" ? "x" : "y";
-        target.classList.add(activeClass);
-        if (timers[timerKey] !== undefined) window.clearTimeout(timers[timerKey]);
-        timers[timerKey] = window.setTimeout(() => {
-          target.classList.remove(activeClass);
-          delete timers[timerKey];
-          if (timers.x === undefined && timers.y === undefined) scrollTimers.delete(target);
-        }, SCROLLBAR_IDLE_DELAY);
-      };
-
-      if (movedX && !movedY) deactivateAxis("y");
-      if (movedY && !movedX) deactivateAxis("x");
-      if (movedX) activateAxis("x");
-      if (movedY) activateAxis("y");
-      scrollTimers.set(target, timers);
+      if (movedX && !movedY) deactivateAxis(target, "y");
+      if (movedY && !movedX) deactivateAxis(target, "x");
+      if (movedX) activateAxis(target, "x");
+      if (movedY) activateAxis(target, "y");
     };
 
     // Scroll events do not bubble from nested panels, so capture them once at
@@ -237,15 +243,17 @@ export function SmoothScroll() {
         if (timers.x !== undefined) window.clearTimeout(timers.x);
         if (timers.y !== undefined) window.clearTimeout(timers.y);
         target.classList.remove("is-scroll-x-active", "is-scroll-y-active");
+        scrollbarOverlay.setActive(target, "x", false);
+        scrollbarOverlay.setActive(target, "y", false);
       });
       scrollTimers.clear();
+      scrollbarOverlay.destroy();
       if (lenis) {
         lenis.off("scroll", activatePageScrollbar);
         lenis.destroy();
       } else {
         window.removeEventListener("scroll", activatePageScrollbar);
       }
-      if (pageScrollTimer !== undefined) window.clearTimeout(pageScrollTimer);
       document.documentElement.classList.remove("is-scroll-y-active");
       document.documentElement.removeAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE);
     };

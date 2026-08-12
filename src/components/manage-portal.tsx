@@ -1348,6 +1348,7 @@ export function ManagePortal({
         </header>
         <div
           key={section}
+          data-workspace-scrollbar
           className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}
           onWheelCapture={(event) => {
             const node = event.currentTarget;
