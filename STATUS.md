@@ -1,8 +1,16 @@
 # Costivra Status
 
+## August 12, 2026 — Shared workspace panel elevation
+
+- Added a restrained, shared panel-elevation token for meaningful operational surfaces in both the customer app and Manage. Tables, standalone cards, metric groups, record inspectors, document workspaces, and summary bands now sit visibly—but quietly—above the workspace ground. Controls, inputs, rows, chips, and nested sections remain flat to preserve clarity and density.
+- Extended the shared contract to the custom Category Intelligence cards and table surface so this internal Manage page follows the same visual system rather than keeping its own flat inline-card treatment.
+- Updated the project-owned Costivra product-design skill: future work must use `--workspace-panel-shadow` or the scoped `workspace-elevated-surface` contract instead of adding page-local shadows; shells and transient overlays retain their separate elevation levels.
+- **Validation:** `npx eslint src/components/manage-category-intelligence.tsx` PASS; `npm run typecheck` PASS; focused Vitest PASS (3 tests); `git diff --check` PASS. Local browser navigation to `/manage` redirected to sign-in, so an authenticated visual review remains required before release.
+
 ## August 12, 2026 — Public pricing actions and billing selector repair
 
 - Fixed the public pricing cards so Starter, Growth, and Enterprise actions remain readable on the light pricing surface instead of inheriting the dark-theme transparent secondary-button treatment. Actions now have consistent bottom alignment, solid contrast, and visible hover/focus states; the pricing grid also uses shrink-safe columns to avoid side clipping at compact widths.
+- Follow-up polish: increased the breathing room between each plan description and its action, and reduced the button shadow to a quiet 1px lift appropriate for the calm pricing section.
 - Replaced the billing page's native plan `<select>` with the existing shared `CostivraSelect` control used throughout the CRM, preserving the same keyboard navigation, focus state, selected-option check, and popover behavior.
 - **Validation:** `npm run typecheck` PASS; `git diff --check` PASS; local browser QA confirmed all three pricing links are present and visibly rendered at 1538×742, and the Starter action remains visible within the 390×844 mobile viewport. No console errors or warnings were observed during the public-page check. Authenticated billing interaction was not exercised because the local browser session did not have a signed-in workspace.
 

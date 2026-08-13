@@ -246,11 +246,11 @@ textarea:focus-visible {
 .price { margin: 16px 0; font-size: 2.2rem; font-weight: 750; letter-spacing: -.05em; }
 .plan p { color: var(--muted); line-height: 1.55; }
 .pricing .plan .button-secondary {
-  margin-top: auto;
+  margin-top: 22px;
   border-color: #aab4c5;
   color: #172033;
   background: #ffffff;
-  box-shadow: 0 3px 10px rgba(20, 34, 58, 0.08);
+  box-shadow: 0 1px 3px rgba(20, 34, 58, 0.06);
 }
 .pricing .plan .button-secondary:hover,
 .pricing .plan .button-secondary:focus-visible {
