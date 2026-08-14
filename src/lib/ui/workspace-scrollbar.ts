@@ -62,6 +62,7 @@ export function getWorkspaceScrollbarThumbMetrics({
 
 type ActiveScrollbar = {
   target: HTMLElement;
+  visible: boolean;
 };
 
 type AxisLayout = {
@@ -81,6 +82,12 @@ type DragState = {
   scrollStart: number;
   target: HTMLElement;
   trackTravel: number;
+};
+
+type WorkspaceScrollbarOverlay = {
+  destroy: () => void;
+  refresh: () => void;
+  setActive: (target: HTMLElement, axis: WorkspaceScrollbarAxis, active: boolean) => void;
 };
 
 const OVERLAY_INSET = 4;
@@ -180,14 +187,14 @@ function getAxisLayout(target: HTMLElement, axis: WorkspaceScrollbarAxis): AxisL
  * paints their affordance; wheel, keyboard, touch, and scroll physics remain
  * fully native.
  */
-export function createWorkspaceScrollbarOverlay() {
+export function createWorkspaceScrollbarOverlay(): WorkspaceScrollbarOverlay {
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
   const forcedColors = window.matchMedia("(forced-colors: active)");
   const canPaint = () => finePointer.matches && !forcedColors.matches;
-  const noop = {
+  const noop: WorkspaceScrollbarOverlay = {
     destroy: () => undefined,
     refresh: () => undefined,
-    setActive: (_target: HTMLElement, _axis: WorkspaceScrollbarAxis, _active: boolean) => undefined,
+    setActive: () => undefined,
   };
 
   if (!canPaint()) return noop;
@@ -212,6 +219,7 @@ export function createWorkspaceScrollbarOverlay() {
 
   const active: Record<WorkspaceScrollbarAxis, ActiveScrollbar | null> = { x: null, y: null };
   const observed = new Set<HTMLElement>();
+  const revealFrames: Record<WorkspaceScrollbarAxis, number | undefined> = { x: undefined, y: undefined };
   let animationFrame: number | undefined;
   let drag: DragState | null = null;
 
@@ -258,7 +266,7 @@ export function createWorkspaceScrollbarOverlay() {
     thumb.style.width = `${layout.width}px`;
     thumb.style.height = `${layout.height}px`;
     thumb.style.transform = `translate3d(${layout.left}px, ${layout.top}px, 0)`;
-    thumb.classList.add("is-visible");
+    thumb.classList.toggle("is-visible", entry.visible);
   };
 
   const render = () => {
@@ -272,12 +280,39 @@ export function createWorkspaceScrollbarOverlay() {
     animationFrame = window.requestAnimationFrame(render);
   }
 
+  const cancelReveal = (axis: WorkspaceScrollbarAxis) => {
+    const frame = revealFrames[axis];
+    if (frame !== undefined) window.cancelAnimationFrame(frame);
+    revealFrames[axis] = undefined;
+  };
+
+  const revealAfterFirstPaint = (axis: WorkspaceScrollbarAxis, target: HTMLElement) => {
+    // Chromium can batch a geometry update and an opacity change into one
+    // paint. Separate them so a newly active thumb always fades in.
+    cancelReveal(axis);
+    revealFrames[axis] = window.requestAnimationFrame(() => {
+      revealFrames[axis] = window.requestAnimationFrame(() => {
+        revealFrames[axis] = undefined;
+        const entry = active[axis];
+        if (!entry || entry.target !== target) return;
+
+        entry.visible = true;
+        renderAxis(axis);
+      });
+    });
+  };
+
   const setActive = (target: HTMLElement, axis: WorkspaceScrollbarAxis, visible: boolean) => {
     if (!canPaint()) return;
 
     if (visible) {
-      active[axis] = { target };
+      const current = active[axis];
+      const isNewTarget = !current || current.target !== target;
+      active[axis] = isNewTarget ? { target, visible: false } : current;
+
+      if (isNewTarget) revealAfterFirstPaint(axis, target);
     } else if (active[axis]?.target === target) {
+      cancelReveal(axis);
       active[axis] = null;
       thumbs[axis].classList.remove("is-visible");
     }
@@ -287,6 +322,8 @@ export function createWorkspaceScrollbarOverlay() {
   };
 
   const clear = () => {
+    cancelReveal("x");
+    cancelReveal("y");
     active.x = null;
     active.y = null;
     thumbs.x.classList.remove("is-visible");
@@ -359,6 +396,8 @@ export function createWorkspaceScrollbarOverlay() {
     refresh: scheduleRender,
     destroy: () => {
       if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
+      cancelReveal("x");
+      cancelReveal("y");
       resizeObserver?.disconnect();
       finePointer.removeEventListener("change", handleCapabilityChange);
       forcedColors.removeEventListener("change", handleCapabilityChange);

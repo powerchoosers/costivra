@@ -5253,19 +5253,6 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .bills-directory { min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
 .bills-table-wrap { min-height: 0; flex: 1 1 auto; overflow: auto; overscroll-behavior: contain; }
 
-/* Keep table chrome quiet until the user is actually moving that table. */
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table) {
-  scrollbar-color: transparent transparent;
-  scrollbar-width: thin;
-  transition: scrollbar-color 220ms ease;
-}
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table)::-webkit-scrollbar { width: 10px; height: 10px; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table)::-webkit-scrollbar-track { background: transparent; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table)::-webkit-scrollbar-thumb { min-height: 40px; border: 3px solid transparent; border-radius: 999px; background: transparent; background-clip: padding-box; transition: background-color 220ms ease, box-shadow 220ms ease; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-x-active,
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-y-active { scrollbar-color: #6177a8 transparent; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-x-active::-webkit-scrollbar-thumb:horizontal { background: #6177a8; background-clip: padding-box; }
-:is(.manage-table-wrap, .vendor-table-wrap, .table-wrap, .bills-table-wrap, .invoice-review-table-wrap, .record-line-items, .record-files-workspace__table).is-scroll-y-active::-webkit-scrollbar-thumb:vertical { background: #6177a8; background-clip: padding-box; }
 .bills-table { min-width: 1240px; table-layout: auto; }
 .bills-table th, .bills-table td { white-space: nowrap; }
 .bills-table th:first-child, .bills-table td:first-child { min-width: 190px; }
@@ -7818,7 +7805,10 @@ body.modal-open .app-topbar { filter: blur(7px); }
   --workspace-scroll-thumb: rgba(212, 255, 90, .46);
   --workspace-scroll-thumb-hover: rgba(181, 219, 65, .7);
   --workspace-scroll-track: transparent;
-  --workspace-scroll-fade: 200ms cubic-bezier(.23, 1, .32, 1);
+  /* Scrollbars should gently appear while a person is moving a surface—not
+     snap on like a status indicator. Keep this separate from the brisk
+     control-motion curve. */
+  --workspace-scroll-fade: 260ms ease;
   --workspace-focus-ring: 0 0 0 3px rgba(33, 85, 199, .16);
   --workspace-control-shadow: 0 1px 1px rgba(15, 23, 42, .025);
   --workspace-primary-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 7px 14px rgba(33, 85, 199, .19);
@@ -10810,6 +10800,7 @@ button.workspace-notification-row:focus-visible {
   /* Browser-painted scrollbar thumbs do not animate reliably in Chromium.
      The shared overlay below owns the visible affordance instead. */
   scrollbar-width: none;
+  scrollbar-gutter: auto;
 }
 
 :is(
@@ -10834,14 +10825,13 @@ button.workspace-notification-row:focus-visible {
   box-sizing: border-box;
   min-width: 6px;
   min-height: 6px;
-  border: 1px solid rgba(116, 157, 0, .14);
+  border: 0;
   border-radius: 999px;
   background: var(--workspace-scroll-thumb);
-  box-shadow: 0 1px 4px rgba(100, 133, 12, .14);
   opacity: 0;
   pointer-events: none;
   transform: translate3d(-9999px, -9999px, 0);
-  transition: opacity var(--workspace-scroll-fade), background-color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast);
+  transition: opacity var(--workspace-scroll-fade), background-color var(--workspace-motion-fast);
   will-change: opacity, transform;
 }
 
@@ -10853,7 +10843,6 @@ button.workspace-notification-row:focus-visible {
 .workspace-scrollbar-thumb:hover,
 .workspace-scrollbar-thumb:active {
   background: var(--workspace-scroll-thumb-hover);
-  box-shadow: 0 1px 6px rgba(100, 133, 12, .22);
 }
 
 @media (prefers-reduced-motion: reduce) {

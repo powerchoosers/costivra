@@ -1,5 +1,13 @@
 # Costivra Status
 
+## August 13, 2026 — Shared scrollbar fade refinement
+
+- Reworked the shared authenticated-workspace scrollbar overlay used by `/app` and `/manage`: its first layout paint now completes before opacity is allowed to rise, preventing Chromium from batching the thumb into a sudden pop.
+- Replaced the overly abrupt fade curve with a calmer 260ms opacity transition, preserved the 700ms idle pause before it fades away, and retained independent horizontal/vertical activation.
+- Removed the green thumb's border and every scrollbar-specific box shadow, including hover. The indicator is now a clean, muted green fill only.
+- Retired the competing legacy table-scrollbar paint rules so App and Manage tables, rails, and pages use the single shared overlay contract.
+- Added the same no-shadow, axis-independent scrollbar contract to the canonical product-design skill so future page work cannot reintroduce a competing native scrollbar treatment.
+
 ## August 12, 2026 — Shared workspace panel elevation
 
 - Added a restrained, shared panel-elevation token for meaningful operational surfaces in both the customer app and Manage. Tables, standalone cards, metric groups, record inspectors, document workspaces, and summary bands now sit visibly—but quietly—above the workspace ground. Controls, inputs, rows, chips, and nested sections remain flat to preserve clarity and density.
