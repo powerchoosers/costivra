@@ -7,6 +7,7 @@
 - Removed the green thumb's border and every scrollbar-specific box shadow, including hover. The indicator is now a clean, muted green fill only.
 - Retired the competing legacy table-scrollbar paint rules so App and Manage tables, rails, and pages use the single shared overlay contract.
 - Added the same no-shadow, axis-independent scrollbar contract to the canonical product-design skill so future page work cannot reintroduce a competing native scrollbar treatment.
+- **Validation:** `npm run typecheck` PASS; focused ESLint PASS; focused Vitest PASS (3 tests); PostCSS parse PASS; `git diff --check` PASS. The host-local server responds on port 3000. The authenticated production baseline was inspected with no console errors, but the in-app browser cannot reach host localhost, so post-change authenticated visual QA remains blocked until an accessible signed-in local session is available.
 
 ## August 12, 2026 — Shared workspace panel elevation
 
