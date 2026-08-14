@@ -52,6 +52,7 @@ import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 import { getActivationProgress } from "@/lib/portal/activation";
+import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
@@ -552,14 +553,15 @@ export function PortalPage({
         onWheelCapture={(event) => {
           const node = event.currentTarget;
           const target = event.target as HTMLElement;
-          if (target.closest(".table-wrap, .vendor-filter-menu, .app-global-results")) return;
-          if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
+          if (
+            hasNestedNativeScrollRegion(event.target, node)
+            || target.closest(".table-wrap, .vendor-filter-menu, .app-global-results")
+          ) return;
+          const nextScrollTop = getNextVerticalScrollTop(node, event.deltaY);
+          if (nextScrollTop === null) return;
           event.preventDefault();
           event.stopPropagation();
-          node.scrollTop = Math.max(
-            0,
-            Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
-          );
+          node.scrollTop = nextScrollTop;
         }}
       >
         {data.organization.isSampleWorkspace && <SampleWorkspaceBanner />}

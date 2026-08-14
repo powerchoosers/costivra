@@ -61,6 +61,8 @@ const NATIVE_SCROLL_SELECTOR = [
   ".demo-drawer-body",
   ".bills-table-wrap",
   ".metric-strip",
+  "textarea",
+  "[contenteditable=\"true\"]",
 ].join(",");
 
 const SCROLLBAR_IDLE_DELAY = 700;
@@ -68,26 +70,6 @@ const WORKSPACE_SCROLLBAR_ATTRIBUTE = "data-workspace-scrollbar";
 
 function isScrollableOverflow(value: string) {
   return ["auto", "overlay", "scroll"].includes(value);
-}
-
-function canNativeScroll(element: Element, deltaX: number, deltaY: number) {
-  if (!(element instanceof HTMLElement)) return false;
-
-  const style = window.getComputedStyle(element);
-  const canScrollX = deltaX !== 0 && isScrollableOverflow(style.overflowX) && element.scrollWidth > element.clientWidth;
-  const canScrollY = deltaY !== 0 && isScrollableOverflow(style.overflowY) && element.scrollHeight > element.clientHeight;
-
-  if (canScrollX) {
-    const maxScrollLeft = element.scrollWidth - element.clientWidth;
-    if (deltaX < 0 ? element.scrollLeft > 0 : element.scrollLeft < maxScrollLeft) return true;
-  }
-
-  if (canScrollY) {
-    const maxScrollTop = element.scrollHeight - element.clientHeight;
-    if (deltaY < 0 ? element.scrollTop > 0 : element.scrollTop < maxScrollTop) return true;
-  }
-
-  return false;
 }
 
 function isScrollport(element: Element) {
@@ -100,12 +82,12 @@ function isScrollport(element: Element) {
   );
 }
 
-function findNativeScroller(event: Event, deltaX: number, deltaY: number) {
+function startsInNativeScrollRegion(event: Event) {
   for (const item of event.composedPath()) {
     if (!(item instanceof HTMLElement)) continue;
-    if (item.matches(NATIVE_SCROLL_SELECTOR) && canNativeScroll(item, deltaX, deltaY)) return item;
+    if (item.matches(NATIVE_SCROLL_SELECTOR)) return true;
   }
-  return null;
+  return false;
 }
 
 function findScrollport(event: Event) {
@@ -130,11 +112,13 @@ export function SmoothScroll() {
       // position sooner, which feels better on high-refresh and trackpad input.
       lerp: 0.12,
       smoothWheel: true,
-      // Explicit native panels avoid Lenis' per-event nested-scroll DOM walk.
+      // App and Manage use their own native page scrollports. Keeping every
+      // marked region native lets the browser chain a panel's edge into its
+      // parent rather than Lenis swallowing the next wheel event.
       allowNestedScroll: false,
       prevent: (node) => node.hasAttribute("data-lenis-prevent"),
-      virtualScroll: ({ deltaX, deltaY, event }) => {
-        return findNativeScroller(event, deltaX, deltaY) === null;
+      virtualScroll: ({ event }) => {
+        return !startsInNativeScrollRegion(event);
       },
       stopInertiaOnNavigate: true,
     });

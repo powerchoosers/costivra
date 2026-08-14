@@ -33,6 +33,7 @@ import { ClientAssistantTrigger } from "@/components/client-assistant/client-ass
 import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
 import { WorkspaceNotificationCenter, WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
+import { getNextVerticalScrollTop } from "@/lib/ui/workspace-scrollbar";
 
 import type { ElementType } from "react";
 
@@ -560,13 +561,11 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
             data-workspace-scrollbar
             onWheelCapture={(event) => {
               const node = event.currentTarget;
-              if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
+              const nextScrollTop = getNextVerticalScrollTop(node, event.deltaY);
+              if (nextScrollTop === null) return;
               event.preventDefault();
               event.stopPropagation();
-              node.scrollTop = Math.max(
-                0,
-                Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
-              );
+              node.scrollTop = nextScrollTop;
             }}
           >
             <nav className="app-nav" aria-label="Customer application">

@@ -86,6 +86,7 @@ import type {
 } from "@/lib/manage/types";
 import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
 import { createClient } from "@/lib/supabase/client";
+import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
 import { useToast } from "@/components/toast-provider";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditableFieldRow } from "@/components/records/editable-field-row";
@@ -1080,13 +1081,11 @@ export function ManagePortal({
           data-workspace-scrollbar
           onWheelCapture={(event) => {
             const node = event.currentTarget;
-            if (node.scrollHeight <= node.clientHeight || event.deltaY === 0) return;
+            const nextScrollTop = getNextVerticalScrollTop(node, event.deltaY);
+            if (nextScrollTop === null) return;
             event.preventDefault();
             event.stopPropagation();
-            node.scrollTop = Math.max(
-              0,
-              Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
-            );
+            node.scrollTop = nextScrollTop;
           }}
         >
           {(() => {
@@ -1354,20 +1353,18 @@ export function ManagePortal({
             const node = event.currentTarget;
             const target = event.target as HTMLElement;
             if (
+              hasNestedNativeScrollRegion(event.target, node) ||
               target.closest(
                 ".manage-table-wrap, .manage-mail-list, .manage-message-stack, .manage-global-results, .manage-create-menu, .manage-profile-menu, .manage-assistant",
-              ) ||
-              node.scrollHeight <= node.clientHeight ||
-              event.deltaY === 0
+              )
             ) {
               return;
             }
+            const nextScrollTop = getNextVerticalScrollTop(node, event.deltaY);
+            if (nextScrollTop === null) return;
             event.preventDefault();
             event.stopPropagation();
-            node.scrollTop = Math.max(
-              0,
-              Math.min(node.scrollHeight - node.clientHeight, node.scrollTop + event.deltaY),
-            );
+            node.scrollTop = nextScrollTop;
           }}
         >
           {section !== "overview" && !detailId && !outreachSequenceId && (

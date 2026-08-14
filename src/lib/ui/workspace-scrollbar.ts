@@ -7,6 +7,8 @@ export type WorkspaceScrollbarThumbMetrics = {
   trackSize: number;
 };
 
+type VerticalScrollMetrics = Pick<HTMLElement, "clientHeight" | "scrollHeight" | "scrollTop">;
+
 type WorkspaceScrollbarThumbInput = {
   viewportOffset: number;
   viewportSize: number;
@@ -15,6 +17,52 @@ type WorkspaceScrollbarThumbInput = {
   inset?: number;
   minThumbSize?: number;
 };
+
+/**
+ * Returns the next vertical position only when a wheel movement can actually
+ * move this scrollport. Callers can then leave an edge-bound wheel event alone
+ * so the browser can hand it to the surrounding scrollport.
+ */
+export function getNextVerticalScrollTop(
+  element: VerticalScrollMetrics,
+  deltaY: number,
+): number | null {
+  if (
+    !Number.isFinite(element.clientHeight)
+    || !Number.isFinite(element.scrollHeight)
+    || !Number.isFinite(element.scrollTop)
+    || !Number.isFinite(deltaY)
+    || deltaY === 0
+  ) {
+    return null;
+  }
+
+  const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+  if (maxScrollTop === 0) return null;
+
+  const currentScrollTop = Math.min(maxScrollTop, Math.max(0, element.scrollTop));
+  const nextScrollTop = Math.min(
+    maxScrollTop,
+    Math.max(0, currentScrollTop + deltaY),
+  );
+
+  return nextScrollTop === currentScrollTop ? null : nextScrollTop;
+}
+
+/**
+ * The shared smooth-scroll layer marks its deliberate native scrollports.
+ * When a wheel starts inside one, an outer page should not steal it while the
+ * nested region still owns the interaction.
+ */
+export function hasNestedNativeScrollRegion(
+  target: EventTarget | null,
+  owner: HTMLElement,
+) {
+  if (!(target instanceof Element)) return false;
+
+  const region = target.closest("[data-workspace-scrollbar], [data-lenis-prevent]");
+  return region !== null && region !== owner && owner.contains(region);
+}
 
 /**
  * Calculates a scrollbar thumb without depending on a browser-painted native
