@@ -8,7 +8,7 @@ export async function GET() {
     const { db, organizationId } = await requirePortalContext();
     const { data, error } = await db
       .from("report_delivery_runs")
-      .select("id,report_definition_id,report_schedule_id,scheduled_for,status,provider_message_id,generated_at,completed_at,safe_error,report_definitions(name),report_delivery_recipients(id,recipient_email,status,provider_message_id,safe_error,sent_at,completed_at)")
+      .select("id,report_definition_id,report_schedule_id,delivery_key,scheduled_for,status,provider_message_id,generated_at,completed_at,safe_error,report_definitions(name),report_delivery_recipients(id,recipient_email,status,provider_message_id,safe_error,sent_at,completed_at)")
       .eq("organization_id", organizationId)
       .order("scheduled_for", { ascending: false })
       .limit(50);
@@ -18,6 +18,7 @@ export async function GET() {
         id: run.id,
         report_definition_id: run.report_definition_id,
         report_schedule_id: run.report_schedule_id,
+        delivery_key: run.delivery_key,
         scheduled_for: run.scheduled_for,
         status: run.status,
         provider_message_id: run.provider_message_id,

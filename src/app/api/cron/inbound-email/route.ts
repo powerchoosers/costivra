@@ -9,6 +9,7 @@ import {
 import { monitorInboundEmailQueue } from "@/lib/email/inbound-monitor";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
+import { getRequestId, safeOperationalError, withRequestId } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -16,13 +17,13 @@ export const dynamic = "force-dynamic";
 
 type WorkerRunStatus = "completed" | "completed_with_warnings" | "failed";
 
-async function startWorkerRun(db: ReturnType<typeof createServerSupabaseClient>) {
+async function startWorkerRun(db: ReturnType<typeof createServerSupabaseClient>, requestId: string) {
   const { data, error } = await db
     .from("inbound_worker_runs")
-    .insert({ status: "running" })
+    .insert({ status: "running", monitoring: { request_id: requestId } })
     .select("id")
     .maybeSingle();
-  if (error) console.error("Inbound worker run ledger could not be started.");
+  if (error) console.error(JSON.stringify(safeOperationalError("inbound_worker_run_start_failed", requestId)));
   return typeof data?.id === "string" ? data.id : null;
 }
 
@@ -35,6 +36,7 @@ async function finishWorkerRun(
     results: Array<{ id: string; status: string }>;
     monitoring?: Record<string, unknown>;
     errorCode?: string;
+    requestId: string;
   },
 ) {
   if (!runId) return;
@@ -44,20 +46,21 @@ async function finishWorkerRun(
       status: input.status,
       claimed_count: input.claimed,
       results: input.results,
-      monitoring: input.monitoring ?? {},
+      monitoring: { request_id: input.requestId, ...input.monitoring },
       error_code: input.errorCode ?? null,
       completed_at: new Date().toISOString(),
     })
     .eq("id", runId);
-  if (error) console.error("Inbound worker run ledger could not be finalized.");
+  if (error) console.error(JSON.stringify(safeOperationalError("inbound_worker_run_finalize_failed", input.requestId)));
 }
 
 export async function GET(request: Request) {
+  const requestId = getRequestId(request);
   if (!isCronAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return withRequestId(NextResponse.json({ error: "Unauthorized." }, { status: 401 }), requestId);
   }
   const db = createServerSupabaseClient();
-  const runId = await startWorkerRun(db);
+  const runId = await startWorkerRun(db, requestId);
   const { data, error } = await db.rpc("claim_inbound_email_events", {
     p_limit: 2,
     p_stale_after_seconds: 600,
@@ -68,8 +71,9 @@ export async function GET(request: Request) {
       claimed: 0,
       results: [],
       errorCode: "queue_claim_failed",
+      requestId,
     });
-    return NextResponse.json({ error: "The intake queue could not be claimed." }, { status: 500 });
+    return withRequestId(NextResponse.json({ error: "The intake queue could not be claimed." }, { status: 500 }), requestId);
   }
   const jobs = (Array.isArray(data) ? data : []) as InboundEmailJob[];
   const results: Array<{ id: string; status: string }> = [];
@@ -93,7 +97,7 @@ export async function GET(request: Request) {
     // Invoice work has already completed. Preserve the successful outcome and
     // surface degraded alerting in the run ledger instead of asking Vercel to
     // retry the entire invocation.
-    console.error("Inbound queue monitoring could not be completed.");
+    console.error(JSON.stringify(safeOperationalError("inbound_queue_monitoring_failed", requestId)));
     monitoring = { status: "degraded", error: "notification_monitor_failed" };
     status = "completed_with_warnings";
   }
@@ -102,6 +106,7 @@ export async function GET(request: Request) {
     claimed: jobs.length,
     results,
     monitoring,
+    requestId,
   });
-  return NextResponse.json({ claimed: jobs.length, results, monitoring });
+  return withRequestId(NextResponse.json({ claimed: jobs.length, results, monitoring }), requestId);
 }

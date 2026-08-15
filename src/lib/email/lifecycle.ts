@@ -8,7 +8,7 @@ import { claimExternalSideEffect } from "./side-effect-claim";
 export type LifecycleEmailKind =
   | "welcome_activation" | "upload_received" | "review_needed" | "finding_ready"
   | "approval_requested" | "forwarding_instructions" | "forwarding_test_result"
-  | "expected_bill_missed" | "verification_ready";
+  | "expected_bill_missed" | "verification_ready" | "activation_complete" | "activation_reminder";
 
 export type LifecycleEmailPayload = {
   vendorName?: string;
@@ -59,7 +59,7 @@ export function buildLifecycleEmailContent(kind: LifecycleEmailKind, payload: Li
       return body("Your document reached Costivra.", `<p><strong>${document}</strong></p><p>${copy}</p>`, { label: "View document status", href: link("/app/documents") }, `Document received · ${payload.documentName ?? "Source file"}`);
     }
     case "review_needed": return body("A document needs your review.", `<p>The ${vendor} document needs attention because extraction confidence is low, required totals are missing, or the arithmetic needs review.</p>`, { label: "Review the document", href: link("/app/documents") }, `Review needed · ${payload.vendorName ?? "Vendor document"}`);
-    case "finding_ready": return body("A potential cost issue is ready to review.", `<p><strong>${safe(payload.findingTitle, "A potential cost issue")}</strong></p><p>Potential value: <strong>${money(payload.amountCents)}</strong>. This is a potential value, not verified savings. The source evidence and calculation are attached in your workspace.</p>`, { label: "Review the evidence", href: link("/app/opportunities") }, `Potential value ready · ${payload.findingTitle ?? "Cost issue"}`);
+    case "finding_ready": return body("A potential cost issue is ready to review.", `<p><strong>${safe(payload.findingTitle, "A potential cost issue")}</strong></p><p>Potential value: <strong>${money(payload.amountCents)}</strong>. This is a potential value, not verified savings. The source evidence and calculation are attached in your workspace.</p>`, { label: "Review the evidence", href: link("/app/findings") }, `Potential value ready · ${payload.findingTitle ?? "Cost issue"}`);
     case "approval_requested": return body("An action is waiting for approval.", `<p><strong>${safe(payload.actionTitle, "A bounded action")}</strong> needs an authorized decision. Review the scope, evidence, and outside effect before approving.</p>`, { label: "Review approval", href: link("/app/actions") }, `Approval requested · ${payload.actionTitle ?? "Action"}`);
     case "forwarding_instructions": return body("Your bill-monitoring intake is ready.", `<p>Forward future ${vendor} bills to:</p><p style="font-size:20px;font-weight:700;color:#111927">${safe(payload.intakeAddress, "your private intake address")}</p><p>Only use the address shown in your workspace. Costivra will keep the source attached and show the scan result.</p>`, { label: "View monitoring", href: link("/app/vendors") }, `Monitoring setup · ${payload.vendorName ?? "Vendor"}`);
     case "forwarding_test_result": {
@@ -72,6 +72,8 @@ export function buildLifecycleEmailContent(kind: LifecycleEmailKind, payload: Li
     }
     case "expected_bill_missed": return body("An expected bill did not arrive.", `<p>Costivra did not receive the expected recurring bill from ${vendor} during the configured window. Check forwarding or upload the missing statement.</p>`, { label: "Review monitoring", href: link("/app/vendors") }, `Expected bill missed · ${payload.vendorName ?? "Vendor"}`);
     case "verification_ready": return body("A result is ready for verification.", `<p><strong>${safe(payload.findingTitle, "A cost outcome")}</strong> has later evidence available. Review the baseline, comparison record, and method before treating the outcome as verified.</p>`, { label: "Review verification", href: link("/app/savings") }, `Verification ready · ${payload.findingTitle ?? "Cost outcome"}`);
+    case "activation_complete": return body("Your Costivra workspace is activated.", `<p>Hi ${name},</p><p>Your workspace has completed the pilot setup checklist. You can now review source-linked findings, monitor recurring bills, and keep decisions tied to evidence.</p>`, { label: "Open your workspace", href: link("/app") }, "Your Costivra workspace is activated");
+    case "activation_reminder": return body("Your Costivra workspace is waiting for setup.", `<p>Hi ${name},</p><p>Your private workspace is still waiting for the pilot setup checklist to finish. Add the remaining source records, review the evidence, and select monitoring when you are ready.</p>`, { label: "Continue setup", href: link("/app") }, "Continue setting up Costivra");
   }
 }
 

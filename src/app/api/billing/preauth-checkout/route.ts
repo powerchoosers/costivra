@@ -19,6 +19,11 @@ function validEmail(value: string) {
   return /^\S+@\S+\.\S+$/.test(value) && value.length <= 254;
 }
 
+function stripeIntegrationIdentifier() {
+  const suffix = crypto.randomUUID().replace(/[^a-z]/gi, "").slice(0, 8).padEnd(8, "a");
+  return `costivra_preauth_${suffix}`;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
@@ -110,6 +115,7 @@ export async function POST(request: Request) {
     try {
       session = await stripe.checkout.sessions.create({
         mode: "subscription",
+        integration_identifier: stripeIntegrationIdentifier(),
         customer: customerId,
         client_reference_id: intentId,
         // Costivra is the merchant of record for this pilot. Stripe Managed

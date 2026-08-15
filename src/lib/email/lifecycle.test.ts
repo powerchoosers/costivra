@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildLifecycleEmailContent, sendLifecycleEmail, type LifecycleEmailSendPayload } from "./lifecycle";
+import { buildLifecycleEmailContent, sendLifecycleEmail, type LifecycleEmailKind, type LifecycleEmailSendPayload } from "./lifecycle";
 
 const { claimExternalSideEffect, sendTransactionalEmail } = vi.hoisted(() => ({ claimExternalSideEffect: vi.fn(), sendTransactionalEmail: vi.fn() }));
 const sideEffect = { status: "failed", provider_reference: null as string | null };
@@ -37,6 +37,43 @@ describe("lifecycle email system", () => {
     const content = buildLifecycleEmailContent("finding_ready", { findingTitle: "Software cost increased", amountCents: 240000 }, "Lewis");
     expect(content.text).toContain("Potential value: $2400.00");
     expect(content.text).toContain("not verified savings");
+    expect(content.html).toContain("https://costivra.ai/app/findings");
+    expect(content.html).not.toContain("/app/opportunities");
+  });
+
+  it("has truthful activation-complete copy", () => {
+    const content = buildLifecycleEmailContent("activation_complete", {}, "Lewis");
+    expect(content.subject).toBe("Your Costivra workspace is activated");
+    expect(content.text).toContain("completed the pilot setup checklist");
+    expect(content.html).toContain("https://costivra.ai/app");
+  });
+
+  it.each([
+    ["welcome_activation", "/app"],
+    ["upload_received", "/app/documents"],
+    ["review_needed", "/app/documents"],
+    ["finding_ready", "/app/findings"],
+    ["approval_requested", "/app/actions"],
+    ["forwarding_instructions", "/app/vendors"],
+    ["forwarding_test_result", "/app/vendors"],
+    ["expected_bill_missed", "/app/vendors"],
+    ["verification_ready", "/app/savings"],
+    ["activation_complete", "/app"],
+    ["activation_reminder", "/app"],
+  ] as const)("renders the %s lifecycle template with its supported destination", (kind, path) => {
+    const content = buildLifecycleEmailContent(kind as LifecycleEmailKind, {
+      vendorName: "Example Vendor",
+      documentName: "Example bill",
+      findingTitle: "Example finding",
+      actionTitle: "Example action",
+      intakeAddress: "intake@example.costivra.ai",
+      reason: "failed",
+      scanStatus: "rejected",
+    }, "Lewis");
+
+    expect(content.subject).toBeTruthy();
+    expect(content.text).toContain("Costivra");
+    expect(content.html).toContain(`https://costivra.ai${path}`);
   });
 
   it("fails closed when a lifecycle event has no stable source identifier", async () => {

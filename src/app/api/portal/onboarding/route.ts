@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, cleanText, PortalInputError } from "@/lib/portal/http";
 import { getPortalData, requirePortalContext } from "@/lib/portal/repository";
 import { deriveOnboardingProjection, getOnboardingProgress, type OnboardingStatus, type OnboardingStep } from "@/lib/portal/onboarding";
+import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 
 const statuses = new Set<OnboardingStatus>(["not_started", "in_progress", "activated", "blocked"]);
 const steps = new Set<OnboardingStep>(["account_confirmed", "company_profile", "documents", "review", "monitoring", "complete"]);
@@ -36,6 +37,21 @@ export async function POST() {
     delete (payload as Record<string, unknown>).progress;
     const { data, error } = await db.from("organization_onboarding").upsert(payload, { onConflict: "organization_id" }).select("*").single();
     if (error) throw error;
+    if (current?.status !== "activated" && data.status === "activated") {
+      try {
+        await sendLifecycleEmailToWorkspace({
+          db,
+          kind: "activation_complete",
+          organizationId,
+          payload: {
+            eventKey: `activation-complete:${organizationId}:${data.activated_at}`,
+          },
+        });
+      } catch (emailError) {
+        // Activation is durable and usable even if optional notification delivery fails.
+        console.error("activation lifecycle email failed", emailError);
+      }
+    }
     return NextResponse.json({ onboarding: data, progress: projection.progress }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return apiError(error); }
 }

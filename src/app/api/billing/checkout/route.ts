@@ -10,6 +10,11 @@ export function appUrl(request: Request) {
   return (process.env.NEXT_PUBLIC_SITE_URL || requestOrigin || "https://costivra.ai").replace(/\/$/, "");
 }
 
+function stripeIntegrationIdentifier(flow: "workspace" | "preauth") {
+  const suffix = crypto.randomUUID().replace(/[^a-z]/gi, "").slice(0, 8).padEnd(8, "a");
+  return `costivra_${flow}_${suffix}`;
+}
+
 export async function POST(request: Request) {
   try {
     const { db, organizationId, userId, role } = await requirePortalContext();
@@ -71,6 +76,7 @@ export async function POST(request: Request) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+      integration_identifier: stripeIntegrationIdentifier("workspace"),
       customer: customerId,
       client_reference_id: organizationId,
       // Costivra is the merchant of record for this pilot. Stripe Managed

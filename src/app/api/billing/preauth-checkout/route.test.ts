@@ -66,6 +66,7 @@ describe("POST /api/billing/preauth-checkout", () => {
     const stripe = getStripeClient.mock.results[0]?.value;
     expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
       mode: "subscription",
+      integration_identifier: expect.stringMatching(/^costivra_preauth_[a-z]{8}$/),
       customer: "cus_test_preauth",
       managed_payments: { enabled: false },
       success_url: "http://localhost:3000/signup?plan=starter&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}",

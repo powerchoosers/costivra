@@ -26,6 +26,14 @@ The north-star metric is **verified customer value created per month**, not AI u
 - For meaningful architecture decisions, add or update `DECISIONS.md` with the context, decision, alternatives, and consequences.
 - Maintain `STATUS.md` once implementation begins. Record completed work, validation results, known risks, blockers, and the next recommended task.
 
+## Communication
+
+- Call the owner Lewis.
+- Explain technical decisions in plain language and define unfamiliar terms when they matter.
+- Do not agree automatically; identify weaker assumptions, safer alternatives, and meaningful tradeoffs.
+- State important assumptions, uncertainties, security implications, and validation results clearly.
+- Lead with the outcome and keep explanations focused unless more detail is useful.
+
 ## Product Doctrine
 
 These rules are non-negotiable:

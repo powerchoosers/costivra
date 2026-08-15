@@ -90,6 +90,7 @@ describe("POST /api/billing/checkout", () => {
     expect(response.status).toBe(201);
     const stripe = getStripeClient.mock.results[0]?.value;
     expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
+      integration_identifier: expect.stringMatching(/^costivra_workspace_[a-z]{8}$/),
       success_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&billing=success",
       cancel_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&billing=cancelled",
     }), expect.any(Object));

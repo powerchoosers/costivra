@@ -37,6 +37,26 @@ export type OnboardingProjection = Pick<OnboardingRecord,
   "monitoring_completed_at" | "activated_at" | "blocked_reason"
 > & { progress: ReturnType<typeof getActivationProgress> };
 
+export const ACTIVATION_REMINDER_MAX = 3;
+export const ACTIVATION_REMINDER_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
+
+export function shouldSendActivationReminder(input: {
+  status: OnboardingStatus;
+  createdAt: string;
+  lastSentAt: string | null;
+  reminderCount: number;
+  now?: Date;
+}) {
+  if (!["not_started", "in_progress"].includes(input.status)) return false;
+  if (input.reminderCount >= ACTIVATION_REMINDER_MAX) return false;
+  const now = input.now ?? new Date();
+  const createdAt = Date.parse(input.createdAt);
+  if (!Number.isFinite(createdAt) || now.getTime() - createdAt < ACTIVATION_REMINDER_INTERVAL_MS) return false;
+  if (!input.lastSentAt) return true;
+  const lastSentAt = Date.parse(input.lastSentAt);
+  return Number.isFinite(lastSentAt) && now.getTime() - lastSentAt >= ACTIVATION_REMINDER_INTERVAL_MS;
+}
+
 function firstIncomplete(progress: ReturnType<typeof getActivationProgress>): OnboardingStep {
   if (progress.locationCount < 1) return "company_profile";
   if (progress.documentCount < 3) return "documents";

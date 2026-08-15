@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
+import { getRequestId, withRequestId } from "@/lib/observability/request-context";
 import { sendLifecycleEmail } from "@/lib/email/lifecycle";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -9,7 +10,9 @@ export const maxDuration = 60;
 
 /** Deliver pending approval notices only to the approver recorded on the approval row. */
 export async function GET(request: Request) {
-  if (!isCronAuthorized(request)) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  const requestId = getRequestId(request);
+  const respond = (body: unknown, init?: ResponseInit) => withRequestId(NextResponse.json(body, init), requestId);
+  if (!isCronAuthorized(request)) return respond({ error: "Unauthorized." }, { status: 401 });
   const db = createServerSupabaseClient();
   const { data: approvals, error } = await db
     .from("approvals")
@@ -17,7 +20,7 @@ export async function GET(request: Request) {
     .eq("decision", "pending")
     .order("created_at", { ascending: true })
     .limit(100);
-  if (error) return NextResponse.json({ error: "Approval notices could not be loaded." }, { status: 500 });
+  if (error) return respond({ error: "Approval notices could not be loaded." }, { status: 500 });
 
   const results: Array<{ approvalId: string; status: string }> = [];
   for (const approval of approvals ?? []) {
@@ -51,5 +54,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ processed: results.length, results }, { headers: { "Cache-Control": "private, no-store" } });
+  return respond({ processed: results.length, results }, { headers: { "Cache-Control": "private, no-store" } });
 }

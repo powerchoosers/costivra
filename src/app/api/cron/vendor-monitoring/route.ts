@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
+import { getRequestId, withRequestId } from "@/lib/observability/request-context";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 
@@ -9,7 +10,9 @@ export const maxDuration = 60;
 
 /** Mark each overdue monitoring cycle once and notify the current workspace owners. */
 export async function GET(request: Request) {
-  if (!isCronAuthorized(request)) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  const requestId = getRequestId(request);
+  const respond = (body: unknown, init?: ResponseInit) => withRequestId(NextResponse.json(body, init), requestId);
+  if (!isCronAuthorized(request)) return respond({ error: "Unauthorized." }, { status: 401 });
   const db = createServerSupabaseClient();
   const now = new Date().toISOString();
   const { data: configs, error } = await db
@@ -20,7 +23,7 @@ export async function GET(request: Request) {
     .lte("next_expected_at", now)
     .order("next_expected_at", { ascending: true })
     .limit(50);
-  if (error) return NextResponse.json({ error: "Monitoring schedules could not be loaded." }, { status: 500 });
+  if (error) return respond({ error: "Monitoring schedules could not be loaded." }, { status: 500 });
 
   const results: Array<{ configId: string; status: string }> = [];
   for (const config of configs ?? []) {
@@ -77,5 +80,5 @@ export async function GET(request: Request) {
     results.push({ configId: String(config.id), status: "attention_needed" });
   }
 
-  return NextResponse.json({ checkedAt: now, processed: results.length, results }, { headers: { "Cache-Control": "private, no-store" } });
+  return respond({ checkedAt: now, processed: results.length, results }, { headers: { "Cache-Control": "private, no-store" } });
 }

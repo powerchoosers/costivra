@@ -13,6 +13,7 @@ import {
 } from "@/lib/reports/delivery";
 import { MAX_REPORT_ATTEMPTS, nextReportRetryAt, reportRetryIsDue } from "@/lib/reports/retry";
 import { nextReportRun } from "@/lib/reports/schedule";
+import { getRequestId, withRequestId } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,9 @@ function isStaleClaim(createdAt: string | null | undefined, now: Date) {
 }
 
 export async function GET(request: Request) {
-  if (!isCronAuthorized(request)) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  const requestId = getRequestId(request);
+  const respond = (body: unknown, init?: ResponseInit) => withRequestId(NextResponse.json(body, init), requestId);
+  if (!isCronAuthorized(request)) return respond({ error: "Unauthorized." }, { status: 401 });
   const db = createServerSupabaseClient();
   const now = new Date();
   const { data: schedules, error } = await db
@@ -55,7 +58,7 @@ export async function GET(request: Request) {
     .lte("next_run_at", now.toISOString())
     .order("next_run_at")
     .limit(20);
-  if (error) return NextResponse.json({ error: "Report schedules could not be loaded." }, { status: 500 });
+  if (error) return respond({ error: "Report schedules could not be loaded." }, { status: 500 });
 
   const results: Array<{ scheduleId: string; status: string; recipients: number }> = [];
   for (const schedule of schedules ?? []) {
@@ -373,5 +376,5 @@ export async function GET(request: Request) {
       });
     }
   }
-  return NextResponse.json({ checkedAt: now.toISOString(), processed: results.length, results }, { headers: { "Cache-Control": "private, no-store" } });
+  return respond({ checkedAt: now.toISOString(), processed: results.length, results }, { headers: { "Cache-Control": "private, no-store" } });
 }

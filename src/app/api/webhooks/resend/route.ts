@@ -12,6 +12,7 @@ import { getResendClient } from "@/lib/email/resend";
 import { DOCUMENT_MIME_TYPES, ingestDocumentBuffer } from "@/lib/documents/intake";
 import { normalizeSubject, safeSnippet } from "@/lib/manage/mail";
 import { isConfiguredSecret } from "@/lib/env/secrets";
+import { getRequestId, withRequestId } from "@/lib/observability/request-context";
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -605,9 +606,12 @@ async function persistOwnerMailboxMessage(
 }
 
 export async function POST(request: Request) {
+  const requestId = getRequestId(request);
+  const respond = (body: unknown, init?: ResponseInit) =>
+    withRequestId(NextResponse.json(body, init), requestId);
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
   if (!isConfiguredSecret(webhookSecret))
-    return NextResponse.json(
+    return respond(
       { error: "Inbound email is not configured." },
       { status: 503 },
     );
@@ -626,7 +630,7 @@ export async function POST(request: Request) {
       webhookSecret,
     });
   } catch {
-    return NextResponse.json(
+    return respond(
       { error: "Invalid webhook signature." },
       { status: 400 },
     );
@@ -637,7 +641,7 @@ export async function POST(request: Request) {
     createHash("sha256").update(payload).digest("hex");
   if (event.type !== "email.received") {
     await recordDeliveryEvent(db, event, providerEventId);
-    return NextResponse.json({ received: true });
+    return respond({ received: true });
   }
 
   const received = event as EmailReceivedEvent;
@@ -655,7 +659,7 @@ export async function POST(request: Request) {
     .map((address) => address.split("@")[1])
     .filter(Boolean);
   if (!localParts.length || !domains.length)
-    return NextResponse.json({ received: true });
+    return respond({ received: true });
 
   const { data: intakeCandidates } = await db
     .from("inbound_email_addresses")
@@ -679,7 +683,7 @@ export async function POST(request: Request) {
       recipientAddresses.includes(normalizeEmailAddress(candidate.address)),
     );
     if (!mailbox)
-      return NextResponse.json({ received: true });
+      return respond({ received: true });
     const result = await persistOwnerMailboxMessage(
       db,
       resend,
@@ -697,7 +701,7 @@ export async function POST(request: Request) {
       },
       { onConflict: "provider_event_id" },
     );
-    return NextResponse.json({ received: true, mailbox: "owner", ...result });
+    return respond({ received: true, mailbox: "owner", ...result });
   }
 
   const senderAddress = normalizeEmailAddress(received.data.from);
@@ -719,7 +723,7 @@ export async function POST(request: Request) {
     .single();
   if (inserted.error) {
     if (inserted.error.code === "23505")
-      return NextResponse.json({ received: true, duplicate: true });
+      return respond({ received: true, duplicate: true });
     throw inserted.error;
   }
   const eventId = inserted.data.id as string;
@@ -760,7 +764,7 @@ export async function POST(request: Request) {
       resource_type: "inbound_email_event",
       resource_id: eventId,
     });
-    return NextResponse.json({ received: true, status: "rejected" });
+    return respond({ received: true, status: "rejected" });
   }
 
   const queuedAt = new Date().toISOString();
@@ -781,5 +785,5 @@ export async function POST(request: Request) {
     resource_type: "inbound_email_event",
     resource_id: eventId,
   });
-  return NextResponse.json({ received: true, status: "queued" }, { status: 202 });
+  return respond({ received: true, status: "queued" }, { status: 202 });
 }

@@ -103,6 +103,7 @@ import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { ManageNotificationCenter } from "@/components/manage-live-notifications";
+import { ManagePilotOperations } from "@/components/manage-pilot-operations";
 import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspace";
 import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
@@ -141,6 +142,7 @@ const navGroups = [
       ["Outreach", "/manage/outreach", MessageSquareText],
       ["Mail", "/manage/mail", Mail],
       ["Intake", "/manage/intake", ShieldAlert],
+      ["Operations", "/manage/operations", BarChart3],
       ["Invoice review", "/manage/invoice-review", FileCheck2],
       ["Category operations", "/manage/category-intelligence", Layers],
       ["Trust review", "/manage/trust-review", ShieldCheck],
@@ -704,7 +706,7 @@ export function ManagePortal({
   const { openComposer } = useManageComposer();
   const currentAccount = section === "accounts" && detailId ? data.accounts.find((item) => item.id === detailId) : null;
   const currentContact = section === "contacts" && detailId ? data.contacts.find((item) => item.id === detailId) : null;
-  const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations", "trust-review": "Trust review" };
+  const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", operations: "Pilot operations", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations", "trust-review": "Trust review" };
   const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? (outreachSequenceId ? "Sequence" : sequenceOutreachTab ? "Sequences" : managePageLabels[section] ?? pretty(section));
   const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : outreachSequenceId ? "/manage/outreach?tab=sequences" : "/manage";
   const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : outreachSequenceId ? "Sequences" : "Client operations";
@@ -1315,7 +1317,7 @@ export function ManagePortal({
               <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
               <ManageNotificationCenter soundEnabled={data.operator.notificationSoundEnabled} />
             </div>
-          {section === "mail" ? null : section === "settings" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
+          {section === "mail" ? null : section === "settings" || section === "operations" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => openDialog("note")}
@@ -1428,6 +1430,7 @@ export function ManagePortal({
           {section === "intake" && intakeOperations && (
             <ManageIntakeOperations data={intakeOperations} />
           )}
+          {section === "operations" && <ManagePilotOperations />}
           {section === "category-intelligence" && <ManageCategoryIntelligence />}
           {section === "trust-review" && trustReview && data.operator.role === "owner" && <OpportunityTrustReview data={trustReview} />}
           {section === "activity" && (

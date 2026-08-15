@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const enabled = process.env.RUN_AUTHENTICATED_E2E === "1";
 
@@ -325,35 +325,62 @@ test.describe("authenticated customer workspace", () => {
     !enabled,
     "Set RUN_AUTHENTICATED_E2E=1 and the explicit Supabase E2E credentials to run this destructive-but-cleaned-up test.",
   );
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
 
-  test("completes the customer approval workflow through the rendered UI", async ({ page }, testInfo) => {
+  test("completes the customer approval workflow through the rendered UI", async ({ page, browser }, testInfo) => {
     test.skip(
       testInfo.project.name !== "desktop-chromium",
       "The authenticated mutation sequence runs once on desktop; mobile layout remains covered by public smoke tests.",
     );
 
     const fixture = await createWorkspaceFixture();
+    let isolationFixture: WorkspaceFixture | null = null;
+    let isolationContext: BrowserContext | null = null;
     const failures = collectRuntimeFailures(page);
     try {
-      await page.goto("/login?next=/app/opportunities");
+      isolationFixture = await createWorkspaceFixture();
+      await page.goto("/login?next=/app/findings");
       await page.getByRole("textbox", { name: "Work email" }).fill(fixture.email);
-      await page.getByLabel("Password").fill(fixture.password);
+      await page.getByRole("textbox", { name: "Password" }).fill(fixture.password);
       await page.getByRole("button", { name: "Sign in", exact: true }).click();
 
-      await expect(page).toHaveURL(/\/app\/opportunities$/, { timeout: 30_000 });
-      await expect(page.getByRole("heading", { name: "Opportunities" })).toBeVisible({
+      await expect(page).toHaveURL(/\/app\/findings$/, { timeout: 30_000 });
+      await expect(page.getByRole("navigation", { name: "Finding views" })).toBeVisible({
         timeout: 30_000,
       });
 
       await page.goto(`/app/vendors/${fixture.vendorId}?tab=bills`);
       await expect(page.getByRole("heading", { name: "Bills and recorded expenses" })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText("Reconciliation: Reconciled", { exact: false })).toBeVisible();
-      await page.getByRole("button", { name: "Monitoring" }).click();
+      await page.goto(`/app/vendors/${fixture.vendorId}?tab=overview`);
       await expect(page.getByRole("heading", { name: "Continuous Bill Monitoring" })).toBeVisible();
-      await expect(page).toHaveURL(new RegExp(`/app/vendors/${fixture.vendorId}\\?tab=monitoring`));
-      await page.getByRole("button", { name: "History" }).click();
-      await expect(page.getByRole("heading", { name: "Relationship history" })).toBeVisible();
+      await page.getByRole("button", { name: "Monitor this vendor" }).click();
+      const monitoringDialog = page.getByRole("dialog", { name: /Monitor E2E Telecom/ });
+      await expect(monitoringDialog).toBeVisible();
+      await monitoringDialog.getByRole("button", { name: "Select an option..." }).click();
+      await page.getByRole("option", { name: "Manual Forwarding per Invoice" }).click();
+      await expect(monitoringDialog.locator('input[name="sourceMethod"]')).toHaveValue("manual_forwarding");
+      const monitoringResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/portal/vendors/") &&
+          response.url().endsWith("/monitoring") &&
+          response.request().method() === "POST",
+      );
+      await monitoringDialog.getByRole("button", { name: "Save monitoring rule" }).click();
+      const monitoringResponse = await monitoringResponsePromise;
+      expect(monitoringResponse.status()).toBe(200);
+      await expect(page.getByText("Vendor monitoring updated.", { exact: true })).toBeVisible({ timeout: 30_000 });
+      const monitoringConfig = await fixture.admin
+        .from("vendor_monitoring_configs")
+        .select("source_method,state,expected_cadence_days")
+        .eq("organization_vendor_id", fixture.relationshipId)
+        .single();
+      expect(monitoringConfig.error).toBeNull();
+      expect(monitoringConfig.data).toMatchObject({
+        source_method: "manual_forwarding",
+        state: "manual_tracking",
+        expected_cadence_days: 30,
+      });
 
       const breakdownResponse = await page.request.get(
         `/api/portal/documents/${fixture.documentId}/breakdown`,
@@ -370,8 +397,8 @@ test.describe("authenticated customer workspace", () => {
       }));
 
       await page.goto("/app/settings");
-      await page.getByRole("tab", { name: "Team & approvals" }).click();
-      await expect(page.getByRole("heading", { name: "Approval policies" })).toBeVisible();
+      await page.getByRole("button", { name: "Team & approvals", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Approval policies", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Add policy" }).click();
       const policyDialog = page.getByRole("dialog", { name: "Add approval policy" });
       await expect(policyDialog).toBeVisible();
@@ -390,19 +417,19 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.locator(".record-quality", { hasText: "Vendor match" })).toContainText("exact");
       await expect(page.locator(".record-quality", { hasText: "Reconciliation" })).toContainText("reconciled");
 
-      await page.goto("/app/opportunities");
-      const opportunityCard = page.locator("article.portal-card", {
+      await page.goto("/app/findings");
+      const opportunityCard = page.locator(".workspace-work-item", {
         hasText: fixture.opportunityTitle,
       });
       await expect(opportunityCard).toBeVisible();
       await expect(opportunityCard.getByText("Needs evidence", { exact: true })).toBeVisible();
-      await expect(opportunityCard).toContainText("Not shown until calculated");
+      await expect(opportunityCard).toContainText("Not shown");
       await expect(opportunityCard).not.toContainText("$3,000");
       await opportunityCard
         .getByRole("button", { name: `Update ${fixture.opportunityTitle} status` })
         .click();
       await opportunityCard.getByRole("option", { name: "Approve plan" }).click();
-      await expect(page.getByText("Opportunity updated.", { exact: true })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText("Finding updated.", { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect
         .poll(async () => {
           const result = await fixture.admin
@@ -415,7 +442,7 @@ test.describe("authenticated customer workspace", () => {
         })
         .not.toBeNull();
 
-      await page.goto("/app/actions");
+      await page.goto("/app/actions?view=assigned");
       const actionCard = page.locator("article.portal-card", {
         hasText: `Review and act on: ${fixture.opportunityTitle}`,
       });
@@ -423,24 +450,51 @@ test.describe("authenticated customer workspace", () => {
       await actionCard.getByRole("button", { name: "Approve", exact: true }).click();
       await expect(page.getByText("Action approved.", { exact: true })).toBeVisible({ timeout: 30_000 });
 
-      await page.goto("/app/savings");
+      await page.goto("/app/savings?view=in_progress");
       const savingsRow = page.locator(".savings-workflow-row", {
-        hasText: `Verify outcome: ${fixture.opportunityTitle}`,
+        hasText: fixture.opportunityTitle,
       });
       await expect(savingsRow).toBeVisible();
-      await savingsRow.getByRole("link", { name: "Review baseline" }).click();
-      await expect(page.getByRole("heading", { name: "Verification review" })).toBeVisible();
+      await savingsRow.getByRole("link", { name: fixture.opportunityTitle }).click();
+      await expect(page).toHaveURL(/\/app\/results\/[^/]+$/, { timeout: 30_000 });
+      await expect(page.getByText("Verification review", { exact: true })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("checkbox", { name: /reviewed the supporting records and method/i }).check();
       await page.getByRole("button", { name: "Accept reviewed baseline" }).click();
       await expect(page.getByText("Baseline accepted.", { exact: true })).toBeVisible({ timeout: 30_000 });
 
-      await page.goto("/app/actions");
+      await page.goto("/app/actions?view=assigned");
       await expect(actionCard).toBeVisible();
       await actionCard.getByRole("button", { name: "Start work" }).click();
       await expect(page.getByText("Action started.", { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(actionCard.getByRole("button", { name: "Mark complete" })).toBeVisible();
       await actionCard.getByRole("button", { name: "Mark complete" }).click();
       await expect(page.getByText("Action completed.", { exact: true })).toBeVisible({ timeout: 30_000 });
+
+      isolationContext = await browser.newContext({
+        baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3100",
+      });
+      const isolationPage = await isolationContext.newPage();
+      await isolationPage.goto("/login?next=/app/findings");
+      await isolationPage.getByRole("textbox", { name: "Work email" }).fill(isolationFixture.email);
+      await isolationPage.getByRole("textbox", { name: "Password" }).fill(isolationFixture.password);
+      await isolationPage.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(isolationPage).toHaveURL(/\/app\/findings$/, { timeout: 30_000 });
+      await expect(isolationPage.locator("body")).not.toContainText(fixture.opportunityTitle);
+
+      const foreignBreakdownStatus = await isolationPage.evaluate(async (documentId) => {
+        const response = await fetch(`/api/portal/documents/${documentId}/breakdown`);
+        return response.status;
+      }, fixture.documentId);
+      expect([401, 403, 404]).toContain(foreignBreakdownStatus);
+      const foreignInvoice = await isolationPage.evaluate(async (invoiceId) => {
+        const response = await fetch(`/app/bills/${invoiceId}`);
+        return { status: response.status, html: await response.text() };
+      }, fixture.invoiceId);
+      expect([200, 403, 404]).toContain(foreignInvoice.status);
+      if (foreignInvoice.status === 200) {
+        const foreignInvoiceHtml = foreignInvoice.html;
+        expect(foreignInvoiceHtml).not.toContain("INV-E2E-001");
+      }
 
       const [opportunity, action, policy, savings, audit] = await Promise.all([
         fixture.admin
@@ -496,7 +550,9 @@ test.describe("authenticated customer workspace", () => {
       );
       expect(failures).toEqual([]);
     } finally {
+      await isolationContext?.close();
       await removeWorkspaceFixture(fixture);
+      if (isolationFixture) await removeWorkspaceFixture(isolationFixture);
     }
   });
 });
