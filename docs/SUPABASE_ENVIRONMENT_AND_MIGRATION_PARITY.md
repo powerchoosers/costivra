@@ -18,7 +18,9 @@ The Supabase project list contained exactly the Costivra and Luxor projects. No 
 
 The check inspected 48 static text assets. The only Supabase-related client-bundle match was a generic key-format detector; no configured secret value was present.
 
-Vercel Production and Preview environment values could not be independently listed from this checkout because the Vercel CLI is not installed. The strict check therefore remains available through `--require-vercel` but was not claimed as passed. The repository contains the required environment names and the Vercel project identity; an owner must run the strict check against the actual scoped Vercel values.
+The Vercel CLI is now installed and authenticated as `lpatterson-9351`. The linked project is `nodal-point-network/costivra` (`prj_pMAnjcRnNPD35PyXwNiUVz99N8Zc`). `vercel env ls production` confirms Production has `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY`. `vercel env ls preview` confirms Preview has the two public Supabase variables but does **not** have `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY`.
+
+This is a real Preview configuration gap, not a Costivra/Luxor identity mismatch: Preview server routes that require the server secret may fail or be unavailable. The secret should be added to Preview only if authenticated Preview API/server-route testing is required; it was not copied or changed automatically. The CLI intentionally displayed sensitive values as `Hidden`, so no secret values were recorded here.
 
 ## Migration parity
 
