@@ -1,5 +1,13 @@
 # Costivra Status
 
+## August 15, 2026 — Packet 01 scanner boundary hardening
+
+- Removed the duplicate `server-only` import from the production scanner entry point.
+- Added a UTC-based scanner-budget migration that rejects queue waits over 15 seconds before consuming monthly quota. Browser roles remain denied and service-role execution remains explicit.
+- **Validation:** TypeScript PASS; focused scanner lint PASS; focused scanner/provenance tests PASS (14 tests); full unit suite PASS (700 passed, 6 skipped); `git diff --check` PASS.
+- **Live proof:** existing authenticated production-path proof covers clean and official inert EICAR outcomes for manual upload and forwarded attachment; see `docs/PACKET_03_LIVE_PROOF.md`. This local continuation did not repeat billable probes because no `CLOUDMERSIVE_API_KEY` is available here.
+- **Supabase verification:** migration `scanner_budget_utc_wait_gate` is applied to project `skfocjrykyvsaviyhdea`; the remote function reports UTC month handling, rejects waits over 15 seconds before reservation, and grants execution only to `service_role`.
+
 ## August 13, 2026 — Shared scrollbar fade refinement
 
 - Reworked the shared authenticated-workspace scrollbar overlay used by `/app` and `/manage`: its first layout paint now completes before opacity is allowed to rise, preventing Chromium from batching the thumb into a sudden pop.
