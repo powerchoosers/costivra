@@ -1,5 +1,15 @@
 # Costivra Status
 
+## August 15, 2026 — Packet 02 current release evidence
+
+- **Exact release candidate:** `2633675cb66345430977d862aa622b86b1857fc1` (`Add Costivra pilot remediation docs`); local `main` is clean and matches `origin/main`.
+- **GitHub Actions:** Quality gates run `31903584079`, job `validate` (`95057938209`) completed successfully on the exact commit. Install, typecheck, lint, production audit, full audit, secret scan, unit tests, invoice smoke evaluation, integration tests, build, Playwright install, and public Playwright all completed successfully; no required step was skipped.
+- **Vercel:** production deployment `dpl_2WKrHBo1DnvxCxoSA8h41aRbwVsk` is `READY` and maps to the same exact GitHub SHA.
+- **Local gate matrix:** the complete Node 24.19.0 matrix is recorded as passing on the code-equivalent release-gate baseline; the current exact SHA changes only documentation, and its exact release-gate proof is the GitHub run above. The system shell's Node 22.22.2 is not release evidence; use the bundled Node 24 runtime from `AGENTS.md`.
+- **Release verdict:** `scripts/release-verdict.ts` identifies the required gates, binds results to the exact commit, detects working-tree drift, rejects stale result files, and fails closed on any failed or skipped gate. A fresh full local invocation was not repeated because it serially reruns the same expensive gates; the exact-commit GitHub matrix is the authoritative current proof.
+- **Branch protection:** the latest recorded GitHub state is `main` unprotected with no required checks, and the rulesets endpoint returns no rulesets. Pending owner action: open `https://github.com/powerchoosers/costivra/settings/branches`, protect `main`, require `Quality gates / validate`, require branches to be up to date, block force-pushes and deletion, and restrict bypass to deliberate administrators. No repository rule was changed without GitHub settings authorization.
+- **Final-pilot boundary:** authenticated Playwright remains a separate final-pilot gate requiring `RUN_AUTHENTICATED_E2E=1`, `E2E_ALLOW_PRODUCTION=1`, `PLAYWRIGHT_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `E2E_SUPABASE_SECRET_KEY`; missing credentials are documented as a blocker, not a pass. Real invoice, scanner, restore/deletion, and legal/operational evidence remain in their respective packets.
+
 ## August 15, 2026 — Packet 02 release gate restored
 
 - **Release commit:** `f2fc656b4829c943014d976909458a990e97b2ea` (`Restore green release gates`); local `main` is clean and matches `origin/main`.

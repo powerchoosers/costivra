@@ -242,6 +242,41 @@ Preserve useful history, but label it historical.
 - committing, pushing, merging, or deploying without explicit authorization;
 - claiming production readiness before the other pilot packets pass.
 
+## Completion update — August 15, 2026
+
+The release-gate work is complete for the exact documentation release candidate. The current authoritative evidence is:
+
+- **Commit:** `2633675cb66345430977d862aa622b86b1857fc1` (`Add Costivra pilot remediation docs`)
+- **GitHub Actions:** run `31903584079`, job `validate` `95057938209`, completed successfully; every required step completed and none was skipped.
+- **Vercel:** production deployment `dpl_2WKrHBo1DnvxCxoSA8h41aRbwVsk`, `READY`, mapped to the same SHA.
+- **Dependency review:** production and full `npm audit` both report zero vulnerabilities after the documented targeted overrides; no audit threshold was weakened and no audit step was removed.
+- **Local runtime:** the recorded complete local matrix passed under Node 24.19.0 on the code-equivalent release-gate baseline. The current exact commit is documentation-only, so the exact current release proof is the GitHub run above. Node 22.22.2 is not valid release evidence.
+- **Release-verdict implementation:** exact-commit binding, stale-result rejection, source-drift detection, readable output, machine-readable output, and fail-closed handling are implemented in `scripts/release-verdict.ts`.
+
+## Release gate matrix
+
+| Gate | Local | GitHub Actions | Required for final release |
+|---|---|---|---|
+| Install | PASS on Node 24.19.0 baseline | PASS | Yes |
+| Typecheck | PASS on Node 24.19.0 baseline | PASS | Yes |
+| Lint | PASS on Node 24.19.0 baseline | PASS | Yes |
+| Production audit | 0 vulnerabilities | PASS | Yes |
+| Full audit | 0 vulnerabilities | PASS | Yes |
+| Secret scan | PASS; no matched value exposed | PASS | Yes |
+| Unit tests | PASS: 700 passed / 6 skipped | PASS | Yes |
+| Invoice smoke eval | PASS: 100% reported metrics | PASS | Yes |
+| Integration tests | PASS: 8 passed / 6 skipped | PASS | Yes |
+| Build | PASS | PASS | Yes |
+| Public Playwright | PASS: 27 passed / 7 intentional skips | PASS | Yes |
+| Authenticated Playwright | Credential-gated; not claimed | Separate final-pilot workflow | Final pilot gate |
+| Release verdict | Implementation verified; fresh full local run not repeated | Exact-gate matrix passed | Yes |
+
+## Remaining owner action
+
+`main` is not currently protected and no repository ruleset is active. This packet's exact pending action is to configure the branch rule at `https://github.com/powerchoosers/costivra/settings/branches` with the `Quality gates / validate` required check, up-to-date branches, force-push/deletion blocks, and deliberate administrator bypass only. This is the only Packet 02 release-control action not applied by the agent because the connected GitHub integration cannot write branch-protection settings.
+
+This packet does not claim final pilot readiness. Authenticated production regression, real invoice evaluation, scanner proof, restore/deletion exercises, and other packet-specific evidence remain separate requirements.
+
 ## Completion report
 
 Return the shared completion report from Packet 00. Add:
