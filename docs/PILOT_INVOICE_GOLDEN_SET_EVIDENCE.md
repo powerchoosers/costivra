@@ -23,6 +23,7 @@ The evaluator also requires 10 scanned/image-heavy cases and 10 adversarial case
 - Approved manifest: absent.
 - Private prediction/report artifacts: absent.
 - Real cases: 0.
+- Public template samples downloaded for local parser coverage: 5 (Con Edison, ComEd, Florida PSC, Austin Energy, and Ohio OCC); these do not count as real cases.
 - Independent reviewer references: 0.
 - Double-reviewed disagreements: not applicable.
 - Raw invoice text in Git or public search: none found in the repository audit.
@@ -46,6 +47,7 @@ The release thresholds are recorded in `docs/PILOT_EVALUATION_THRESHOLDS.md` and
 | Check | Result |
 |---|---|
 | Deterministic smoke evaluation using committed synthetic prediction | **PASS** — 1 case, all reported metrics 100%, 0 extraction errors; not real-data evidence |
+| Public energy sample download/parser validation | **PASS** — 5 official/public PDFs, 45 pages total, all readable by the production PDF parser |
 | Real manifest validation | **NOT RUN — no approved manifest exists** |
 | Real pilot evaluation | **BLOCKED — no approved corpus exists** |
 | Category promotion | **NOT RUN — all categories remain draft/unsupported** |

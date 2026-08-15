@@ -17,6 +17,7 @@
 - **Status:** BLOCKED for real-data proof because no approved de-identified or consented invoice corpus or manifest was supplied. No category is promoted to `verified_for_pilot`.
 - **Safe infrastructure:** private corpus paths remain Git-ignored; the manifest/evaluator refuse synthetic smoke data for pilot runs; `npm run security:private-evaluation` now fails if private corpus paths are staged.
 - **Synthetic boundary:** committed public fixtures and the deterministic smoke evaluator remain engineering checks only and are not being represented as extraction-accuracy evidence.
+- **Energy template coverage:** five public electricity examples were downloaded into ignored `private-evaluation/invoices/energy/public-samples/` and parsed successfully (Con Edison, ComEd, Florida PSC commercial calculations, Austin Energy solar, Ohio OCC guide). They are template/regression material only, not real golden cases.
 - **Evidence:** see `docs/PILOT_INVOICE_GOLDEN_SET_EVIDENCE.md`.
 
 ## August 15, 2026 — Packet 02 current release evidence
