@@ -29,3 +29,15 @@ Run the reproducible parser check with:
 ```powershell
 npm run eval:public-invoice-samples
 ```
+
+## Full AI-path smoke test
+
+On August 15, 2026, the production `analyzeDocument` path was also run against these three public files with the configured OpenRouter environment. All three provider calls completed successfully. Only aggregate structure was retained:
+
+| File | AI result | Extracted line items | Evidence entries |
+|---|---|---:|---:|
+| Adobe template | PASS | 0 | 3 |
+| AT&T Small Business | PASS | 3 | 12 |
+| AT&T Internet Air | PASS | 2 | 9 |
+
+This is an engineering smoke test of the provider/parser path. It is not a labeled accuracy evaluation and does not promote software, telecom, or internet categories.
