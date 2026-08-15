@@ -19,6 +19,8 @@ describe("Costivra email branding", () => {
     expect(html).toContain('alt="Costivra"');
     expect(html).toContain("Every recurring cost, under command.");
     expect(html).toContain("Find the leak. Prove the value. Recover with confidence.");
+    expect(html).toContain("Space Grotesk");
+    expect(html).toContain("font-family:Sora");
     expect(html).toContain('href="https://costivra.ai/privacy"');
     expect(html).toContain('href="https://costivra.ai/security"');
   });

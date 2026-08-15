@@ -32,8 +32,9 @@ export function brandedEmailHtml(input: {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>${escapeEmailHtml(input.preview)}</title>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');</style>
   </head>
-  <body style="margin:0;background:#f3f5f8;color:#162033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+  <body style="margin:0;background:#f3f5f8;color:#162033;font-family:Sora,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeEmailHtml(input.preview)}</div>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f3f5f8">
       <tr>
@@ -44,7 +45,7 @@ export function brandedEmailHtml(input: {
                 <table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse">
                   <tr>
                     <td style="padding-right:12px"><img src="${COSTIVRA_EMAIL_LOGO_URL}" width="42" height="37" alt="Costivra" style="display:block;width:42px;height:37px;object-fit:contain;border:0"></td>
-                    <td><strong style="display:block;color:#111927;font-size:19px;letter-spacing:-.4px">Costivra</strong><span style="display:block;margin-top:2px;color:#7a8596;font-size:11px;letter-spacing:1.25px;text-transform:uppercase">Every recurring cost, under command.</span></td>
+                    <td><strong style="display:block;color:#111927;font-family:'Space Grotesk',Sora,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:19px;font-weight:600;letter-spacing:-.4px">Costivra</strong><span style="display:block;margin-top:2px;color:#7a8596;font-size:11px;letter-spacing:1.25px;text-transform:uppercase">Every recurring cost, under command.</span></td>
                   </tr>
                 </table>
               </td>
