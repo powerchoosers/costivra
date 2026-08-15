@@ -1,5 +1,15 @@
 # Costivra Status
 
+## August 15, 2026 — Packet 02 release gate restored
+
+- **Release commit:** `f2fc656b4829c943014d976909458a990e97b2ea` (`Restore green release gates`); local `main` is clean and matches `origin/main`.
+- **GitHub Actions:** Quality gates run `31899742638`, job `validate` (`95048506279`) completed successfully on the exact commit. Install, typecheck, lint, production audit, full audit, secret scan, unit tests, invoice smoke evaluation, integration tests, build, Playwright install, and public Playwright all passed; no required step was skipped.
+- **Local validation:** clean `npm ci` with Node 24.19.0; both audits report 0 vulnerabilities; secret scan checked 996 files; unit suite 700 passed / 6 skipped; invoice smoke PASS at 100% across reported metrics; integration 8 passed / 6 skipped; build PASS; public Playwright 27 passed / 7 intentionally skipped. Authenticated Playwright remains a separate production workflow requiring `E2E_SUPABASE_SECRET_KEY`.
+- **Vercel:** production deployment `dpl_BWwGR1wPUwTKW2phrS7QiSBBh4Sc` is `READY` and maps to the same GitHub SHA.
+- **Release-verdict layer:** now includes install and secret-scan gates, records the exact commit and working-tree state, rejects stale `--results` files from another commit, and fails on source drift.
+- **Branch protection:** GitHub API currently reports `main` as `protected: false`, with required status-check enforcement `off` and no required checks. Pending owner action: Settings → Branches → add a `main` rule requiring the `Quality gates / validate` check, require branches to be up to date before merge, block force-pushes and deletion, and restrict bypass to deliberate administrators. No repository rule was changed by this packet.
+- **Remaining pilot blockers:** authenticated production regression, real de-identified invoice evaluation, live scanner clean/inert exercise, restore/deletion exercises, and the other packet-specific operational/legal evidence remain open. This is a green CI/release-control result, not a final pilot-readiness verdict.
+
 ## August 15, 2026 — Packet 01 scanner boundary hardening
 
 - Removed the duplicate `server-only` import from the production scanner entry point.
