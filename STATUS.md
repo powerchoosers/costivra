@@ -2,6 +2,7 @@
 
 ## August 15, 2026 — Packet 03 Supabase security and recovery evidence
 
+- **Release commit:** `939c6f206ebceb407b2d4a4f853fe87434ce0bdb`; GitHub Actions run [#254](https://github.com/powerchoosers/costivra/actions/runs/31906071385) completed successfully for this exact SHA. Matching Vercel production deployment `dpl_BjmGgKzDqJ3RazasStuAamEwZs1e` is `READY`.
 - **Project identity:** Costivra Supabase project `skfocjrykyvsaviyhdea`, `ACTIVE_HEALTHY`, PostgreSQL 17 in `us-east-2`; Luxor project `ofjvbzdwijjnajgjotmx` is separate and was not used.
 - **Production fixes:** applied and recorded the three Packet 03 migrations for the vendor trigger search path/privileges, privileged-function column qualification, and action-plan organization scoping.
 - **Schema lint:** `supabase db lint --linked --level warning --fail-on none` reports `No schema errors found`.
