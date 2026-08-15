@@ -18,6 +18,7 @@
     "test:e2e": "playwright test",
     "test:e2e:authenticated": "node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test tests/e2e/authenticated-workspace.spec.ts --project=desktop-chromium",
     "eval:invoices": "tsx --env-file-if-exists=.env.local scripts/evaluate-invoice-extraction.ts",
+    "eval:public-invoice-samples": "tsx scripts/validate-public-invoice-samples.ts",
     "eval:pilot": "tsx --env-file-if-exists=.env.local scripts/evaluate-pilot.ts",
     "eval:categories": "tsx --env-file-if-exists=.env.local scripts/evaluate-category-intelligence.ts categories",
     "eval:line-items": "tsx --env-file-if-exists=.env.local scripts/evaluate-category-intelligence.ts line_items",
