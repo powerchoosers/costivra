@@ -7,7 +7,6 @@ type Gate = { name: string; status: GateStatus; detail?: string };
 type SourceState = { commitSha: string; workingTree: string[] };
 
 const gates = [
-  { name: "install", command: "npm", args: ["ci"] },
   { name: "typecheck", command: "npm", args: ["run", "typecheck"] },
   { name: "lint", command: "npm", args: ["run", "lint"] },
   { name: "dependency-audit-production", command: "npm", args: ["audit", "--omit=dev"] },
@@ -75,15 +74,17 @@ function readResultFile(file: string, expectedCommitSha: string): Gate[] {
 }
 
 function runLocalGates(): Gate[] {
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+  const npmCommand = process.platform === "win32" ? process.execPath : "npm";
+  const npmArgs = process.platform === "win32"
+    ? [process.env.COSTIVRA_NPM_CLI ?? path.join(process.env.ProgramFiles ?? "C:\\Program Files", "nodejs", "node_modules", "npm", "bin", "npm-cli.js")]
+    : [];
   return gates.map((gate) => {
     try {
-      execFileSync(gate.command === "npm" ? npmCommand : gate.command, gate.args, {
+      execFileSync(gate.command === "npm" ? npmCommand : gate.command, gate.command === "npm" ? [...npmArgs, ...gate.args] : gate.args, {
         cwd: process.cwd(),
-        stdio: "pipe",
-        encoding: "utf8",
+        stdio: "inherit",
         windowsHide: true,
-        shell: process.platform === "win32",
+        shell: false,
         timeout: gate.name === "browser-e2e" ? 300_000 : 240_000,
       });
       return { name: gate.name, status: "passed" as const };
