@@ -325,6 +325,17 @@ Release gates:
 - No broken evidence link for a material finding.
 - No production deployment with failing typecheck, lint, unit, integration, required evaluation, build, or relevant end-to-end checks.
 
+## Runtime and Environment Requirements
+
+- Costivra requires **Node.js 24.x**. This is enforced by `package.json`, GitHub Actions, and Vercel. Do not run project validation with Node 22 or another major version and treat the result as release evidence.
+- Before running `npm`, `pnpm`, `tsx`, Next.js, Vitest, ESLint, or Playwright, check `node --version`. It must report `v24.*`.
+- On Lewis's Windows Codex machine, the bundled Node 24 runtime is normally at `C:\Users\Lap3p\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`. Prefer that runtime when the system `node` reports another major version. The bundled npm CLI is under its Node installation; do not silently fall back to the system Node 22 installation.
+- The public CI/browser checks can use non-secret placeholders when no local environment exists:
+  - `NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_build_only`
+- Authenticated production E2E requires all of `RUN_AUTHENTICATED_E2E=1`, `E2E_ALLOW_PRODUCTION=1`, `PLAYWRIGHT_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `E2E_SUPABASE_SECRET_KEY`. If the secret is absent, report the authenticated suite as credential-gated/skipped; do not wait for it or claim it passed.
+- A full `release:verify` runs the expensive gates serially. Run only one copy at a time, stop stale Next/Playwright processes first, and do not interpret a long runtime alone as an environment failure. GitHub Actions is the authoritative complete release-gate proof.
+
 ## Required Validation
 
 Use the repository's actual scripts. The intended baseline is:
@@ -374,3 +385,4 @@ A task is complete only when:
 - Run only one local Next.js app instance at a time to avoid UI overlap.
 - Before launching `npm run dev`, stop any existing `next dev`/`next start` processes.
 - Keep local development on `http://localhost:3000` by default, and verify with `Get-NetTCPConnection -LocalPort 3000 -State Listen`.
+- Before a clean install, stop local Node processes that belong to this repository; Windows can otherwise leave `node_modules` partially locked and make `npm ci` appear to hang.
