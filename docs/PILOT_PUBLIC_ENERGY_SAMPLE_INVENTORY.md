@@ -18,4 +18,18 @@ Downloaded August 15, 2026 into the ignored path:
 
 These files may be used for local parser/OCR/template regression after independent labels are created. They are not customer records, but they are still not a substitute for representative customer-authorized documents. Do not promote commercial-energy extraction based only on these examples.
 
+## Vendor-catalog decision
+
+The live Costivra catalog now includes these seven electricity providers as `candidate` customer options under `Commercial Energy`, with common-name search aliases:
+
+- Con Edison
+- ComEd
+- Austin Energy
+- Florida Power & Light
+- Duke Energy Florida
+- Tampa Electric Company
+- Florida Public Utilities Company
+
+They are candidates because the sources establish that these are real providers, not because Costivra has a partnership with them or because each provider serves every customer location. The Florida Public Service Commission and Ohio Consumers' Counsel remain excluded because they are regulator/education sources, not vendors.
+
 The two local files supplied separately by Lewis—`PIR Invoice Bilhartz.pdf` and `TXU Bill For Main Meter.png`—remain outside this downloaded public sample set. They appear to be customer/business records and require de-identification and a reviewer/provenance reference before entering the private golden corpus.

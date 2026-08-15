@@ -14,6 +14,8 @@
 
 ## August 15, 2026 — Packet 04 invoice golden-set evaluation
 
+- **Electricity vendor options added:** the live `public.vendors` catalog now contains seven suggested `Commercial Energy` candidates from the public sample inventory: Con Edison, ComEd, Austin Energy, Florida Power & Light, Duke Energy Florida, Tampa Electric Company, and Florida Public Utilities Company. Each is searchable by common aliases and is intentionally marked `candidate`; Florida PSC and Ohio OCC were not added because they are not vendors. Migration: `20260815212355_add_public_electricity_vendor_options.sql`.
+
 - **Status:** BLOCKED for real-data proof because no approved de-identified or consented invoice corpus or manifest was supplied. No category is promoted to `verified_for_pilot`.
 - **Safe infrastructure:** private corpus paths remain Git-ignored; the manifest/evaluator refuse synthetic smoke data for pilot runs; `npm run security:private-evaluation` now fails if private corpus paths are staged.
 - **Synthetic boundary:** committed public fixtures and the deterministic smoke evaluator remain engineering checks only and are not being represented as extraction-accuracy evidence.
