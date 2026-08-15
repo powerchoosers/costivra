@@ -69,6 +69,10 @@ export function MarketingHeader() {
     };
   }, [open]);
 
+  useEffect(() => {
+    mobileNavigationRef.current?.toggleAttribute("inert", !open);
+  }, [open]);
+
   const closeMenu = () => {
     setOpen(false);
     window.requestAnimationFrame(() => menuButtonRef.current?.focus());
@@ -92,9 +96,9 @@ export function MarketingHeader() {
       </div>
       </header>
       <div className={`mobile-backdrop${open ? " is-open" : ""}`} aria-hidden="true" onClick={closeMenu} />
-      <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${open ? " is-open" : ""}`} aria-label="Mobile navigation" aria-labelledby="mobile-navigation-label" aria-hidden={!open} inert={!open}>
+      <nav ref={mobileNavigationRef} id="mobile-navigation" className={`mobile-drawer${open ? " is-open" : ""}`} aria-label="Mobile navigation" aria-hidden={!open}>
         <span id="mobile-navigation-label" className="mobile-drawer-label">Explore Costivra</span>
-        {nav.map(([label, href], index) => <Link key={href} href={href} onClick={closeMenu}><span>0{index + 1}</span>{label}<ArrowRight aria-hidden="true" size={17} /></Link>)}
+        {nav.map(([label, href], index) => <Link key={href} href={href} aria-label={label} onClick={closeMenu}><span aria-hidden="true">0{index + 1}</span>{label}<ArrowRight aria-hidden="true" size={17} /></Link>)}
         <Link href="/login" onClick={closeMenu}><span>06</span>Sign in<ArrowRight aria-hidden="true" size={17} /></Link>
         <Link className="button button-primary mobile-drawer-cta" href="/scan" onClick={closeMenu}>Start with 3 bills <ArrowRight aria-hidden="true" size={17} /></Link>
       </nav>

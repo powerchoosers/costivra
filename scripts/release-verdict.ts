@@ -4,12 +4,15 @@ import path from "node:path";
 
 type GateStatus = "passed" | "failed" | "skipped";
 type Gate = { name: string; status: GateStatus; detail?: string };
+type SourceState = { commitSha: string; workingTree: string[] };
 
 const gates = [
+  { name: "install", command: "npm", args: ["ci"] },
   { name: "typecheck", command: "npm", args: ["run", "typecheck"] },
   { name: "lint", command: "npm", args: ["run", "lint"] },
   { name: "dependency-audit-production", command: "npm", args: ["audit", "--omit=dev"] },
   { name: "dependency-audit-all", command: "npm", args: ["audit"] },
+  { name: "secret-scan", command: "npm", args: ["run", "security:secrets"] },
   { name: "unit", command: "npm", args: ["test"] },
   {
     name: "invoice-evaluation-smoke",
@@ -26,7 +29,6 @@ const gates = [
   },
   { name: "integration", command: "npm", args: ["run", "test:integration"] },
   { name: "build", command: "npm", args: ["run", "build"] },
-  { name: "secret-scan", command: "npm", args: ["run", "security:secrets"] },
   { name: "browser-e2e", command: "npm", args: ["run", "test:e2e"] },
 ] as const;
 
@@ -44,8 +46,25 @@ function outputPaths() {
   };
 }
 
-function readResultFile(file: string): Gate[] {
-  const parsed = JSON.parse(readFileSync(path.resolve(process.cwd(), file), "utf8")) as { gates?: Gate[] };
+function sourceState(): SourceState {
+  const gitCommand = process.platform === "win32" ? "git.exe" : "git";
+  const runGit = (args: string[]) => execFileSync(gitCommand, args, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    windowsHide: true,
+    shell: process.platform === "win32",
+  }).trim();
+  return {
+    commitSha: runGit(["rev-parse", "HEAD"]),
+    workingTree: runGit(["status", "--porcelain=v1"]).split(/\r?\n/).filter(Boolean),
+  };
+}
+
+function readResultFile(file: string, expectedCommitSha: string): Gate[] {
+  const parsed = JSON.parse(readFileSync(path.resolve(process.cwd(), file), "utf8")) as { commitSha?: string; gates?: Gate[] };
+  if (parsed.commitSha !== expectedCommitSha) {
+    throw new Error(`Release result commit ${parsed.commitSha ?? "<missing>"} does not match HEAD ${expectedCommitSha}.`);
+  }
   if (!Array.isArray(parsed.gates)) throw new Error("Release result file must contain a gates array.");
   return parsed.gates.map((gate) => {
     if (!gate || typeof gate.name !== "string" || !["passed", "failed", "skipped"].includes(gate.status)) {
@@ -78,19 +97,29 @@ function runLocalGates(): Gate[] {
 }
 
 function main() {
+  const initialSource = sourceState();
   const args = process.argv.slice(2);
   const resultsIndex = args.indexOf("--results");
   const resultPath = resultsIndex >= 0 ? args[resultsIndex + 1] : undefined;
   if (resultsIndex >= 0 && !resultPath) throw new Error("--results requires a JSON path.");
-  const result = resultPath ? readResultFile(resultPath) : runLocalGates();
+  const result = resultPath ? readResultFile(resultPath, initialSource.commitSha) : runLocalGates();
+  const finalSource = sourceState();
+  const sourceStable = initialSource.commitSha === finalSource.commitSha
+    && JSON.stringify(initialSource.workingTree) === JSON.stringify(finalSource.workingTree);
+  const sourceGate: Gate = sourceStable
+    ? { name: "source-control", status: "passed" }
+    : { name: "source-control", status: "failed", detail: "commit or working-tree state changed during verification" };
+  const allGates = [...result, sourceGate];
   const output = outputPaths();
-  const passed = result.length > 0 && result.every((gate) => gate.status === "passed");
+  const passed = allGates.length > 0 && allGates.every((gate) => gate.status === "passed");
   const report = {
     schemaVersion: "costivra-release-verdict-v1",
     generatedAt: new Date().toISOString(),
+    commitSha: initialSource.commitSha,
+    workingTree: finalSource.workingTree,
     productionDeploymentAloneIsNotEvidence: true,
     passed,
-    gates: result,
+    gates: allGates,
   };
   writeFileSync(output.json, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   writeFileSync(
@@ -106,13 +135,15 @@ function main() {
       "",
       "| Gate | Status | Detail |",
       "|---|---|---|",
-      ...result.map((gate) => `| ${gate.name} | ${gate.status} | ${gate.detail ?? ""} |`),
+      ...allGates.map((gate) => `| ${gate.name} | ${gate.status} | ${gate.detail ?? ""} |`),
       "",
     ].join("\n"),
     "utf8",
   );
   console.log(`Release verdict: ${passed ? "PASS" : "FAIL"}`);
-  for (const gate of result) console.log(`  [${gate.status.toUpperCase()}] ${gate.name}${gate.detail ? ` (${gate.detail})` : ""}`);
+  console.log(`Commit: ${report.commitSha}`);
+  console.log(`Working tree entries: ${report.workingTree.length}`);
+  for (const gate of allGates) console.log(`  [${gate.status.toUpperCase()}] ${gate.name}${gate.detail ? ` (${gate.detail})` : ""}`);
   console.log(`JSON: ${path.relative(process.cwd(), output.json)}`);
   console.log(`Markdown: ${path.relative(process.cwd(), output.markdown)}`);
   if (!passed) process.exitCode = 1;
