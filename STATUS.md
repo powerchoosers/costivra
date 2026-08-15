@@ -1,5 +1,16 @@
 # Costivra Status
 
+## August 15, 2026 — Packet 03 Supabase security and recovery evidence
+
+- **Project identity:** Costivra Supabase project `skfocjrykyvsaviyhdea`, `ACTIVE_HEALTHY`, PostgreSQL 17 in `us-east-2`; Luxor project `ofjvbzdwijjnajgjotmx` is separate and was not used.
+- **Production fixes:** applied and recorded the three Packet 03 migrations for the vendor trigger search path/privileges, privileged-function column qualification, and action-plan organization scoping.
+- **Schema lint:** `supabase db lint --linked --level warning --fail-on none` reports `No schema errors found`.
+- **Live proof:** `npm run test:integration:live` passed 14 tests across 8 files; targeted retention/private-document tests passed 15/15; synthetic deletion function proof passed with organization removal and retained audit evidence.
+- **Environment check:** `npm run security:supabase-env` passed under Node 24.19.0; 48 client assets were scanned without exposing secret values. Vercel Production/Preview environment values were not independently listed because the Vercel CLI is unavailable in this checkout.
+- **Advisor result:** mutable search-path warning removed. Remaining security findings are 22 service-only RLS/no-policy notices and leaked-password protection disabled. Remaining performance findings are classified in `docs/SUPABASE_ADVISOR_REVIEW.md`.
+- **Migration parity:** production has 115 applied versions ending at `20260815195430`; the repository has 96 files, with 89 exact name matches and documented rename/split history differences.
+- **Recovery blocker:** no Supabase development branches exist and Docker is not installed, so hosted/local restore is not claimed. See `docs/PILOT_RESTORE_EXERCISE.md`.
+
 ## August 15, 2026 — Packet 02 current release evidence
 
 - **Exact release candidate:** `2633675cb66345430977d862aa622b86b1857fc1` (`Add Costivra pilot remediation docs`); local `main` is clean and matches `origin/main`.

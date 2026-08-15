@@ -28,6 +28,7 @@
     "ops:verify": "npm run ops:readiness && npm run ops:smoke",
     "ops:cloudmersive": "tsx --env-file-if-exists=.env.local scripts/verify-cloudmersive.ts",
     "ops:cloudmersive:eicar": "tsx --env-file-if-exists=.env.local scripts/verify-cloudmersive.ts --eicar",
+    "security:supabase-env": "tsx --env-file-if-exists=.env.local scripts/check-supabase-environment.ts",
     "security:secrets": "tsx scripts/secret-scan.ts",
     "release:verify": "tsx scripts/release-verdict.ts"
   },
