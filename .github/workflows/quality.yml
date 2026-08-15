@@ -31,6 +31,7 @@ jobs:
       - run: npm audit --omit=dev
       - run: npm audit
       - run: npm run security:secrets
+      - run: npm run security:private-evaluation
       - run: npm test
       - run: npm run eval:invoices -- --manifest tests/fixtures/invoices/golden-manifest.smoke.json --predictions tests/fixtures/invoices/golden-predictions.smoke.json
       - run: npm run test:integration

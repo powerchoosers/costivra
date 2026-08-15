@@ -12,6 +12,7 @@ const gates = [
   { name: "dependency-audit-production", command: "npm", args: ["audit", "--omit=dev"] },
   { name: "dependency-audit-all", command: "npm", args: ["audit"] },
   { name: "secret-scan", command: "npm", args: ["run", "security:secrets"] },
+  { name: "private-evaluation-staging", command: "npm", args: ["run", "security:private-evaluation"] },
   { name: "unit", command: "npm", args: ["test"] },
   {
     name: "invoice-evaluation-smoke",

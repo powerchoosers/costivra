@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseGoldenInvoiceManifest } from "@/lib/ai/invoice-evaluation";
 
@@ -41,6 +41,9 @@ function main() {
   const candidate = index >= 0 ? args[index + 1] : undefined;
   if (!candidate || candidate.startsWith("--")) throw new Error("Usage: npm run eval:pilot -- --manifest private-evaluation/manifests/<approved>.json");
   const manifestPath = resolveInsidePrivate(candidate);
+  if (!existsSync(manifestPath)) {
+    throw new Error(`Approved private manifest not found: ${candidate}. Supply the authorized de-identified or consented corpus before running the real pilot evaluation.`);
+  }
   const { counts } = loadManifest(manifestPath);
   const reports = path.join(process.cwd(), "private-evaluation", "reports");
   mkdirSync(reports, { recursive: true });

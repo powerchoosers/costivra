@@ -12,6 +12,13 @@
 - **Migration parity:** production has 115 applied versions ending at `20260815195430`; the repository has 96 files, with 89 exact name matches and documented rename/split history differences.
 - **Recovery blocker:** no Supabase development branches exist and Docker is not installed, so hosted/local restore is not claimed. See `docs/PILOT_RESTORE_EXERCISE.md`.
 
+## August 15, 2026 — Packet 04 invoice golden-set evaluation
+
+- **Status:** BLOCKED for real-data proof because no approved de-identified or consented invoice corpus or manifest was supplied. No category is promoted to `verified_for_pilot`.
+- **Safe infrastructure:** private corpus paths remain Git-ignored; the manifest/evaluator refuse synthetic smoke data for pilot runs; `npm run security:private-evaluation` now fails if private corpus paths are staged.
+- **Synthetic boundary:** committed public fixtures and the deterministic smoke evaluator remain engineering checks only and are not being represented as extraction-accuracy evidence.
+- **Evidence:** see `docs/PILOT_INVOICE_GOLDEN_SET_EVIDENCE.md`.
+
 ## August 15, 2026 — Packet 02 current release evidence
 
 - **Exact release candidate:** `2633675cb66345430977d862aa622b86b1857fc1` (`Add Costivra pilot remediation docs`); local `main` is clean and matches `origin/main`.
