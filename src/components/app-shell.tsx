@@ -592,6 +592,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                       <Link
                         className={active ? "active" : ""}
                         href={href}
+                        prefetch={true}
                         key={href}
                         aria-current={active ? "page" : undefined}
                         aria-label={`Open ${label}`}
@@ -618,6 +619,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
               <Link
                 className={isRouteActive("/app/settings", currentPathname) ? "active" : ""}
                 href="/app/settings"
+                prefetch={true}
                 aria-label="Settings"
                 onClick={() => {
                   if (pathname !== "/app/settings") {

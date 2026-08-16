@@ -806,35 +806,10 @@ function BillsWorkspace({
   const toast = useToast();
   const canWrite = data.currentUser.role !== "viewer";
 
-  const requestedView = searchParams?.get("view");
-  const query = searchParams?.get("q") ?? "";
-  const selectedVendorId = searchParams?.get("vendor") ?? "all";
-  const selectedAccountId = searchParams?.get("account") ?? "all";
-  const selectedLocationId = searchParams?.get("location") ?? "all";
-  const selectedStatus = searchParams?.get("status") ?? "all";
-  const dateFrom = searchParams?.get("from") ?? "";
-  const dateTo = searchParams?.get("to") ?? "";
-  const amountMinimum = searchParams?.get("min") ? Number(searchParams.get("min")) : Number.NEGATIVE_INFINITY;
-  const amountMaximum = searchParams?.get("max") ? Number(searchParams.get("max")) : Number.POSITIVE_INFINITY;
-  const selectedDocumentType = searchParams?.get("type") ?? "all";
-
-  const updateParams = (updates: Record<string, string | null>, history: "push" | "replace" = "replace") => {
-    const next = new URLSearchParams(searchParams?.toString() ?? "");
-    for (const [key, value] of Object.entries(updates)) {
-      if (value == null || value === "") next.delete(key);
-      else next.set(key, value);
-    }
-    const nextUrl = next.toString() ? `/app/bills?${next.toString()}` : "/app/bills";
-    startTransition(() => {
-      if (history === "push") router.push(nextUrl);
-      else router.replace(nextUrl);
-    });
-  };
-
   const documentMap = useMemo(() => new Map(data.documents.map((d) => [d.id, d])), [data.documents]);
   const invoiceByDocumentId = useMemo(() => new Map(data.invoices.map((invoice) => [invoice.documentId, invoice])), [data.invoices]);
 
-  const reviewInvoices = data.invoices.filter(
+  const reviewInvoices = useMemo(() => data.invoices.filter(
     (i) =>
       i.reviewStatus === "needs_review" ||
       i.vendorMatchStatus !== "exact" ||
@@ -844,10 +819,47 @@ function BillsWorkspace({
       i.reconciliationStatus !== "reconciled" ||
       ["failed", "needs_review"].includes(documentMap.get(i.documentId)?.extractionStatus ?? "") ||
       ["quarantined", "scanning", "pending"].includes(documentMap.get(i.documentId)?.securityStatus ?? "")
-  );
+  ), [data.invoices, documentMap]);
 
   const defaultView = initialView ?? (reviewInvoices.length > 0 ? "review" : "all");
-  const activeView = resolveBillsView(requestedView, defaultView);
+  const [activeView, setActiveView] = useState(() => resolveBillsView(searchParams?.get("view"), defaultView));
+  const [query, setQuery] = useState(() => searchParams?.get("q") ?? "");
+  const [selectedVendorId, setSelectedVendorId] = useState(() => searchParams?.get("vendor") ?? "all");
+  const [selectedAccountId, setSelectedAccountId] = useState(() => searchParams?.get("account") ?? "all");
+  const [selectedLocationId, setSelectedLocationId] = useState(() => searchParams?.get("location") ?? "all");
+  const [selectedStatus, setSelectedStatus] = useState(() => searchParams?.get("status") ?? "all");
+  const [dateFrom, setDateFrom] = useState(() => searchParams?.get("from") ?? "");
+  const [dateTo, setDateTo] = useState(() => searchParams?.get("to") ?? "");
+  const [selectedDocumentType, setSelectedDocumentType] = useState(() => searchParams?.get("type") ?? "all");
+  const [minAmountStr, setMinAmountStr] = useState(() => searchParams?.get("min") ?? "");
+  const [maxAmountStr, setMaxAmountStr] = useState(() => searchParams?.get("max") ?? "");
+
+  const amountMinimum = minAmountStr ? Number(minAmountStr) : Number.NEGATIVE_INFINITY;
+  const amountMaximum = maxAmountStr ? Number(maxAmountStr) : Number.POSITIVE_INFINITY;
+
+  const updateParams = (updates: Record<string, string | null>) => {
+    if ("view" in updates) setActiveView(resolveBillsView(updates.view, defaultView));
+    if ("q" in updates) setQuery(updates.q ?? "");
+    if ("vendor" in updates) setSelectedVendorId(updates.vendor ?? "all");
+    if ("account" in updates) setSelectedAccountId(updates.account ?? "all");
+    if ("location" in updates) setSelectedLocationId(updates.location ?? "all");
+    if ("status" in updates) setSelectedStatus(updates.status ?? "all");
+    if ("from" in updates) setDateFrom(updates.from ?? "");
+    if ("to" in updates) setDateTo(updates.to ?? "");
+    if ("min" in updates) setMinAmountStr(updates.min ?? "");
+    if ("max" in updates) setMaxAmountStr(updates.max ?? "");
+    if ("type" in updates) setSelectedDocumentType(updates.type ?? "all");
+
+    if (typeof window !== "undefined") {
+      const next = new URL(window.location.href);
+      for (const [key, value] of Object.entries(updates)) {
+        if (value == null || value === "" || value === "all") next.searchParams.delete(key);
+        else next.searchParams.set(key, value);
+      }
+      window.history.replaceState(null, "", next.pathname + (next.search ? next.search : ""));
+    }
+  };
+
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersClosing, setFiltersClosing] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
@@ -855,7 +867,7 @@ function BillsWorkspace({
   const filtersCloseTimerRef = useRef<number | null>(null);
 
   const handleTabChange = (view: string) => {
-    updateParams({ view }, "push");
+    updateParams({ view });
   };
 
   const handleExportList = () => {
@@ -1298,16 +1310,18 @@ function FindingsWorkspace({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const query = searchParams?.get("q") ?? "";
-  const requestedView = searchParams?.get("view");
+  const [query, setQuery] = useState(() => searchParams?.get("q") ?? "");
+  const [activeView, setActiveView] = useState(() => resolveFindingView(searchParams?.get("view")));
   const updateParams = (updates: Record<string, string | null>) => {
-    const next = new URLSearchParams(searchParams?.toString() ?? "");
-    for (const [key, value] of Object.entries(updates)) {
-      if (!value) next.delete(key); else next.set(key, value);
+    if ("view" in updates) setActiveView(resolveFindingView(updates.view));
+    if ("q" in updates) setQuery(updates.q ?? "");
+    if (typeof window !== "undefined") {
+      const next = new URL(window.location.href);
+      for (const [key, value] of Object.entries(updates)) {
+        if (!value) next.searchParams.delete(key); else next.searchParams.set(key, value);
+      }
+      window.history.replaceState(null, "", next.pathname + (next.search ? next.search : ""));
     }
-    startTransition(() => {
-      router.replace(`/app/findings${next.toString() ? `?${next.toString()}` : ""}`);
-    });
   };
   const update = (id: string, status: string) =>
     run(
@@ -1323,7 +1337,6 @@ function FindingsWorkspace({
     if (status === "under_review") return [{ value: "under_review", label: "Under review" }, { value: "approved", label: "Approve plan" }, { value: "declined", label: "Decline" }];
     return [{ value: status, label: status.replaceAll("_", " ") }];
   };
-  const activeView = resolveFindingView(requestedView);
   const filtered = data.opportunities.filter((finding) => {
     if (query && !`${finding.title} ${finding.vendorName} ${finding.summary} ${finding.category ?? ""}`.toLowerCase().includes(query.toLowerCase())) return false;
     if (activeView === "review") return findingNeedsReview(finding);
@@ -1399,15 +1412,16 @@ function FindingsWorkspace({
 function Contracts({ data }: { data: PortalData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeView = resolveContractView(searchParams?.get("view"));
+  const [activeView, setActiveView] = useState(() => resolveContractView(searchParams?.get("view")));
   const updateParams = (updates: Record<string, string | null>) => {
-    const next = new URLSearchParams(searchParams?.toString() ?? "");
-    for (const [key, value] of Object.entries(updates)) {
-      if (!value) next.delete(key); else next.set(key, value);
+    if ("view" in updates) setActiveView(resolveContractView(updates.view));
+    if (typeof window !== "undefined") {
+      const next = new URL(window.location.href);
+      for (const [key, value] of Object.entries(updates)) {
+        if (!value) next.searchParams.delete(key); else next.searchParams.set(key, value);
+      }
+      window.history.replaceState(null, "", next.pathname + (next.search ? next.search : ""));
     }
-    startTransition(() => {
-      router.replace(`/app/contracts${next.toString() ? `?${next.toString()}` : ""}`);
-    });
   };
   const rows = data.contracts.filter((contract) => {
     if (activeView === "upcoming") return isUpcomingContract(contract);
@@ -1512,16 +1526,18 @@ function Actions({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const query = searchParams?.get("q") ?? "";
-  const activeView = resolveActionView(searchParams?.get("view"));
+  const [query, setQuery] = useState(() => searchParams?.get("q") ?? "");
+  const [activeView, setActiveView] = useState(() => resolveActionView(searchParams?.get("view")));
   const updateParams = (updates: Record<string, string | null>) => {
-    const next = new URLSearchParams(searchParams?.toString() ?? "");
-    for (const [key, value] of Object.entries(updates)) {
-      if (!value) next.delete(key); else next.set(key, value);
+    if ("view" in updates) setActiveView(resolveActionView(updates.view));
+    if ("q" in updates) setQuery(updates.q ?? "");
+    if (typeof window !== "undefined") {
+      const next = new URL(window.location.href);
+      for (const [key, value] of Object.entries(updates)) {
+        if (!value) next.searchParams.delete(key); else next.searchParams.set(key, value);
+      }
+      window.history.replaceState(null, "", next.pathname + (next.search ? next.search : ""));
     }
-    startTransition(() => {
-      router.replace(`/app/actions${next.toString() ? `?${next.toString()}` : ""}`);
-    });
   };
   const [executingId, setExecutingId] = useState<string | null>(null);
   const execute = async (id: string, operation: string) => {
@@ -1676,8 +1692,16 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportLoadError, setReportLoadError] = useState<string | null>(null);
   const [reportsReloadToken, setReportsReloadToken] = useState(0);
-  const activeView = resolveResultsView(searchParams?.get("view"), initialView);
-  const updateView = (view: string) => router.replace(`/app/results?view=${view}`);
+  const [activeView, setActiveView] = useState(() => resolveResultsView(searchParams?.get("view"), initialView));
+  const updateView = (view: string) => {
+    const nextView = resolveResultsView(view, initialView);
+    setActiveView(nextView);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", nextView);
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+  };
   const verified = data.savings.filter(resultIsVerified).reduce((sum, item) => sum + item.amount, 0);
   const inProgress = data.savings.filter(resultIsInProgress);
   const potentialValue = data.opportunities.filter((item) => item.monetaryClaimAllowed && item.estimatedAnnualValue != null).reduce((sum, item) => sum + (item.estimatedAnnualValue ?? 0), 0);
@@ -2139,10 +2163,8 @@ export function VendorDetail({
   const searchParams = useSearchParams();
   const toast = useToast();
   const vendor = data.vendors.find((item) => item.id === vendorId);
-
-  const requestedTab = searchParams?.get("tab");
   const requestedAccount = searchParams?.get("account");
-  const activeTab = resolveVendorTab(requestedTab);
+  const [activeTab, setActiveTab] = useState(() => resolveVendorTab(searchParams?.get("tab")));
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [dangerMode, setDangerMode] = useState<"end" | "remove">("end");
@@ -2163,7 +2185,13 @@ export function VendorDetail({
   const [spendCadence, setSpendCadence] = useState(vendor?.spendCadence ?? "monthly");
 
   const handleTabChange = (tab: string) => {
-    router.push(`/app/vendors/${vendorId}?tab=${tab}`);
+    const nextTab = resolveVendorTab(tab);
+    setActiveTab(nextTab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", nextTab);
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
   };
 
   useEffect(() => {

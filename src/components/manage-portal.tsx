@@ -1115,6 +1115,7 @@ export function ManagePortal({
                 <Link
                   className={active ? "active" : ""}
                   href={href}
+                  prefetch={true}
                   aria-current={active ? "page" : undefined}
                   aria-label={label}
                   onMouseEnter={(event) =>
@@ -1152,6 +1153,7 @@ export function ManagePortal({
                   <Link
                     className={active ? "active" : ""}
                     href={href}
+                    prefetch={true}
                     key={href}
                     aria-current={active ? "page" : undefined}
                     aria-label={
