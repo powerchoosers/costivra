@@ -254,8 +254,8 @@ export default function BreakdownPdfViewer({
           background: #020617;
         }
         .breakdown-pdf-toolbar {
+          flex: 0 0 38px;
           height: 38px;
-          flex: 0 0 auto;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -318,11 +318,10 @@ export default function BreakdownPdfViewer({
         .breakdown-pdf-scroll-container {
           flex: 1 1 0%;
           min-height: 0;
-          height: calc(100% - 38px);
-          max-height: calc(100% - 38px);
           width: 100%;
           overflow-y: auto !important;
           overflow-x: auto !important;
+          touch-action: pan-y;
           -webkit-overflow-scrolling: touch;
           padding: 16px 14px 28px;
           display: flex;
@@ -330,21 +329,21 @@ export default function BreakdownPdfViewer({
           align-items: center;
           background: #020617;
           scrollbar-width: thin;
-          scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+          scrollbar-color: rgba(148, 163, 184, 0.4) rgba(15, 23, 42, 0.6);
         }
         .breakdown-pdf-scroll-container::-webkit-scrollbar {
           width: 8px;
           height: 8px;
         }
         .breakdown-pdf-scroll-container::-webkit-scrollbar-track {
-          background: transparent;
+          background: rgba(15, 23, 42, 0.6);
         }
         .breakdown-pdf-scroll-container::-webkit-scrollbar-thumb {
-          background: rgba(148, 163, 184, 0.25);
+          background: rgba(148, 163, 184, 0.35);
           border-radius: 999px;
         }
         .breakdown-pdf-scroll-container::-webkit-scrollbar-thumb:hover {
-          background: rgba(148, 163, 184, 0.45);
+          background: rgba(148, 163, 184, 0.55);
         }
         .breakdown-pdf-loading,
         .breakdown-pdf-error {

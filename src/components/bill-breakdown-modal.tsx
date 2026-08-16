@@ -163,9 +163,8 @@ export function BillBreakdownModal({
   onClose: () => void;
   onNavigateDocument?: (documentId: string) => void;
 }) {
-  const [activeDocId, setActiveDocId] = useState<string | null>(documentId);
+  const [renderedId, setRenderedId] = useState<string | null>(documentId);
   const [isClosing, setIsClosing] = useState(false);
-  const [isOpening, setIsOpening] = useState(false);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -173,47 +172,36 @@ export function BillBreakdownModal({
   const [targetPdfPage, setTargetPdfPage] = useState<number | null>(null);
   const { openDrawer, setContext } = useClientAssistant();
 
-  // Synchronize when documentId opens or changes
+  // Sync renderedId when documentId is passed
   useEffect(() => {
     if (documentId) {
-      setActiveDocId(documentId);
-      setIsOpening(true);
+      setRenderedId(documentId);
       setIsClosing(false);
-      const timer = window.setTimeout(() => setIsOpening(false), 260);
-      return () => window.clearTimeout(timer);
-    } else if (activeDocId && !isClosing) {
-      setIsClosing(true);
-      const timer = window.setTimeout(() => {
-        setActiveDocId(null);
-        setIsClosing(false);
-        setData(null);
-      }, 200);
-      return () => window.clearTimeout(timer);
     }
-  }, [documentId, activeDocId, isClosing]);
+  }, [documentId]);
 
   const requestClose = useCallback(() => {
     if (isClosing) return;
     setIsClosing(true);
     const timer = window.setTimeout(() => {
       onClose();
-      setActiveDocId(null);
+      setRenderedId(null);
       setIsClosing(false);
       setData(null);
-    }, 200);
+    }, 180);
     return () => window.clearTimeout(timer);
   }, [isClosing, onClose]);
 
-  // Fetch document breakdown data
+  // Fetch document breakdown data whenever renderedId changes
   useEffect(() => {
-    if (!activeDocId) return;
+    if (!renderedId) return;
     let active = true;
     setLoading(true);
     setError(null);
     setProcessingMessage(null);
     setTargetPdfPage(null);
 
-    fetch(`/api/portal/documents/${activeDocId}/breakdown`)
+    fetch(`/api/portal/documents/${renderedId}/breakdown`)
       .then(async (response) => {
         if (response.status === 202) {
           const payload = await response.json().catch(() => null);
@@ -247,10 +235,10 @@ export function BillBreakdownModal({
     return () => {
       active = false;
     };
-  }, [activeDocId]);
+  }, [renderedId]);
 
   useEffect(() => {
-    if (!activeDocId) return;
+    if (!renderedId) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -259,7 +247,7 @@ export function BillBreakdownModal({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeDocId, requestClose]);
+  }, [renderedId, requestClose]);
 
   const explanationsByLineItem = useMemo(
     () =>
@@ -273,11 +261,11 @@ export function BillBreakdownModal({
   );
 
   const currentIndex = useMemo(() => {
-    if (!activeDocId || !documentIds.length) return -1;
-    return documentIds.indexOf(activeDocId);
-  }, [activeDocId, documentIds]);
+    if (!renderedId || !documentIds.length) return -1;
+    return documentIds.indexOf(renderedId);
+  }, [renderedId, documentIds]);
 
-  if (!activeDocId && !isClosing) return null;
+  if (!renderedId && !isClosing) return null;
 
   const askAssistant = () => {
     if (!data?.document.id) return;
@@ -300,14 +288,14 @@ export function BillBreakdownModal({
 
   return (
     <div
-      className={`bill-breakdown-backdrop ${isClosing ? "is-closing" : isOpening ? "is-opening" : ""}`}
+      className={`bill-breakdown-backdrop ${isClosing ? "is-closing" : ""}`}
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) requestClose();
       }}
     >
       <section
-        className={`bill-breakdown-dialog ${isClosing ? "is-closing" : isOpening ? "is-opening" : ""}`}
+        className={`bill-breakdown-dialog ${isClosing ? "is-closing" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="bill-breakdown-title"
@@ -716,12 +704,10 @@ export function BillBreakdownModal({
           padding: 20px;
           background: rgba(10, 15, 29, 0.78);
           backdrop-filter: blur(8px);
-        }
-        .bill-breakdown-backdrop.is-opening {
-          animation: billModalBackdropIn 0.22s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+          animation: billModalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         .bill-breakdown-backdrop.is-closing {
-          animation: billModalBackdropOut 0.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+          animation: billModalFadeOut 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           pointer-events: none;
         }
         .bill-breakdown-dialog {
@@ -736,39 +722,36 @@ export function BillBreakdownModal({
           color: #f8fafc;
           background: #0f172a;
           box-shadow: 0 28px 70px rgba(0, 0, 0, 0.55);
-        }
-        .bill-breakdown-dialog.is-opening {
-          animation: billModalDialogIn 0.24s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+          animation: billModalSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         .bill-breakdown-dialog.is-closing {
-          animation: billModalDialogOut 0.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+          animation: billModalSlideOut 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           pointer-events: none;
         }
-        @keyframes billModalBackdropIn {
-          from { opacity: 0; backdrop-filter: blur(0px); }
-          to { opacity: 1; backdrop-filter: blur(8px); }
+        @keyframes billModalFadeIn {
+          0% { opacity: 0; backdrop-filter: blur(0px); }
+          100% { opacity: 1; backdrop-filter: blur(8px); }
         }
-        @keyframes billModalBackdropOut {
-          from { opacity: 1; backdrop-filter: blur(8px); }
-          to { opacity: 0; backdrop-filter: blur(0px); }
+        @keyframes billModalFadeOut {
+          0% { opacity: 1; backdrop-filter: blur(8px); }
+          100% { opacity: 0; backdrop-filter: blur(0px); }
         }
-        @keyframes billModalDialogIn {
-          0% { opacity: 0; transform: scale(0.96) translateY(12px); }
-          100% { opacity: 1; transform: none; }
+        @keyframes billModalSlideIn {
+          0% { opacity: 0; transform: scale(0.96) translateY(14px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
         }
-        @keyframes billModalDialogOut {
-          0% { opacity: 1; transform: none; }
+        @keyframes billModalSlideOut {
+          0% { opacity: 1; transform: scale(1) translateY(0); }
           100% { opacity: 0; transform: scale(0.96) translateY(10px); }
         }
         .bill-breakdown-header {
-          height: 66px;
-          min-height: 66px;
-          flex: 0 0 66px;
+          flex: 0 0 64px;
+          height: 64px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 18px;
-          padding: 12px 22px;
+          padding: 0 22px;
           border-bottom: 1px solid rgba(255, 255, 255, 0.09);
           background: rgba(30, 41, 59, 0.52);
         }
@@ -901,8 +884,7 @@ export function BillBreakdownModal({
         .bill-breakdown-body {
           flex: 1 1 0%;
           min-height: 0;
-          height: calc(100% - 66px);
-          max-height: calc(100% - 66px);
+          width: 100%;
           display: flex;
           flex-direction: row;
           overflow: hidden;
@@ -911,8 +893,6 @@ export function BillBreakdownModal({
           flex: 1 1 54%;
           min-width: 0;
           min-height: 0;
-          height: 100%;
-          max-height: 100%;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -920,9 +900,8 @@ export function BillBreakdownModal({
           background: #020617;
         }
         .bill-breakdown-preview-bar {
-          height: 36px;
-          min-height: 36px;
           flex: 0 0 36px;
+          height: 36px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -938,8 +917,7 @@ export function BillBreakdownModal({
         .bill-breakdown-preview-content {
           flex: 1 1 0%;
           min-height: 0;
-          height: calc(100% - 36px);
-          max-height: calc(100% - 36px);
+          width: 100%;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -982,27 +960,26 @@ export function BillBreakdownModal({
           min-width: 380px;
           max-width: 660px;
           min-height: 0;
-          height: 100%;
-          max-height: 100%;
           overflow-y: auto !important;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
+          touch-action: pan-y;
           padding: 20px;
           display: flex;
           flex-direction: column;
           gap: 14px;
           background: #0b1222;
           scrollbar-width: thin;
-          scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+          scrollbar-color: rgba(148, 163, 184, 0.4) rgba(15, 23, 42, 0.6);
         }
         .bill-breakdown-analysis::-webkit-scrollbar { width: 8px; }
-        .bill-breakdown-analysis::-webkit-scrollbar-track { background: transparent; }
+        .bill-breakdown-analysis::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
         .bill-breakdown-analysis::-webkit-scrollbar-thumb {
-          background: rgba(148, 163, 184, 0.25);
+          background: rgba(148, 163, 184, 0.35);
           border-radius: 999px;
         }
         .bill-breakdown-analysis::-webkit-scrollbar-thumb:hover {
-          background: rgba(148, 163, 184, 0.45);
+          background: rgba(148, 163, 184, 0.55);
         }
         .bill-breakdown-card {
           padding: 16px;
@@ -1194,7 +1171,7 @@ export function BillBreakdownModal({
           margin-top: 10px;
           padding: 10px 12px;
           border: 1px solid rgba(52, 211, 153, 0.22);
-          border-radius: 9px;
+          border-radius: 999px;
           color: #a7f3d0;
           background: rgba(16, 185, 129, 0.09);
           font-size: 0.72rem;
@@ -1251,9 +1228,9 @@ export function BillBreakdownModal({
           .bill-breakdown-category { max-width: 44%; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .bill-breakdown-backdrop.is-opening,
+          .bill-breakdown-backdrop,
           .bill-breakdown-backdrop.is-closing,
-          .bill-breakdown-dialog.is-opening,
+          .bill-breakdown-dialog,
           .bill-breakdown-dialog.is-closing {
             animation: none !important;
           }
