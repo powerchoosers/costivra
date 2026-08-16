@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from "@/lib/icons";
 import type { AssistantBlockV1 } from "@/lib/client-assistant/types";
+import { formatFinancialDate } from "@/lib/ui/date-format";
 import { AssistantCardShell } from "./assistant-card-shell";
 import { CardStatus, StatusTone } from "./card-status";
 import { CardMetric } from "./card-metric";
@@ -72,11 +73,11 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           <div className="card-detail-grid">
             <div>
               <span className="card-detail-label">Invoice Date</span>
-              <span className="card-detail-value">{String(p.invoiceDate ?? "Unrecorded")}</span>
+              <span className="card-detail-value">{formatFinancialDate(p.invoiceDate as string, "Unrecorded")}</span>
             </div>
             <div>
               <span className="card-detail-label">Due Date</span>
-              <span className="card-detail-value">{String(p.dueDate ?? "Unrecorded")}</span>
+              <span className="card-detail-value">{formatFinancialDate(p.dueDate as string, "Unrecorded")}</span>
             </div>
             <div>
               <span className="card-detail-label">Vendor Match</span>
@@ -107,14 +108,14 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
         >
           <div className="card-comparison-columns">
             <div className="card-comparison-col">
-              <span className="card-comparison-date">{String(periodA.date ?? "Prior")}</span>
+              <span className="card-comparison-date">{formatFinancialDate(periodA.date as string, "Prior")}</span>
               <span className="card-comparison-amount">
                 ${Number(periodA.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
             </div>
             <div className="card-comparison-vs">vs</div>
             <div className="card-comparison-col">
-              <span className="card-comparison-date">{String(periodB.date ?? "Latest")}</span>
+              <span className="card-comparison-date">{formatFinancialDate(periodB.date as string, "Latest")}</span>
               <span className="card-comparison-amount">
                 ${Number(periodB.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </span>
@@ -219,11 +220,11 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
               <div key={String(c.contractId ?? i)} className="card-timeline-item">
                 <div className="card-timeline-date-badge">
                   <span>Notice</span>
-                  <strong>{String(c.noticeDeadline ?? c.endDate)}</strong>
+                  <strong>{formatFinancialDate((c.noticeDeadline ?? c.endDate) as string)}</strong>
                 </div>
                 <div className="card-timeline-details">
                   <strong>{String(c.vendorName ? `${c.vendorName} — ` : "")}{String(c.contractName)}</strong>
-                  <span>Contract ends {String(c.endDate)} {c.autoRenewal ? "· Auto-renews" : ""}</span>
+                  <span>Contract ends {formatFinancialDate(c.endDate as string)} {c.autoRenewal ? "· Auto-renews" : ""}</span>
                 </div>
               </div>
             ))}

@@ -5,16 +5,30 @@ import { BillBreakdownModal } from "@/components/bill-breakdown-modal";
 
 type BillInspectorContextValue = {
   activeDocumentId: string | null;
-  openInspector: (documentId: string) => void;
+  documentIds: string[];
+  openInspector: (documentId: string, documentIds?: string[]) => void;
   closeInspector: () => void;
+  navigateToDocument: (documentId: string) => void;
 };
 
 const BillInspectorContext = createContext<BillInspectorContextValue | null>(null);
 
 export function BillInspectorProvider({ children }: { children: ReactNode }) {
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+  const [activeDocumentIds, setActiveDocumentIds] = useState<string[]>([]);
 
-  const openInspector = useCallback((documentId: string) => {
+  const openInspector = useCallback((documentId: string, documentIds?: string[]) => {
+    if (documentId) {
+      setActiveDocumentId(documentId);
+      if (documentIds && documentIds.length > 0) {
+        setActiveDocumentIds(documentIds);
+      } else {
+        setActiveDocumentIds([documentId]);
+      }
+    }
+  }, []);
+
+  const navigateToDocument = useCallback((documentId: string) => {
     if (documentId) {
       setActiveDocumentId(documentId);
     }
@@ -22,12 +36,26 @@ export function BillInspectorProvider({ children }: { children: ReactNode }) {
 
   const closeInspector = useCallback(() => {
     setActiveDocumentId(null);
+    setActiveDocumentIds([]);
   }, []);
 
   return (
-    <BillInspectorContext.Provider value={{ activeDocumentId, openInspector, closeInspector }}>
+    <BillInspectorContext.Provider
+      value={{
+        activeDocumentId,
+        documentIds: activeDocumentIds,
+        openInspector,
+        closeInspector,
+        navigateToDocument,
+      }}
+    >
       {children}
-      <BillBreakdownModal documentId={activeDocumentId} onClose={closeInspector} />
+      <BillBreakdownModal
+        documentId={activeDocumentId}
+        documentIds={activeDocumentIds}
+        onClose={closeInspector}
+        onNavigateDocument={navigateToDocument}
+      />
     </BillInspectorContext.Provider>
   );
 }

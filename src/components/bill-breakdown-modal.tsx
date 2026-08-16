@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleHelp,
   Download,
   ExternalLink,
@@ -11,7 +14,18 @@ import {
   TrendingUp,
   X,
 } from "@/lib/icons";
+import { formatFinancialDate } from "@/lib/ui/date-format";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
+
+const BreakdownPdfViewer = dynamic(() => import("@/components/breakdown-pdf-viewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="bill-breakdown-preview-loading">
+      <span className="bill-breakdown-spinner" />
+      <p>Loading document preview…</p>
+    </div>
+  ),
+});
 
 export type BreakdownData = {
   document: {
@@ -140,16 +154,22 @@ const titleCase = (value: string) =>
 
 export function BillBreakdownModal({
   documentId,
+  documentIds = [],
   onClose,
+  onNavigateDocument,
 }: {
   documentId: string | null;
+  documentIds?: string[];
   onClose: () => void;
+  onNavigateDocument?: (documentId: string) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [prevDocumentId, setPrevDocumentId] = useState<string | null>(documentId);
+  const [targetPdfPage, setTargetPdfPage] = useState<number | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
   const { openDrawer, setContext } = useClientAssistant();
 
   if (documentId !== prevDocumentId) {
@@ -158,7 +178,19 @@ export function BillBreakdownModal({
     setError(null);
     setProcessingMessage(null);
     setData(null);
+    setTargetPdfPage(null);
+    setIsClosing(false);
   }
+
+  const requestClose = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    const timer = window.setTimeout(() => {
+      onClose();
+      setIsClosing(false);
+    }, 190);
+    return () => window.clearTimeout(timer);
+  }, [isClosing, onClose]);
 
   useEffect(() => {
     if (!documentId) return;
@@ -203,11 +235,14 @@ export function BillBreakdownModal({
   useEffect(() => {
     if (!documentId) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        requestClose();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [documentId, onClose]);
+  }, [documentId, requestClose]);
 
   const explanationsByLineItem = useMemo(
     () =>
@@ -220,12 +255,17 @@ export function BillBreakdownModal({
     [data?.lineItemExplanations],
   );
 
-  if (!documentId) return null;
+  const currentIndex = useMemo(() => {
+    if (!documentId || !documentIds.length) return -1;
+    return documentIds.indexOf(documentId);
+  }, [documentId, documentIds]);
+
+  if (!documentId && !isClosing) return null;
 
   const askAssistant = () => {
     if (!data?.document.id) return;
     setContext({ kind: "document", id: data.document.id });
-    onClose();
+    requestClose();
     openDrawer();
   };
 
@@ -243,14 +283,14 @@ export function BillBreakdownModal({
 
   return (
     <div
-      className="bill-breakdown-backdrop"
+      className={`bill-breakdown-backdrop ${isClosing ? "bill-breakdown-backdrop--closing" : ""}`}
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
     >
       <section
-        className="bill-breakdown-dialog"
+        className={`bill-breakdown-dialog ${isClosing ? "bill-breakdown-dialog--closing" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="bill-breakdown-title"
@@ -284,6 +324,33 @@ export function BillBreakdownModal({
           </div>
 
           <div className="bill-breakdown-header-actions">
+            {documentIds.length > 1 && currentIndex >= 0 && (
+              <div className="bill-breakdown-cycler" aria-label="Cycle vendor bills">
+                <button
+                  type="button"
+                  className="bill-breakdown-cycle-btn"
+                  disabled={currentIndex <= 0}
+                  onClick={() => onNavigateDocument?.(documentIds[currentIndex - 1])}
+                  aria-label="Previous bill"
+                  title="View previous bill for this vendor"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <span className="bill-breakdown-cycle-label">
+                  Bill {currentIndex + 1} of {documentIds.length}
+                </span>
+                <button
+                  type="button"
+                  className="bill-breakdown-cycle-btn"
+                  disabled={currentIndex >= documentIds.length - 1}
+                  onClick={() => onNavigateDocument?.(documentIds[currentIndex + 1])}
+                  aria-label="Next bill"
+                  title="View next bill for this vendor"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
             <button type="button" className="bill-breakdown-ask" onClick={askAssistant}>
               <MessageCircle size={15} /> Ask Costivra
             </button>
@@ -300,7 +367,7 @@ export function BillBreakdownModal({
             <button
               type="button"
               className="bill-breakdown-close"
-              onClick={onClose}
+              onClick={requestClose}
               aria-label="Close bill breakdown"
             >
               <X size={18} />
@@ -317,13 +384,13 @@ export function BillBreakdownModal({
           <div className="bill-breakdown-state">
             <CircleHelp size={36} />
             <p>{processingMessage}</p>
-            <button type="button" onClick={onClose}>Close</button>
+            <button type="button" onClick={requestClose}>Close</button>
           </div>
         ) : error ? (
           <div className="bill-breakdown-state bill-breakdown-error">
             <AlertTriangle size={36} />
             <p>{error}</p>
-            <button type="button" onClick={onClose}>Close</button>
+            <button type="button" onClick={requestClose}>Close</button>
           </div>
         ) : data ? (
           <div className="bill-breakdown-body">
@@ -341,9 +408,10 @@ export function BillBreakdownModal({
               <div className="bill-breakdown-preview-content">
                 {data.document.downloadUrl ? (
                   isPdf ? (
-                    <iframe
-                      src={`${data.document.downloadUrl}#toolbar=0`}
-                      title={`Preview of ${data.document.filename}`}
+                    <BreakdownPdfViewer
+                      sourceUrl={data.document.downloadUrl}
+                      filename={data.document.filename}
+                      initialPage={targetPdfPage}
                     />
                   ) : isImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -388,7 +456,7 @@ export function BillBreakdownModal({
                   </div>
                   <div>
                     <span>Date</span>
-                    <strong>{data.invoice?.invoiceDate ?? "Not extracted"}</strong>
+                    <strong>{formatFinancialDate(data.invoice?.invoiceDate, "Not extracted")}</strong>
                   </div>
                 </div>
               </article>
@@ -428,7 +496,15 @@ export function BillBreakdownModal({
                                     : `Source page ${primaryEvidence.pageNumber}`}
                                 </span>
                                 <p>“{primaryEvidence.textExcerpt}”</p>
-                                {data.document.downloadUrl && primaryEvidence.pageNumber != null && (
+                                {isPdf && primaryEvidence.pageNumber != null ? (
+                                  <button
+                                    type="button"
+                                    className="bill-breakdown-page-jump-btn"
+                                    onClick={() => setTargetPdfPage(primaryEvidence.pageNumber)}
+                                  >
+                                    Jump to page {primaryEvidence.pageNumber} <ExternalLink size={11} />
+                                  </button>
+                                ) : data.document.downloadUrl && primaryEvidence.pageNumber != null ? (
                                   <a
                                     href={`${data.document.downloadUrl}#page=${primaryEvidence.pageNumber}`}
                                     target="_blank"
@@ -436,7 +512,7 @@ export function BillBreakdownModal({
                                   >
                                     Open source page <ExternalLink size={11} />
                                   </a>
-                                )}
+                                ) : null}
                               </div>
                             ) : (
                               <div className="bill-breakdown-line-evidence missing">
@@ -549,7 +625,7 @@ export function BillBreakdownModal({
                 <p className="bill-breakdown-source-note">
                   {data.marketBenchmark.benchmarkSource}
                   {data.marketBenchmark.asOf
-                    ? ` · As of ${data.marketBenchmark.asOf}`
+                    ? ` · As of ${formatFinancialDate(data.marketBenchmark.asOf)}`
                     : ""}
                 </p>
               </article>
@@ -593,6 +669,15 @@ export function BillBreakdownModal({
                           {item.fieldPath ? ` · ${item.fieldPath}` : ""}
                         </span>
                         <p>“{item.textExcerpt}”</p>
+                        {isPdf && item.pageNumber != null && (
+                          <button
+                            type="button"
+                            className="bill-breakdown-page-jump-btn"
+                            onClick={() => setTargetPdfPage(item.pageNumber)}
+                          >
+                            Jump to page {item.pageNumber} <ExternalLink size={11} />
+                          </button>
+                        )}
                       </blockquote>
                     ))}
                   </div>
@@ -604,24 +689,50 @@ export function BillBreakdownModal({
       </section>
 
       <style>{`
-        .bill-breakdown-backdrop{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,15,29,.76);backdrop-filter:blur(8px);animation:fadeIn .2s cubic-bezier(.16,1,.3,1)}
-        .bill-breakdown-dialog{width:min(1560px,95vw);height:92dvh;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:20px;color:#f8fafc;background:#0f172a;box-shadow:0 28px 70px rgba(0,0,0,.55)}
-        .bill-breakdown-header{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,.09);background:rgba(30,41,59,.52)}
+        .bill-breakdown-backdrop{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,15,29,.76);backdrop-filter:blur(8px);animation:billModalBackdropIn .22s cubic-bezier(.23,1,.32,1) forwards}
+        .bill-breakdown-backdrop--closing{animation:billModalBackdropOut .18s cubic-bezier(.23,1,.32,1) forwards;pointer-events:none}
+        .bill-breakdown-dialog{width:min(1560px,95vw);height:92dvh;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.12);border-radius:20px;color:#f8fafc;background:#0f172a;box-shadow:0 28px 70px rgba(0,0,0,.55);animation:billModalDialogIn .24s cubic-bezier(.23,1,.32,1) forwards}
+        .bill-breakdown-dialog--closing{animation:billModalDialogOut .18s cubic-bezier(.23,1,.32,1) forwards}
+        @keyframes billModalBackdropIn{from{opacity:0;backdrop-filter:blur(0px)}to{opacity:1;backdrop-filter:blur(8px)}}
+        @keyframes billModalBackdropOut{from{opacity:1;backdrop-filter:blur(8px)}to{opacity:0;backdrop-filter:blur(0px)}}
+        @keyframes billModalDialogIn{from{opacity:0;transform:scale(.96) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        @keyframes billModalDialogOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(.96) translateY(8px)}}
+        .bill-breakdown-header{min-height:72px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,.09);background:rgba(30,41,59,.52)}
         .bill-breakdown-title-row,.bill-breakdown-title-line,.bill-breakdown-header-actions,.bill-breakdown-preview-bar span,.bill-breakdown-card-heading{display:flex;align-items:center}
         .bill-breakdown-title-row{min-width:0;gap:13px}.bill-breakdown-file-icon{width:40px;height:40px;display:grid;place-items:center;flex:0 0 auto;border:1px solid rgba(96,165,250,.32);border-radius:11px;color:#93c5fd;background:rgba(37,99,235,.16)}
         .bill-breakdown-title-line{gap:10px}.bill-breakdown-title-line h2{overflow:hidden;margin:0;color:#fff;font-size:1rem;font-weight:650;text-overflow:ellipsis;white-space:nowrap}.bill-breakdown-title-row p{margin:3px 0 0;color:#94a3b8;font-size:.76rem}.bill-breakdown-clean-status{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid rgba(52,211,153,.28);border-radius:999px;color:#6ee7b7;background:rgba(16,185,129,.12);font-size:.68rem;white-space:nowrap}
         .bill-breakdown-header-actions{gap:9px}.bill-breakdown-header-actions button,.bill-breakdown-header-actions a{min-height:36px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;border-radius:9px;font:600 .76rem/1 inherit;text-decoration:none;cursor:pointer}.bill-breakdown-ask{border:0;color:#fff;background:#1746c8}.bill-breakdown-secondary-action,.bill-breakdown-close{border:1px solid rgba(255,255,255,.12);color:#cbd5e1;background:rgba(255,255,255,.07)}.bill-breakdown-close{width:36px;padding:0!important}
+        .bill-breakdown-cycler{display:inline-flex;align-items:center;gap:3px;padding:3px 6px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(15,23,42,.72)}
+        .bill-breakdown-cycle-btn{width:26px;height:26px;min-height:26px!important;display:grid;place-items:center;padding:0!important;border:0;border-radius:6px;background:transparent;color:#cbd5e1;cursor:pointer;transition:all .15s ease}
+        .bill-breakdown-cycle-btn:hover:not(:disabled){background:rgba(255,255,255,.12);color:#fff}
+        .bill-breakdown-cycle-btn:disabled{opacity:.35;cursor:not-allowed}
+        .bill-breakdown-cycle-label{padding:0 6px;color:#cbd5e1;font-size:.72rem;font-weight:600;white-space:nowrap}
         .bill-breakdown-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#94a3b8}.bill-breakdown-spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.1);border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite}.bill-breakdown-error{color:#fca5a5}.bill-breakdown-error button{padding:8px 14px;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;background:rgba(255,255,255,.08)}
-        .bill-breakdown-body{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(380px,.92fr);overflow:hidden}.bill-breakdown-preview{min-width:0;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid rgba(255,255,255,.08);background:#020617}.bill-breakdown-preview-bar{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 15px;border-bottom:1px solid rgba(255,255,255,.07);color:#94a3b8;background:rgba(15,23,42,.88);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}.bill-breakdown-preview-bar span{gap:4px}.bill-breakdown-preview-content{min-height:0;flex:1;display:grid;place-items:center;overflow:auto}.bill-breakdown-preview-content iframe{width:100%;height:100%;border:0;background:#fff}.bill-breakdown-preview-content img{max-width:100%;max-height:100%;object-fit:contain}.bill-breakdown-no-preview{display:flex;flex-direction:column;align-items:center;gap:12px;color:#94a3b8}.bill-breakdown-no-preview a{display:inline-flex;align-items:center;gap:5px;color:#93c5fd}
-        .bill-breakdown-analysis{min-width:0;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:#0b1222}.bill-breakdown-card{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(30,41,59,.46)}.bill-breakdown-card-heading{justify-content:space-between;gap:12px;margin-bottom:13px}.bill-breakdown-card-heading h3{margin:3px 0 0;color:#f8fafc;font-size:.92rem}.bill-breakdown-label{color:#94a3b8;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.bill-breakdown-category{max-width:52%;overflow:hidden;padding:4px 9px;border:1px solid rgba(96,165,250,.25);border-radius:999px;color:#bfdbfe;background:rgba(59,130,246,.12);font-size:.7rem;text-overflow:ellipsis;white-space:nowrap}
+        .bill-breakdown-body{min-height:0;flex:1 1 0%;height:100%;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(380px,.92fr);grid-template-rows:minmax(0,1fr);overflow:hidden}
+        .bill-breakdown-preview{min-width:0;min-height:0;height:100%;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid rgba(255,255,255,.08);background:#020617}
+        .bill-breakdown-preview-bar{height:36px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 15px;border-bottom:1px solid rgba(255,255,255,.07);color:#94a3b8;background:rgba(15,23,42,.88);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
+        .bill-breakdown-preview-bar span{gap:4px}
+        .bill-breakdown-preview-content{min-height:0;flex:1 1 0%;display:flex;flex-direction:column;overflow:hidden;position:relative;background:#020617}
+        .bill-breakdown-preview-content img{max-width:100%;max-height:100%;margin:auto;object-fit:contain}
+        .bill-breakdown-preview-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:100%;color:#94a3b8;font-size:.78rem}
+        .bill-breakdown-no-preview{display:flex;flex-direction:column;align-items:center;gap:12px;color:#94a3b8;margin:auto;padding:24px}
+        .bill-breakdown-no-preview a{display:inline-flex;align-items:center;gap:5px;color:#93c5fd}
+        .bill-breakdown-analysis{min-width:0;min-height:0;height:100%;max-height:100%;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.35) transparent;padding:20px;display:flex;flex-direction:column;gap:14px;background:#0b1222}
+        .bill-breakdown-analysis::-webkit-scrollbar{width:8px}
+        .bill-breakdown-analysis::-webkit-scrollbar-track{background:transparent}
+        .bill-breakdown-analysis::-webkit-scrollbar-thumb{background:rgba(148,163,184,.25);border-radius:999px}
+        .bill-breakdown-analysis::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,.45)}
+        .bill-breakdown-card{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(30,41,59,.46)}.bill-breakdown-card-heading{justify-content:space-between;gap:12px;margin-bottom:13px}.bill-breakdown-card-heading h3{margin:3px 0 0;color:#f8fafc;font-size:.92rem}.bill-breakdown-label{color:#94a3b8;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em}.bill-breakdown-category{max-width:52%;overflow:hidden;padding:4px 9px;border:1px solid rgba(96,165,250,.25);border-radius:999px;color:#bfdbfe;background:rgba(59,130,246,.12);font-size:.7rem;text-overflow:ellipsis;white-space:nowrap}
         .bill-breakdown-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.bill-breakdown-metrics.two-column{grid-template-columns:repeat(2,minmax(0,1fr))}.bill-breakdown-metrics>div{min-width:0;padding:10px 11px;border-radius:9px;background:rgba(15,23,42,.62)}.bill-breakdown-metrics span{display:block;margin-bottom:3px;color:#94a3b8;font-size:.68rem}.bill-breakdown-metrics strong{display:block;overflow:hidden;color:#f8fafc;font-size:.9rem;text-overflow:ellipsis;white-space:nowrap}
         .bill-breakdown-line-items,.bill-breakdown-findings,.bill-breakdown-guidance,.bill-breakdown-evidence{display:grid;gap:8px}.bill-breakdown-line-item{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:10px;border-radius:9px;background:rgba(15,23,42,.48)}.bill-breakdown-line-item>div:first-child{min-width:0}.bill-breakdown-line-item strong{color:#f8fafc;font-size:.78rem}.bill-breakdown-line-item span{display:block;margin-top:3px;color:#94a3b8;font-size:.66rem;text-transform:capitalize}.bill-breakdown-line-item p{margin:6px 0 0;color:#aebbd0;font-size:.7rem;line-height:1.45}.bill-breakdown-line-evidence{margin-top:8px;padding:8px;border:1px solid rgba(96,165,250,.16);border-radius:8px;background:rgba(30,64,175,.11)}.bill-breakdown-line-evidence span{margin:0;color:#93c5fd;font-size:.62rem}.bill-breakdown-line-evidence p{margin:4px 0 0;color:#cbd5e1;font-size:.68rem}.bill-breakdown-line-evidence a{display:inline-flex;align-items:center;gap:4px;margin-top:6px;color:#93c5fd;font-size:.64rem;text-decoration:none}.bill-breakdown-line-evidence.missing{border-color:rgba(251,191,36,.2);background:rgba(120,76,10,.12)}.bill-breakdown-line-evidence.missing span{color:#fbbf24}.bill-breakdown-line-amount{flex:0 0 auto;color:#fff;font-size:.78rem;font-weight:700;text-align:right}.bill-breakdown-line-amount em{display:block;margin-top:4px;color:#fbbf24;font-size:.62rem;font-style:normal;font-weight:600}
+        .bill-breakdown-page-jump-btn{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:0;border:0;background:transparent;color:#93c5fd;font-size:.64rem;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+        .bill-breakdown-page-jump-btn:hover{color:#bfdbfe}
         .bill-breakdown-warning-card{border-color:rgba(245,158,11,.22);background:rgba(120,76,10,.14)}.bill-breakdown-warning-card .bill-breakdown-card-heading>svg{color:#fbbf24}.bill-breakdown-findings>div{padding:9px 10px;border-radius:8px;background:rgba(15,23,42,.38)}.bill-breakdown-findings strong{color:#f8fafc;font-size:.76rem}.bill-breakdown-findings p,.bill-breakdown-guidance p{margin:4px 0 0;color:#cbd5e1;font-size:.72rem;line-height:1.45}.bill-breakdown-finding-state{display:block;margin-top:6px;color:#fbbf24!important;font-size:.62rem!important;text-transform:none!important}
         .bill-breakdown-market-card{border-color:rgba(59,130,246,.22)}.bill-breakdown-market-card .bill-breakdown-card-heading>svg{color:#60a5fa}.bill-breakdown-unavailable{display:flex;gap:11px;padding:12px;border:1px solid rgba(148,163,184,.16);border-radius:10px;color:#cbd5e1;background:rgba(15,23,42,.52)}.bill-breakdown-unavailable>svg{flex:0 0 auto;color:#93c5fd}.bill-breakdown-unavailable strong{color:#f8fafc;font-size:.78rem}.bill-breakdown-unavailable p{margin:4px 0;color:#aebbd0;font-size:.72rem;line-height:1.45}.bill-breakdown-unavailable ul{margin:8px 0 0;padding-left:18px;color:#94a3b8;font-size:.68rem}.bill-breakdown-source-note{margin:10px 0 0;color:#748196;font-size:.64rem}.bill-breakdown-savings{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 12px;border:1px solid rgba(52,211,153,.22);border-radius:9px;color:#a7f3d0;background:rgba(16,185,129,.09);font-size:.72rem}.bill-breakdown-savings strong{color:#6ee7b7;font-size:.9rem}
         .bill-breakdown-guidance>div{display:flex;gap:10px;padding:10px;border-radius:9px;background:rgba(15,23,42,.46)}.bill-breakdown-guidance>div>span{width:24px;height:24px;display:grid;place-items:center;flex:0 0 auto;border-radius:8px;color:#bfdbfe;background:rgba(59,130,246,.15);font-size:.68rem;font-weight:700}.bill-breakdown-guidance strong{color:#f8fafc;font-size:.77rem}.bill-breakdown-evidence blockquote{margin:0;padding:10px;border-left:2px solid rgba(96,165,250,.55);border-radius:0 8px 8px 0;background:rgba(15,23,42,.42)}.bill-breakdown-evidence blockquote span{color:#93c5fd;font-size:.64rem}.bill-breakdown-evidence blockquote p{margin:5px 0 0;color:#cbd5e1;font-size:.7rem;line-height:1.45}.bill-breakdown-source-counts{margin:4px 0 0;color:#748196;font-size:.62rem}
-        @media(max-width:980px){.bill-breakdown-backdrop{padding:0}.bill-breakdown-dialog{width:100vw;height:100dvh;border:0;border-radius:0}.bill-breakdown-body{grid-template-columns:1fr}.bill-breakdown-preview{display:none}.bill-breakdown-header{align-items:flex-start;padding:12px 14px}.bill-breakdown-header-actions{gap:6px}.bill-breakdown-secondary-action{display:none!important}.bill-breakdown-title-line{align-items:flex-start;flex-direction:column;gap:4px}.bill-breakdown-analysis{padding:14px}.bill-breakdown-metrics{grid-template-columns:1fr 1fr}.bill-breakdown-metrics>div:first-child{grid-column:1/-1}}
+        @media(max-width:980px){.bill-breakdown-backdrop{padding:0}.bill-breakdown-dialog{width:100vw;height:100dvh;border:0;border-radius:0}.bill-breakdown-body{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}.bill-breakdown-preview{display:none}.bill-breakdown-header{align-items:flex-start;padding:12px 14px}.bill-breakdown-header-actions{gap:6px}.bill-breakdown-secondary-action{display:none!important}.bill-breakdown-title-line{align-items:flex-start;flex-direction:column;gap:4px}.bill-breakdown-analysis{padding:14px}.bill-breakdown-metrics{grid-template-columns:1fr 1fr}.bill-breakdown-metrics>div:first-child{grid-column:1/-1}}
         @media(max-width:620px){.bill-breakdown-file-icon{display:none}.bill-breakdown-title-row p{max-width:52vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bill-breakdown-ask{font-size:0!important;width:36px;padding:0!important}.bill-breakdown-ask svg{width:16px}.bill-breakdown-category{max-width:44%}}
-        @media(prefers-reduced-motion:reduce){.bill-breakdown-backdrop,.bill-breakdown-spinner{animation:none!important}}
+        @media(prefers-reduced-motion:reduce){.bill-breakdown-backdrop,.bill-breakdown-dialog{animation:none!important}}
       `}</style>
     </div>
   );

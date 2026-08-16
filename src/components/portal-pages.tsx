@@ -49,6 +49,7 @@ import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { formatMoneyInput } from "@/lib/vendors/spend";
+import { formatFinancialDate } from "@/lib/ui/date-format";
 import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
@@ -140,14 +141,7 @@ const money = (value: number, compact = false) =>
     maximumFractionDigits: compact ? 0 : 2,
     notation: compact ? "compact" : "standard",
   }).format(value);
-const date = (value: string | null) =>
-  value
-    ? new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }).format(new Date(value))
-    : "Not set";
+const date = (value: string | null) => formatFinancialDate(value, "Not set");
 const titleCase = (value: string) =>
   value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
@@ -2162,6 +2156,7 @@ export function VendorDetail({
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
+  const { openInspector } = useBillInspector();
   const vendor = data.vendors.find((item) => item.id === vendorId);
   const requestedAccount = searchParams?.get("account");
   const [activeTab, setActiveTab] = useState(() => resolveVendorTab(searchParams?.get("tab")));
@@ -2252,6 +2247,15 @@ export function VendorDetail({
   const hasPendingReviewInvoice = data.invoices.some((i) => i.vendorId === vendorId && i.reviewStatus === "needs_review");
   const hasOpenFinding = opportunities.some((o) => !["closed", "declined"].includes(o.status));
   const hasPendingAction = actions.some((a) => !["complete", "cancelled"].includes(a.status));
+
+  const vendorDocumentIds = Array.from(
+    new Set([
+      ...documents.map((d) => d.id),
+      ...data.invoices
+        .filter((i) => i.vendorId === vendorId && i.documentId)
+        .map((i) => i.documentId as string),
+    ]),
+  );
 
   const primaryAction = getDynamicPrimaryAction({
     documentCount: documents.length + expenses.length,
@@ -2375,6 +2379,14 @@ export function VendorDetail({
           disabled: !canWrite,
         }]
       : []),
+    ...(vendorDocumentIds.length > 0
+      ? [{
+          id: "bill-breakdown",
+          label: `View bill breakdown (${vendorDocumentIds.length})`,
+          icon: <ReceiptText size={15} />,
+          onSelect: () => openInspector(vendorDocumentIds[0], vendorDocumentIds),
+        }]
+      : []),
     {
       id: "edit",
       label: "Edit vendor relationship",
@@ -2471,7 +2483,24 @@ export function VendorDetail({
 
       <header className="vendor-detail-header">
         <div className="vendor-detail-actions">
-          {canWrite && <Link className="button button-quiet" href="/app/ask">Ask Costivra</Link>}
+          {vendorDocumentIds.length > 0 ? (
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => openInspector(vendorDocumentIds[0], vendorDocumentIds)}
+            >
+              <ReceiptText size={15} /> Bill Breakdown {vendorDocumentIds.length > 1 ? `(${vendorDocumentIds.length})` : ""}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => onAdd("upload", vendor.relationshipId)}
+              title="Upload a bill to view breakdown"
+            >
+              <ReceiptText size={15} /> Bill Breakdown
+            </button>
+          )}
           <RecordOverflowMenu items={menuItems} ariaLabel="More vendor actions" />
         </div>
       </header>
@@ -3140,7 +3169,15 @@ function VendorBillsTab({
   documents: PortalData["documents"];
   vendorName: string;
 }) {
+  const { openInspector } = useBillInspector();
   const [subview, setSubview] = useState<"bills" | "files">("bills");
+  const vendorDocIds = useMemo(() => {
+    const docIds = documents.map((d) => d.id);
+    const invoiceDocIds = invoices
+      .map((i) => i.documentId)
+      .filter((id): id is string => Boolean(id));
+    return Array.from(new Set([...docIds, ...invoiceDocIds]));
+  }, [documents, invoices]);
 
   if (!expenses.length && !invoices.length && !documents.length) {
     return <Empty title="No bills recorded" copy="Upload a bill or add a normalized expense to build this vendor's history." />;
@@ -3216,8 +3253,24 @@ function VendorBillsTab({
                       Current charges {invoice.currentCharges == null ? "not recorded" : money(invoice.currentCharges)} · Amount due {invoice.amountDue == null ? "not recorded" : money(invoice.amountDue)} · Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor matched: {invoice.vendorMatchStatus === "exact" || invoice.vendorMatchStatus === "provided" ? "Yes" : "Needs review"}
                     </small>
                   </div>
-                  <Status value={invoice.reviewStatus} />
-                  <ChevronRight size={16} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    {invoice.documentId && (
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        style={{ fontSize: "0.72rem", padding: "4px 9px", minHeight: "auto", height: "28px" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openInspector(invoice.documentId!, vendorDocIds);
+                        }}
+                      >
+                        <ReceiptText size={12} /> Breakdown
+                      </button>
+                    )}
+                    <Status value={invoice.reviewStatus} />
+                    <ChevronRight size={16} />
+                  </div>
                 </Link>
               ))}
             </div>

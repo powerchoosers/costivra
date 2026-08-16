@@ -21,6 +21,7 @@ import { useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isDocumentDownloadableStatus } from "@/lib/documents/access";
 import { useToast } from "@/components/toast-provider";
+import { formatFinancialDate } from "@/lib/ui/date-format";
 
 export type RecordFile = {
   id: string;
@@ -80,14 +81,7 @@ function matchesCollection(file: RecordFile, collection: Collection) {
 }
 
 function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Date unavailable";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(date);
+  return formatFinancialDate(value, "Date unavailable");
 }
 
 function formatBytes(value?: number | null) {

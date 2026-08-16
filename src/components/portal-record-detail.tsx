@@ -13,6 +13,7 @@ import {
   portalRecordContext,
   type PortalRecordKind,
 } from "@/lib/portal/record-context";
+import { formatFinancialDate } from "@/lib/ui/date-format";
 
 type Kind = PortalRecordKind;
 type FieldOption = string | { value: string; label: string };
@@ -22,7 +23,7 @@ const labels: Record<Kind, { plural: string; noun: string }> = {
   vendor: { plural: "vendors", noun: "Vendor" }, expense: { plural: "expenses", noun: "Expense" }, contract: { plural: "contracts", noun: "Contract" }, document: { plural: "documents", noun: "Document" }, invoice: { plural: "documents", noun: "Invoice" }, opportunity: { plural: "findings", noun: "Finding" }, action: { plural: "actions", noun: "Action" }, savings: { plural: "results", noun: "Result" },
 };
 const money = (value: number | null | undefined, currency = "USD") => value == null ? "Not recorded" : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
-const date = (value: string | null | undefined) => value ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value.length === 10 ? `${value}T12:00:00Z` : value}`)) : "Not recorded";
+const date = (value: string | null | undefined) => formatFinancialDate(value, "Not recorded");
 const text = (value: unknown) => value === null || value === undefined || value === "" ? "Not recorded" : String(value).replaceAll("_", " ").replaceAll(".", " ").replace(/([a-z])([A-Z])/g, "$1 $2");
 
 function build(data: PortalData, kind: Kind, id: string) {

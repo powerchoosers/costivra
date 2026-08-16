@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Copy, FileSear
 import type { InvoiceReviewDetail, InvoiceReviewQueueItem, ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { useToast } from "@/components/toast-provider";
+import { formatFinancialDate } from "@/lib/ui/date-format";
 
 const InvoicePdfViewer = dynamic(() => import("@/components/invoice-pdf-viewer"), {
   ssr: false,
@@ -29,14 +30,13 @@ const issueLabels: Record<string, string> = {
   expense_account_unmatched: "Expense account needs review",
   service_identifier_unmatched: "Service identifier needs review",
   service_location_unmatched: "Service location needs review",
+  line_items_missing: "Line items missing",
 };
 
 const formatMoney = (amount: string | null, currency: string | null) => amount == null
   ? "—"
   : new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(Number(amount));
-const formatDate = (value: string | null) => value
-  ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(`${value}T12:00:00`))
-  : "—";
+const formatDate = (value: string | null) => formatFinancialDate(value, "—");
 
 type InvoicePatchResponse = {
   updated?: boolean;
