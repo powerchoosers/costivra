@@ -10872,3 +10872,17 @@ button.workspace-notification-row:focus-visible {
     display: none;
   }
 }
+
+@keyframes costivra-shimmer {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.costivra-skeleton-shimmer {
+  animation: costivra-shimmer 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+

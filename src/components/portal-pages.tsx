@@ -1523,15 +1523,22 @@ function Actions({
       router.replace(`/app/actions${next.toString() ? `?${next.toString()}` : ""}`);
     });
   };
-  const execute = (id: string, operation: string) =>
-    run(
-      () =>
-        api(`/api/portal/actions/${id}`, {
-          method: "PATCH",
-          body: { operation },
-        }),
-      actionOperationConfirmation(operation),
-    );
+  const [executingId, setExecutingId] = useState<string | null>(null);
+  const execute = async (id: string, operation: string) => {
+    setExecutingId(id);
+    try {
+      await run(
+        () =>
+          api(`/api/portal/actions/${id}`, {
+            method: "PATCH",
+            body: { operation },
+          }),
+        actionOperationConfirmation(operation),
+      );
+    } finally {
+      setExecutingId(null);
+    }
+  };
   const filtered = data.actions.filter((action) => {
     if (query && !`${action.title} ${action.description} ${action.vendorName}`.toLowerCase().includes(query.toLowerCase())) return false;
     if (activeView === "approval") return actionNeedsApproval(action);
@@ -1575,6 +1582,7 @@ function Actions({
           const invoice = finding?.sourceDocumentId ? data.invoices.find((candidate) => candidate.documentId === finding.sourceDocumentId) : undefined;
           const expense = finding?.sourceExpenseId ? data.expenses.find((candidate) => candidate.id === finding.sourceExpenseId) : undefined;
           const sourceId = invoice?.id ?? expense?.invoiceId ?? expense?.documentId;
+          const isItemBusy = executingId === item.id;
           return (
           <article className="portal-card action-card workspace-work-item-card" key={item.id}>
             <header>
@@ -1605,32 +1613,36 @@ function Actions({
                 item.currentUserDecision === "pending" ? <>
                   <button
                     className="button button-quiet"
+                    disabled={isItemBusy}
                     onClick={() => void execute(item.id, "decline")}
                   >
                     Decline
                   </button>
                   <button
                     className="button button-primary"
+                    disabled={isItemBusy}
                     onClick={() => void execute(item.id, "approve")}
                   >
-                    <Check size={16} /> Approve
+                    {isItemBusy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />} Approve
                   </button>
                 </> : <span className="action-approval-waiting">{item.currentUserDecision === "approved" ? "Your approval is recorded. Waiting for the remaining approver." : "This decision is assigned to another administrator."}</span>
               )}
               {item.status === "approved" && (
                 <button
                   className="button button-primary"
+                  disabled={isItemBusy}
                   onClick={() => void execute(item.id, "start")}
                 >
-                  Start work
+                  {isItemBusy ? <LoaderCircle size={16} className="spin" /> : null} Start work
                 </button>
               )}
             {item.status === "in_progress" && (
                 <button
                   className="button button-primary"
+                  disabled={isItemBusy}
                   onClick={() => void execute(item.id, "complete")}
                 >
-                  <Check size={16} /> Mark complete
+                  {isItemBusy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />} Mark complete
                 </button>
               )}
             </footer>

@@ -106,7 +106,18 @@ function FieldRow({ kind, updateId, expectedUpdatedAt, field, canEdit }: { kind:
   return <div className={`record-field ${editing ? "is-editing" : ""}`}>
     <div className="record-field-label"><span>{field.label}</span>{field.note && <small>{field.note}</small>}</div>
     <div className="record-field-value">
-      {editing ? <>
+      {busy ? (
+        <div
+          className="costivra-skeleton-shimmer"
+          style={{
+            width: "120px",
+            height: "1.25rem",
+            borderRadius: "4px",
+            backgroundColor: "var(--paper-deep, #eae6dc)",
+          }}
+          aria-hidden="true"
+        />
+      ) : editing ? <>
         {field.type === "textarea" ? <textarea value={String(value)} onChange={(e) => setValue(e.target.value)} autoFocus /> : field.type === "select" ? <select value={String(value)} onChange={(e) => setValue(e.target.value)} autoFocus>{field.options?.map((option) => { const value = typeof option === "string" ? option : option.value; const label = typeof option === "string" ? text(option) : option.label; return <option key={value || "empty"} value={value}>{label}</option>; })}</select> : field.type === "checkbox" ? <label className="record-check"><input type="checkbox" checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} /> {value ? "Yes" : "No"}</label> : <input type={field.type ?? "text"} value={String(value)} onChange={(e) => setValue(e.target.value)} autoFocus />}
         <button className="record-icon-button confirm" aria-label={`Save ${field.label}`} disabled={busy} onClick={() => void save()}><Check /></button><button className="record-icon-button" aria-label={`Cancel editing ${field.label}`} onClick={() => { setValue(field.value ?? ""); setEditing(false); }}><X /></button>
       </> : <><strong>{shown}</strong>{field.editable && canEdit ? <button className="record-icon-button" aria-label={`Edit ${field.label}`} title={`Edit ${field.label}`} onClick={() => setEditing(true)}><Pencil /></button> : <span className="record-protected" title="Protected field"><LockKeyhole /></span>}<button className="record-icon-button" aria-label={`Copy ${field.label}`} title={`Copy ${field.label}`} onClick={() => void copy()}><Copy /></button></>}
