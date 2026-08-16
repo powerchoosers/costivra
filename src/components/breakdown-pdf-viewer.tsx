@@ -316,11 +316,13 @@ export default function BreakdownPdfViewer({
           color: #fff;
         }
         .breakdown-pdf-scroll-container {
-          min-height: 0;
           flex: 1 1 0%;
-          overflow-y: auto;
-          overflow-x: auto;
-          overscroll-behavior: contain;
+          min-height: 0;
+          height: calc(100% - 38px);
+          max-height: calc(100% - 38px);
+          width: 100%;
+          overflow-y: auto !important;
+          overflow-x: auto !important;
           -webkit-overflow-scrolling: touch;
           padding: 16px 14px 28px;
           display: flex;
