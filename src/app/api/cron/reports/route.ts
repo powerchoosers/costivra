@@ -264,6 +264,7 @@ export async function GET(request: Request) {
             report_delivery_run_id: deliveryRunId,
             report_delivery_recipient_id: row.id,
             report_definition_id: report.definition.id,
+            request_id: requestId,
           },
         });
         if (!claim.claimed) {

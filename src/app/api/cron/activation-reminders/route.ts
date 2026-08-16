@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
-import { getRequestId, withRequestId } from "@/lib/observability/request-context";
+import { getRequestId, safeOperationalError, withRequestId } from "@/lib/observability/request-context";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 import { ACTIVATION_REMINDER_MAX, shouldSendActivationReminder } from "@/lib/portal/onboarding";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
         db,
         kind: "activation_reminder",
         organizationId: row.organization_id,
-        payload: { eventKey: `activation-reminder:${row.organization_id}:${reminderNumber}` },
+        payload: { eventKey: `activation-reminder:${row.organization_id}:${reminderNumber}`, requestId },
       });
       const deliveredOrClaimed = sends.some((send) => send.deliveryStatus !== "failed");
       if (!deliveredOrClaimed) {
@@ -66,8 +66,8 @@ export async function GET(request: Request) {
         .eq("activation_reminder_count", Number(row.activation_reminder_count ?? 0));
       if (updateError) throw updateError;
       results.push({ organizationId: row.organization_id, status: "accepted" });
-    } catch (reminderError) {
-      console.error("activation reminder failed", reminderError);
+    } catch {
+      console.error(JSON.stringify(safeOperationalError("activation_reminder_failed", requestId)));
       results.push({ organizationId: row.organization_id, status: "failed" });
     }
   }

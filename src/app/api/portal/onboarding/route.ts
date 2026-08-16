@@ -3,6 +3,7 @@ import { apiError, cleanText, PortalInputError } from "@/lib/portal/http";
 import { getPortalData, requirePortalContext } from "@/lib/portal/repository";
 import { deriveOnboardingProjection, getOnboardingProgress, type OnboardingStatus, type OnboardingStep } from "@/lib/portal/onboarding";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
+import { getRequestId, safeOperationalError } from "@/lib/observability/request-context";
 
 const statuses = new Set<OnboardingStatus>(["not_started", "in_progress", "activated", "blocked"]);
 const steps = new Set<OnboardingStep>(["account_confirmed", "company_profile", "documents", "review", "monitoring", "complete"]);
@@ -17,7 +18,8 @@ export async function GET() {
 }
 
 /** Syncs durable state from the same authoritative records used by the checklist. */
-export async function POST() {
+export async function POST(request: Request) {
+  const requestId = getRequestId(request);
   try {
     const { db, organizationId } = await requirePortalContext();
     const [{ data: current, error: currentError }, portal] = await Promise.all([
@@ -45,11 +47,12 @@ export async function POST() {
           organizationId,
           payload: {
             eventKey: `activation-complete:${organizationId}:${data.activated_at}`,
+            requestId,
           },
         });
-      } catch (emailError) {
+      } catch {
         // Activation is durable and usable even if optional notification delivery fails.
-        console.error("activation lifecycle email failed", emailError);
+        console.error(JSON.stringify(safeOperationalError("activation_lifecycle_email_failed", requestId)));
       }
     }
     return NextResponse.json({ onboarding: data, progress: projection.progress }, { headers: { "Cache-Control": "private, no-store" } });

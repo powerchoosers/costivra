@@ -21,6 +21,8 @@ export type LifecycleEmailPayload = {
   scanStatus?: "processing" | "quarantined" | "duplicate" | "rejected";
   sourceRecordId?: string;
   eventKey?: string;
+  /** Internal-only correlation value; never rendered into customer email content. */
+  requestId?: string;
 };
 
 /** Payload accepted by the side-effect-producing sender. */
@@ -98,7 +100,7 @@ export async function sendLifecycleEmail(db: SupabaseClient, input: SendLifecycl
     idempotencyKey,
     requestHash,
     authorizationMethod: "lifecycle_event_policy_v1",
-    sanitizedRequestMetadata: { kind: input.kind, source_record_id: input.payload.sourceRecordId ?? null, event_key: input.payload.eventKey ?? null, subject: content.subject },
+    sanitizedRequestMetadata: { kind: input.kind, source_record_id: input.payload.sourceRecordId ?? null, event_key: input.payload.eventKey ?? null, request_id: input.payload.requestId ?? null, subject: content.subject },
   });
   if (!claim.claimed) {
     if (claim.duplicate) return { sent: false, messageId: claim.providerReference || undefined, reason: "Already delivered or in progress (idempotent duplicate)", deliveryStatus: "duplicate" };

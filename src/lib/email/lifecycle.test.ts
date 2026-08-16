@@ -100,4 +100,25 @@ describe("lifecycle email system", () => {
     expect(sendTransactionalEmail).toHaveBeenCalledOnce();
     expect(sideEffect.status).toBe("sent");
   });
+
+  it("keeps request correlation internal to side-effect metadata", async () => {
+    const requestId = "req-packet-07-123";
+    const result = await sendLifecycleEmail(dbStub(), {
+      kind: "upload_received",
+      organizationId: "11111111-1111-4111-8111-111111111111",
+      recipientEmail: "owner@example.com",
+      payload: { sourceRecordId: "document-1", requestId, documentName: "Example bill" },
+    });
+
+    expect(result.sent).toBe(true);
+    expect(claimExternalSideEffect).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        sanitizedRequestMetadata: expect.objectContaining({ request_id: requestId }),
+      }),
+    );
+    const content = buildLifecycleEmailContent("upload_received", { documentName: "Example bill", requestId }, "Lewis");
+    expect(content.text).not.toContain(requestId);
+    expect(content.html).not.toContain(requestId);
+  });
 });

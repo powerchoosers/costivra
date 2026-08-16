@@ -1,4 +1,4 @@
-import { sanitizeEmailHtml } from "@/lib/manage/mail";
+import { sanitizeEmailHtml } from "@/lib/manage/sanitize-email-html";
 import { isValidSequenceTimezone } from "./schedule";
 import type { Sequence, SequenceStep } from "./types";
 

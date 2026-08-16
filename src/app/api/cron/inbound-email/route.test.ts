@@ -20,8 +20,9 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient }));
 
 import { GET } from "@/app/api/cron/inbound-email/route";
 
-function database(options: { claimError?: boolean } = {}) {
+function database(options: { claimError?: boolean; claimResults?: unknown[][] } = {}) {
   const finalized: Array<Record<string, unknown>> = [];
+  let claimIndex = 0;
   const db = {
     from: vi.fn((table: string) => {
       expect(table).toBe("inbound_worker_runs");
@@ -37,11 +38,12 @@ function database(options: { claimError?: boolean } = {}) {
         }),
       };
     }),
-    rpc: vi.fn().mockResolvedValue(
-      options.claimError
-        ? { data: null, error: { message: "claim failed" } }
-        : { data: [], error: null },
-    ),
+    rpc: vi.fn(async () => {
+      if (options.claimError) return { data: null, error: { message: "claim failed" } };
+      const results = options.claimResults ?? [[]];
+      const data = results[Math.min(claimIndex++, results.length - 1)] ?? [];
+      return { data, error: null };
+    }),
   };
   return { db, finalized };
 }
@@ -52,6 +54,10 @@ describe("GET /api/cron/inbound-email", () => {
     monitorInboundEmailQueue.mockReset();
     monitorInboundEmailQueue.mockResolvedValue({ inspected: 0, incidents: 0, created: 0 });
     createServerSupabaseClient.mockReset();
+    processInboundEmailJob.mockReset();
+    recordInboundEmailJobFailure.mockReset();
+    recordInboundEmailJobYield.mockReset();
+    isInboundEmailBudgetYield.mockReset();
   });
 
   it("records a successful worker heartbeat even when no jobs are queued", async () => {
@@ -68,6 +74,38 @@ describe("GET /api/cron/inbound-email", () => {
       claimed_count: 0,
       results: [],
     }));
+  });
+
+  it("does not process the same claimed work twice across duplicate cron invocations", async () => {
+    const job = {
+      id: "event-1",
+      organization_id: "org-1",
+      intake_address_id: "intake-1",
+      resend_email_id: "resend-1",
+      sender_address: "billing@example.com",
+      subject: "Synthetic invoice",
+      attachment_count: 1,
+      attempt_count: 0,
+      max_attempts: 5,
+      lock_token: "lock-1",
+    };
+    const { db, finalized } = database({ claimResults: [[job], []] });
+    createServerSupabaseClient.mockReturnValue(db);
+    processInboundEmailJob.mockResolvedValue({ status: "processed" });
+
+    const request = new Request("https://costivra.ai/api/cron/inbound-email", {
+      headers: { authorization: "Bearer cron-secret-for-test" },
+    });
+    const first = await GET(request);
+    const second = await GET(request);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(processInboundEmailJob).toHaveBeenCalledTimes(1);
+    expect(finalized).toEqual(expect.arrayContaining([
+      expect.objectContaining({ status: "completed", claimed_count: 1 }),
+      expect.objectContaining({ status: "completed", claimed_count: 0 }),
+    ]));
   });
 
   it("does not retry completed invoice work when alert monitoring is degraded", async () => {

@@ -6,8 +6,10 @@ import { renderReportEmail } from "@/lib/reports/render-report-email";
 import { sendTransactionalEmail } from "@/lib/email/resend";
 import { emailRequestHash } from "@/lib/email/resend";
 import { claimExternalSideEffect } from "@/lib/email/side-effect-claim";
+import { getRequestId } from "@/lib/observability/request-context";
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const requestId = getRequestId(request);
   try {
     const { db, organizationId, userId } = await requirePortalContext();
     const id = cleanUuid((await params).id);
@@ -55,7 +57,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       requestHash,
       actorId: userId,
       authorizationMethod: "portal_report_email_now_v1",
-      sanitizedRequestMetadata: { report_definition_id: id, recipient_user_id: userId },
+      sanitizedRequestMetadata: { report_definition_id: id, recipient_user_id: userId, request_id: requestId },
     });
     if (!claim.claimed) {
       if (claim.duplicate) {

@@ -3,6 +3,7 @@ import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { getDurableMonitoringConfig, isValidMonitoringEmailAddress, saveDurableMonitoringConfig, MonitoringSourceMethod } from "@/lib/vendors/monitoring";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
+import { getRequestId, safeOperationalError } from "@/lib/observability/request-context";
 
 const sourceMethods = new Set<MonitoringSourceMethod>(["email_forwarding", "manual_forwarding", "manual_upload"]);
 
@@ -93,10 +94,11 @@ export async function POST(
             vendorName: typeof vendor?.canonical_name === "string" ? vendor.canonical_name : undefined,
             intakeAddress: record.privateIntakeAddress,
             eventKey: `monitoring-configured:${record.id ?? relationshipId}:${record.privateIntakeAddress}:${record.approvedSenderAddress ?? ""}`,
+            requestId: getRequestId(request),
           },
         });
-      } catch (emailError) {
-        console.error("monitoring instructions lifecycle email failed", emailError);
+      } catch {
+        console.error(JSON.stringify(safeOperationalError("monitoring_instructions_lifecycle_email_failed", getRequestId(request))));
       }
     }
 

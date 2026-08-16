@@ -19,6 +19,7 @@ import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCategoryMonitoringGuidance } from "@/lib/vendors/category-monitoring";
+import { safeOperationalError } from "@/lib/observability/request-context";
 
 type ServerDatabase = ReturnType<typeof createServerSupabaseClient>;
 type ResendClient = ReturnType<typeof getResendClient>;
@@ -163,8 +164,10 @@ export async function processInboundEmailJob(
     db?: ServerDatabase;
     resend?: ResendClient;
     deadlineAt?: number;
+    requestId?: string;
   } = {},
 ) {
+  const requestId = dependencies.requestId ?? "inbound-worker";
   const db = dependencies.db ?? createServerSupabaseClient();
   const resend = dependencies.resend ?? getResendClient();
   const emailResult = await resend.emails.receiving.get(job.resend_email_id, {
@@ -298,6 +301,7 @@ export async function processInboundEmailJob(
       sourceType: "email_forwarding",
       auditAction: "document.received_by_email",
       malwareScan: scan,
+      requestId,
     });
     const { error } = await db
       .from("inbound_email_attachments")
@@ -344,7 +348,7 @@ export async function processInboundEmailJob(
   // passed or that the recurring bill cycle should advance. A mixed,
   // quarantined, or review-needed message must stay visible for human review.
   if (processedCount > 0 && finalStatus === "processed") {
-    await reconcileVendorMonitoringIntake(db, job);
+    await reconcileVendorMonitoringIntake(db, job, requestId);
   }
 
   await recordCompletionAudit(db, job, `inbound_email.${finalStatus}`);
@@ -387,6 +391,7 @@ export async function processInboundEmailJob(
         documentName: documentName || "Forwarded document",
         sourceRecordId: job.id,
         scanStatus: hasQuarantine ? "quarantined" : "processing",
+        requestId,
       },
     });
     if (finalStatus === "needs_review") {
@@ -394,7 +399,7 @@ export async function processInboundEmailJob(
         db,
         kind: "review_needed",
         organizationId: job.organization_id,
-        payload: { documentName: documentName || "Forwarded document", sourceRecordId: `${job.id}:review-needed` },
+        payload: { documentName: documentName || "Forwarded document", sourceRecordId: `${job.id}:review-needed`, requestId },
       });
     }
 
@@ -422,16 +427,17 @@ export async function processInboundEmailJob(
           db,
           kind: "forwarding_test_result",
           organizationId: job.organization_id,
-          payload: {
-            vendorName,
-            reason: finalStatus === "needs_review" ? "review_required" : "failed",
-            eventKey: `monitoring-test-result:${config.id}:${job.id}:${finalStatus}`,
+            payload: {
+              vendorName,
+              reason: finalStatus === "needs_review" ? "review_required" : "failed",
+              eventKey: `monitoring-test-result:${config.id}:${job.id}:${finalStatus}`,
+              requestId,
           },
         });
       }
     }
-  } catch (emailError) {
-    console.error("inbound lifecycle email failed", emailError);
+  } catch {
+    console.error(JSON.stringify(safeOperationalError("inbound_lifecycle_email_failed", requestId)));
   }
   return { status: finalStatus, processedAttachmentCount: processedCount };
 }
@@ -439,6 +445,7 @@ export async function processInboundEmailJob(
 export async function reconcileVendorMonitoringIntake(
   db: ServerDatabase,
   job: InboundEmailJob,
+  requestId = "inbound-worker",
 ) {
   const now = new Date().toISOString();
 
@@ -517,10 +524,11 @@ export async function reconcileVendorMonitoringIntake(
             payload: {
               vendorName,
               eventKey: `monitoring-test:${config.id}:${job.id}`,
+              requestId,
             },
           });
-        } catch (emailError) {
-          console.error("monitoring test lifecycle email failed", emailError);
+        } catch {
+          console.error(JSON.stringify(safeOperationalError("monitoring_test_lifecycle_email_failed", requestId)));
         }
       }
     }

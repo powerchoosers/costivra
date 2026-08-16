@@ -4,10 +4,12 @@ import { ingestManualUpload } from "@/lib/documents/manual-upload";
 import { apiError, cleanUuid } from "@/lib/portal/http";
 import { requirePortalEditor } from "@/lib/portal/repository";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
+import { getRequestId, safeOperationalError } from "@/lib/observability/request-context";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const requestId = getRequestId(request);
   try {
     const { db, organizationId, userId } = await requirePortalEditor();
     const form = await request.formData();
@@ -29,6 +31,7 @@ export async function POST(request: Request) {
       mimeType: file.type,
       buffer: Buffer.from(await file.arrayBuffer()),
       organizationVendorId: organizationVendorId || null,
+      requestId,
     });
     const scanStatus = result.outcome === "quarantined" ? "quarantined" : result.outcome === "duplicate" ? "duplicate" : result.outcome === "rejected" ? "rejected" : "processing";
     try {
@@ -36,18 +39,18 @@ export async function POST(request: Request) {
         db,
         kind: "upload_received",
         organizationId,
-        payload: { documentName: file.name, sourceRecordId: result.documentId ?? `upload:${result.sha256}`, scanStatus },
+        payload: { documentName: file.name, sourceRecordId: result.documentId ?? `upload:${result.sha256}`, scanStatus, requestId },
       });
       if ("status" in result && result.status === "needs_review") {
         await sendLifecycleEmailToWorkspace({
           db,
           kind: "review_needed",
           organizationId,
-          payload: { documentName: file.name, sourceRecordId: `${result.documentId}:review-needed` },
+          payload: { documentName: file.name, sourceRecordId: `${result.documentId}:review-needed`, requestId },
         });
       }
-    } catch (emailError) {
-      console.error("upload lifecycle email failed", emailError);
+    } catch {
+      console.error(JSON.stringify(safeOperationalError("upload_lifecycle_email_failed", requestId)));
     }
     if (result.outcome === "duplicate") return NextResponse.json({ error: `This file already exists as ${result.originalFilename}.`, documentId: result.documentId }, { status: 409 });
     if (result.outcome === "rejected") return NextResponse.json({ error: result.error }, { status: 422 });

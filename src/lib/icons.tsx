@@ -69,7 +69,6 @@ import {
   Gear as PhosphorGear,
   GearSix as PhosphorGearSix,
   Globe as PhosphorGlobe,
-  GridFour as PhosphorGridFour,
   Handshake as PhosphorHandshake,
   Image as PhosphorImage,
   Info as PhosphorInfo,
@@ -119,7 +118,6 @@ import {
   Tray as PhosphorTray,
   Trash as PhosphorTrash,
   TrendUp as PhosphorTrendUp,
-  Triangle as PhosphorTriangle,
   Upload as PhosphorUpload,
   User as PhosphorUser,
   UserCheck as PhosphorUserCheck,
@@ -153,6 +151,7 @@ function adaptIcon(icon: PhosphorIcon) {
     { absoluteStrokeWidth: _absoluteStrokeWidth, strokeWidth, weight, ...props },
     ref,
   ) {
+    void _absoluteStrokeWidth;
     const IconComponent = icon;
     return <IconComponent ref={ref} {...props} weight={weight ?? resolveWeight(strokeWidth)} />;
   });

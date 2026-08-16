@@ -23,9 +23,18 @@ vi.mock("@/lib/env/secrets", () => ({
   isConfiguredSecret: vi.fn((value?: string | null) => Boolean(value && value.trim().length > 0)),
 }));
 
-const createMockDb = () => {
+const createMockDb = (options: { duplicateInbound?: boolean } = {}) => {
   const crmEmailEvents = {
     insert: vi.fn(async () => ({ error: null })),
+  };
+  const inboundEmailEvents = {
+    insert: vi.fn(() => ({
+      select: vi.fn(() => ({
+        single: vi.fn(async () => options.duplicateInbound
+          ? { data: null, error: { code: "23505" } }
+          : { data: { id: "event-1" }, error: null }),
+      })),
+    })),
   };
   const crmEmailMessages = {
     select: vi.fn(() => ({
@@ -41,12 +50,18 @@ const createMockDb = () => {
     from: vi.fn((table: string) => {
       if (table === "crm_email_events") return crmEmailEvents;
       if (table === "crm_email_messages") return crmEmailMessages;
+      if (table === "inbound_email_events") return inboundEmailEvents;
       if (table === "inbound_email_addresses") {
         return {
           select: vi.fn(() => ({
             in: vi.fn(() => ({
               in: vi.fn(() => ({
-                eq: vi.fn(() => ({ data: [], error: null })),
+                eq: vi.fn(() => ({
+                  data: options.duplicateInbound
+                    ? [{ id: "intake-1", organization_id: "org-1", local_part: "bills", domain: "costivra.ai", status: "active", trusted_senders: [] }]
+                    : [],
+                  error: null,
+                })),
               })),
             })),
           })),
@@ -139,5 +154,43 @@ describe("POST /api/webhooks/resend", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ received: true });
+  });
+
+  it("acknowledges a duplicate inbound event without queueing it again", async () => {
+    process.env.RESEND_WEBHOOK_SECRET = webhookSecret;
+    const { createServerSupabaseClient } = await import("@/lib/supabase/server");
+    const { getResendClient } = await import("@/lib/email/resend");
+    const event = {
+      type: "email.received",
+      created_at: new Date().toISOString(),
+      data: {
+        email_id: "received-email-1",
+        message_id: "message-1",
+        from: "billing@example.com",
+        to: ["bills@costivra.ai"],
+        received_for: [],
+        subject: "Synthetic duplicate",
+        attachments: [],
+      },
+    } as unknown as Parameters<ReturnType<typeof getResendClient>["webhooks"]["verify"]>[0];
+    vi.mocked(getResendClient).mockReturnValue({
+      webhooks: { verify: vi.fn(() => event) } as unknown as ReturnType<typeof getResendClient>["webhooks"],
+      emails: { receiving: { attachments: { list: vi.fn() }, get: vi.fn(), list: vi.fn() } } as unknown as ReturnType<typeof getResendClient>["emails"],
+    } as ReturnType<typeof getResendClient>);
+    vi.mocked(createServerSupabaseClient).mockReturnValue(createMockDb({ duplicateInbound: true }) as unknown as ReturnType<typeof createServerSupabaseClient>);
+
+    const response = await POST(new Request("https://costivra.ai/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "svix-id": "msg_duplicate",
+        "svix-timestamp": "1710000000",
+        "svix-signature": "ignored-if-mocked",
+      },
+      body: JSON.stringify(event),
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, duplicate: true });
   });
 });

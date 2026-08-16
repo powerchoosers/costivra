@@ -3,6 +3,7 @@ import { apiError, cleanText, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { workflowRpcError } from "@/lib/portal/workflow-rpc";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
+import { getRequestId, safeOperationalError } from "@/lib/observability/request-context";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -45,10 +46,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           payload: {
             findingTitle: typeof opportunity?.title === "string" ? opportunity.title : undefined,
             sourceRecordId: id,
+            requestId: getRequestId(request),
           },
         });
-      } catch (emailError) {
-        console.error("verification lifecycle email failed", emailError);
+      } catch {
+        console.error(JSON.stringify(safeOperationalError("verification_lifecycle_email_failed", getRequestId(request))));
       }
     }
     return NextResponse.json({ ok: true });

@@ -4,6 +4,7 @@
 **Support channel:** Unassigned pending Packet 09  
 **Hours and first-response target:** Unassigned pending Packet 09  
 **Security reports:** `security@costivra.ai`
+**Draft customer communication templates:** [PILOT_CUSTOMER_COMMUNICATION_TEMPLATES.md](PILOT_CUSTOMER_COMMUNICATION_TEMPLATES.md) — owner approval required before sending
 
 ## Intake questions
 
@@ -27,7 +28,7 @@ Ask for the organization, vendor, approximate submission time, and the visible s
 
 ## Ticket minimum
 
-Record time zone, route or workspace area, safe status/error code, deployment if known, organization identifier only in the protected support system, reproduction steps without private data, current customer impact, and the next owner. Link to Manage recovery or incident evidence rather than attaching an invoice.
+Record time zone, route or workspace area, safe status/error code, deployment if known, organization identifier only in the protected support system, reproduction steps without private data, current customer impact, and the next owner. Link to the [Operations snapshot](/manage/operations), [Intake recovery](/manage/intake), or incident evidence rather than attaching an invoice.
 
 ## Escalation and closure
 

@@ -25,4 +25,19 @@ describe("GET /auth/invite", () => {
     expect(exchangeCodeForSession).toHaveBeenCalledWith("invite-code");
     expect(response.status).toBe(307);
   });
+
+  it("returns an expired or reused token to a recoverable login state", async () => {
+    verifyOtp.mockResolvedValue({ data: { session: null }, error: new Error("Token has expired or has already been used") });
+    const response = await GET(new Request("http://localhost:3000/auth/invite?token_hash=expired-token") as never);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/login?error=oauth_failed");
+    expect(response.headers.get("set-cookie") ?? "").not.toContain("costivra-recovery-setup=active");
+  });
+
+  it("does not create a setup session when the invite token is missing", async () => {
+    const response = await GET(new Request("http://localhost:3000/auth/invite") as never);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/login?error=oauth_failed");
+    expect(response.headers.get("set-cookie") ?? "").not.toContain("costivra-recovery-setup=active");
+  });
 });

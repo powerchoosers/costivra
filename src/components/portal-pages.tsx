@@ -5,12 +5,13 @@ import Link from "next/link";
 import {
   FormEvent,
   ReactNode,
+  startTransition,
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
-  useMemo,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -540,7 +541,7 @@ export function PortalPage({
     <>
       <div
         key={slug?.join("/") ?? page}
-        data-workspace-scrollbar
+        data-workspace-scrollbar=""
         className={
           page === "ask"
             ? "app-content app-content-chat motion-page"
@@ -824,8 +825,10 @@ function BillsWorkspace({
       else next.set(key, value);
     }
     const nextUrl = next.toString() ? `/app/bills?${next.toString()}` : "/app/bills";
-    if (history === "push") router.push(nextUrl);
-    else router.replace(nextUrl);
+    startTransition(() => {
+      if (history === "push") router.push(nextUrl);
+      else router.replace(nextUrl);
+    });
   };
 
   const documentMap = useMemo(() => new Map(data.documents.map((d) => [d.id, d])), [data.documents]);
@@ -1302,7 +1305,9 @@ function FindingsWorkspace({
     for (const [key, value] of Object.entries(updates)) {
       if (!value) next.delete(key); else next.set(key, value);
     }
-    router.replace(`/app/findings${next.toString() ? `?${next.toString()}` : ""}`);
+    startTransition(() => {
+      router.replace(`/app/findings${next.toString() ? `?${next.toString()}` : ""}`);
+    });
   };
   const update = (id: string, status: string) =>
     run(
@@ -1400,7 +1405,9 @@ function Contracts({ data }: { data: PortalData }) {
     for (const [key, value] of Object.entries(updates)) {
       if (!value) next.delete(key); else next.set(key, value);
     }
-    router.replace(`/app/contracts${next.toString() ? `?${next.toString()}` : ""}`);
+    startTransition(() => {
+      router.replace(`/app/contracts${next.toString() ? `?${next.toString()}` : ""}`);
+    });
   };
   const rows = data.contracts.filter((contract) => {
     if (activeView === "upcoming") return isUpcomingContract(contract);
@@ -1512,7 +1519,9 @@ function Actions({
     for (const [key, value] of Object.entries(updates)) {
       if (!value) next.delete(key); else next.set(key, value);
     }
-    router.replace(`/app/actions${next.toString() ? `?${next.toString()}` : ""}`);
+    startTransition(() => {
+      router.replace(`/app/actions${next.toString() ? `?${next.toString()}` : ""}`);
+    });
   };
   const execute = (id: string, operation: string) =>
     run(

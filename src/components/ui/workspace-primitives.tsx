@@ -6,6 +6,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactNode,
@@ -178,7 +179,7 @@ export function WorkspaceNotificationCenter({
               </button>
             ) : null}
           </header>
-          <div className="workspace-notification-popover__list" data-workspace-scrollbar>
+          <div className="workspace-notification-popover__list" data-workspace-scrollbar="">
             {loading && !notifications.length ? (
               <p className="workspace-notification-popover__empty">Loading notifications…</p>
             ) : null}
@@ -279,21 +280,36 @@ export function WorkspaceViewTabs({
   selectionMode = "current",
   tabs,
 }: WorkspaceViewTabsProps) {
+  const [optimisticId, setOptimisticId] = useState<string | null>(null);
+  const [prevActiveId, setPrevActiveId] = useState(activeId);
+  if (prevActiveId !== activeId) {
+    setPrevActiveId(activeId);
+    setOptimisticId(null);
+  }
+
+  const currentActiveId = optimisticId ?? activeId;
+
   return (
     <nav
       aria-label={ariaLabel}
       className={classNames("workspace-tab-list", "workspace-view-tabs", className)}
     >
       {tabs.map((tab) => {
-        const active = tab.id === activeId;
+        const active = tab.id === currentActiveId;
+        const isPending = optimisticId !== null && tab.id === optimisticId && tab.id !== activeId;
         return (
           <button
             aria-current={selectionMode === "current" && active ? "true" : undefined}
             aria-pressed={selectionMode === "pressed" ? active : undefined}
-            className={classNames("workspace-tab", active && "is-active")}
+            className={classNames("workspace-tab", active && "is-active", isPending && "is-pending")}
             disabled={tab.disabled}
             key={tab.id}
-            onClick={() => onChange(tab.id)}
+            onClick={() => {
+              if (tab.id !== activeId) {
+                setOptimisticId(tab.id);
+              }
+              onChange(tab.id);
+            }}
             type="button"
           >
             {tab.label}

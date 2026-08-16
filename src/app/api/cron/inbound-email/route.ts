@@ -80,7 +80,7 @@ export async function GET(request: Request) {
   const deadlineAt = Date.now() + 240_000;
   for (const job of jobs) {
     try {
-      const result = await processInboundEmailJob(job, { db, deadlineAt });
+      const result = await processInboundEmailJob(job, { db, deadlineAt, requestId });
       results.push({ id: job.id, status: result.status });
     } catch (jobError) {
       const decision = isInboundEmailBudgetYield(jobError)

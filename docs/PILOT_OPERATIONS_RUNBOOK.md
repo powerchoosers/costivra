@@ -3,14 +3,14 @@
 **Owner:** Unassigned — Lewis to assign before pilot launch  
 **Support channel:** Unassigned — do not promise an SLA until Packet 09 records the channel  
 **Hours/response target:** Unassigned  
-**Primary operator surfaces:** Manage → Intake operations, Manage → Settings → Production readiness, Customer Reports delivery history, Outreach recovery
+**Primary operator surfaces:** [Operations snapshot](/manage/operations), [Intake operations](/manage/intake), [Production readiness](/manage/settings), [Manage activity](/manage/activity), [Manage mail](/manage/mail), [Manage accounts](/manage/accounts), and customer [Reports](/app/reports)
 
 ## Start-of-day check
 
-1. Open `/api/status` and confirm the result is truthful for customers.
-2. In Manage, run Production readiness. Record blocked or warning services without copying secrets.
-3. Review Intake operations for queued, processing, retrying, quarantined, and dead-lettered work.
-4. Review report delivery history and email events for failed, bounced, complained, or suppressed states.
+1. Open [`/api/status`](/api/status) and confirm the result is truthful for customers.
+2. In [Production readiness](/manage/settings), record blocked or warning services without copying secrets.
+3. Review [Intake operations](/manage/intake) for queued, processing, retrying, quarantined, and dead-lettered work.
+4. Review [Manage activity](/manage/activity), [Manage mail](/manage/mail), and customer [Reports](/app/reports) for failed, bounced, complained, or suppressed states.
 5. Review open recovery actions and assign each one to a named operator.
 
 ## Safe operating rules
@@ -38,4 +38,4 @@ Pause affected intake, report, or outbound workflow when data integrity, tenant 
 
 ## Handoff
 
-Record the safe error code, deployment, route/worker, correlation/request identifier when available, affected organization identifier only in protected internal systems, current state, attempted recovery, and next owner. Link to the relevant Manage recovery view rather than exporting private records.
+Record the safe error code, deployment, route/worker, correlation/request identifier when available, affected organization identifier only in protected internal systems, current state, attempted recovery, and next owner. Link to the relevant [Operations snapshot](/manage/operations) or [Manage recovery view](/manage/intake) rather than exporting private records. Draft customer language is stored in [Pilot customer communication templates](PILOT_CUSTOMER_COMMUNICATION_TEMPLATES.md) and requires owner approval before use.

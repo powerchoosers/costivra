@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
-import { getRequestId, withRequestId } from "@/lib/observability/request-context";
+import { getRequestId, safeOperationalError, withRequestId } from "@/lib/observability/request-context";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 
@@ -62,12 +62,13 @@ export async function GET(request: Request) {
         payload: {
           vendorName,
           eventKey: `expected-bill-missed:${config.id}:${expectedAt}`,
+          requestId,
         },
       });
-    } catch (emailError) {
+    } catch {
       // The monitoring state remains attention_needed; the email ledger can be
       // retried by an operator without repeatedly marking the same cycle.
-      console.error("expected bill missed lifecycle email failed", emailError);
+      console.error(JSON.stringify(safeOperationalError("vendor_monitoring_lifecycle_email_failed", requestId)));
     }
     await db.from("audit_events").insert({
       organization_id: config.organization_id,

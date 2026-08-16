@@ -1,4 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
@@ -16,6 +18,7 @@ type WorkspaceFixture = {
   documentId: string;
   invoiceId: string;
   opportunityId: string;
+  reportId: string;
   opportunityTitle: string;
 };
 
@@ -255,6 +258,20 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       .single();
     if (opportunity.error || !opportunity.data) throw opportunity.error;
 
+    const report = await admin
+      .from("report_definitions")
+      .insert({
+        organization_id: organizationId,
+        name: "E2E coverage report",
+        description: "Disposable authenticated browser regression report.",
+        report_type: "executive_value",
+        status: "ready",
+        configuration: {},
+      })
+      .select("id")
+      .single();
+    if (report.error || !report.data) throw report.error;
+
     return {
       admin,
       email,
@@ -267,6 +284,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       documentId: String(document.data.id),
       invoiceId: String(invoice.data.id),
       opportunityId: String(opportunity.data.id),
+      reportId: String(report.data.id),
       opportunityTitle,
     };
   } catch (error) {
@@ -278,6 +296,20 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
 }
 
 async function removeWorkspaceFixture(fixture: WorkspaceFixture) {
+  const documents = await fixture.admin
+    .from("documents")
+    .select("storage_path")
+    .eq("organization_id", fixture.organizationId);
+  if (documents.error) throw documents.error;
+  const storagePaths = (documents.data ?? [])
+    .map((document) => typeof document.storage_path === "string" ? document.storage_path : null)
+    .filter((path): path is string => Boolean(path));
+  if (storagePaths.length) {
+    const removedStorage = await fixture.admin.storage
+      .from("costivra-documents")
+      .remove(storagePaths);
+    if (removedStorage.error) throw removedStorage.error;
+  }
   const organization = await fixture.admin
     .from("organizations")
     .select("name")
@@ -325,20 +357,29 @@ test.describe("authenticated customer workspace", () => {
     !enabled,
     "Set RUN_AUTHENTICATED_E2E=1 and the explicit Supabase E2E credentials to run this destructive-but-cleaned-up test.",
   );
-  test.setTimeout(240_000);
+  test.setTimeout(600_000);
 
-  test("completes the customer approval workflow through the rendered UI", async ({ page, browser }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "desktop-chromium",
-      "The authenticated mutation sequence runs once on desktop; mobile layout remains covered by public smoke tests.",
-    );
-
+  test("completes the customer approval workflow through the rendered UI", async ({ page, browser }) => {
+    const startedAt = Date.now();
+    const checkpoint = (label: string) => console.log(`[authenticated-e2e +${Math.round((Date.now() - startedAt) / 1000)}s] ${label}`);
+    checkpoint("starting primary fixture creation");
     const fixture = await createWorkspaceFixture();
     let isolationFixture: WorkspaceFixture | null = null;
     let isolationContext: BrowserContext | null = null;
     const failures = collectRuntimeFailures(page);
     try {
+      checkpoint("fixtures created");
       isolationFixture = await createWorkspaceFixture();
+      const viewerMembership = await isolationFixture.admin
+        .from("organization_memberships")
+        .update({ role: "viewer" })
+        .eq("organization_id", isolationFixture.organizationId)
+        .eq("user_id", isolationFixture.userId)
+        .select("role")
+        .single();
+      if (viewerMembership.error) throw viewerMembership.error;
+      expect(viewerMembership.data?.role).toBe("viewer");
+      checkpoint("isolation fixture created");
       await page.goto("/login?next=/app/findings");
       await page.getByRole("textbox", { name: "Work email" }).fill(fixture.email);
       await page.getByRole("textbox", { name: "Password" }).fill(fixture.password);
@@ -346,9 +387,91 @@ test.describe("authenticated customer workspace", () => {
 
       await expect(page).toHaveURL(/\/app\/findings$/, { timeout: 30_000 });
       await expect(page.getByRole("navigation", { name: "Finding views" })).toBeVisible({
-        timeout: 30_000,
+        timeout: 120_000,
       });
+      checkpoint("primary workspace ready");
 
+      await page.goto("/app");
+      await expect(page.getByRole("heading", { name: "Activation Checklist", exact: true })).toBeVisible();
+      await expect(page.getByRole("progressbar", { name: "Activation progress" })).toHaveAttribute("aria-valuetext", "1 of 5 completed");
+      await expect
+        .poll(async () => {
+          const onboardingState = await fixture.admin
+            .from("organization_onboarding")
+            .select("status,current_step")
+            .eq("organization_id", fixture.organizationId)
+            .maybeSingle();
+          if (onboardingState.error) throw onboardingState.error;
+          return onboardingState.data?.status ?? null;
+        }, { timeout: 30_000 })
+        .toBe("not_started");
+      checkpoint("activation checklist and durable state verified");
+
+      const uploadFixtures: Array<{ name: string; mimeType: string; body?: string; buffer?: Buffer }> = [
+        {
+          name: "e2e-native-text-invoice.txt",
+          mimeType: "text/plain",
+          body: "COSTIVRA SYNTHETIC INVOICE\nVendor: E2E Telecom\nInvoice number: E2E-TXT-001\nInvoice date: 2026-08-01\nService period: 2026-07-01 through 2026-07-31\nMonthly internet service: $1250.00\nTotal due: $1250.00\n",
+        },
+        ...(process.env.RUN_AUTHENTICATED_E2E_PDF === "1"
+          ? [{
+              name: "public-image-heavy-utility-bill.pdf",
+              mimeType: "application/pdf",
+              buffer: readFileSync(resolve(process.cwd(), "tests/fixtures/invoices/sample-utility-bill-crwwd.pdf")),
+            }]
+          : [{
+              name: "e2e-review-invoice.txt",
+              mimeType: "text/plain",
+              body: "COSTIVRA SYNTHETIC REVIEW INVOICE\nVendor: E2E Telecom\nInvoice number: E2E-TXT-002\nInvoice date: 2026-08-02\nService period: 2026-07-01 through 2026-07-31\nService charge: $1100.00\nUnexpected fee: $175.00\nPrinted total: $1200.00\n",
+            }]),
+        {
+          name: "e2e-follow-up-invoice.txt",
+          mimeType: "text/plain",
+          body: "COSTIVRA SYNTHETIC FOLLOW-UP INVOICE\nVendor: E2E Telecom\nInvoice number: E2E-TXT-003\nInvoice date: 2026-08-03\nService period: 2026-08-01 through 2026-08-31\nManaged internet service: $980.00\nTotal due: $980.00\n",
+        },
+      ];
+      for (const uploadFixture of uploadFixtures) {
+        checkpoint(`starting upload ${uploadFixture.name}`);
+        await page.goto("/app/bills?view=files");
+        await page.getByRole("button", { name: "Add to workspace" }).click();
+        await page.getByRole("menuitem", { name: /Upload document/ }).click();
+        const uploadDialog = page.getByRole("dialog", { name: "Upload source document" });
+        await expect(uploadDialog).toBeVisible();
+        const uploadResponsePromise = page.waitForResponse(
+          (response) =>
+            response.url().endsWith("/api/portal/documents") &&
+            response.request().method() === "POST",
+        );
+        await uploadDialog.locator('input[type="file"]').setInputFiles({
+          name: uploadFixture.name,
+          mimeType: uploadFixture.mimeType,
+          buffer: uploadFixture.buffer ?? Buffer.from(uploadFixture.body ?? "", "utf8"),
+        });
+        await uploadDialog.getByRole("button", { name: "Upload bill", exact: true }).click();
+        const uploadResponse = await uploadResponsePromise;
+        const uploadPayload = await uploadResponse.json();
+        if (uploadResponse.status() !== 201) {
+          throw new Error(`Synthetic upload failed (${uploadResponse.status()}): ${String(uploadPayload.error ?? uploadPayload.code ?? uploadPayload.outcome ?? "unknown error")}`);
+        }
+        expect(uploadPayload).toEqual(expect.objectContaining({
+          outcome: "processed",
+          documentId: expect.any(String),
+        }));
+        const uploadedDocument = await fixture.admin
+          .from("documents")
+          .select("original_filename,status,security_scan_status")
+          .eq("id", uploadPayload.documentId)
+          .single();
+        expect(uploadedDocument.error).toBeNull();
+        expect(uploadedDocument.data).toMatchObject({
+          original_filename: uploadFixture.name,
+          security_scan_status: "clean",
+        });
+        await expect(uploadDialog).toBeHidden({ timeout: 60_000 });
+        checkpoint(`completed upload ${uploadFixture.name} documentId=${uploadPayload.documentId}`);
+      }
+
+      checkpoint("starting vendor and monitoring workflow");
       await page.goto(`/app/vendors/${fixture.vendorId}?tab=bills`);
       await expect(page.getByRole("heading", { name: "Bills and recorded expenses" })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText("Reconciliation: Reconciled", { exact: false })).toBeVisible();
@@ -395,6 +518,7 @@ test.describe("authenticated customer workspace", () => {
         }),
         invoice: expect.objectContaining({ totalAmount: 1250 }),
       }));
+      checkpoint("monitoring and breakdown verified");
 
       await page.goto("/app/settings");
       await page.getByRole("button", { name: "Team & approvals", exact: true }).click();
@@ -408,6 +532,7 @@ test.describe("authenticated customer workspace", () => {
       await policyDialog.getByRole("button", { name: "Add policy", exact: true }).click();
       await expect(page.getByText("Approval policy added.", { exact: true })).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText("E2E consequential work approval", { exact: true })).toBeVisible({ timeout: 30_000 });
+      checkpoint("approval policy created");
 
       await page.goto(`/app/documents/${fixture.invoiceId}`);
       await expect(page.getByRole("heading", { name: "Invoice INV-E2E-001" })).toBeVisible();
@@ -416,6 +541,31 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.getByRole("heading", { name: "Data quality" })).toBeVisible();
       await expect(page.locator(".record-quality", { hasText: "Vendor match" })).toContainText("exact");
       await expect(page.locator(".record-quality", { hasText: "Reconciliation" })).toContainText("reconciled");
+      const reviewNotes = `Customer review note ${fixture.organizationId.slice(0, 8)}`;
+      await page.getByRole("button", { name: "Edit Reviewer notes" }).click();
+      await page.locator("textarea").last().fill(reviewNotes);
+      const correctionResponsePromise = page.waitForResponse(
+        response => response.url().endsWith(`/api/portal/records/invoice/${fixture.invoiceId}`) && response.request().method() === "PATCH",
+      );
+      await page.getByRole("button", { name: "Save Reviewer notes" }).click();
+      const correctionResponse = await correctionResponsePromise;
+      expect(correctionResponse.status()).toBe(200);
+      await expect(page.getByText("Reviewer notes updated.", { exact: true })).toBeVisible({ timeout: 30_000 });
+      await expect
+        .poll(async () => {
+          const result = await fixture.admin
+            .from("audit_events")
+            .select("id,action,resource_id")
+            .eq("organization_id", fixture.organizationId)
+            .eq("resource_id", fixture.invoiceId)
+            .eq("action", "invoice.field_updated.reviewNotes")
+            .limit(1)
+            .maybeSingle();
+          if (result.error) throw result.error;
+          return result.data?.id ?? null;
+        }, { timeout: 30_000 })
+        .not.toBeNull();
+      checkpoint("invoice review verified");
 
       await page.goto("/app/findings");
       const opportunityCard = page.locator(".workspace-work-item", {
@@ -428,8 +578,26 @@ test.describe("authenticated customer workspace", () => {
       await opportunityCard
         .getByRole("button", { name: `Update ${fixture.opportunityTitle} status` })
         .click();
+      const findingUpdateResponsePromise = page.waitForResponse(
+        response => response.url().endsWith(`/api/portal/opportunities/${fixture.opportunityId}`) && response.request().method() === "PATCH",
+      );
       await opportunityCard.getByRole("option", { name: "Approve plan" }).click();
-      await expect(page.getByText("Finding updated.", { exact: true })).toBeVisible({ timeout: 30_000 });
+      const findingUpdateResponse = await findingUpdateResponsePromise;
+      if (findingUpdateResponse.status() !== 200) {
+        const payload = await findingUpdateResponse.json();
+        throw new Error(`Finding update failed (${findingUpdateResponse.status()}): ${String(payload.error ?? "unknown error")}`);
+      }
+      await expect
+        .poll(async () => {
+          const result = await fixture.admin
+            .from("opportunities")
+            .select("status")
+            .eq("id", fixture.opportunityId)
+            .single();
+          if (result.error) throw result.error;
+          return result.data?.status ?? null;
+        }, { timeout: 60_000 })
+        .toBe("approved");
       await expect
         .poll(async () => {
           const result = await fixture.admin
@@ -439,8 +607,9 @@ test.describe("authenticated customer workspace", () => {
             .maybeSingle();
           if (result.error) throw result.error;
           return result.data?.id ?? null;
-        })
+        }, { timeout: 60_000 })
         .not.toBeNull();
+      checkpoint("finding approved and action created");
 
       await page.goto("/app/actions?view=assigned");
       const actionCard = page.locator("article.portal-card", {
@@ -455,20 +624,65 @@ test.describe("authenticated customer workspace", () => {
         hasText: fixture.opportunityTitle,
       });
       await expect(savingsRow).toBeVisible();
-      await savingsRow.getByRole("link", { name: fixture.opportunityTitle }).click();
+      const resultLink = savingsRow.getByRole("link", { name: fixture.opportunityTitle });
+      const resultHref = await resultLink.getAttribute("href");
+      expect(resultHref).toMatch(/^\/app\/results\/[^/]+$/);
+      await page.goto(resultHref!);
       await expect(page).toHaveURL(/\/app\/results\/[^/]+$/, { timeout: 30_000 });
       await expect(page.getByText("Verification review", { exact: true })).toBeVisible({ timeout: 30_000 });
       await page.getByRole("checkbox", { name: /reviewed the supporting records and method/i }).check();
       await page.getByRole("button", { name: "Accept reviewed baseline" }).click();
       await expect(page.getByText("Baseline accepted.", { exact: true })).toBeVisible({ timeout: 30_000 });
+      checkpoint("baseline accepted");
+
+      const savingsForIsolation = await fixture.admin
+        .from("savings_outcomes")
+        .select("id")
+        .eq("opportunity_id", fixture.opportunityId)
+        .single();
+      expect(savingsForIsolation.error).toBeNull();
+      const savingsId = String(savingsForIsolation.data?.id);
+
+      await page.goto("/app/results?view=reports");
+      await expect(page.getByRole("heading", { name: "Reports", exact: true })).toBeVisible({ timeout: 30_000 });
+      const reportCard = page.locator("article.portal-card", { hasText: "E2E coverage report" });
+      await expect(reportCard).toBeVisible();
+      const reportResponsePromise = page.waitForResponse(
+        response => response.url().endsWith(`/api/portal/reports/${fixture.reportId}`) && response.request().method() === "GET",
+      );
+      await reportCard.getByRole("link", { name: "Download" }).click();
+      const reportResponse = await reportResponsePromise;
+      expect(reportResponse.status()).toBe(200);
+      expect(reportResponse.headers()["content-type"]).toContain("text/csv");
+      checkpoint("report downloaded");
 
       await page.goto("/app/actions?view=assigned");
       await expect(actionCard).toBeVisible();
       await actionCard.getByRole("button", { name: "Start work" }).click();
       await expect(page.getByText("Action started.", { exact: true })).toBeVisible({ timeout: 30_000 });
-      await expect(actionCard.getByRole("button", { name: "Mark complete" })).toBeVisible();
-      await actionCard.getByRole("button", { name: "Mark complete" }).click();
+      await page.getByRole("button", { name: "In Progress", exact: true }).click();
+      const inProgressActionCard = page.locator("article.portal-card", {
+        hasText: `Review and act on: ${fixture.opportunityTitle}`,
+      });
+      await expect(inProgressActionCard).toBeVisible({ timeout: 30_000 });
+      await inProgressActionCard.getByRole("button", { name: "Mark complete" }).click();
       await expect(page.getByText("Action completed.", { exact: true })).toBeVisible({ timeout: 30_000 });
+      checkpoint("action completed");
+
+      await page.goto("/app");
+      await expect(page.getByRole("heading", { name: "Activation Checklist", exact: true })).toBeVisible();
+      await expect(page.getByRole("progressbar", { name: "Activation progress" })).toHaveAttribute("aria-valuetext", "2 of 5 completed");
+      await page.getByRole("button", { name: /Authenticated E2E owner account menu/ }).click();
+      await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+      await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 30_000 });
+      await page.goto("/app/findings");
+      await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 30_000 });
+      await page.getByRole("textbox", { name: "Work email" }).fill(fixture.email);
+      await page.getByRole("textbox", { name: "Password" }).fill(fixture.password);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page).toHaveURL(/\/app\/findings$/, { timeout: 30_000 });
+      await expect(page.getByRole("navigation", { name: "Finding views" })).toBeVisible({ timeout: 120_000 });
+      checkpoint("sign-out and activation resume verified");
 
       isolationContext = await browser.newContext({
         baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3100",
@@ -479,22 +693,78 @@ test.describe("authenticated customer workspace", () => {
       await isolationPage.getByRole("textbox", { name: "Password" }).fill(isolationFixture.password);
       await isolationPage.getByRole("button", { name: "Sign in", exact: true }).click();
       await expect(isolationPage).toHaveURL(/\/app\/findings$/, { timeout: 30_000 });
+      await expect(isolationPage.getByRole("navigation", { name: "Finding views" })).toBeVisible({ timeout: 120_000 });
       await expect(isolationPage.locator("body")).not.toContainText(fixture.opportunityTitle);
 
-      const foreignBreakdownStatus = await isolationPage.evaluate(async (documentId) => {
-        const response = await fetch(`/api/portal/documents/${documentId}/breakdown`);
-        return response.status;
-      }, fixture.documentId);
+      const viewerOpportunityResponse = await isolationPage.request.patch(
+        `/api/portal/opportunities/${isolationFixture.opportunityId}`,
+        { data: { status: "approved" } },
+      );
+      expect(viewerOpportunityResponse.status()).toBe(403);
+      const viewerActionResponse = await isolationPage.request.patch(
+        "/api/portal/actions/00000000-0000-4000-8000-000000000000",
+        { data: { operation: "approve" } },
+      );
+      expect(viewerActionResponse.status()).toBe(403);
+
+      const foreignBreakdownResponse = await isolationPage.request.get(
+        `/api/portal/documents/${fixture.documentId}/breakdown`,
+      );
+      const foreignBreakdownStatus = foreignBreakdownResponse.status();
       expect([401, 403, 404]).toContain(foreignBreakdownStatus);
-      const foreignInvoice = await isolationPage.evaluate(async (invoiceId) => {
-        const response = await fetch(`/app/bills/${invoiceId}`);
-        return { status: response.status, html: await response.text() };
-      }, fixture.invoiceId);
-      expect([200, 403, 404]).toContain(foreignInvoice.status);
-      if (foreignInvoice.status === 200) {
-        const foreignInvoiceHtml = foreignInvoice.html;
+      const foreignInvoiceResponse = await isolationPage.request.get(`/app/bills/${fixture.invoiceId}`);
+      const foreignInvoiceStatus = foreignInvoiceResponse.status();
+      expect([200, 403, 404]).toContain(foreignInvoiceStatus);
+      if (foreignInvoiceStatus === 200) {
+        const foreignInvoiceHtml = await foreignInvoiceResponse.text();
         expect(foreignInvoiceHtml).not.toContain("INV-E2E-001");
       }
+      const foreignDownloadResponse = await isolationPage.request.get(
+        `/api/portal/documents/${fixture.documentId}/download`,
+        { maxRedirects: 0 },
+      );
+      expect([401, 403, 404]).toContain(foreignDownloadResponse.status());
+      const foreignMonitoringResponse = await isolationPage.request.get(
+        `/api/portal/vendors/${fixture.relationshipId}/monitoring`,
+      );
+      expect([401, 403, 404]).toContain(foreignMonitoringResponse.status());
+      const foreignMonitoringWriteResponse = await isolationPage.request.post(
+        `/api/portal/vendors/${fixture.relationshipId}/monitoring`,
+        { data: { sourceMethod: "manual_forwarding", expectedCadenceDays: 30 } },
+      );
+      expect([401, 403, 404]).toContain(foreignMonitoringWriteResponse.status());
+      const foreignReportResponse = await isolationPage.request.get(
+        `/api/portal/reports/${fixture.reportId}`,
+      );
+      expect([401, 403, 404]).toContain(foreignReportResponse.status());
+      const foreignReportEmailResponse = await isolationPage.request.post(
+        `/api/portal/reports/${fixture.reportId}/email`,
+        { data: { recipient: isolationFixture.email } },
+      );
+      expect([401, 403, 404]).toContain(foreignReportEmailResponse.status());
+      const manageResponse = await isolationPage.request.get("/api/manage/system-readiness");
+      expect([401, 403, 404]).toContain(manageResponse.status());
+      const actionForIsolation = await fixture.admin
+        .from("action_plans")
+        .select("id")
+        .eq("opportunity_id", fixture.opportunityId)
+        .single();
+      expect(actionForIsolation.error).toBeNull();
+      const foreignActionResponse = await isolationPage.request.patch(
+        `/api/portal/actions/${actionForIsolation.data?.id}`,
+        { data: { operation: "invalid_probe_operation" } },
+      );
+      expect([400, 403, 404, 409]).toContain(foreignActionResponse.status());
+      const foreignOpportunityResponse = await isolationPage.request.patch(
+        `/api/portal/opportunities/${fixture.opportunityId}`,
+        { data: { status: "invalid_probe_status" } },
+      );
+      expect([400, 403, 404, 409]).toContain(foreignOpportunityResponse.status());
+      const foreignSavingsResponse = await isolationPage.request.patch(
+        `/api/portal/savings/${savingsId}`,
+        { data: { operation: "invalid_probe_operation", reason: "cross-tenant probe" } },
+      );
+      expect([400, 403, 404, 409]).toContain(foreignSavingsResponse.status());
 
       const [opportunity, action, policy, savings, audit] = await Promise.all([
         fixture.admin
@@ -550,7 +820,7 @@ test.describe("authenticated customer workspace", () => {
       );
       expect(failures).toEqual([]);
     } finally {
-      await isolationContext?.close();
+      try { await isolationContext?.close(); } catch { /* test timeout may already close the context */ }
       await removeWorkspaceFixture(fixture);
       if (isolationFixture) await removeWorkspaceFixture(isolationFixture);
     }

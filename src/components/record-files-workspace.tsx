@@ -227,7 +227,7 @@ export function RecordFilesWorkspace({
 
           {filteredFiles.length ? (
             view === "list" ? (
-              <div className="record-files-workspace__table" role="table" aria-label="Files">
+              <div className="record-files-workspace__table" role="table" aria-label="Files" data-workspace-scrollbar="">
                 <div className="record-files-workspace__table-head" role="row">
                   <span role="columnheader">Name</span>
                   <span role="columnheader">Type</span>

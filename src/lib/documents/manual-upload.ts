@@ -29,6 +29,7 @@ async function recordAudit(
     actorId: string;
     action: string;
     documentId?: string | null;
+    requestId?: string;
   },
 ) {
   const { error } = await db.from("audit_events").insert({
@@ -38,6 +39,7 @@ async function recordAudit(
     action: input.action,
     resource_type: "document",
     resource_id: input.documentId ?? null,
+    safe_metadata: input.requestId ? { request_id: input.requestId } : {},
   });
   if (error) throw error;
 }
@@ -50,6 +52,7 @@ export async function ingestManualUpload(input: {
   mimeType: string;
   buffer: Buffer;
   organizationVendorId?: string | null;
+  requestId?: string;
 }) {
   const safeName = validateDocument(input.filename, input.mimeType, input.buffer);
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
@@ -88,6 +91,7 @@ export async function ingestManualUpload(input: {
       organizationId: input.organizationId,
       actorId: input.actorId,
       action: "document.upload_rejected_malware",
+      requestId: input.requestId,
     });
     return { outcome: "rejected" as const, error: decision.message, sha256 };
   }
@@ -98,6 +102,7 @@ export async function ingestManualUpload(input: {
       sourceType: "manual_upload",
       auditAction: "document.uploaded_and_extracted",
       malwareScan: scan,
+      requestId: input.requestId,
     });
     if (result.duplicate) {
       return {
@@ -155,6 +160,7 @@ export async function ingestManualUpload(input: {
       actorId: input.actorId,
       action: "document.upload_quarantined",
       documentId: document.id,
+      requestId: input.requestId,
     });
   } catch (error) {
     await input.db.storage.from("costivra-documents").remove([storagePath]);

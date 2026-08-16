@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
-import { getRequestId, withRequestId } from "@/lib/observability/request-context";
+import { getRequestId, safeOperationalError, withRequestId } from "@/lib/observability/request-context";
 import { sendLifecycleEmail } from "@/lib/email/lifecycle";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -45,11 +45,12 @@ export async function GET(request: Request) {
           actionTitle,
           sourceRecordId: String(approval.id),
           eventKey: `approval-requested:${approval.id}`,
+          requestId,
         },
       });
       results.push({ approvalId: String(approval.id), status: result.deliveryStatus ?? "failed" });
-    } catch (emailError) {
-      console.error("approval lifecycle email failed", emailError);
+    } catch {
+      console.error(JSON.stringify(safeOperationalError("approval_lifecycle_email_failed", requestId)));
       results.push({ approvalId: String(approval.id), status: "failed" });
     }
   }

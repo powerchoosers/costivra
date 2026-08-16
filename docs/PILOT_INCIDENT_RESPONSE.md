@@ -14,7 +14,7 @@
 ## First 15 minutes
 
 1. Confirm the symptom with a safe request and capture time, deployment, route, status, and safe error code.
-2. Check `/api/status` and Manage Production readiness.
+2. Check [`/api/status`](/api/status), [Operations snapshot](/manage/operations), and [Production readiness](/manage/settings).
 3. Decide whether to pause intake, scanning, reports, or outbound sends.
 4. Preserve the queue, side-effect, audit, and provider-event records. Do not retry an ambiguous send.
 5. For a security concern, use `security@costivra.ai`; do not include invoice text or secrets.
@@ -39,7 +39,7 @@ Pause access to the affected route, record the organization and resource identif
 
 ## Communication
 
-Use the approved customer communication templates when Packet 09 assigns an owner and channel. Until then, communicate only verified facts: affected capability, current safe state, workaround if any, and next update owner/time. Do not promise restoration, deletion, or response times that have not been approved.
+Use the draft [Pilot customer communication templates](PILOT_CUSTOMER_COMMUNICATION_TEMPLATES.md) only after Packet 09 assigns an owner and channel. Until then, communicate only verified facts: affected capability, current safe state, workaround if any, and next update owner/time. Do not promise restoration, deletion, or response times that have not been approved.
 
 ## Closure and review
 

@@ -106,6 +106,7 @@ async function recordDeliveryEvent(
   db: ReturnType<typeof createServerSupabaseClient>,
   event: WebhookEventPayload,
   providerEventId: string,
+  requestId?: string,
 ) {
   if (!("email_id" in event.data)) return;
   const providerMessageId = event.data.email_id;
@@ -114,7 +115,7 @@ async function recordDeliveryEvent(
     provider_message_id: providerMessageId,
     event_type: event.type,
     occurred_at: event.created_at,
-    safe_metadata: safeDeliveryMetadata(event),
+    safe_metadata: { ...safeDeliveryMetadata(event), ...(requestId ? { request_id: requestId } : {}) },
   });
   if (error?.code === "23505") return;
   if (error) throw error;
@@ -271,6 +272,7 @@ async function persistOwnerMailboxAttachments(
     messageId: string;
     mailboxId: string;
     organizationId: string | null;
+    requestId?: string;
   },
 ) {
   const result = await resend.emails.receiving.attachments.list({
@@ -375,7 +377,7 @@ async function persistOwnerMailboxAttachments(
       })
       .eq("id", attachmentId);
     if (input.organizationId && DOCUMENT_MIME_TYPES.has(contentType)) {
-      const document = await ingestDocumentBuffer({ db, organizationId: input.organizationId, actorType: "service", filename, mimeType: contentType, buffer, sourceType: "email_forwarding", auditAction: "document.received_by_owner_mail", malwareScan: scan });
+      const document = await ingestDocumentBuffer({ db, organizationId: input.organizationId, actorType: "service", filename, mimeType: contentType, buffer, sourceType: "email_forwarding", auditAction: "document.received_by_owner_mail", malwareScan: scan, requestId: input.requestId });
       await db.from("crm_email_attachments").update({ document_id: document.documentId, updated_at: new Date().toISOString() }).eq("id", attachmentId);
     } else if (input.organizationId) {
       await persistDocumentSecurityScan({
@@ -410,6 +412,7 @@ async function persistOwnerMailboxMessage(
   received: EmailReceivedEvent,
   recipientAddresses: string[],
   mailbox: { id: string; address: string; assigned_to: string | null },
+  requestId?: string,
 ) {
   const senderAddress = normalizeEmailAddress(received.data.from);
   const { data: existing } = await db
@@ -423,6 +426,7 @@ async function persistOwnerMailboxMessage(
       messageId: existing.id,
       mailboxId: mailbox.id,
       organizationId: existing.organization_id,
+      requestId,
     });
     await db.from("crm_email_messages").update({ attachments }).eq("id", existing.id);
     return { duplicate: true };
@@ -570,6 +574,7 @@ async function persistOwnerMailboxMessage(
     messageId: message.id,
     mailboxId: mailbox.id,
     organizationId,
+    requestId,
   });
   if (attachmentMetadata.length) {
     const { error: attachmentUpdateError } = await db
@@ -648,7 +653,7 @@ export async function POST(request: Request) {
     request.headers.get("svix-id") ||
     createHash("sha256").update(payload).digest("hex");
   if (event.type !== "email.received") {
-    await recordDeliveryEvent(db, event, providerEventId);
+    await recordDeliveryEvent(db, event, providerEventId, requestId);
     return respond({ received: true });
   }
 
@@ -698,6 +703,7 @@ export async function POST(request: Request) {
       received,
       recipientAddresses,
       mailbox,
+      requestId,
     );
     await db.from("crm_email_events").upsert(
       {

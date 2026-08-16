@@ -5,5 +5,20 @@ import nextTypescript from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextCoreWebVitals,
   ...nextTypescript,
-  globalIgnores([".next/**", "out/**", "coverage/**", "next-env.d.ts", "mobile-app/**"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "coverage/**",
+    "next-env.d.ts",
+    "mobile-app/**",
+    "artifacts/**",
+    "test-results/**",
+    "tmp/**",
+    "output/**",
+    "Pilot Docs 8152026/**",
+    "private-evaluation/**",
+    ".codex/**",
+    ".codex-qa/**",
+    ".codex-remote-attachments/**",
+  ]),
 ]);

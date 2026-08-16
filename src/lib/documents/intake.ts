@@ -33,6 +33,7 @@ export async function ingestDocumentBuffer(input: {
   sourceType?: "manual_upload" | "email_forwarding" | "provider_integration";
   auditAction: string;
   malwareScan: MalwareScanResult;
+  requestId?: string;
 }) {
   if (!DOCUMENT_MIME_TYPES.has(input.mimeType)) throw new Error("Unsupported document type.");
   if (!input.buffer.length || input.buffer.length > MAX_DOCUMENT_SIZE) throw new Error("Document size is outside the supported range.");
@@ -97,6 +98,7 @@ export async function ingestDocumentBuffer(input: {
     sourceType: input.sourceType,
     auditAction: input.auditAction,
     sha256,
+    requestId: input.requestId,
   });
 }
 
@@ -113,6 +115,7 @@ export async function processDocumentBuffer(input: {
   sourceType?: "manual_upload" | "email_forwarding" | "provider_integration";
   auditAction: string;
   sha256: string;
+  requestId?: string;
 }) {
   const { error: processingError } = await input.db
     .from("documents")
@@ -157,7 +160,7 @@ export async function processDocumentBuffer(input: {
     if (failureVersionError) throw failureVersionError;
     const { error: failureUpdateError } = await input.db.from("documents").update({ status: "needs_review", extraction_summary: summary, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
     if (failureUpdateError) throw failureUpdateError;
-    const { error: failureAuditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId });
+    const { error: failureAuditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId, safe_metadata: input.requestId ? { request_id: input.requestId } : {} });
     if (failureAuditError) throw failureAuditError;
     return { duplicate: false as const, documentId: input.documentId, status: "needs_review" as const, warning: summary, failureCode, sha256: input.sha256 };
   }
@@ -183,7 +186,10 @@ export async function processDocumentBuffer(input: {
     if (intelligence.evidence.length) {
       const evidenceRows = intelligence.evidence.map((evidence) => ({
         document_id: input.documentId,
-        page_number: evidence.pageNumber ?? null,
+        // The production evidence table requires a page number. Native text
+        // uploads are treated as one logical page, even when the extractor
+        // does not return an explicit page marker.
+        page_number: evidence.pageNumber ?? (inputMode === "native_text" ? 1 : extracted.pageCount === 1 ? 1 : null),
         text_excerpt: evidence.quote,
         field_path: evidence.field,
         source_key: evidence.sourceKey ?? null,
@@ -212,7 +218,7 @@ export async function processDocumentBuffer(input: {
     const finalStatus = intelligence.confidence < .75 || invoiceRecord?.reviewStatus === "needs_review" ? "needs_review" : "ready";
     const { error: documentUpdateError } = await input.db.from("documents").update({ page_count: extracted.pageCount, document_type: intelligence.classification, extraction_summary: intelligence.summary, status: finalStatus, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
     if (documentUpdateError) throw documentUpdateError;
-    const { error: auditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId });
+    const { error: auditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId, safe_metadata: input.requestId ? { request_id: input.requestId } : {} });
     if (auditError) throw auditError;
     return { duplicate: false as const, documentId: input.documentId, extractionVersionId: version.id as string, invoiceRecord, status: finalStatus, sha256: input.sha256 };
   }

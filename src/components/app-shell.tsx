@@ -105,7 +105,7 @@ function websiteLabel(website: string) {
   }
 }
 
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo, useTransition } from "react";
 
 export interface AppSearchResult {
   id: string;
@@ -281,6 +281,15 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     }
   });
   const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
+  const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setOptimisticHref(null);
+  }
+  const [isNavPending, startNavTransition] = useTransition();
+
+  const currentPathname = optimisticHref ?? pathname;
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -308,7 +317,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   }, [sidebarCollapsed, sidebarPreferenceLoaded]);
 
   const appHeader = useMemo(() => {
-    const segments = pathname.split("/").filter(Boolean);
+    const segments = currentPathname.split("/").filter(Boolean);
     const section = segments[1] ?? "home";
     const detailId = segments[2];
     const sectionTitles: Record<string, string> = {
@@ -372,7 +381,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         : descriptions[section] ?? "Cost intelligence for your workspace.",
       vendor,
     };
-  }, [data, pathname]);
+  }, [data, currentPathname]);
 
   useEffect(() => {
     if (mobileMenuOpen) {
@@ -549,6 +558,9 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
       className={`app-body${isDrawerOpen ? " has-assistant-drawer" : ""}`}
       data-workspace-shell="customer"
     >
+      {(isNavPending || optimisticHref !== null) && (
+        <div className="fixed top-0 left-0 right-0 h-0.5 bg-blue-500 z-[9999] animate-pulse" />
+      )}
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <aside className="app-sidebar" data-workspace-slot="rail">
           <div className="sidebar-brand-row">
@@ -558,7 +570,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
           {globalSearch}
           <div
             className="app-nav-scroll"
-            data-workspace-scrollbar
+            data-workspace-scrollbar=""
             onWheelCapture={(event) => {
               const node = event.currentTarget;
               const nextScrollTop = getNextVerticalScrollTop(node, event.deltaY);
@@ -568,14 +580,14 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
               node.scrollTop = nextScrollTop;
             }}
           >
-            <nav className="app-nav" aria-label="Customer application">
+            <nav className="app-nav" aria-label="Customer application" data-workspace-scrollbar="">
               {navigationGroups.slice(0, -1).map((group, groupIdx) => (
                 <div key={group.section ?? `group-${groupIdx}`} className="app-nav-group">
                   {group.section && (
                     <div className="nav-section-label">{group.section}</div>
                   )}
                   {group.items.map(([label, href, Icon]) => {
-                    const active = isRouteActive(href, pathname);
+                    const active = isRouteActive(href, currentPathname);
                     return (
                       <Link
                         className={active ? "active" : ""}
@@ -584,6 +596,13 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                         aria-current={active ? "page" : undefined}
                         aria-label={`Open ${label}`}
                         data-nav-label={label}
+                        onClick={() => {
+                          if (href !== pathname) {
+                            setOptimisticHref(href);
+                            startNavTransition(() => {});
+                          }
+                          setMobileMenuOpen(false);
+                        }}
                       >
                         <Icon aria-hidden="true" size={18} />
                         <span className="nav-label">{label}</span>
@@ -595,11 +614,18 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
             </nav>
           </div>
           <div className="app-sidebar-foot">
-            <nav className="app-sidebar-utility" aria-label="Workspace settings">
+            <nav className="app-sidebar-utility" aria-label="Workspace settings" data-workspace-scrollbar="">
               <Link
-                className={isRouteActive("/app/settings", pathname) ? "active" : ""}
+                className={isRouteActive("/app/settings", currentPathname) ? "active" : ""}
                 href="/app/settings"
                 aria-label="Settings"
+                onClick={() => {
+                  if (pathname !== "/app/settings") {
+                    setOptimisticHref("/app/settings");
+                    startNavTransition(() => {});
+                  }
+                  setMobileMenuOpen(false);
+                }}
               >
                 <Gear aria-hidden="true" size={18} />
                 <span className="nav-label">Settings</span>

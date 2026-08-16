@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CSSProperties, FormEvent, ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Activity,
   Archive,
@@ -721,6 +721,15 @@ export function ManagePortal({
     }
   });
   const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
+  const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setOptimisticHref(null);
+  }
+  const [isNavPending, startNavTransition] = useTransition();
+
+  const currentPathname = optimisticHref ?? pathname;
   const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; left: number; top: number; closing?: boolean } | null>(null);
   const [sidebarViewport, setSidebarViewport] =
     useState<ManageSidebarViewport>("desktop");
@@ -1051,6 +1060,9 @@ export function ManagePortal({
       className={`manage-app manage-shell-v2${assistantOpen ? " is-assistant-open" : ""}`}
       data-workspace-shell="operations"
     >
+      {(isNavPending || optimisticHref !== null) && (
+        <div className="fixed top-0 left-0 right-0 h-0.5 bg-blue-500 z-[9999] animate-pulse" />
+      )}
       <aside
         id="manage-owner-sidebar"
         className={`manage-sidebar${mobileNav ? " is-open" : ""}${
@@ -1059,7 +1071,7 @@ export function ManagePortal({
         data-workspace-slot="rail"
       >
         <div className="manage-brand">
-          <Link href="/manage" title="Costivra Owner Operations" onClick={handleManageNavSelect}>
+          <Link href="/manage" title="Costivra Owner Operations" onClick={() => { setOptimisticHref("/manage"); handleManageNavSelect(); }}>
             <span className="manage-brand-mark">
               <CostivraMark size={34} />
             </span>
@@ -1080,7 +1092,7 @@ export function ManagePortal({
         <nav
           className="manage-primary-nav"
           aria-label="Owner portal"
-          data-workspace-scrollbar
+          data-workspace-scrollbar=""
           onWheelCapture={(event) => {
             const node = event.currentTarget;
             const nextScrollTop = getNextVerticalScrollTop(node, event.deltaY);
@@ -1094,7 +1106,7 @@ export function ManagePortal({
             const [label, href, Icon] = manageHomeNavigation;
             const active = isWorkspaceRouteActive({
               href,
-              pathname,
+              pathname: currentPathname,
               exact: true,
             });
 
@@ -1113,7 +1125,13 @@ export function ManagePortal({
                     showSidebarTooltip(label, event.currentTarget)
                   }
                   onBlur={clearSidebarTooltip}
-                  onClick={handleManageNavSelect}
+                  onClick={() => {
+                    if (href !== pathname) {
+                      setOptimisticHref(href);
+                      startNavTransition(() => {});
+                    }
+                    handleManageNavSelect();
+                  }}
                 >
                   <Icon size={18} />
                   <span className="manage-nav-label">{label}</span>
@@ -1127,7 +1145,7 @@ export function ManagePortal({
               {group.items.map(([label, href, Icon]) => {
                 const active = isWorkspaceRouteActive({
                   href,
-                  pathname,
+                  pathname: currentPathname,
                 });
                 const unreadCount = label === "Mail" ? data.mail.unreadCount : 0;
                 return (
@@ -1145,7 +1163,13 @@ export function ManagePortal({
                     onMouseLeave={clearSidebarTooltip}
                     onFocus={(event) => showSidebarTooltip(unreadCount > 0 ? `${label}, ${unreadCount} unread messages` : label, event.currentTarget)}
                     onBlur={clearSidebarTooltip}
-                    onClick={handleManageNavSelect}
+                    onClick={() => {
+                      if (href !== pathname) {
+                        setOptimisticHref(href);
+                        startNavTransition(() => {});
+                      }
+                      handleManageNavSelect();
+                    }}
                   >
                     <Icon size={18} />
                     <span className="manage-nav-label">{label}</span>
@@ -1349,7 +1373,7 @@ export function ManagePortal({
         </header>
         <div
           key={section}
-          data-workspace-scrollbar
+          data-workspace-scrollbar=""
           className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}
           onWheelCapture={(event) => {
             const node = event.currentTarget;
