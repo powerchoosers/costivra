@@ -53,6 +53,7 @@ const NATIVE_SCROLL_SELECTOR = [
   ".portal-modal-layer",
   ".portal-modal-body",
   ".portal-sheet",
+  ".bill-breakdown-analysis",
   ".chat-scroll",
   ".ask-conversation",
   ".vendor-table-wrap",

@@ -447,7 +447,7 @@ export function BillBreakdownModal({
               </div>
             </div>
 
-            <div className="bill-breakdown-analysis">
+            <div className="bill-breakdown-analysis" data-workspace-scrollbar="">
               <article className="bill-breakdown-card">
                 <div className="bill-breakdown-card-heading">
                   <div>
@@ -1006,17 +1006,6 @@ export function BillBreakdownModal({
           flex-direction: column;
           gap: 14px;
           background: #0b1222;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(148, 163, 184, 0.4) rgba(15, 23, 42, 0.6);
-        }
-        .bill-breakdown-analysis::-webkit-scrollbar { width: 8px; }
-        .bill-breakdown-analysis::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
-        .bill-breakdown-analysis::-webkit-scrollbar-thumb {
-          background: rgba(148, 163, 184, 0.35);
-          border-radius: 999px;
-        }
-        .bill-breakdown-analysis::-webkit-scrollbar-thumb:hover {
-          background: rgba(148, 163, 184, 0.55);
         }
         .bill-breakdown-card {
           padding: 16px;
