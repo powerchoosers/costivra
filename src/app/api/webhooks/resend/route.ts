@@ -146,12 +146,20 @@ async function recordDeliveryEvent(
     // Resend acceptance is not delivery truth. Lifecycle and scheduled-report
     // side effects are reconciled here from the signed provider event.
     const sideEffectStatus = status === "delivered" ? "delivered" : status === "bounced" ? "bounced" : status === "complained" ? "complained" : status === "suppressed" ? "suppressed" : status === "failed" ? "failed" : status;
-    const sideEffectUpdate: Record<string, unknown> = { status: sideEffectStatus, updated_at: new Date().toISOString() };
+    const providerEventAt = event.created_at;
+    const terminalSideEffect = ["delivered", "failed", "bounced", "complained", "suppressed"].includes(sideEffectStatus);
+    const sideEffectUpdate: Record<string, unknown> = {
+      status: sideEffectStatus,
+      updated_at: new Date().toISOString(),
+      last_provider_event_at: providerEventAt,
+      completed_at: terminalSideEffect ? new Date().toISOString() : null,
+    };
     if (["bounced", "complained", "suppressed", "failed"].includes(sideEffectStatus)) sideEffectUpdate.last_error = `RESEND_${sideEffectStatus.toUpperCase()}`;
     const { data: sideEffects } = await db.from("external_side_effects").select("id,type,status").eq("provider_reference", providerMessageId);
     const advancingSideEffects = (sideEffects ?? []).filter((row) => shouldAdvanceProviderStatus(row.status as string | null | undefined, sideEffectStatus));
     if (advancingSideEffects.length) {
-      await db.from("external_side_effects").update(sideEffectUpdate).in("id", advancingSideEffects.map((row) => row.id));
+      const { error: sideEffectUpdateError } = await db.from("external_side_effects").update(sideEffectUpdate).in("id", advancingSideEffects.map((row) => row.id));
+      if (sideEffectUpdateError) throw sideEffectUpdateError;
       const reportSideEffectIds = advancingSideEffects
         .filter((row) => row.type === "report_email")
         .map((row) => row.id);
