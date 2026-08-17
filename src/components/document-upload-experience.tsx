@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type DragEvent, type FormEvent } from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
   File,
@@ -328,7 +329,7 @@ export function DocumentUploadExperience({
           <span className="document-upload-upgrade-mark"><ShieldCheck size={22} /></span>
           <strong>Your free review is complete.</strong>
           <p>You’ve reached the three-bill limit. Subscribe to keep analyzing bills, retain the full evidence history, and unlock ongoing monitoring.</p>
-          <a className="button button-primary" href="/pricing?from=free-review">See paid plans <UploadCloud size={15} /></a>
+          <Link className="button button-primary" href="/pricing?from=free-review">See paid plans <UploadCloud size={15} /></Link>
         </div>
       ) : errorMessage ? (
         <div className="document-upload-error" role="alert">
