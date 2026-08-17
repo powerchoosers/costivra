@@ -39,7 +39,7 @@ export async function deliverOperationsAlert(
 
   const generation = Number(alert.metadata.activation_generation || 1);
   const reminderMinutes = Number(process.env.COSTIVRA_ALERT_REMINDER_MINUTES || 0);
-  const previousSeverity = String(alert.metadata.previous_severity || "info");
+  const previousSeverity = String(alert.metadata.previous_severity || alert.severity);
   const severityRank = (value: string) => value === "critical" ? 2 : value === "warning" ? 1 : 0;
   const kind = severityRank(alert.severity) > severityRank(previousSeverity)
     ? "escalation"
@@ -70,6 +70,7 @@ export async function deliverOperationsAlert(
     attempt_count: (existing?.status === "failed" ? 1 : 0),
     updated_at: new Date().toISOString(),
   }).select("id,status").single();
+  let deliveryId: string | null = claim.data?.id ?? null;
   if (claim.error || !claim.data) {
     if (claim.error?.code !== "23505") return { status: "failed", reason: "ALERT_DELIVERY_CLAIM_FAILED" };
     const raced = await db.from("operational_alert_deliveries").select("id,status,provider_reference,request_hash").eq("idempotency_key", idempotencyKey).maybeSingle();
@@ -78,15 +79,16 @@ export async function deliverOperationsAlert(
     if (raced.data?.status !== "failed") return { status: "duplicate" };
     const retry = await db.from("operational_alert_deliveries").update({ status: "pending", attempt_count: 1, updated_at: new Date().toISOString() }).eq("id", raced.data.id).eq("status", "failed").select("id").maybeSingle();
     if (retry.error || !retry.data) return { status: "duplicate" };
-    claim.data = { id: raced.data.id, status: "pending" };
+    deliveryId = raced.data.id;
   }
+  if (!deliveryId) return { status: "failed", reason: "ALERT_DELIVERY_CLAIM_FAILED" };
 
   const replyTo = process.env.COSTIVRA_OPERATIONS_ALERT_REPLY_TO?.trim();
   const result = await sendTransactionalEmail({ ...email, replyTo: replyTo && replyTo.includes("@") ? replyTo : undefined, idempotencyKey });
   if (!result.ok) {
-    await db.from("operational_alert_deliveries").update({ status: "failed", safe_error: result.error, last_attempt_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", claim.data.id);
+    await db.from("operational_alert_deliveries").update({ status: "failed", safe_error: result.error, last_attempt_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", deliveryId);
     return { status: "failed", reason: result.error };
   }
-  await db.from("operational_alert_deliveries").update({ status: "sent", provider_reference: result.providerId, last_attempt_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", claim.data.id);
+  await db.from("operational_alert_deliveries").update({ status: "sent", provider_reference: result.providerId, last_attempt_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", deliveryId);
   return { status: "sent", providerReference: result.providerId };
 }
