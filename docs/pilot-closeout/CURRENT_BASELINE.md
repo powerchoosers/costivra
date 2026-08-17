@@ -27,13 +27,16 @@ This file records the evidence available before production certification. It is 
 - Deployment Git SHA: `27d664e381fa9fe40f95d6d59eedb38628da311f`.
 - Vercel readiness does not prove GitHub Quality, scanner proof, migration parity, or authenticated production behavior.
 - Recent runtime error groups still include inbound worker ledger failures, null `page_number` evidence inserts, outreach reorder internal errors, and an authentication-required reports-delivery error. These require owner review against current production logs.
+- Direct `https://costivra.ai/api/status` check at 2026-08-17T14:50:45Z returned `overall=limited`; website and workspace were operational, while intake and extraction were limited pending scanner proof.
 
 ## Supabase
 
 - Costivra instructions identify project `skfocjrykyvsaviyhdea` in `us-east-2`.
-- The currently available Supabase connector resolves to `https://gfitvnkaevozbcyostez.supabase.co`, a different project.
-- Its read-only migration/schema responses are Luxor-oriented and do not contain Costivra tables such as `operational_alerts` or `operational_alert_deliveries`.
-- No Supabase migration, SQL write, cleanup, auth change, or production data action was performed from this connector.
+- The currently available Supabase connector resolves to `https://gfitvnkaevozbcyostez.supabase.co`, a different project; its read-only migration/schema responses are Luxor-oriented. No migration or admin action was performed through that connector.
+- A separate read-only REST probe using the repository's configured Costivra endpoint confirmed `documents`, `operational_alerts`, `inbound_worker_runs`, and `retention_runs` are reachable. `operational_alert_deliveries` is not present yet.
+- The Costivra `operational_alerts` table currently has no active rows. A safe aggregate probe found at least one failed `external_side_effects` row.
+- The latest reachable malware proof is for SHA `712284587cad40b250b633023a844393eac51624`, expiring 2026-08-24; it does not certify the eventual final SHA.
+- No Supabase migration, SQL write, cleanup, auth change, or production data action was performed.
 - The Costivra leaked-password protection warning therefore remains unverified and unresolved. The owner must reconnect the correct Costivra project before any parity or auth certification.
 
 ## Resend
