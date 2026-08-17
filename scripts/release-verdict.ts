@@ -99,22 +99,32 @@ function runLocalGates(): Gate[] {
     const bin = process.platform === "win32" ? `${gate.command}.cmd` : gate.command;
     const res = spawnSync(bin, gate.args, {
       cwd: process.cwd(),
-      stdio: "inherit",
+      stdio: gate.name === "integration" || gate.name === "full-playwright" ? ["ignore", "pipe", "pipe"] : "inherit",
       shell: process.platform === "win32",
       windowsHide: true,
       timeout: 300_000,
     });
 
-    if (res.status === 0) {
+    const capturedOutput =
+      gate.name === "integration" || gate.name === "full-playwright"
+        ? `${res.stdout ?? ""}\n${res.stderr ?? ""}`
+        : "";
+    const skippedRequiredTest =
+      /(?:\b\d+\s+skipped\b|\|\s*\d+\s+skipped\b)/i.test(capturedOutput);
+
+    if (res.status === 0 && !skippedRequiredTest) {
       console.log(`  ✅ ${gate.name} passed.`);
       return { name: gate.name, status: "passed" as const };
     }
 
-    console.error(`  ❌ ${gate.name} failed (exit ${res.status}): ${res.error?.message ?? ""}`);
+    const detail = skippedRequiredTest
+      ? "required tests were skipped"
+      : res.error?.message ?? `exit ${res.status ?? "unknown"}`;
+    console.error(`  ❌ ${gate.name} failed (exit ${res.status}): ${detail}`);
     return {
       name: gate.name,
       status: "failed" as const,
-      detail: res.error?.message ?? `exit ${res.status ?? "unknown"}`,
+      detail,
     };
   });
 }
