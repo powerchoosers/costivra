@@ -2065,3 +2065,17 @@ Add a clearly labeled Sign out action to the mobile workspace drawer and use tha
 ## Consequences
 
 Mobile members have a complete, discoverable account-exit path, and the responsive journey now verifies sign-out, protected-route redirect, re-authentication, and workspace-state resume. The action is a normal auth session mutation and does not create an external side effect.
+
+# 2026-08-17 — Make finish-line release evidence fail closed
+
+## Context
+
+The existing release scripts hardcoded successful gates, omitted full Playwright and source stability, and used `100% GREEN` language even when production evidence was absent or stale.
+
+## Decision
+
+Treat the local verifier as engineering-gate evidence only: require a clean tracked tree, full Playwright, and unchanged HEAD; use `BLOCKED` when any gate fails. Require exact SHA/deployment inputs and protected secrets in a separate certification workflow for production evidence. Rename the direct-insert runner as a database lifecycle smoke and keep its savings result unverified.
+
+## Consequences
+
+Local checks can no longer certify deployment, scanner, migration, status, or authenticated production behavior. Those claims require the protected workflow and owner-controlled live checks. The repository’s root report is now explicitly non-authoritative.

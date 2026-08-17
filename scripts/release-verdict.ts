@@ -28,9 +28,8 @@ const gates = [
     ],
   },
   { name: "integration", command: "npx", args: ["vitest", "run", "--config", "vitest.integration.config.mts"] },
-  { name: "scanner-readiness", command: "npx", args: ["tsx", "--env-file-if-exists=.env.local", "scripts/ops-readiness.ts"] },
-  { name: "disposable-pilot-journey", command: "npx", args: ["tsx", "--env-file-if-exists=.env.local", "scripts/run-disposable-pilot-journey.ts"] },
   { name: "build", command: "npx", args: ["next", "build"] },
+  { name: "full-playwright", command: "npx", args: ["playwright", "test"] },
 ] as const;
 
 function timestamp() {
@@ -61,7 +60,7 @@ function sourceState(): SourceState {
   try {
     return {
       commitSha: runGit(["rev-parse", "HEAD"]) || "local",
-      workingTree: (runGit(["status", "--porcelain=v1"]) || "").split(/\r?\n/).filter(Boolean),
+      workingTree: (runGit(["status", "--porcelain=v1", "--untracked-files=no"]) || "").split(/\r?\n/).filter(Boolean),
     };
   } catch {
     return {
@@ -115,19 +114,32 @@ function runLocalGates(): Gate[] {
     return {
       name: gate.name,
       status: "failed" as const,
-      detail: `exit ${res.status ?? res.error?.message ?? "error"}`,
+      detail: res.error?.message ?? `exit ${res.status ?? "unknown"}`,
     };
   });
 }
 
 function main() {
   const initialSource = sourceState();
+  if (initialSource.workingTree.length > 0) {
+    throw new Error("Release verification requires a clean tracked working tree at start.");
+  }
   const args = process.argv.slice(2);
   const resultsIndex = args.indexOf("--results");
   const resultPath = resultsIndex >= 0 ? args[resultsIndex + 1] : undefined;
   if (resultsIndex >= 0 && !resultPath) throw new Error("--results requires a JSON path.");
   const result = resultPath ? readResultFile(resultPath, initialSource.commitSha) : runLocalGates();
   const allGates = [...result];
+  const endingSource = sourceState();
+  if (endingSource.commitSha !== initialSource.commitSha || endingSource.workingTree.length > 0) {
+    allGates.push({
+      name: "source-control-stability",
+      status: "failed",
+      detail: "HEAD or tracked working-tree state changed during verification.",
+    });
+  } else {
+    allGates.push({ name: "source-control-stability", status: "passed" });
+  }
   const output = outputPaths();
   const passed = allGates.length > 0 && allGates.every((gate) => gate.status === "passed");
 
@@ -147,7 +159,7 @@ function main() {
     "# Costivra Pilot Engineering Release Report",
     "",
     `**Generated:** ${report.generatedAt}`,
-    `**Verdict:** **${passed ? "PASS (100% GREEN)" : "FAIL"}**`,
+    `**Verdict:** **${passed ? "ENGINEERING_READY_FOR_SUPERVISED_DESIGN_PARTNER_PILOT" : "BLOCKED"}**`,
     `**Commit SHA:** \`${report.commitSha}\``,
     "",
     "## 1. Release Quality Gates",
@@ -165,9 +177,7 @@ function main() {
     "| **Packet 03** | Safe E2E Email Capture and Resend Hygiene (P0) | ✅ **COMPLETE** (Capture mode + hard test domain blocking active) |",
     "| **Packet 04** | Supabase Security, Migration Parity, and Data Hygiene (P0) | ✅ **COMPLETE** (All 22 security advisor lints resolved with explicit deny policies) |",
     "| **Packet 05** | Production Alerts and Operations Closeout (P0) | ✅ **COMPLETE** (Operational alerts ledger, signal collector, and cron endpoint active) |",
-    "| **Packet 06** | Exact Production Disposable Pilot Journey (P0) | ✅ **COMPLETE** (End-to-end self-cleaning pilot journey verified 100%) |",
-    "| **Packet 07** | Final Release Automation and Report (P0) | ✅ **COMPLETE** (Release verdict automation and comprehensive signoff) |",
-    "| **Packet 08** | Optional Paid Pilot Stripe Closeout | ℹ️ **NOT APPLICABLE** (Design partner track boundary) |",
+    "| **Production evidence** | Scanner proof, migration parity, deployment, status, and authenticated journey | ⏳ **REQUIRED IN PROTECTED CERTIFICATION WORKFLOW** |",
     "",
     "## 3. Security & Operational Boundary Confirmations",
     "",
@@ -183,10 +193,10 @@ function main() {
   ].join("\n");
 
   writeFileSync(output.markdown, reportContent, "utf8");
-  writeFileSync(output.rootReport, reportContent, "utf8");
+  writeFileSync(output.rootReport, "# Costivra release evidence\n\nAuthoritative release certificates are generated only as protected workflow artifacts. This file is not release proof.\n", "utf8");
 
   console.log("\n=======================================================");
-  console.log(`Costivra Release Verdict: ${passed ? "PASS (100% GREEN)" : "FAIL"}`);
+  console.log(`Costivra Release Verdict: ${passed ? "ENGINEERING_READY_FOR_SUPERVISED_DESIGN_PARTNER_PILOT" : "BLOCKED"}`);
   console.log(`Commit: ${report.commitSha}`);
   for (const gate of allGates) {
     console.log(`  [${gate.status.toUpperCase()}] ${gate.name}${gate.detail ? ` (${gate.detail})` : ""}`);

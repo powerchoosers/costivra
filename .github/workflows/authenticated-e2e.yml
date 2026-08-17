@@ -2,6 +2,15 @@ name: Authenticated production regression
 
 on:
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact deployed commit SHA to test
+        required: true
+        type: string
+      deployment_id:
+        description: Expected Vercel production deployment ID
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,8 +29,12 @@ jobs:
       PLAYWRIGHT_BASE_URL: https://costivra.ai
       NEXT_PUBLIC_SUPABASE_URL: https://skfocjrykyvsaviyhdea.supabase.co
       E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      DEPLOYMENT_ID: ${{ inputs.deployment_id }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -30,6 +43,30 @@ jobs:
         shell: bash
         run: |
           test -n "$E2E_SUPABASE_SECRET_KEY" || { echo "Missing E2E_SUPABASE_SECRET_KEY secret"; exit 1; }
+          test -n "$EXPECTED_SHA" || { echo "Missing expected SHA"; exit 1; }
+          test -n "$DEPLOYMENT_ID" || { echo "Missing deployment ID"; exit 1; }
+      - name: Verify checked out SHA
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Verify Vercel deployment SHA
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "Missing VERCEL_TOKEN secret"; exit 1; }
+          test -n "$VERCEL_TEAM_ID" || { echo "Missing VERCEL_TEAM_ID secret"; exit 1; }
+          response=$(curl --fail --silent --show-error "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID?teamId=$VERCEL_TEAM_ID" -H "Authorization: Bearer $VERCEL_TOKEN")
+          echo "$response" | jq -e --arg sha "$EXPECTED_SHA" '.readyState == "READY" and .target == "production" and .meta.githubCommitSha == $sha'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:authenticated
+      - name: Upload authenticated journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-production-regression-${{ inputs.expected_sha }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: warn

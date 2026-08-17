@@ -12,8 +12,8 @@ async function main() {
   process.env.COSTIVRA_EMAIL_DELIVERY_MODE = "capture";
   process.env.COSTIVRA_CAPTURE_RUN_ID = runId;
 
-  console.log("🚀 Costivra Exact Production Disposable Pilot Journey Runner");
-  console.log("============================================================");
+  console.log("🚀 Costivra Database Lifecycle Smoke");
+  console.log("===================================");
   console.log(`- Run ID: ${runId}`);
   console.log(`- Started At: ${startedAt}`);
   console.log(`- Email Mode: ${process.env.COSTIVRA_EMAIL_DELIVERY_MODE}`);
@@ -211,8 +211,15 @@ async function main() {
       throw new Error(`Failed to create action plan: ${actionPlanError?.message}`);
     }
 
-    const { data: profile } = await db.from("profiles").select("id").limit(1).single();
-    const actorId = profile?.id ?? "8c80a97e-d90f-451d-bd42-6d3783565d66";
+    const { data: profile, error: profileError } = await db
+      .from("profiles")
+      .select("id")
+      .eq("email", `database-smoke-${shortRunId}@costivra.invalid`)
+      .maybeSingle();
+    if (profileError || !profile) {
+      throw new Error("Database smoke requires a dedicated disposable actor; it will not borrow an arbitrary profile.");
+    }
+    const actorId = profile.id;
 
     const { error: approvalError } = await db
       .from("approvals")
@@ -232,8 +239,8 @@ async function main() {
     console.log(`  ✅ Opportunity & Action Plan approved: ${opp.id}`);
     milestones["5_opportunity_and_approval"] = "PASS";
 
-    // 6. Verified Savings Outcome
-    console.log("\n[6/7] Verifying savings outcome against baseline...");
+    // 6. Potential outcome only. Direct inserts are not product verification.
+    console.log("\n[6/7] Recording potential outcome without verification...");
     const { data: outcome, error: outcomeError } = await db
       .from("savings_outcomes")
       .insert({
@@ -244,8 +251,7 @@ async function main() {
         amount: 4800.0,
         currency: "USD",
         method: "pre_post_line_item_comparison",
-        status: "verified",
-        verified_at: new Date().toISOString(),
+        status: "pending",
       })
       .select("id, amount, status")
       .single();
@@ -253,8 +259,8 @@ async function main() {
     if (outcomeError || !outcome) {
       throw new Error(`Failed to record savings outcome: ${outcomeError?.message}`);
     }
-    console.log(`  ✅ Verified savings recorded: $${outcome.amount}/yr`);
-    milestones["6_verified_savings_outcome"] = "PASS";
+    console.log(`  ✅ Potential outcome recorded: $${outcome.amount}/yr (not verified)`);
+    milestones["6_potential_outcome_recorded"] = "PASS";
 
     // 7. Side Effect & Captured Email Delivery
     console.log("\n[7/7] Dispatching lifecycle side-effect in capture mode...");
@@ -312,7 +318,7 @@ async function main() {
   const mdPath = resolve(artifactDir, `journey-${shortRunId}.md`);
 
   const certificateData = {
-    schemaVersion: "costivra-disposable-pilot-journey-v1",
+    schemaVersion: "costivra-database-lifecycle-smoke-v1",
     runId,
     startedAt,
     completedAt,
@@ -322,7 +328,7 @@ async function main() {
 
   await writeFile(jsonPath, JSON.stringify(certificateData, null, 2), "utf8");
 
-  const markdownSummary = `# Disposable Pilot Journey Execution Certificate
+  const markdownSummary = `# Database Lifecycle Smoke Certificate
 
 - **Run ID**: \`${runId}\`
 - **Started At**: ${startedAt}
@@ -338,26 +344,26 @@ async function main() {
 | 3. Document Intake & Provenance Recorded | ${milestones["3_document_and_scan_provenance"] || "FAIL"} |
 | 4. Invoice Extraction & Line Items Reconciled | ${milestones["4_invoice_and_line_items"] || "FAIL"} |
 | 5. Opportunity Discovered & Action Plan Approved | ${milestones["5_opportunity_and_approval"] || "FAIL"} |
-| 6. Savings Outcome Verified Against Baseline | ${milestones["6_verified_savings_outcome"] || "FAIL"} |
+| 6. Potential Outcome Recorded (Not Verified) | ${milestones["6_potential_outcome_recorded"] || "FAIL"} |
 | 7. Side Effect & Captured Email Dispatched | ${milestones["7_side_effect_email_captured"] || "FAIL"} |
 | 8. Disposable Workspace Cleaned Up (Teardown) | ${milestones["teardown_cleaned"] || "FAIL"} |
 `;
 
   await writeFile(mdPath, markdownSummary, "utf8");
 
-  console.log(`\n📄 Saved disposable pilot journey certificate:`);
+  console.log(`\n📄 Saved database lifecycle smoke certificate:`);
   console.log(`  - ${jsonPath}`);
   console.log(`  - ${mdPath}`);
 
   if (!allPassed) {
-    console.error("\n❌ Disposable pilot journey failed one or more milestones.");
+    console.error("\n❌ Database lifecycle smoke failed one or more milestones.");
     process.exit(1);
   }
 
-  console.log("\n✨ Disposable pilot journey completed and verified with 100% PASS.");
+  console.log("\n✅ Database lifecycle smoke completed; no savings verification was claimed.");
 }
 
 main().catch((err) => {
-  console.error("❌ Disposable pilot journey failed:", err);
+  console.error("❌ Database lifecycle smoke failed:", err);
   process.exit(1);
 });

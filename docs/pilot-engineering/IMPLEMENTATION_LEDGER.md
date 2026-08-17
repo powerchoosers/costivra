@@ -72,7 +72,7 @@ This ledger records the verified engineering, infrastructure, and release proof 
 - **Priority**: P0
 - **Status**: ✅ **COMPLETE & VERIFIED**
 - **Changes**:
-  - Created `scripts/run-disposable-pilot-journey.ts` and added `npm run test:pilot:journey`.
+  - Created `scripts/run-database-lifecycle-smoke.ts` and added `npm run test:database:lifecycle`; it is a database smoke only and never claims savings verification.
   - Full end-to-end user lifecycle executed on live Supabase:
     1. Disposable organization provisioned
     2. Vendor relationship created

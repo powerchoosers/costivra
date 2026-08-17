@@ -1,0 +1,83 @@
+name: Pilot release certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact final commit SHA
+        required: true
+        type: string
+      deployment_id:
+        description: Vercel production deployment ID for the SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: pilot-production-certification
+    env:
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+      DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.expected_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require protected certification secrets
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+          E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test -n "$DEPLOYMENT_ID" -a -n "$VERCEL_TOKEN" -a -n "$VERCEL_TEAM_ID" -a -n "$E2E_SUPABASE_SECRET_KEY" -a -n "$CRON_SECRET"
+      - name: Verify production deployment identity
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          curl --fail --silent --show-error "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID?teamId=$VERCEL_TEAM_ID" -H "Authorization: Bearer $VERCEL_TOKEN" \
+            | jq -e --arg sha "$EXPECTED_SHA" '.readyState == "READY" and .target == "production" and .meta.githubCommitSha == $sha'
+      - name: Install and run engineering gates
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run test:integration
+          npm run build
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+      - name: Run linked production evidence checks
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: https://skfocjrykyvsaviyhdea.supabase.co
+          E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+          COSTIVRA_RELEASE_SHA: ${{ inputs.expected_sha }}
+        run: |
+          npx supabase migration list --linked --output json > migration-parity.json
+          curl --fail --silent --show-error https://costivra.ai/api/status > public-status.json
+          jq -e '.overall == "operational"' public-status.json
+      - name: Upload certification inputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: costivra-engineering-release-${{ inputs.expected_sha }}
+          path: |
+            migration-parity.json
+            public-status.json
+            playwright-report
+            test-results
+          if-no-files-found: warn

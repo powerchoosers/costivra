@@ -208,7 +208,7 @@ export async function collectSystemOperationalSignals(
   knownKeys.add(sideEffectKey);
   const { data: failedSideEffects } = await db
     .from("external_side_effects")
-    .select("id, type, destination, last_error, created_at")
+    .select("id, type, created_at")
     .eq("status", "failed")
     .limit(5);
 
@@ -219,7 +219,10 @@ export async function collectSystemOperationalSignals(
       category: "workflow",
       title: "Failed external side effects pending operator review",
       message: `${failedSideEffects.length} side effect(s) terminated with error.`,
-      metadata: { samples: failedSideEffects },
+      metadata: {
+        count: failedSideEffects.length,
+        types: [...new Set(failedSideEffects.map((item) => typeof item.type === "string" ? item.type : "unknown"))].slice(0, 5),
+      },
     });
   }
 
