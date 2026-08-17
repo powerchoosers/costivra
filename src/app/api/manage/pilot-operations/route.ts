@@ -62,11 +62,29 @@ export async function GET() {
     const results = [organizations, inboundAttention, workerFailures24h, workerCompletions24h, recentWorkerFailures, recentReportFailures, recentEmailProblems, recentExtractionFailures, recentScannerFailures, scannerUnavailable24h, quarantined, extractionFailures, stalledDocuments, reportFailures, reportFailures24h, emailProblems, monitoringUpcoming, monitoringMissed, recoveryActions];
     const hasQueryError = results.some((result) => result.error);
     const safeCount = (result: { count?: number | null; error?: unknown }) => result.error ? null : result.count ?? 0;
-    const dataWarnings = hasQueryError ? ["operations_snapshot_incomplete"] : [];
+    const [operationalAlerts, alertDeliveries] = await Promise.all([
+      db.from("operational_alerts").select("id,signal_key,severity,title,status,first_seen_at,last_seen_at,occurrence_count,metadata").eq("status", "active").order("last_seen_at", { ascending: false }).limit(50),
+      db.from("operational_alert_deliveries").select("alert_id,status,provider_reference,updated_at").order("updated_at", { ascending: false }).limit(100),
+    ]);
+    const deliveryByAlert = new Map<string, { status: string }>();
+    for (const delivery of alertDeliveries.data ?? []) {
+      if (!deliveryByAlert.has(String(delivery.alert_id))) deliveryByAlert.set(String(delivery.alert_id), { status: String(delivery.status) });
+    }
+    const dataWarnings = hasQueryError || operationalAlerts.error || alertDeliveries.error ? ["operations_snapshot_incomplete"] : [];
     return NextResponse.json({
       checkedAt: new Date().toISOString(),
       readiness: { overall: readiness.overall, services: readiness.services.map(({ id, name, status }) => ({ id, name, status })) },
       dataWarnings,
+      operationalAlerts: (operationalAlerts.data ?? []).map((alert) => ({
+        id: String(alert.id),
+        signalKey: String(alert.signal_key),
+        severity: String(alert.severity),
+        title: String(alert.title),
+        firstSeenAt: String(alert.first_seen_at),
+        lastSeenAt: String(alert.last_seen_at),
+        occurrenceCount: Number(alert.occurrence_count),
+        delivery: deliveryByAlert.get(String(alert.id)) ?? { status: "not_sent" },
+      })),
       metrics: {
         pilotTenants: safeCount(organizations),
         inboundAttention: safeCount(inboundAttention),

@@ -2066,6 +2066,20 @@ Add a clearly labeled Sign out action to the mobile workspace drawer and use tha
 
 Mobile members have a complete, discoverable account-exit path, and the responsive journey now verifies sign-out, protected-route redirect, re-authentication, and workspace-state resume. The action is a normal auth session mutation and does not create an external side effect.
 
+# 2026-08-17 — Keep global operations alert delivery outside tenant side effects
+
+## Context
+
+Operational alerts describe platform-wide health and must reach a monitored owner mailbox without exposing tenant data or creating a tenant-scoped notification dependency.
+
+## Decision
+
+Use a server-only Resend adapter backed by a dedicated idempotent delivery ledger. The payload contains only safe operational fields, delivery retries are bounded by the alert generation and reminder interval, and the Manage view exposes delivery status without provider details. The migration remains local until the owner reviews and applies it.
+
+## Consequences
+
+Alerts are auditable and resilient to cron retries, while missing configuration or an unapplied migration fails visibly instead of silently claiming delivery. Production email verification still requires owner-controlled configuration and a monitored mailbox.
+
 # 2026-08-17 — Make finish-line release evidence fail closed
 
 ## Context

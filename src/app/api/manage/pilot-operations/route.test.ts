@@ -83,4 +83,17 @@ describe("GET /api/manage/pilot-operations", () => {
     ]));
     expect(JSON.stringify(body)).not.toContain("document_id");
   });
+
+  it("returns safe active alert and delivery state", async () => {
+    const db = database({
+      operational_alerts: [{ id: "alert-1", signal_key: "worker:inbound-stale", severity: "critical", title: "Worker stalled", first_seen_at: "2026-08-17T10:00:00Z", last_seen_at: "2026-08-17T10:05:00Z", occurrence_count: 2 }],
+      operational_alert_deliveries: [{ alert_id: "alert-1", status: "sent", provider_reference: "msg-safe", updated_at: "2026-08-17T10:06:00Z" }],
+    });
+    requireInternalOperator.mockResolvedValue({ db });
+    checkSystemReadiness.mockResolvedValue({ overall: "ready", services: [] });
+    const response = await GET();
+    const body = await response.json();
+    expect(body.operationalAlerts).toEqual([expect.objectContaining({ signalKey: "worker:inbound-stale", delivery: { status: "sent" } })]);
+    expect(JSON.stringify(body)).not.toContain("msg-safe");
+  });
 });

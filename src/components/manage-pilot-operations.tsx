@@ -22,6 +22,7 @@ type Metrics = {
 };
 type Readiness = { overall: "ready" | "warning" | "blocked"; services: Array<{ id: string; name: string; status: "ready" | "warning" | "blocked" }> };
 type CriticalError = { source: string; status: string; errorCode: string; occurredAt: string; recoveryHref: string; occurrences: number; state: "open" };
+type OperationalAlert = { id: string; signalKey: string; severity: string; title: string; firstSeenAt: string; lastSeenAt: string; occurrenceCount: number; delivery: { status: string } };
 
 const cards: Array<{ key: keyof Metrics; label: string; href: string; detail: string }> = [
   { key: "inboundAttention", label: "Intake attention", href: "/manage/intake", detail: "queued, retrying, or dead-lettered" },
@@ -47,6 +48,7 @@ export function ManagePilotOperations() {
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [criticalErrors, setCriticalErrors] = useState<CriticalError[]>([]);
+  const [operationalAlerts, setOperationalAlerts] = useState<OperationalAlert[]>([]);
   const [dataWarnings, setDataWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,12 +57,13 @@ export function ManagePilotOperations() {
     setLoading(true);
     try {
       const response = await fetch("/api/manage/pilot-operations", { cache: "no-store" });
-      const payload = await response.json() as { metrics?: Metrics; readiness?: Readiness; checkedAt?: string; recentCriticalErrors?: CriticalError[]; dataWarnings?: string[]; error?: string };
+      const payload = await response.json() as { metrics?: Metrics; readiness?: Readiness; checkedAt?: string; recentCriticalErrors?: CriticalError[]; operationalAlerts?: OperationalAlert[]; dataWarnings?: string[]; error?: string };
       if (!response.ok || !payload.metrics || !payload.readiness) throw new Error(payload.error || "The operations snapshot could not be loaded.");
       setMetrics(payload.metrics);
       setReadiness(payload.readiness);
       setCheckedAt(payload.checkedAt ?? null);
       setCriticalErrors(payload.recentCriticalErrors ?? []);
+      setOperationalAlerts(payload.operationalAlerts ?? []);
       setDataWarnings(payload.dataWarnings ?? []);
       setError(null);
     } catch (loadError) {
@@ -100,6 +103,12 @@ export function ManagePilotOperations() {
         <div className="manage-summary">
           {cards.map((card) => <Link className="manage-summary-card" href={card.href} key={card.key}><div className="manage-summary-meta"><small>{card.label.toUpperCase()}</small><span>{metrics?.[card.key] === null ? "Unavailable" : (metrics?.[card.key] ?? 0) > 0 ? "Review" : "Clear"}</span></div><div className="manage-summary-value"><strong>{loading ? "—" : metricLabel(metrics?.[card.key] ?? null)}</strong><span>{card.detail}</span></div></Link>)}
         </div>
+      </section>
+      <section className="manage-panel" aria-labelledby="pilot-operations-alert-ledger">
+        <header><div><h2 id="pilot-operations-alert-ledger">Active operational alerts</h2><p>Safe signal metadata and monitored delivery state. Customer documents and provider payloads are excluded.</p></div></header>
+        {loading ? <p>Loading alert ledger…</p> : operationalAlerts.length === 0 ? <p>No active warning or critical operational alerts.</p> : <ul className="manage-list">
+          {operationalAlerts.map((alert) => <li key={alert.id}><Link href="/manage/operations"><strong>{alert.title}</strong><span>{alert.severity} · {alert.signalKey} · {alert.occurrenceCount} occurrence{alert.occurrenceCount === 1 ? "" : "s"} · email {alert.delivery.status}</span></Link></li>)}
+        </ul>}
       </section>
       <section className="manage-panel" aria-labelledby="pilot-operations-errors">
         <header><div><h2 id="pilot-operations-errors">Recent critical worker errors</h2><p>Safe operational codes only. Open Intake operations for recovery.</p></div><Link className="manage-button manage-button--quiet" href="/manage/intake">Open recovery</Link></header>

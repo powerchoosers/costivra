@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/cron/auth";
+import { deliverOperationsAlert } from "@/lib/email/operations-alert";
 import { getRequestId, withRequestId } from "@/lib/observability/request-context";
 import {
   collectSystemOperationalSignals,
@@ -25,6 +26,13 @@ export async function GET(request: Request) {
   try {
     const { activeSignals, resolvedKeys } = await collectSystemOperationalSignals(db);
     const activeAlerts = await getActiveOperationalAlerts(db);
+    const minimumSeverity = process.env.COSTIVRA_ALERT_MIN_SEVERITY === "critical" ? "critical" : "warning";
+    const severityRank = (severity: string) => severity === "critical" ? 2 : severity === "warning" ? 1 : 0;
+    const deliveries = await Promise.all(
+      activeAlerts
+        .filter((alert) => severityRank(alert.severity) >= severityRank(minimumSeverity))
+        .map(async (alert) => ({ signalKey: alert.signalKey, result: await deliverOperationsAlert(db, alert) })),
+    );
 
     return respond({
       ok: true,
@@ -32,6 +40,7 @@ export async function GET(request: Request) {
       activeSignalsCount: activeSignals.length,
       resolvedKeysCount: resolvedKeys.length,
       totalActiveAlerts: activeAlerts.length,
+      deliveries,
       activeAlerts: activeAlerts.map((a) => ({
         signalKey: a.signalKey,
         severity: a.severity,

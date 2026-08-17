@@ -49,7 +49,12 @@ export async function recordOperationalAlert(
     .maybeSingle();
 
   if (existing) {
-    const updatedCount = (existing.occurrence_count || 1) + 1;
+    const reopened = existing.status === "resolved";
+    const updatedCount = reopened ? 1 : (existing.occurrence_count || 1) + 1;
+    const existingMetadata = (existing.metadata as Record<string, unknown>) || {};
+    const activationGeneration = reopened
+      ? Number(existingMetadata.activation_generation || 0) + 1
+      : Number(existingMetadata.activation_generation || 1);
     const { data: updated, error } = await db
       .from("operational_alerts")
       .update({
@@ -57,8 +62,15 @@ export async function recordOperationalAlert(
         category: input.category,
         title: input.title,
         message: input.message,
-        metadata: { ...(existing.metadata as Record<string, unknown>), ...input.metadata },
+        metadata: {
+          ...existingMetadata,
+          ...input.metadata,
+          activation_generation: activationGeneration,
+          previous_severity: existing.severity !== input.severity ? existing.severity : existingMetadata.previous_severity,
+          last_severity: input.severity,
+        },
         status: "active",
+        first_seen_at: reopened ? now : existing.first_seen_at,
         last_seen_at: now,
         occurrence_count: updatedCount,
         resolved_at: null,
@@ -96,7 +108,7 @@ export async function recordOperationalAlert(
       category: input.category,
       title: input.title,
       message: input.message,
-      metadata: input.metadata || {},
+      metadata: { ...(input.metadata || {}), activation_generation: 1, last_severity: input.severity },
       status: "active",
       first_seen_at: now,
       last_seen_at: now,
@@ -105,6 +117,11 @@ export async function recordOperationalAlert(
     .select("*")
     .single();
 
+  if (error?.code === "23505") {
+    // Another cron invocation won the unique signal-key insert. Re-read it
+    // and take the normal update path instead of creating a duplicate error.
+    return recordOperationalAlert(db, input);
+  }
   if (error || !inserted) {
     throw new Error(`Failed to insert operational alert: ${error?.message}`);
   }
@@ -244,6 +261,95 @@ export async function collectSystemOperationalSignals(
       title: "Stale quarantined documents detected",
       message: `${staleCount} document(s) have been quarantined for over 24 hours.`,
       metadata: { count: staleCount },
+    });
+  }
+
+  // 4. Inbound worker health. These queries intentionally retain only counts
+  // and timestamps; worker payloads and provider errors are not alert data.
+  const workerKey = "worker:inbound-stale";
+  knownKeys.add(workerKey);
+  const { data: latestWorker } = await db
+    .from("inbound_worker_runs")
+    .select("status,started_at,completed_at")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const workerStartedAt = typeof latestWorker?.started_at === "string" ? latestWorker.started_at : null;
+  const workerIsStale = !workerStartedAt || Date.now() - Date.parse(workerStartedAt) > 5 * 60 * 1000;
+  const workerIsFailed = latestWorker?.status === "failed" || latestWorker?.status === "running" && workerIsStale;
+  if (workerIsFailed) {
+    activeSignals.push({
+      signalKey: workerKey,
+      severity: "critical",
+      category: "system",
+      title: "Inbound worker health needs attention",
+      message: latestWorker?.status === "failed" ? "The latest inbound worker run failed." : "The inbound worker has not checked in within five minutes.",
+      metadata: { latestStatus: latestWorker?.status ?? "missing", latestStartedAt: workerStartedAt },
+    });
+  }
+
+  // 5. Document and extraction terminal states.
+  const extractionKey = "extraction:terminal-failures";
+  knownKeys.add(extractionKey);
+  const extractionSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count: failedDocuments } = await db
+    .from("documents")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "failed")
+    .gte("updated_at", extractionSince);
+  const { count: processingDocuments } = await db
+    .from("documents")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "processing")
+    .lt("updated_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
+  if ((failedDocuments ?? 0) > 0 || (processingDocuments ?? 0) > 0) {
+    activeSignals.push({
+      signalKey: extractionKey,
+      severity: "warning",
+      category: "extraction",
+      title: "Document extraction needs operator review",
+      message: `${failedDocuments ?? 0} failed and ${processingDocuments ?? 0} stuck document(s) detected in the monitored window.`,
+      metadata: { failedDocuments: failedDocuments ?? 0, stuckDocuments: processingDocuments ?? 0, windowHours: 24 },
+    });
+  }
+
+  // 6. Report delivery and retention ledgers.
+  const reportsKey = "reports:terminal-failures";
+  knownKeys.add(reportsKey);
+  const { count: failedReports } = await db
+    .from("report_delivery_runs")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["failed", "bounced", "suppressed"])
+    .gte("created_at", extractionSince);
+  if ((failedReports ?? 0) > 0) {
+    activeSignals.push({
+      signalKey: reportsKey,
+      severity: "warning",
+      category: "workflow",
+      title: "Report delivery failures need review",
+      message: `${failedReports} report delivery run(s) are in a terminal failure state.`,
+      metadata: { count: failedReports, windowHours: 24 },
+    });
+  }
+
+  const retentionKey = "retention:latest-run";
+  knownKeys.add(retentionKey);
+  const { data: latestRetention } = await db
+    .from("retention_runs")
+    .select("status,started_at,completed_at")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const retentionStartedAt = typeof latestRetention?.started_at === "string" ? latestRetention.started_at : null;
+  const retentionIsStale = !retentionStartedAt || Date.now() - Date.parse(retentionStartedAt) > 26 * 60 * 60 * 1000;
+  if (retentionIsStale || latestRetention?.status === "failed" || latestRetention?.status === "completed_with_errors") {
+    activeSignals.push({
+      signalKey: retentionKey,
+      severity: "warning",
+      category: "system",
+      title: "Retention maintenance needs attention",
+      message: latestRetention?.status === "failed" ? "The latest retention run failed." : "No healthy retention run was recorded within the expected window.",
+      metadata: { latestStatus: latestRetention?.status ?? "missing", latestStartedAt: retentionStartedAt },
     });
   }
 
