@@ -7,7 +7,7 @@ This file records the evidence available before production certification. It is 
 ## Repository
 
 - Local branch: `codex/finish-line-20260817`
-- Local engineering HEAD: `78e033a`
+- Local engineering HEAD at final local audit: `1fd14cd`
 - The branch has not been pushed to `main`.
 - The tracked worktree is clean. An existing untracked `tmp/` directory is preserved and is not release evidence.
 - The intended final SHA must be a later, explicitly deployed SHA after the owner-controlled certification steps.
@@ -54,6 +54,10 @@ This file records the evidence available before production certification. It is 
 - Public Playwright passed 26/30 in the combined desktop/mobile run; the only failure was a desktop browser-session closure during an anchor assertion. The exact test passed in isolation.
 - The full unconstrained Vitest run is not certified: it first exposed and then cleared three failures, but the subsequent run hung; the single-worker retry ended with native exit code `-1073741819`.
 - The fail-closed release verifier did not produce a current report because its typecheck process stalled in the local OneDrive workspace.
+
+- Dependency audit passed with zero vulnerabilities for production and all dependencies.
+- Secret scan passed across 1,108 files; private-evaluation staging found zero staged files.
+- Invoice evaluation smoke passed with zero extraction errors.
 
 ## Production writes performed
 
