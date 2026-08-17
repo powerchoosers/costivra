@@ -120,6 +120,9 @@ function runLocalGates(): Gate[] {
 }
 
 function main() {
+  if (!process.versions.node.startsWith("24.")) {
+    throw new Error(`Release verification requires Node 24.x; found ${process.versions.node}.`);
+  }
   const initialSource = sourceState();
   if (initialSource.workingTree.length > 0) {
     throw new Error("Release verification requires a clean working tree at start, including no untracked files.");
