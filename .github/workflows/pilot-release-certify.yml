@@ -76,7 +76,7 @@ jobs:
         run: |
           npm ci
           npm run typecheck
-          npx --no-install eslint .
+          node ./node_modules/eslint/bin/eslint.js .
           npm test
           npm run test:integration
           npm run build
