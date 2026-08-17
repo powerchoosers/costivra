@@ -714,12 +714,16 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.getByText("Action completed.", { exact: true })).toBeVisible({ timeout: 30_000 });
       checkpoint("action completed");
 
+      checkpoint("starting sign-out resume");
       await page.goto("/app");
       await expect(page.getByRole("heading", { name: "Activation Checklist", exact: true })).toBeVisible();
+      checkpoint("activation page loaded after action");
       await expect(page.getByRole("progressbar", { name: "Activation progress" })).toHaveAttribute("aria-valuetext", "2 of 5 completed");
       await page.getByRole("button", { name: "Toggle navigation menu" }).click();
+      checkpoint("navigation menu opened");
       await page.getByRole("button", { name: "Sign out", exact: true }).click();
       await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 30_000 });
+      checkpoint("signed out");
       await page.goto("/app/findings");
       await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 30_000 });
       await page.getByRole("textbox", { name: "Work email" }).fill(fixture.email);
