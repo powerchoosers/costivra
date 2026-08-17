@@ -24,6 +24,14 @@ jobs:
     env:
       EXPECTED_SHA: ${{ inputs.expected_sha }}
       DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+      RUN_AUTHENTICATED_E2E: "1"
+      E2E_ALLOW_PRODUCTION: "1"
+      PLAYWRIGHT_BASE_URL: https://costivra.ai
+      NEXT_PUBLIC_SUPABASE_URL: https://skfocjrykyvsaviyhdea.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+      CLOUDMERSIVE_API_KEY: ${{ secrets.CLOUDMERSIVE_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,18 +46,29 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
           E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          CLOUDMERSIVE_API_KEY: ${{ secrets.CLOUDMERSIVE_API_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          test -n "$DEPLOYMENT_ID" -a -n "$VERCEL_TOKEN" -a -n "$VERCEL_TEAM_ID" -a -n "$E2E_SUPABASE_SECRET_KEY" -a -n "$CRON_SECRET"
+          test -n "$DEPLOYMENT_ID" -a -n "$VERCEL_TOKEN" -a -n "$VERCEL_TEAM_ID" -a -n "$E2E_SUPABASE_SECRET_KEY" -a -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" -a -n "$SUPABASE_SECRET_KEY" -a -n "$CLOUDMERSIVE_API_KEY" -a -n "$CRON_SECRET"
+      - name: Require green Quality workflow for exact SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          runs=$(curl --fail --silent --show-error "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/quality.yml/runs?head_sha=${EXPECTED_SHA}&per_page=20" -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json")
+          echo "$runs" | jq -e '[.workflow_runs[] | select(.status == "completed" and .conclusion == "success")] | length > 0'
       - name: Verify production deployment identity
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
         run: |
-          curl --fail --silent --show-error "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID?teamId=$VERCEL_TEAM_ID" -H "Authorization: Bearer $VERCEL_TOKEN" \
-            | jq -e --arg sha "$EXPECTED_SHA" '.readyState == "READY" and .target == "production" and .meta.githubCommitSha == $sha'
+          response=$(curl --fail --silent --show-error "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID?teamId=$VERCEL_TEAM_ID" -H "Authorization: Bearer $VERCEL_TOKEN")
+          echo "$response" > deployment.json
+          echo "$response" | jq -e --arg sha "$EXPECTED_SHA" '.readyState == "READY" and .target == "production" and .meta.githubCommitSha == $sha'
       - name: Install and run engineering gates
         run: |
           npm ci
@@ -60,16 +79,39 @@ jobs:
           npm run build
           npx playwright install --with-deps chromium
           npm run test:e2e
-      - name: Run linked production evidence checks
+          npm run security:migration-structure
+      - name: Run linked migration parity
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          NEXT_PUBLIC_SUPABASE_URL: https://skfocjrykyvsaviyhdea.supabase.co
-          E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
-          COSTIVRA_RELEASE_SHA: ${{ inputs.expected_sha }}
+          SUPABASE_PROJECT_REF: skfocjrykyvsaviyhdea
         run: |
-          npx supabase migration list --linked --output json > migration-parity.json
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          npx tsx scripts/audit-supabase-migration-parity.ts
+          cp artifacts/migration-parity/report.json migration-parity.json
+          jq -e '(.LOCAL_ONLY | length) == 0 and (.REMOTE_ONLY | length) == 0 and (.VERSION_NAME_MISMATCH | length) == 0 and (.UNREADABLE | length) == 0' migration-parity.json
+      - name: Run exact-SHA scanner proof
+        env:
+          COSTIVRA_RELEASE_SHA: ${{ inputs.expected_sha }}
+        run: npm run ops:scanner:prove -- --force --json
+      - name: Run linked production status checks
+        run: |
           curl --fail --silent --show-error https://costivra.ai/api/status > public-status.json
-          jq -e '.overall == "operational"' public-status.json
+          jq -e '.overall == "operational" and .website == "operational" and .workspace == "operational" and .intake == "operational" and .extraction == "operational"' public-status.json
+      - name: Write final certification artifact
+        shell: bash
+        run: |
+          jq -n --arg sha "$EXPECTED_SHA" --arg deployment "$DEPLOYMENT_ID" --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{schemaVersion:"costivra-pilot-final-certificate-v1", verdict:"PASS", finalSha:$sha, deploymentId:$deployment, createdAt:$created, evidence:["github_quality","vercel_identity","engineering_gates","migration_parity","scanner_proof","public_status","authenticated_production_workflow"]}' \
+            > final-certificate.json
+          {
+            echo "# Costivra pilot final certificate"
+            echo
+            echo "- Verdict: PASS"
+            echo "- Final SHA: \`$EXPECTED_SHA\`"
+            echo "- Deployment ID: \`$DEPLOYMENT_ID\`"
+            echo "- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > final-certificate.md
       - name: Upload certification inputs
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,6 +120,11 @@ jobs:
           path: |
             migration-parity.json
             public-status.json
+            deployment.json
+            final-certificate.json
+            final-certificate.md
+            artifacts/migration-parity/report.md
+            artifacts/scanner-proof
             playwright-report
             test-results
           if-no-files-found: warn
