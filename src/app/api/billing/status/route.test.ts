@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requirePortalContext = vi.hoisted(() => vi.fn());
+const getBillingCatalog = vi.hoisted(() => vi.fn());
 const stripeIsConfigured = vi.hoisted(() => vi.fn());
 const getStripeBillingMode = vi.hoisted(() => vi.fn());
 const stripeBillingEnabled = vi.hoisted(() => vi.fn());
@@ -8,6 +9,7 @@ const getStripeAccountReadiness = vi.hoisted(() => vi.fn());
 const stripeAccountReadyForLiveCheckout = vi.hoisted(() => vi.fn((readiness: { reachable?: boolean; chargesEnabled?: boolean; payoutsEnabled?: boolean } | null) => readiness?.reachable === true && readiness.chargesEnabled === true && readiness.payoutsEnabled === true));
 
 vi.mock("@/lib/portal/repository", () => ({ requirePortalContext }));
+vi.mock("@/lib/billing/catalog", () => ({ getBillingCatalog }));
 vi.mock("@/lib/billing/stripe", () => ({ stripeIsConfigured, getStripeBillingMode, stripeBillingEnabled, getStripeAccountReadiness, stripeAccountReadyForLiveCheckout }));
 
 import { GET } from "./route";
@@ -35,6 +37,11 @@ function database(schemaMissing = false) {
 describe("GET /api/billing/status", () => {
   beforeEach(() => {
     requirePortalContext.mockReset();
+    getBillingCatalog.mockReset().mockResolvedValue([
+      { key: "starter", displayName: "Starter", description: "Starter", amountCents: 14900, annualAmountCents: 143040, currency: "usd", interval: "month", features: [], checkoutEnabled: true, active: true, stripePriceId: null, annualStripePriceId: null },
+      { key: "growth", displayName: "Growth", description: "Growth", amountCents: 59900, annualAmountCents: 575040, currency: "usd", interval: "month", features: [], checkoutEnabled: true, active: true, stripePriceId: null, annualStripePriceId: null },
+      { key: "enterprise", displayName: "Enterprise", description: "Enterprise", amountCents: null, annualAmountCents: null, currency: "usd", interval: "custom", features: [], checkoutEnabled: false, active: true, stripePriceId: null, annualStripePriceId: null },
+    ]);
     stripeIsConfigured.mockReset();
     getStripeBillingMode.mockReset();
     stripeBillingEnabled.mockReset();
