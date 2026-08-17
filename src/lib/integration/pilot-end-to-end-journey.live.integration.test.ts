@@ -154,5 +154,5 @@ suite("Disposable Pilot Journey Integration Test", () => {
         await db.auth.admin.deleteUser(authUserId);
       }
     }
-  });
+  }, 30000);
 });
