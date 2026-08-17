@@ -305,6 +305,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
 }
 
 async function removeWorkspaceFixture(fixture: WorkspaceFixture) {
+  console.log(`[authenticated-e2e cleanup] documents ${fixture.organizationId}`);
   const documents = await fixture.admin
     .from("documents")
     .select("storage_path")
@@ -314,6 +315,7 @@ async function removeWorkspaceFixture(fixture: WorkspaceFixture) {
     .map((document) => typeof document.storage_path === "string" ? document.storage_path : null)
     .filter((path): path is string => Boolean(path));
   if (storagePaths.length) {
+    console.log(`[authenticated-e2e cleanup] storage ${fixture.organizationId}`);
     const removedStorage = await fixture.admin.storage
       .from("costivra-documents")
       .remove(storagePaths);
@@ -332,6 +334,7 @@ async function removeWorkspaceFixture(fixture: WorkspaceFixture) {
     throw new Error("Refusing to delete a fixture organization with an unexpected name.");
   }
   if (organization.data) {
+    console.log(`[authenticated-e2e cleanup] organization ${fixture.organizationId}`);
     const removed = await fixture.admin
       .from("organizations")
       .delete()
@@ -343,8 +346,10 @@ async function removeWorkspaceFixture(fixture: WorkspaceFixture) {
     .delete()
     .eq("id", fixture.vendorId);
   if (vendor.error) throw vendor.error;
+  console.log(`[authenticated-e2e cleanup] auth user ${fixture.userId}`);
   const user = await fixture.admin.auth.admin.deleteUser(fixture.userId);
   if (user.error) throw user.error;
+  console.log(`[authenticated-e2e cleanup] complete ${fixture.organizationId}`);
 }
 
 async function activatePaidFixture(fixture: WorkspaceFixture) {
