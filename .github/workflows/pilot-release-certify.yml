@@ -80,7 +80,7 @@ jobs:
           npm run test:integration
           npm run build
           npx playwright install --with-deps chromium
-          npm run test:e2e
+          npm run test:e2e:authenticated
           npm run security:migration-structure
       - name: Run linked migration parity
         env:
