@@ -72,16 +72,22 @@ jobs:
           response=$(curl --fail --silent --show-error "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID?teamId=$VERCEL_TEAM_ID" -H "Authorization: Bearer $VERCEL_TOKEN")
           echo "$response" > deployment.json
           echo "$response" | jq -e --arg sha "$EXPECTED_SHA" '.readyState == "READY" and .target == "production" and .meta.githubCommitSha == $sha'
-      - name: Install and run engineering gates
-        run: |
-          npm ci
-          npm run typecheck
-          RUN_LIVE_SUPABASE_TESTS=0 npm test
-          npm run test:integration
-          npm run build
-          npx playwright install --with-deps chromium
-          npm run test:e2e:authenticated
-          npm run security:migration-structure
+      - name: Install dependencies
+        run: npm ci
+      - name: Run typecheck
+        run: npm run typecheck
+      - name: Run unit tests
+        run: RUN_LIVE_SUPABASE_TESTS=0 npm test
+      - name: Run live integration tests
+        run: npm run test:integration
+      - name: Run production build
+        run: npm run build
+      - name: Install Chromium for authenticated E2E
+        run: npx playwright install --with-deps chromium
+      - name: Run authenticated production E2E
+        run: npm run test:e2e:authenticated
+      - name: Verify migration structure
+        run: npm run security:migration-structure
       - name: Run linked migration parity
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
