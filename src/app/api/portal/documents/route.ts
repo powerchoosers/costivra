@@ -3,6 +3,7 @@ import { DOCUMENT_MIME_TYPES, MAX_DOCUMENT_SIZE } from "@/lib/documents/intake";
 import { ingestManualUpload } from "@/lib/documents/manual-upload";
 import { apiError, cleanUuid } from "@/lib/portal/http";
 import { requirePortalEditor } from "@/lib/portal/repository";
+import { finalizeFreeReviewSlot, prepareFreeReviewBufferClaim } from "@/lib/billing/free-review";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 import { getRequestId, safeOperationalError } from "@/lib/observability/request-context";
 
@@ -18,21 +19,45 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) return NextResponse.json({ error: "Choose a file to upload." }, { status: 400 });
     if (!DOCUMENT_MIME_TYPES.has(file.type)) return NextResponse.json({ error: "Upload a PDF, text file, or DOCX document." }, { status: 415 });
     if (file.size <= 0 || file.size > MAX_DOCUMENT_SIZE) return NextResponse.json({ error: "Files must be between 1 byte and 20 MB." }, { status: 413 });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const freeReviewBuffer = await prepareFreeReviewBufferClaim(db, organizationId, buffer);
+    const freeReviewClaim = freeReviewBuffer.claim;
+    if (freeReviewClaim && !freeReviewClaim.allowed) {
+        return NextResponse.json({
+          error: "Your free three-bill review is complete. Subscribe to keep analyzing bills and unlock ongoing monitoring.",
+          code: "FREE_REVIEW_LIMIT_REACHED",
+          usage: freeReviewClaim.currentUsage,
+          limit: freeReviewClaim.limit,
+          upgradeHref: "/pricing?from=free-review",
+        }, { status: 409 });
+    }
     if (organizationVendorId) {
       const { data: relationship } = await db.from("organization_vendors").select("id").eq("id", organizationVendorId).eq("organization_id", organizationId).maybeSingle();
-      if (!relationship) return NextResponse.json({ error: "The selected vendor is not available." }, { status: 404 });
+      if (!relationship) {
+        if (freeReviewClaim?.isNewClaim) await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, "released");
+        return NextResponse.json({ error: "The selected vendor is not available." }, { status: 404 });
+      }
     }
 
-    const result = await ingestManualUpload({
-      db,
-      organizationId,
-      actorId: userId,
-      filename: file.name,
-      mimeType: file.type,
-      buffer: Buffer.from(await file.arrayBuffer()),
-      organizationVendorId: organizationVendorId || null,
-      requestId,
-    });
+    let result: Awaited<ReturnType<typeof ingestManualUpload>>;
+    try {
+      result = await ingestManualUpload({
+        db,
+        organizationId,
+        actorId: userId,
+        filename: file.name,
+        mimeType: file.type,
+        buffer,
+        organizationVendorId: organizationVendorId || null,
+        requestId,
+      });
+      if (freeReviewClaim?.isNewClaim) {
+        await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, result.outcome === "processed" || result.outcome === "quarantined" ? "consumed" : "released");
+      }
+    } catch (error) {
+      if (freeReviewClaim?.isNewClaim) await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, "released");
+      throw error;
+    }
     const scanStatus = result.outcome === "quarantined" ? "quarantined" : result.outcome === "duplicate" ? "duplicate" : result.outcome === "rejected" ? "rejected" : "processing";
     try {
       await sendLifecycleEmailToWorkspace({

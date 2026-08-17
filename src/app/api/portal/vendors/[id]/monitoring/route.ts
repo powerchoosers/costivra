@@ -4,6 +4,7 @@ import { requirePortalContext } from "@/lib/portal/repository";
 import { getDurableMonitoringConfig, isValidMonitoringEmailAddress, saveDurableMonitoringConfig, MonitoringSourceMethod } from "@/lib/vendors/monitoring";
 import { sendLifecycleEmailToWorkspace } from "@/lib/email/lifecycle-recipient";
 import { getRequestId, safeOperationalError } from "@/lib/observability/request-context";
+import { getFreeReviewStatus } from "@/lib/billing/free-review";
 
 const sourceMethods = new Set<MonitoringSourceMethod>(["email_forwarding", "manual_forwarding", "manual_upload"]);
 
@@ -40,6 +41,14 @@ export async function POST(
         { error: "You do not have permission to update vendor monitoring." },
         { status: 403 },
       );
+    }
+    const freeReview = await getFreeReviewStatus(db, organizationId);
+    if (freeReview.mode === "free") {
+      return NextResponse.json({
+        error: "Ongoing monitoring is part of the paid workspace. Subscribe to keep analyzing bills after your three free reviews.",
+        code: "PAID_WORKSPACE_REQUIRED",
+        upgradeHref: "/pricing?from=free-review",
+      }, { status: 402 });
     }
     const body = (await request.json()) as Record<string, unknown>;
     const forwardingEmail = cleanText(body.approvedForwardingEmail, 255);
@@ -125,6 +134,14 @@ export async function PATCH(
     if (!["owner", "admin", "member"].includes(role)) return NextResponse.json({ error: "You do not have permission to update vendor monitoring." }, { status: 403 });
     const body = (await request.json()) as Record<string, unknown>;
     const requestedState = cleanText(body.state, 30);
+    const freeReview = await getFreeReviewStatus(db, organizationId);
+    if (freeReview.mode === "free" && requestedState === "resume") {
+      return NextResponse.json({
+        error: "Ongoing monitoring is part of the paid workspace. Subscribe to keep analyzing bills after your three free reviews.",
+        code: "PAID_WORKSPACE_REQUIRED",
+        upgradeHref: "/pricing?from=free-review",
+      }, { status: 402 });
+    }
     if (requestedState !== "paused" && requestedState !== "resume") return NextResponse.json({ error: "Choose a valid monitoring action." }, { status: 400 });
     const { data: config, error } = await db.from("vendor_monitoring_configs").select("id,state,source_method,test_completed_at").eq("organization_id", organizationId).eq("organization_vendor_id", relationshipId).maybeSingle();
     if (error) throw error;

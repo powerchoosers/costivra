@@ -16,6 +16,7 @@ import {
   waitForDocumentBreakdown,
   type DocumentUploadCompletion,
 } from "@/lib/documents/client-upload";
+import { DocumentUploadRequestError } from "@/lib/documents/client-upload";
 
 type UploadVendor = {
   relationshipId: string;
@@ -98,6 +99,7 @@ export function DocumentUploadExperience({
   const [dragging, setDragging] = useState(false);
   const [stage, setStage] = useState<UploadStage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   const busy = flowState === "submitting";
   const selectedVendorName =
@@ -119,6 +121,7 @@ export function DocumentUploadExperience({
     setDragging(false);
     setStage(null);
     setErrorMessage(null);
+    setErrorCode(null);
     setVendorId(presetVendor ?? "");
     setFlow(nextState);
   };
@@ -128,6 +131,7 @@ export function DocumentUploadExperience({
     setDragging(false);
     setStage(null);
     setErrorMessage(null);
+    setErrorCode(null);
     setVendorId(presetVendor ?? "");
     setFlow("idle");
   };
@@ -135,6 +139,7 @@ export function DocumentUploadExperience({
   const chooseFile = (file: File | null) => {
     if (busy) return;
     setErrorMessage(null);
+    setErrorCode(null);
     setSelectedFile(file);
     setFlow(file ? "selected" : "idle");
   };
@@ -198,6 +203,7 @@ export function DocumentUploadExperience({
       setErrorMessage(
         error instanceof Error ? error.message : "Please try again.",
       );
+      setErrorCode(error instanceof DocumentUploadRequestError ? error.code : null);
     }
   }
 
@@ -317,6 +323,13 @@ export function DocumentUploadExperience({
             </ol>
           </div>
         </div>
+      ) : errorCode === "FREE_REVIEW_LIMIT_REACHED" ? (
+        <div className="document-upload-upgrade-state" role="status">
+          <span className="document-upload-upgrade-mark"><ShieldCheck size={22} /></span>
+          <strong>Your free review is complete.</strong>
+          <p>You’ve reached the three-bill limit. Subscribe to keep analyzing bills, retain the full evidence history, and unlock ongoing monitoring.</p>
+          <a className="button button-primary" href="/pricing?from=free-review">See paid plans <UploadCloud size={15} /></a>
+        </div>
       ) : errorMessage ? (
         <div className="document-upload-error" role="alert">
           <strong>{flowState === "error" && !selectedFile ? "File blocked by the security check" : "Upload could not be completed"}</strong>
@@ -388,6 +401,11 @@ export function DocumentUploadExperience({
         .document-upload-ready-note { display: flex; align-items: center; gap: 8px; color: #1f6b48; font-size: .8rem; }
         .document-upload-error { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid rgba(180, 50, 35, .2); border-radius: 13px; color: #7f1d1d; background: rgba(254, 226, 226, .62); font-size: .78rem; line-height: 1.45; }
         .document-upload-error strong { font-size: .82rem; }
+        .document-upload-upgrade-state { display:grid; gap:8px; padding:17px; border:1px solid #d5e5aa; border-radius:16px; color:#405b12; background:#fbfff2; }
+        .document-upload-upgrade-mark { display:grid; width:40px; height:40px; place-items:center; border-radius:13px; color:#52770b; background:#efffc9; }
+        .document-upload-upgrade-state strong { color:#365707; font-size:.9rem; }
+        .document-upload-upgrade-state p { margin:0; color:#65783b; font-size:.76rem; line-height:1.5; }
+        .document-upload-upgrade-state a { width:max-content; margin-top:4px; }
         .portal-form-actions button { gap: 7px; }
         @keyframes documentUploadOrbit { to { transform: rotate(360deg); } }
         @keyframes documentUploadSweep { 0% { transform: translateX(-115%); } 55%, 100% { transform: translateX(275%); } }

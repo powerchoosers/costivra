@@ -497,10 +497,13 @@ export function PortalPage({
       router.refresh();
       toast.success(success);
     } catch (error) {
-      toast.error(
-        "That didn’t work",
-        error instanceof Error ? error.message : "Please try again.",
-      );
+      const details = error instanceof Error ? error as Error & { code?: string } : null;
+      const message = details?.message ?? "Please try again.";
+      if (details?.code === "PAID_WORKSPACE_REQUIRED") {
+        toast.show({ title: "Continue with a paid workspace", message, tone: "warning", actionHref: "/pricing?from=workspace", actionLabel: "See paid plans" });
+      } else {
+        toast.error("That didn’t work", message);
+      }
       throw error;
     }
   };
@@ -673,6 +676,7 @@ function CommandCenter({ data }: { data: PortalData }) {
 function ActivationChecklist({ data }: { data: PortalData }) {
   const { documentCount: docCount, locationCount, monitoredCount, needsReviewInvoices, authoritativeReview } = getActivationProgress(data);
   const [durableState, setDurableState] = useState<{ status: string; current_step: string } | null>(null);
+  const [freeReview, setFreeReview] = useState<{ mode: "free" | "paid"; used: number; limit: number | null } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -683,16 +687,33 @@ function ActivationChecklist({ data }: { data: PortalData }) {
         setDurableState({ status: payload.onboarding.status ?? "not_started", current_step: payload.onboarding.current_step ?? "account_confirmed" });
       })
       .catch(() => undefined);
+    fetch("/api/portal/free-review/status", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<{ freeReview?: { mode?: "free" | "paid"; used?: number; limit?: number | null } }> : null)
+      .then((payload) => {
+        if (!active || !payload?.freeReview?.mode) return;
+        setFreeReview({ mode: payload.freeReview.mode, used: Number(payload.freeReview.used ?? 0), limit: payload.freeReview.limit ?? null });
+      })
+      .catch(() => undefined);
     return () => { active = false; };
   }, []);
 
-  const steps = [
+  const paidSteps = [
     { id: "workspace", title: "Create workspace", done: true, copy: "Organization workspace created.", href: undefined, actionLabel: undefined },
     { id: "details", title: "Add company & location details", done: locationCount > 0, copy: locationCount > 0 ? `${locationCount} location(s) assigned.` : "Add your primary business location.", href: "/app/settings?tab=locations", actionLabel: "Add details" },
     { id: "documents", title: "Upload 3 bills or contracts", done: docCount >= 3, copy: docCount >= 3 ? `${docCount} documents uploaded.` : `${docCount} of 3 uploaded. Add your recurring bills.`, href: "/app/bills?view=files", actionLabel: "Upload files" },
     { id: "review", title: "Review one invoice or contract", done: authoritativeReview, copy: authoritativeReview ? "At least one source record has an authorized review." : needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "Review one source record before calling activation complete.", href: "/app/bills?view=review", actionLabel: needsReviewInvoices > 0 ? "Review invoices" : "Open review" },
     { id: "monitoring", title: "Select first vendor to monitor", done: monitoredCount > 0, copy: monitoredCount > 0 ? `${monitoredCount} vendor(s) monitored.` : "Set up continuous monitoring for one vendor.", href: "/app/vendors", actionLabel: "Choose vendor" },
   ];
+  const isFree = freeReview?.mode === "free";
+  const freeUsed = freeReview?.used ?? docCount;
+  const freeLimit = freeReview?.limit ?? 3;
+  const freeSteps = [
+    { id: "workspace", title: "Create workspace", done: true, copy: "Your private organization workspace is ready.", href: undefined, actionLabel: undefined },
+    { id: "documents", title: `Use your ${freeLimit} free reviews`, done: freeUsed >= freeLimit, copy: freeUsed >= freeLimit ? `Your ${freeLimit}-document review is complete.` : `${freeUsed} of ${freeLimit} reviews used. Add the bills that matter most.`, href: "/app/bills?view=files", actionLabel: "Upload files" },
+    { id: "review", title: "Review the evidence", done: authoritativeReview, copy: authoritativeReview ? "At least one source record has an authorized review." : needsReviewInvoices > 0 ? `${needsReviewInvoices} invoice(s) waiting for human review.` : "Open a source record to see the evidence behind a finding.", href: "/app/bills?view=review", actionLabel: needsReviewInvoices > 0 ? "Review invoices" : "Open review" },
+    { id: "upgrade", title: "Choose your next level", done: false, copy: "Subscribe when you want ongoing monitoring, reports, and team controls.", href: "/pricing?from=workspace", actionLabel: "See paid plans" },
+  ];
+  const steps = isFree ? freeSteps : paidSteps;
 
   const completedCount = steps.filter((s) => s.done).length;
 
@@ -700,8 +721,8 @@ function ActivationChecklist({ data }: { data: PortalData }) {
     <section className="portal-panel activation-panel workspace-progress-card">
       <div className="workspace-progress-card__header">
         <div>
-          <h2>Activation Checklist</h2>
-          <p>Complete these steps to set up cost control and bill monitoring.{durableState?.status === "blocked" ? " An administrator has paused activation." : ""}</p>
+          <h2>{isFree ? "Free review path" : "Activation Checklist"}</h2>
+          <p>{isFree ? "Use the first three reviews to decide whether ongoing Costivra attention is useful for your team." : "Complete these steps to set up cost control and bill monitoring."}{durableState?.status === "blocked" ? " An administrator has paused activation." : ""}</p>
         </div>
         <span
           aria-label="Activation progress"

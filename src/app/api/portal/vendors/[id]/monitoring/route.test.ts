@@ -4,9 +4,11 @@ const requirePortalContext = vi.hoisted(() => vi.fn());
 const getDurableMonitoringConfig = vi.hoisted(() => vi.fn());
 const saveDurableMonitoringConfig = vi.hoisted(() => vi.fn());
 const isValidMonitoringEmailAddress = vi.hoisted(() => vi.fn((value: string | null | undefined) => Boolean(value && value.includes("@"))));
+const getFreeReviewStatus = vi.hoisted(() => vi.fn(async () => ({ mode: "paid", hasPaidAccess: true, used: 0, limit: null, remaining: null })));
 
 vi.mock("@/lib/portal/repository", () => ({ requirePortalContext }));
 vi.mock("@/lib/vendors/monitoring", () => ({ getDurableMonitoringConfig, isValidMonitoringEmailAddress, saveDurableMonitoringConfig }));
+vi.mock("@/lib/billing/free-review", () => ({ getFreeReviewStatus }));
 
 import { GET, PATCH, POST } from "@/app/api/portal/vendors/[id]/monitoring/route";
 

@@ -34,6 +34,8 @@ import { ClientAssistantSurface } from "@/components/client-assistant/client-ass
 import { WorkspaceNotificationCenter, WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 import { getNextVerticalScrollTop } from "@/lib/ui/workspace-scrollbar";
+import { WorkspaceExperienceBanner } from "@/components/workspace-experience-banner";
+import { WorkspaceOnboardingTour } from "@/components/workspace-onboarding-tour";
 
 import type { ElementType } from "react";
 
@@ -501,7 +503,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     }
   }
   const workspaceIdentity = (
-    <div className="app-sidebar-workspace">
+    <div className="app-sidebar-workspace" data-tour="workspace">
       <div className="app-organization">
         <button className="org-switcher" type="button" onClick={() => setOrgOpen(!orgOpen)}>
           <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-logo" />
@@ -540,7 +542,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   );
   const mobileUtilities = (
     <div className="app-mobile-utilities">
-      <div className="app-mobile-organization">
+      <div className="app-mobile-organization" data-tour="workspace">
         <button className="org-switcher" type="button" onClick={() => setOrgOpen(!orgOpen)} aria-label="Open workspace summary">
           <CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-logo" />
           <span>{data.organization.name}</span>
@@ -597,6 +599,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                         aria-current={active ? "page" : undefined}
                         aria-label={`Open ${label}`}
                         data-nav-label={label}
+                        data-tour={label === "Findings" ? "findings" : label === "Actions" ? "actions" : undefined}
                         onClick={() => {
                           if (href !== pathname) {
                             setOptimisticHref(href);
@@ -621,6 +624,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 href="/app/settings"
                 prefetch={true}
                 aria-label="Settings"
+                data-tour="settings"
                 onClick={() => {
                   if (pathname !== "/app/settings") {
                     setOptimisticHref("/app/settings");
@@ -659,6 +663,9 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                   </div>
                   <button type="button" role="menuitem" className="is-danger" onClick={() => void signOut()}>
                     Sign out
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => { setProfileOpen(false); window.dispatchEvent(new Event("costivra:replay-tour")); }}>
+                    Replay workspace tour
                   </button>
                 </div>
               )}
@@ -702,6 +709,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 <WorkspaceUtilityButton
                   active={createMenuOpen}
                   className="app-create-trigger"
+                  data-tour="upload"
                   type="button"
                   onClick={() => setCreateMenuOpen((open) => !open)}
                   aria-label="Add to workspace"
@@ -750,6 +758,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
             </div>
             </div>
 
+            <WorkspaceExperienceBanner initialDocumentCount={data.documents.filter((document) => document.status !== "rejected").length} />
             {children}
           </div>
 
@@ -762,11 +771,11 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
               <Receipt aria-hidden="true" size={20} />
               <span>Bills</span>
             </Link>
-            <Link className={isRouteActive("/app/findings", pathname) ? "active" : ""} href="/app/findings" aria-label="Open Findings" onClick={() => setMobileMenuOpen(false)}>
+            <Link className={isRouteActive("/app/findings", pathname) ? "active" : ""} href="/app/findings" aria-label="Open Findings" data-tour="findings" onClick={() => setMobileMenuOpen(false)}>
               <Target aria-hidden="true" size={20} />
               <span>Findings</span>
             </Link>
-            <Link className={isRouteActive("/app/actions", pathname) ? "active" : ""} href="/app/actions" aria-label="Open Actions" onClick={() => setMobileMenuOpen(false)}>
+            <Link className={isRouteActive("/app/actions", pathname) ? "active" : ""} href="/app/actions" aria-label="Open Actions" data-tour="actions" onClick={() => setMobileMenuOpen(false)}>
               <CheckSquare aria-hidden="true" size={20} />
               <span>Actions</span>
             </Link>
@@ -776,6 +785,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
               onClick={() => setMobileMenuOpen((prev) => !prev)}
               aria-label="Toggle navigation menu"
               aria-expanded={mobileMenuOpen}
+              data-tour="menu"
             >
               <List aria-hidden="true" size={21} />
               <span>Menu</span>
@@ -823,12 +833,20 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                     })}
                   </div>
                 ))}
+                <button
+                  type="button"
+                  className="app-mobile-drawer-signout"
+                  onClick={() => void signOut()}
+                >
+                  Sign out
+                </button>
               </div>
             </>
           )}
         </main>
       </div>
       <ClientAssistantSurface />
+      <WorkspaceOnboardingTour />
     </div>
   );
 }

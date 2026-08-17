@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { checkEntitlement, entitlementError } from "@/lib/billing/entitlements";
+import { hasPaidWorkspace } from "@/lib/billing/free-review";
 
 export async function POST(request: Request) {
   try {
     const { db, organizationId, role, userId } = await requirePortalContext();
     if (!['owner','admin'].includes(role)) return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
+    if (!await hasPaidWorkspace(db, organizationId)) return NextResponse.json({ error: "Team invitations are part of the paid workspace. Subscribe to add teammates after your three free reviews.", code: "PAID_WORKSPACE_REQUIRED", upgradeHref: "/pricing?from=workspace" }, { status: 402 });
     const body = await request.json() as Record<string, unknown>;
     const email = cleanText(body.email, 254).toLowerCase();
     const fullName = cleanText(body.fullName, 120);

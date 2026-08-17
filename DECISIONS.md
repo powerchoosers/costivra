@@ -1979,3 +1979,75 @@ The Manage API now returns a bounded recent list with read state, marks alerts r
 ## Consequences
 
 Both workspaces now share one notification interaction and visual language without joining customer and internal data. Manage operators retain a clear recent-alert history, and a compromised browser request cannot mark another operator's alert as read.
+
+# 2026-08-16 — Make the free review a server-enforced product boundary
+
+## Context
+
+The public experience promised a three-bill starting point, but the upload endpoint did not enforce a limit. Counting visible documents alone would also be vulnerable to duplicate retries and concurrent uploads, and alternate intake paths could bypass the manual upload screen.
+
+## Decision
+
+Represent each distinct document hash as one organization-scoped free-review slot. Claim slots through a security-definer database function protected by a transaction advisory lock, finalize claims only after intake outcome, and release duplicates or failed attempts. Apply the same boundary to manual uploads, chat attachments, inbound email, and quarantine release. Paid or trialing subscriptions bypass the allowance. Block ongoing monitoring and email-intake activation for free workspaces.
+
+Persist the first-run walkthrough per organization member and tutorial version rather than using browser-only storage, so the experience is consistent across devices and can be replayed intentionally.
+
+## Consequences
+
+The product can truthfully show “3 free bills” and offer a direct upgrade when the allowance is exhausted. The free-review migration is now applied to the target Supabase project; the code's document-count fallback remains only a compatibility aid for environments where the migration is absent and is not a substitute for the concurrency-safe database claim path.
+
+# 2026-08-16 — Keep the free workspace useful without pretending it is paid
+
+## Context
+
+A free user can understand the upload limit but still encounter paid-only tasks such as ongoing monitoring, team invitations, scheduled reports, or a checklist that asks them to activate a paid workflow. That creates a dead-end rather than a coherent first experience.
+
+## Decision
+
+The free workspace remains useful for a contained source review: upload up to three selected documents, inspect findings and evidence, and make an informed upgrade decision. Its workspace banner and review-path checklist explain the boundary. Ongoing monitoring, team invitations, and scheduled reports are server-gated and return a direct upgrade path; paid workspaces retain the full activation checklist and controls.
+
+## Consequences
+
+Free users see a complete, honest journey with a next step at every stage. The product avoids silently exposing paid operational capabilities through secondary routes while preserving the source-review experience that earns the upgrade.
+
+# 2026-08-16 — Apply free-review persistence through the supported Supabase migration API
+
+## Context
+
+The local migration directory does not contain several migration versions already recorded by the linked Supabase project, so `supabase db push --dry-run --linked` refused to proceed. Repairing or rewriting that history would be unsafe. The free-review gate and per-member tutorial nevertheless require their two tables and database functions in the target project.
+
+## Decision
+
+Apply the two already-reviewed migration files as one named, atomic migration through Supabase's supported Management API migration endpoint. Verify the resulting tables, RLS, deny policies, functions, and schema lint results with read-only checks. Do not repair the divergent local migration history or run an unrestricted push.
+
+## Consequences
+
+The production database now contains the concurrency-safe free-review slot claim and durable tutorial state. The local migration history remains divergent and must be reconciled deliberately before future automated pushes; the applied migration is documented here rather than hiding that operational constraint. The project security advisor still reports the pre-existing warning that leaked-password protection is disabled; that is an Auth configuration follow-up, not a reason to weaken the new database boundary.
+
+# 2026-08-16 — Show plan state inside the first-run tour and recover abandoned claims
+
+## Context
+
+The workspace banner communicates the free limit, but the onboarding modal dims the workspace while it is open. Also, a process interruption between claiming and finalizing a document could leave a reserved slot behind.
+
+## Decision
+
+Show a compact plan-state row inside the tour itself: free members see the remaining document allowance and a paid-plan link, while paid members see that full monitoring and controls are active. Treat reservations older than 30 minutes as abandoned and release them under the same organization advisory lock before counting or claiming new slots.
+
+## Consequences
+
+The first-run experience explains the commercial boundary at the moment a member is learning the product. The limit remains strict during normal concurrent work, while interrupted uploads no longer permanently consume allowance. A very long-running intake over 30 minutes would be eligible for recovery, so the intake pipeline must continue to finalize promptly and keep its processing window bounded.
+
+# 2026-08-16 — Make annual billing a real paid journey in Test mode
+
+## Context
+
+The public pricing page already offered an annual cadence and displayed the 20% savings calculation, but the connected catalog had no annual schema columns or Stripe annual Price IDs. Leaving the control visible would make the paid journey look complete while sending customers to a contact fallback.
+
+## Decision
+
+Apply the reviewed annual billing migrations, create matching recurring annual Prices in the configured Stripe Test account, and store only their non-secret Price IDs in the Test billing catalog. Keep live billing untouched until the live Stripe account and catalog are intentionally configured.
+
+## Consequences
+
+Starter and Growth annual selections now flow through the same pre-auth Checkout path as monthly plans, with the interval preserved in Checkout metadata, intents, webhook projection, and return URLs. Production/live readiness remains a separate gate; no live Price or payment was created.

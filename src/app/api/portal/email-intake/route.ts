@@ -4,6 +4,7 @@ import { releaseQuarantinedInboundAttachments } from "@/lib/email/quarantine-rel
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { isMalwareScannerConfigured } from "@/lib/security/malware-scanner";
+import { getFreeReviewStatus } from "@/lib/billing/free-review";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,6 +18,16 @@ export async function PATCH(request: Request) {
     const body = await request.json() as Record<string, unknown>;
     const operation = cleanText(body.operation, 40);
     const eventId = cleanText(body.eventId, 50);
+    if (["activate", "retry", "retry_failed"].includes(operation)) {
+      const freeReview = await getFreeReviewStatus(db, organizationId);
+      if (freeReview.mode === "free") {
+        return NextResponse.json({
+          error: "Email intake and ongoing monitoring are part of the paid workspace. Subscribe to keep analyzing bills after your three free reviews.",
+          code: "PAID_WORKSPACE_REQUIRED",
+          upgradeHref: "/pricing?from=free-review",
+        }, { status: 402 });
+      }
+    }
     const { data: intake, error: intakeError } = await db.from("inbound_email_addresses").select("id,status,trusted_senders,local_part,domain").eq("organization_id", organizationId).single();
     if (intakeError || !intake) return NextResponse.json({ error: "Email intake is not available for this workspace." }, { status: 404 });
 

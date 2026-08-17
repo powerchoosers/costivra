@@ -4,6 +4,7 @@ import { requirePortalContext } from "@/lib/portal/repository";
 import { isValidTimeZone, nextReportRun } from "@/lib/reports/schedule";
 import { authorizedReportRecipients, normalizeReportRecipients } from "@/lib/reports/recipients";
 import { checkEntitlement, entitlementError } from "@/lib/billing/entitlements";
+import { hasPaidWorkspace } from "@/lib/billing/free-review";
 
 export async function GET() {
   try { const { db, organizationId } = await requirePortalContext(); const { data, error } = await db.from("report_schedules").select("*, report_definitions(name,report_type)").eq("organization_id", organizationId).order("created_at", { ascending: false }); if (error) throw error; return NextResponse.json({ schedules: data ?? [] }); }
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
   try {
     const { db, organizationId, userId, role } = await requirePortalContext();
     if (role !== "owner" && role !== "admin") return NextResponse.json({ error: "Administrator access is required to schedule outbound reports." }, { status: 403 });
+    if (!await hasPaidWorkspace(db, organizationId)) return NextResponse.json({ error: "Scheduled reports are part of the paid workspace. Subscribe to keep receiving ongoing cost updates.", code: "PAID_WORKSPACE_REQUIRED", upgradeHref: "/pricing?from=workspace" }, { status: 402 });
     const body = await request.json() as Record<string, unknown>;
     const reportDefinitionId = cleanUuid(body.reportDefinitionId); const cadence = body.cadence === undefined ? "weekly" : body.cadence === "monthly" || body.cadence === "weekly" ? body.cadence : null; const timezone = cleanText(body.timezone, 80) || "America/Chicago"; const sendTime = body.sendTimeLocal === undefined ? "08:00" : String(body.sendTimeLocal);
     if (!cadence) return NextResponse.json({ error: "Choose weekly or monthly cadence." }, { status: 400 });

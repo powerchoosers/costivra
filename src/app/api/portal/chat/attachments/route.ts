@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, cleanText } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { ingestManualUpload } from "@/lib/documents/manual-upload";
+import { finalizeFreeReviewSlot, prepareFreeReviewBufferClaim } from "@/lib/billing/free-review";
 
 export async function POST(request: Request) {
   try {
@@ -27,17 +28,40 @@ export async function POST(request: Request) {
     const vendorRelationshipId = cleanText(formData.get("vendorRelationshipId"), 100) || undefined;
 
     const buffer = Buffer.from(await file.arrayBuffer());
+    const freeReviewBuffer = await prepareFreeReviewBufferClaim(db, organizationId, buffer);
+    const freeReviewClaim = freeReviewBuffer.claim;
+    if (freeReviewClaim && !freeReviewClaim.allowed) {
+      return NextResponse.json({
+        error: "Your free three-bill review is complete. Subscribe to keep analyzing bills and unlock ongoing monitoring.",
+        code: "FREE_REVIEW_LIMIT_REACHED",
+        usage: freeReviewClaim.currentUsage,
+        limit: freeReviewClaim.limit,
+        upgradeHref: "/pricing?from=free-review",
+      }, { status: 409 });
+    }
 
-    // Execute core document intake
-    const result = await ingestManualUpload({
-      db,
-      organizationId,
-      actorId: userId,
-      filename: file.name,
-      mimeType: file.type || "application/pdf",
-      buffer,
-      organizationVendorId: vendorRelationshipId,
-    });
+    let result: Awaited<ReturnType<typeof ingestManualUpload>>;
+    try {
+      result = await ingestManualUpload({
+        db,
+        organizationId,
+        actorId: userId,
+        filename: file.name,
+        mimeType: file.type || "application/pdf",
+        buffer,
+        organizationVendorId: vendorRelationshipId,
+      });
+      if (freeReviewClaim?.isNewClaim) {
+        await finalizeFreeReviewSlot(
+          db,
+          freeReviewClaim.claimId,
+          result.outcome === "processed" || result.outcome === "quarantined" ? "consumed" : "released",
+        );
+      }
+    } catch (error) {
+      if (freeReviewClaim?.isNewClaim) await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, "released");
+      throw error;
+    }
 
     const invoiceId = "invoiceId" in result ? result.invoiceId : null;
     const vendorMatchStatus = "vendorMatchStatus" in result ? result.vendorMatchStatus : null;

@@ -338,6 +338,25 @@ async function removeWorkspaceFixture(fixture: WorkspaceFixture) {
   if (user.error) throw user.error;
 }
 
+async function activatePaidFixture(fixture: WorkspaceFixture) {
+  const suffix = randomUUID();
+  const now = new Date();
+  const periodEnd = new Date(now);
+  periodEnd.setUTCFullYear(periodEnd.getUTCFullYear() + 1);
+  const result = await fixture.admin.from("billing_subscriptions").insert({
+    organization_id: fixture.organizationId,
+    stripe_customer_id: `cus_e2e_${suffix}`,
+    stripe_subscription_id: `sub_e2e_${suffix}`,
+    stripe_price_id: "price_e2e_starter",
+    plan_key: "starter",
+    status: "active",
+    billing_interval: "month",
+    current_period_start: now.toISOString(),
+    current_period_end: periodEnd.toISOString(),
+  });
+  if (result.error) throw result.error;
+}
+
 function collectRuntimeFailures(page: Page) {
   const failures: string[] = [];
   page.on("console", (message) => {
@@ -362,14 +381,16 @@ test.describe("authenticated customer workspace", () => {
   test("completes the customer approval workflow through the rendered UI", async ({ page, browser }) => {
     const startedAt = Date.now();
     const checkpoint = (label: string) => console.log(`[authenticated-e2e +${Math.round((Date.now() - startedAt) / 1000)}s] ${label}`);
-    checkpoint("starting primary fixture creation");
-    const fixture = await createWorkspaceFixture();
-    let isolationFixture: WorkspaceFixture | null = null;
+      checkpoint("starting primary fixture creation");
+      const fixture = await createWorkspaceFixture();
+      await activatePaidFixture(fixture);
+      let isolationFixture: WorkspaceFixture | null = null;
     let isolationContext: BrowserContext | null = null;
     const failures = collectRuntimeFailures(page);
     try {
       checkpoint("fixtures created");
       isolationFixture = await createWorkspaceFixture();
+      await activatePaidFixture(isolationFixture);
       const viewerMembership = await isolationFixture.admin
         .from("organization_memberships")
         .update({ role: "viewer" })
@@ -389,6 +410,11 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.getByRole("navigation", { name: "Finding views" })).toBeVisible({
         timeout: 120_000,
       });
+      const workspaceTour = page.locator(".workspace-tour__panel");
+      await expect(workspaceTour).toBeVisible({ timeout: 30_000 });
+      await expect(workspaceTour).toContainText("Paid workspace");
+      await workspaceTour.getByRole("button", { name: "Skip tour", exact: true }).click();
+      await expect(workspaceTour).toBeHidden();
       checkpoint("primary workspace ready");
 
       await page.goto("/app");
@@ -672,8 +698,8 @@ test.describe("authenticated customer workspace", () => {
       await page.goto("/app");
       await expect(page.getByRole("heading", { name: "Activation Checklist", exact: true })).toBeVisible();
       await expect(page.getByRole("progressbar", { name: "Activation progress" })).toHaveAttribute("aria-valuetext", "2 of 5 completed");
-      await page.getByRole("button", { name: /Authenticated E2E owner account menu/ }).click();
-      await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+      await page.getByRole("button", { name: "Toggle navigation menu" }).click();
+      await page.getByRole("button", { name: "Sign out", exact: true }).click();
       await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 30_000 });
       await page.goto("/app/findings");
       await expect(page).toHaveURL(/\/login(?:\?.*)?$/, { timeout: 30_000 });

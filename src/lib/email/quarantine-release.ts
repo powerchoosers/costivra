@@ -6,6 +6,7 @@ import { summarizeInboundAttachmentStates } from "@/lib/email/quarantine-release
 import { scanFileForMalware } from "@/lib/security/malware-scanner";
 import { persistDocumentSecurityScan } from "@/lib/security/document-scan-provenance";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { finalizeFreeReviewSlot, prepareFreeReviewBufferClaim } from "@/lib/billing/free-review";
 
 type ServerDatabase = ReturnType<typeof createServerSupabaseClient>;
 
@@ -101,17 +102,39 @@ export async function releaseQuarantinedInboundAttachments(input: {
       stillQuarantined += 1;
       continue;
     }
-    const result = await ingestDocumentBuffer({
-      db,
-      organizationId,
-      actorType: "service",
-      actorId: null,
-      filename: attachment.filename,
-      mimeType: attachment.content_type,
-      buffer,
-      auditAction: "document.email_quarantine_released",
-      malwareScan: scan,
-    });
+    const freeReviewBuffer = await prepareFreeReviewBufferClaim(db, organizationId, buffer);
+    const freeReviewClaim = freeReviewBuffer.claim;
+    if (freeReviewClaim && !freeReviewClaim.allowed) {
+      const { error: limitError } = await db.from("inbound_email_attachments").update({
+        scan_status: "clean",
+        processing_status: "failed",
+        error_message: "The free three-bill review is complete. Subscribe to continue analyzing bills.",
+        updated_at: new Date().toISOString(),
+      }).eq("id", attachment.id);
+      if (limitError) throw limitError;
+      stillQuarantined += 1;
+      continue;
+    }
+    let result: Awaited<ReturnType<typeof ingestDocumentBuffer>>;
+    try {
+      result = await ingestDocumentBuffer({
+        db,
+        organizationId,
+        actorType: "service",
+        actorId: null,
+        filename: attachment.filename,
+        mimeType: attachment.content_type,
+        buffer,
+        auditAction: "document.email_quarantine_released",
+        malwareScan: scan,
+      });
+      if (freeReviewClaim?.isNewClaim) {
+        await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, result.duplicate ? "released" : "consumed");
+      }
+    } catch (error) {
+      if (freeReviewClaim?.isNewClaim) await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, "released");
+      throw error;
+    }
     const { error: processedUpdateError } = await db.from("inbound_email_attachments").update({
       scan_status: "clean",
       processing_status: result.duplicate ? "duplicate" : "processed",

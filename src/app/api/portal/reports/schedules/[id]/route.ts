@@ -3,6 +3,7 @@ import { apiError, cleanText, cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { isValidTimeZone, nextReportRun } from "@/lib/reports/schedule";
 import { authorizedReportRecipients, normalizeReportRecipients } from "@/lib/reports/recipients";
+import { hasPaidWorkspace } from "@/lib/billing/free-review";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -10,6 +11,7 @@ export async function PATCH(request: Request, { params }: Context) {
   try {
     const { db, organizationId, userId, role } = await requirePortalContext();
     if (role !== "owner" && role !== "admin") return NextResponse.json({ error: "Administrator access is required to change outbound report schedules." }, { status: 403 });
+    if (!await hasPaidWorkspace(db, organizationId)) return NextResponse.json({ error: "Scheduled reports are part of the paid workspace. Subscribe to keep receiving ongoing cost updates.", code: "PAID_WORKSPACE_REQUIRED", upgradeHref: "/pricing?from=workspace" }, { status: 402 });
     const id = cleanUuid((await params).id); if (!id) return NextResponse.json({ error: "Invalid schedule." }, { status: 400 });
     const { data: current, error: currentError } = await db.from("report_schedules").select("*").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     if (currentError) throw currentError;

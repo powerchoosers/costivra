@@ -69,11 +69,36 @@ describe("POST /api/billing/preauth-checkout", () => {
       integration_identifier: expect.stringMatching(/^costivra_preauth_[a-z]{8}$/),
       customer: "cus_test_preauth",
       managed_payments: { enabled: false },
-      success_url: "http://localhost:3000/signup?plan=starter&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}",
-      cancel_url: "http://localhost:3000/signup?plan=starter&billing=cancelled",
+      success_url: "http://localhost:3000/signup?plan=starter&interval=month&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "http://localhost:3000/signup?plan=starter&interval=month&billing=cancelled",
       metadata: expect.objectContaining({ plan_key: "starter" }),
     }), expect.any(Object));
     expect(from).toHaveBeenCalledWith("billing_checkout_intents");
+  });
+
+  it("uses the configured annual price and preserves the annual interval", async () => {
+    getBillingCatalogPlan.mockResolvedValue({
+      key: "starter",
+      checkoutEnabled: true,
+      active: true,
+      stripePriceId: "price_test_starter_monthly",
+      annualStripePriceId: "price_test_starter_annual",
+    });
+
+    const response = await POST(new Request("http://localhost:3000/api/billing/preauth-checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-request-id": "preauth-annual-1" },
+      body: JSON.stringify({ planKey: "starter", billingInterval: "year", email: "owner@example.com", fullName: "Jordan Lee", companyName: "Northstar Foods" }),
+    }));
+
+    expect(response.status).toBe(201);
+    const stripe = getStripeClient.mock.results[0]?.value;
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
+      line_items: [{ price: "price_test_starter_annual", quantity: 1 }],
+      success_url: expect.stringContaining("interval=year"),
+      metadata: expect.objectContaining({ billing_interval: "year" }),
+      subscription_data: { metadata: expect.objectContaining({ billing_interval: "year" }) },
+    }), expect.any(Object));
   });
 
   it("reuses a customer saved on an intent when Checkout must be retried", async () => {
@@ -83,6 +108,7 @@ describe("POST /api/billing/preauth-checkout", () => {
       full_name: "Jordan Lee",
       company_name: "Northstar Foods",
       plan_key: "starter",
+      billing_interval: "month",
       status: "created",
       stripe_customer_id: "cus_existing_preauth",
       checkout_url: null,

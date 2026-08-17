@@ -8,6 +8,7 @@ export type DocumentUploadPayload = {
   invoiceRecord?: Record<string, unknown> | null;
   warning?: string;
   error?: string;
+  code?: string;
 };
 
 export type DocumentUploadResult =
@@ -44,11 +45,13 @@ export type DocumentUploadCompletion =
 
 export class DocumentUploadRequestError extends Error {
   readonly status: number;
+  readonly code: string | null;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code: string | null = null) {
     super(message);
     this.name = "DocumentUploadRequestError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -102,6 +105,7 @@ export async function submitDocumentUpload(
     throw new DocumentUploadRequestError(
       payload.error || "The bill could not be uploaded.",
       response.status,
+      payload.code ?? null,
     );
   }
 

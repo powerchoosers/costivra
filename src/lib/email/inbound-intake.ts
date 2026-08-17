@@ -20,6 +20,7 @@ import { persistDocumentSecurityScan } from "@/lib/security/document-scan-proven
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCategoryMonitoringGuidance } from "@/lib/vendors/category-monitoring";
 import { safeOperationalError } from "@/lib/observability/request-context";
+import { finalizeFreeReviewSlot, prepareFreeReviewBufferClaim } from "@/lib/billing/free-review";
 
 type ServerDatabase = ReturnType<typeof createServerSupabaseClient>;
 type ResendClient = ReturnType<typeof getResendClient>;
@@ -290,19 +291,44 @@ export async function processInboundEmailJob(
       continue;
     }
 
-    const result = await ingestDocumentBuffer({
-      db,
-      organizationId: job.organization_id,
-      actorType: "service",
-      actorId: null,
-      filename,
-      mimeType: contentType,
-      buffer,
-      sourceType: "email_forwarding",
-      auditAction: "document.received_by_email",
-      malwareScan: scan,
-      requestId,
-    });
+    const freeReviewBuffer = await prepareFreeReviewBufferClaim(db, job.organization_id, buffer);
+    const freeReviewClaim = freeReviewBuffer.claim;
+    if (freeReviewClaim && !freeReviewClaim.allowed) {
+      const { error: limitError } = await db
+        .from("inbound_email_attachments")
+        .update({
+          sha256,
+          scan_status: "clean",
+          processing_status: "failed",
+          error_message: "The free three-bill review is complete. Subscribe to continue analyzing bills.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", state.id);
+      if (limitError) throw limitError;
+      continue;
+    }
+    let result: Awaited<ReturnType<typeof ingestDocumentBuffer>>;
+    try {
+      result = await ingestDocumentBuffer({
+        db,
+        organizationId: job.organization_id,
+        actorType: "service",
+        actorId: null,
+        filename,
+        mimeType: contentType,
+        buffer,
+        sourceType: "email_forwarding",
+        auditAction: "document.received_by_email",
+        malwareScan: scan,
+        requestId,
+      });
+      if (freeReviewClaim?.isNewClaim) {
+        await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, result.duplicate ? "released" : "consumed");
+      }
+    } catch (error) {
+      if (freeReviewClaim?.isNewClaim) await finalizeFreeReviewSlot(db, freeReviewClaim.claimId, "released");
+      throw error;
+    }
     const { error } = await db
       .from("inbound_email_attachments")
       .update({
