@@ -15,6 +15,11 @@ test("Ask Costivra top-bar trigger exists and operates assistant surface", async
     return;
   }
 
+  test.skip(
+    process.env.RUN_AUTHENTICATED_E2E === "1",
+    "The authenticated workspace journey covers this surface with its real signed-in fixture.",
+  );
+
   const failures = failOnConsoleErrors(page);
   await page.goto("/app");
   

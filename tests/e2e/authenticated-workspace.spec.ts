@@ -424,6 +424,11 @@ test.describe("authenticated customer workspace", () => {
       await expect(workspaceTour).toContainText("Paid workspace");
       await workspaceTour.getByRole("button", { name: "Skip tour", exact: true }).click();
       await expect(workspaceTour).toBeHidden();
+      const assistantTrigger = page.getByRole("button", { name: /Ask Costivra assistant/i });
+      await expect(assistantTrigger).toBeVisible();
+      await assistantTrigger.click();
+      await expect(page.getByRole("region", { name: "Ask Costivra" })).toBeVisible();
+      await page.getByRole("button", { name: "Close assistant" }).click();
       checkpoint("primary workspace ready");
 
       await page.goto("/app");
