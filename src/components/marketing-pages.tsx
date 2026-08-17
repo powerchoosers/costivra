@@ -334,10 +334,20 @@ function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
   return (
     <PageFrame>
       <header className="content-hero">
-        <span className="eyebrow">Start contained</span>
-        <h1>Start with the cost control you actually need.</h1>
-        <p>Begin with up to three current bills. Ongoing monitoring is most useful when recurring vendors, locations, services, or renewal dates are hard to keep in view—not when you only have a few simple bills.</p>
+        <span className="eyebrow">Start free, then decide</span>
+        <h1>See what Costivra finds before you choose a plan.</h1>
+        <p>Start with a free, private review of up to three current bills. If ongoing monitoring proves useful, choose the smallest plan that fits your vendors, locations, people, and approval paths.</p>
       </header>
+
+      <section className="pricing-free-start" aria-labelledby="pricing-free-start-title">
+        <div className="pricing-free-start-copy">
+          <span className="pricing-free-start-kicker">Free first review</span>
+          <h2 id="pricing-free-start-title">Get a useful answer before you pay for ongoing attention.</h2>
+          <p>Upload the bills you choose, keep the source evidence attached, and decide whether Costivra earns a place in your operating rhythm. No payment card is required to begin.</p>
+          <div className="pricing-free-start-actions"><Link className="button button-primary" href="/scan">Start your free review <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="/how-it-works">See how it works</Link></div>
+        </div>
+        <div className="pricing-free-start-facts" aria-label="Free review details"><div><strong>3 bills</strong><span>Choose the first documents to review</span></div><div><strong>No card</strong><span>Start without a billing commitment</span></div><div><strong>Your call</strong><span>Choose a paid plan only if it is useful</span></div></div>
+      </section>
 
       <section className="pricing-fit" aria-label="Pricing fit guidance">
         <div><span>First step</span><strong>Start with selected current bills before committing to ongoing monitoring.</strong></div>
@@ -347,12 +357,12 @@ function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
 
       <div className="content-grid pricing-plan-grid">
         {plans.filter((plan) => plan.active).map(({ key, name, amountCents, currency, interval, description, features }) => (
-          <article className="content-block pricing-plan-card" key={name}>
-            <span className="pricing-plan-name">{name}</span>
+          <article className={`content-block pricing-plan-card pricing-plan-card--${key}`} key={name}>
+            <div className="pricing-plan-card-topline"><span className="pricing-plan-name">{name}</span>{key === "starter" ? <span className="pricing-plan-tag">Focused team</span> : key === "growth" ? <span className="pricing-plan-tag">More coverage</span> : <span className="pricing-plan-tag">Custom control</span>}</div>
             <div className="pricing-plan-price">{amountCents == null ? "Custom" : new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amountCents / 100)}{amountCents != null ? <small> / {interval}</small> : null}</div>
             <p className="pricing-plan-fit">{description}</p>
             {features.map((feature) => <p className="pricing-plan-feature" key={feature}><Check aria-hidden="true" size={16} /> {feature}</p>)}
-            <Link className={key === "growth" ? "button button-primary" : "button button-secondary"} href={key === "enterprise" ? "/contact" : `/signup?plan=${key}`}>{key === "enterprise" ? "Talk to us" : `Choose ${name}`}</Link>
+            <Link className={key === "starter" ? "button button-primary" : "button button-secondary"} href={key === "enterprise" ? "/contact" : `/signup?plan=${key}`}>{key === "enterprise" ? "Talk to us" : `Choose ${name}`}</Link>
           </article>
         ))}
       </div>
