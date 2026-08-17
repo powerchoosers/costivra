@@ -130,6 +130,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       .single();
     if (account.error || !account.data) throw account.error;
 
+    const documentSha256 = randomBytes(32).toString("hex");
     const document = await admin
       .from("documents")
       .insert({
@@ -139,7 +140,7 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
         original_filename: "authenticated-e2e-invoice.pdf",
         mime_type: "application/pdf",
         byte_size: 1,
-        sha256: randomBytes(32).toString("hex"),
+        sha256: documentSha256,
         status: "ready",
         uploaded_by: userId,
         document_type: "invoice",
@@ -147,6 +148,14 @@ async function createWorkspaceFixture(): Promise<WorkspaceFixture> {
       .select("id")
       .single();
     if (document.error || !document.data) throw document.error;
+
+    const freeReviewSlot = await admin.from("free_review_slots").insert({
+      organization_id: organizationId,
+      sha256: documentSha256,
+      status: "consumed",
+      consumed_at: new Date().toISOString(),
+    });
+    if (freeReviewSlot.error) throw freeReviewSlot.error;
 
     const documentAudit = await admin.from("audit_events").insert({
       organization_id: organizationId,
@@ -849,6 +858,49 @@ test.describe("authenticated customer workspace", () => {
       try { await isolationContext?.close(); } catch { /* test timeout may already close the context */ }
       await removeWorkspaceFixture(fixture);
       if (isolationFixture) await removeWorkspaceFixture(isolationFixture);
+    }
+  });
+
+  test("shows a complete free review path with an explicit upgrade cue", async ({ page }) => {
+    test.setTimeout(120_000);
+    const fixture = await createWorkspaceFixture();
+    try {
+      const fixtureMembership = await fixture.admin
+        .from("organization_memberships")
+        .select("organization_id,role")
+        .eq("organization_id", fixture.organizationId)
+        .eq("user_id", fixture.userId)
+        .maybeSingle();
+      expect(fixtureMembership.error).toBeNull();
+      expect(fixtureMembership.data).toMatchObject({ organization_id: fixture.organizationId });
+      await page.goto("/login?next=/app/findings");
+      await page.getByRole("textbox", { name: "Work email" }).fill(fixture.email);
+      await page.getByRole("textbox", { name: "Password" }).fill(fixture.password);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+
+      await expect(page).toHaveURL(/\/app\/findings$/, { timeout: 30_000 });
+      await expect(page.getByRole("navigation", { name: "Finding views" })).toBeVisible({ timeout: 120_000 });
+      const statusResponse = await page.request.get("/api/portal/free-review/status");
+      console.log(`[free-e2e] status=${statusResponse.status()} body=${await statusResponse.text()}`);
+      expect(statusResponse.status()).toBe(200);
+      const banner = page.locator(".workspace-experience-banner--free");
+      await expect(banner).toBeVisible({ timeout: 30_000 });
+      await expect(banner).toContainText("Free review · 1 of 3 bills used");
+      await expect(banner).toContainText("2 bills left to analyze");
+      await expect(banner.getByRole("link", { name: /See paid plans/ })).toHaveAttribute("href", "/pricing?from=workspace");
+      await page.screenshot({ path: resolve(process.cwd(), "artifacts/pilot-journey/free-workspace-mobile.png"), fullPage: false });
+
+      const tour = page.locator(".workspace-tour__panel");
+      await expect(tour).toBeVisible({ timeout: 30_000 });
+      await expect(tour).toContainText("Free review");
+      await expect(tour).toContainText("2 of 3 documents left");
+      await expect(tour.getByRole("link", { name: /See paid plans/ })).toHaveAttribute("href", "/pricing?from=tour");
+      await tour.getByRole("button", { name: "Next", exact: true }).click();
+      await expect(tour).toContainText("Upload the source before making a claim.");
+      await tour.getByRole("button", { name: "Skip tour", exact: true }).click();
+      await expect(tour).toBeHidden();
+    } finally {
+      await removeWorkspaceFixture(fixture);
     }
   });
 });

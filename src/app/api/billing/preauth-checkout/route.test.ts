@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getBillingPlan = vi.hoisted(() => vi.fn(() => ({ key: "starter", checkoutEnabled: true })));
-const getBillingCatalogPlan = vi.hoisted(() => vi.fn(async () => ({ key: "starter", checkoutEnabled: true, active: true, stripePriceId: "price_test_starter" })));
+const getBillingCatalogPlan = vi.hoisted(() => vi.fn(async () => ({ key: "starter", checkoutEnabled: true, active: true, stripePriceId: "price_test_starter", annualStripePriceId: "price_test_starter_annual" })));
 const assertStripeBillingMode = vi.hoisted(() => vi.fn());
 const getStripeBillingMode = vi.hoisted(() => vi.fn(() => "test"));
 const getStripeAccountReadiness = vi.hoisted(() => vi.fn());
@@ -34,7 +34,7 @@ describe("POST /api/billing/preauth-checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getBillingPlan.mockReturnValue({ key: "starter", checkoutEnabled: true });
-    getBillingCatalogPlan.mockResolvedValue({ key: "starter", checkoutEnabled: true, active: true, stripePriceId: "price_test_starter" });
+    getBillingCatalogPlan.mockResolvedValue({ key: "starter", checkoutEnabled: true, active: true, stripePriceId: "price_test_starter", annualStripePriceId: "price_test_starter_annual" });
     getStripeBillingMode.mockReturnValue("test");
     from.mockImplementation((table: string) => table === "billing_checkout_intents" ? query() : query());
     getStripeClient.mockReturnValue({

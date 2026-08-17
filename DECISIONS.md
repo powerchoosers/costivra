@@ -2051,3 +2051,17 @@ Apply the reviewed annual billing migrations, create matching recurring annual P
 ## Consequences
 
 Starter and Growth annual selections now flow through the same pre-auth Checkout path as monthly plans, with the interval preserved in Checkout metadata, intents, webhook projection, and return URLs. Production/live readiness remains a separate gate; no live Price or payment was created.
+
+# 2026-08-16 — Keep the mobile workspace journey fully operable
+
+## Context
+
+The responsive customer shell replaces the desktop profile menu with a bottom navigation drawer. The authenticated journey test reached the Command Center at 390px, but the drawer had no account exit action, so the mobile sign-out checkpoint could not be exercised.
+
+## Decision
+
+Add a clearly labeled Sign out action to the mobile workspace drawer and use that responsive path in the authenticated browser regression. Keep the existing desktop profile-menu sign-out unchanged.
+
+## Consequences
+
+Mobile members have a complete, discoverable account-exit path, and the responsive journey now verifies sign-out, protected-route redirect, re-authentication, and workspace-state resume. The action is a normal auth session mutation and does not create an external side effect.

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ElementType } from "react";
-import { ArrowLeft, ArrowRight, Check, CheckSquare, Gear, Layout, ReceiptText, Target, Upload, X } from "@/lib/icons";
+import { ArrowLeft, ArrowRight, Check, CheckSquare, Gear, Layout, Target, Upload, X } from "@/lib/icons";
 
 type TutorialStep = {
   id: string;
@@ -86,13 +86,14 @@ export function WorkspaceOnboardingTour() {
   useEffect(() => {
     if (!open) return;
     panelRef.current?.focus();
-    positionTarget();
+    const initialFrame = window.requestAnimationFrame(positionTarget);
     const handle = () => window.requestAnimationFrame(positionTarget);
     window.addEventListener("resize", handle);
     window.addEventListener("scroll", handle, true);
     const bodyOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      window.cancelAnimationFrame(initialFrame);
       window.removeEventListener("resize", handle);
       window.removeEventListener("scroll", handle, true);
       document.body.style.overflow = bodyOverflow;
