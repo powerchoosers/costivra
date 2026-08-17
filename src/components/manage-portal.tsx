@@ -5210,10 +5210,12 @@ type ManageBillingPlan = {
   displayName: string;
   description: string;
   amountCents: number | null;
+  annualAmountCents: number | null;
   currency: string;
   interval: "month" | "year" | "custom";
   features: string[];
   stripePriceId: string | null;
+  annualStripePriceId: string | null;
   active: boolean;
 };
 
@@ -5287,10 +5289,10 @@ function BillingCatalogSettings() {
         <div className="manage-billing-catalog-grid">
           {plans.map((plan) => (
             <article className="manage-billing-catalog-card" key={plan.key}>
-              <div className="manage-enrichment-provider-heading"><div><strong>{plan.displayName}</strong><small>{plan.stripePriceId ? `Stripe Price ${plan.stripePriceId}` : "No Stripe Price yet"}</small></div><label className="manage-preference-toggle"><span className="manage-visually-hidden">Plan active</span><input type="checkbox" checked={plan.active} onChange={(event) => updatePlan(plan.key, "active", event.target.checked)} /><i aria-hidden="true" /></label></div>
+              <div className="manage-enrichment-provider-heading"><div><strong>{plan.displayName}</strong><small>{plan.stripePriceId ? `Monthly Price ${plan.stripePriceId}` : "No monthly Stripe Price yet"}{plan.annualStripePriceId ? ` · Annual Price ${plan.annualStripePriceId}` : ""}</small></div><label className="manage-preference-toggle"><span className="manage-visually-hidden">Plan active</span><input type="checkbox" checked={plan.active} onChange={(event) => updatePlan(plan.key, "active", event.target.checked)} /><i aria-hidden="true" /></label></div>
               <label><span>Plan name</span><input value={plan.displayName} maxLength={80} onChange={(event) => updatePlan(plan.key, "displayName", event.target.value)} /></label>
               <label><span>Description</span><textarea value={plan.description} maxLength={320} rows={2} onChange={(event) => updatePlan(plan.key, "description", event.target.value)} /></label>
-              {plan.key !== "enterprise" ? <div className="manage-billing-catalog-row"><label><span>Amount (USD)</span><input type="number" min="1" step="1" value={plan.amountCents == null ? "" : plan.amountCents / 100} onChange={(event) => updatePlan(plan.key, "amountCents", Math.round(Number(event.target.value) * 100))} /></label><label><span>Bill every</span><select value={plan.interval} onChange={(event) => updatePlan(plan.key, "interval", event.target.value)}><option value="month">Month</option><option value="year">Year</option></select></label></div> : <p className="manage-billing-catalog-custom">Enterprise remains custom-priced and assisted sales.</p>}
+              {plan.key !== "enterprise" ? <div className="manage-billing-catalog-row"><label><span>Monthly amount (USD)</span><input type="number" min="1" step="1" value={plan.amountCents == null ? "" : plan.amountCents / 100} onChange={(event) => updatePlan(plan.key, "amountCents", Math.round(Number(event.target.value) * 100))} /></label><label><span>Annual amount (USD)</span><input type="number" min="1" step="1" value={plan.annualAmountCents == null ? "" : plan.annualAmountCents / 100} onChange={(event) => updatePlan(plan.key, "annualAmountCents", Math.round(Number(event.target.value) * 100))} /></label></div> : <p className="manage-billing-catalog-custom">Enterprise remains custom-priced and assisted sales.</p>}
               <label><span>Included features (one per line)</span><textarea value={plan.features.join("\n")} rows={4} onChange={(event) => updatePlan(plan.key, "features", event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} /></label>
               <button type="button" className="manage-button manage-button--primary" disabled={saving !== null} onClick={() => void save(plan)}>{saving === plan.key ? "Saving Stripe price…" : "Save pricing"}</button>
             </article>

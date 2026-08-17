@@ -6815,6 +6815,29 @@ body.modal-open .app-topbar { filter: blur(7px); }
   overflow: visible;
 }
 
+.pricing-billing-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 18px;
+  padding: 16px 20px;
+  border: 1px solid #d4ddea;
+  border-radius: 16px;
+  background: rgba(255,255,255,.72);
+}
+
+.pricing-billing-toggle > div:first-child { display: grid; gap: 4px; }
+.pricing-billing-toggle-kicker { color: var(--blue); font: 700 .64rem/1.2 "Courier New", monospace; letter-spacing: .1em; text-transform: uppercase; }
+.pricing-billing-toggle strong { color: var(--ink); font-size: .9rem; }
+.pricing-billing-toggle small { color: #687891; font-size: .72rem; line-height: 1.4; }
+.pricing-billing-toggle-controls { display: inline-flex; flex: 0 0 auto; gap: 3px; padding: 3px; border: 1px solid #c9d3e4; border-radius: 999px; background: #edf2fa; }
+.pricing-billing-toggle-controls button { min-height: 36px; border: 0; border-radius: 999px; padding: 0 13px; color: #61728a; background: transparent; font: inherit; font-size: .74rem; font-weight: 750; }
+.pricing-billing-toggle-controls button:hover { color: #243856; background: rgba(255,255,255,.72); }
+.pricing-billing-toggle-controls button.is-selected { color: #172235; background: #d7ff4d; box-shadow: 0 3px 10px rgba(125, 159, 25, .14); }
+.pricing-billing-toggle-controls button span { margin-left: 4px; color: #315cff; font-size: .64rem; }
+.pricing-plan-price-note { display: block; margin-top: -4px; color: #4e7b19; font-size: .68rem; font-weight: 750; }
+
 .pricing-plan-price {
   margin: 19px 0 9px;
   color: var(--ink);
@@ -6899,6 +6922,9 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .pricing-free-start-actions { display: grid; }
   .pricing-free-start-actions .button { width: 100%; }
   .pricing-free-start-facts div { grid-template-columns: 90px 1fr; }
+  .pricing-billing-toggle { align-items: stretch; flex-direction: column; gap: 14px; padding: 16px; }
+  .pricing-billing-toggle-controls { width: 100%; }
+  .pricing-billing-toggle-controls button { flex: 1; }
   .pricing-fit { grid-template-columns: 1fr; margin: -10px 0 38px; }
   .pricing-fit > div { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 19px 0; }
   .pricing-fit > div:last-child { border-bottom: 0; }

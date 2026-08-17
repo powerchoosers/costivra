@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBillingCatalogPlan, getBillingPlan } from "@/lib/billing/catalog";
+import { getBillingCatalogPlan, getBillingPlan, type BillingInterval } from "@/lib/billing/catalog";
 import { assertStripeBillingMode, getStripeAccountReadiness, getStripeBillingMode, getStripeClient, stripeAccountReadyForLiveCheckout } from "@/lib/billing/stripe";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { cleanText } from "@/lib/portal/http";
@@ -25,10 +25,11 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const plan = getBillingPlan(cleanText(body.planKey, 30));
     if (!plan) return NextResponse.json({ error: "Choose a valid Costivra plan." }, { status: 400 });
+    const billingInterval: BillingInterval = cleanText(body.billingInterval, 10) === "year" ? "year" : "month";
     const catalogPlan = await getBillingCatalogPlan(plan.key);
-    const priceId = catalogPlan.active ? catalogPlan.stripePriceId : null;
+    const priceId = catalogPlan.active ? billingInterval === "year" ? catalogPlan.annualStripePriceId : catalogPlan.stripePriceId : null;
     if (!plan.checkoutEnabled || !priceId) {
-      return NextResponse.json({ error: "That plan is not configured for self-serve checkout yet." }, { status: 409 });
+      return NextResponse.json({ error: billingInterval === "year" ? "Annual billing is not configured for this plan yet. Choose monthly billing or contact us for annual setup." : "That plan is not configured for self-serve checkout yet." }, { status: 409 });
     }
 
     const [{ data: organization, error: organizationError }, { data: profile, error: profileError }] = await Promise.all([
@@ -84,10 +85,10 @@ export async function POST(request: Request) {
       // explicitly off until that separate compliance setup is approved.
       managed_payments: { enabled: false },
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&billing=success`,
-      cancel_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&billing=cancelled`,
-      metadata: { organization_id: organizationId, plan_key: plan.key },
-      subscription_data: { metadata: { organization_id: organizationId, plan_key: plan.key } },
+      success_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&interval=${billingInterval}&billing=success`,
+      cancel_url: `${appUrl(request)}/app/settings?tab=billing&plan=${encodeURIComponent(plan.key)}&interval=${billingInterval}&billing=cancelled`,
+      metadata: { organization_id: organizationId, plan_key: plan.key, billing_interval: billingInterval },
+      subscription_data: { metadata: { organization_id: organizationId, plan_key: plan.key, billing_interval: billingInterval } },
     }, { idempotencyKey: `costivra-checkout-${organizationId}-${plan.key}-${requestKey}` });
 
     const { error: auditError } = await db.from("audit_events").insert({
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
       action: "billing.checkout_started",
       resource_type: "billing_customer",
       resource_id: organizationId,
-      safe_metadata: { plan_key: plan.key, checkout_session_id: session.id },
+      safe_metadata: { plan_key: plan.key, billing_interval: billingInterval, checkout_session_id: session.id },
     });
     if (auditError) throw auditError;
 

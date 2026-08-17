@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBillingCatalogPlan, getBillingPlan } from "@/lib/billing/catalog";
+import { getBillingCatalogPlan, getBillingPlan, type BillingInterval } from "@/lib/billing/catalog";
 import { assertStripeBillingMode, getStripeAccountReadiness, getStripeBillingMode, getStripeClient, stripeAccountReadyForLiveCheckout } from "@/lib/billing/stripe";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { cleanText } from "@/lib/portal/http";
@@ -31,14 +31,15 @@ export async function POST(request: Request) {
     const fullName = cleanText(body.fullName, 120);
     const companyName = cleanText(body.companyName, 160);
     const plan = getBillingPlan(cleanText(body.planKey, 30));
+    const billingInterval: BillingInterval = cleanText(body.billingInterval, 10) === "year" ? "year" : "month";
     if (!plan || !validEmail(email) || fullName.length < 2 || companyName.length < 2) {
       return NextResponse.json({ error: "Enter your name, company, work email, and a valid plan." }, { status: 400 });
     }
 
     const catalogPlan = await getBillingCatalogPlan(plan.key);
-    const priceId = catalogPlan.active ? catalogPlan.stripePriceId : null;
+    const priceId = catalogPlan.active ? billingInterval === "year" ? catalogPlan.annualStripePriceId : catalogPlan.stripePriceId : null;
     if (!plan.checkoutEnabled || !priceId) {
-      return NextResponse.json({ error: "That plan is not configured for self-serve checkout yet." }, { status: 409 });
+      return NextResponse.json({ error: billingInterval === "year" ? "Annual billing is not configured for this plan yet. Choose monthly billing or contact us for annual setup." : "That plan is not configured for self-serve checkout yet." }, { status: 409 });
     }
 
     const stripeMode = getStripeBillingMode();
@@ -57,13 +58,13 @@ export async function POST(request: Request) {
     const db = createServerSupabaseClient();
     const idempotencyKey = requestKey(body.requestKey || request.headers.get("x-request-id"));
     const existing = await db.from("billing_checkout_intents")
-      .select("id,email,full_name,company_name,plan_key,status,stripe_customer_id,checkout_url")
+      .select("id,email,full_name,company_name,plan_key,billing_interval,status,stripe_customer_id,checkout_url")
       .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
     if (existing.error?.code === "42P01") return NextResponse.json({ error: "Paid signup is not ready until the billing migration is applied." }, { status: 503 });
     if (existing.error) throw existing.error;
     if (existing.data) {
-      const sameRequest = existing.data.email === email && existing.data.plan_key === plan.key && existing.data.company_name === companyName;
+      const sameRequest = existing.data.email === email && existing.data.plan_key === plan.key && existing.data.billing_interval === billingInterval && existing.data.company_name === companyName;
       if (!sameRequest) return NextResponse.json({ error: "That checkout request key is already in use." }, { status: 409 });
       if (typeof existing.data.checkout_url === "string" && existing.data.checkout_url) return NextResponse.json({ url: existing.data.checkout_url, reused: true }, { status: 200 });
     }
@@ -77,16 +78,17 @@ export async function POST(request: Request) {
         full_name: fullName,
         company_name: companyName,
         plan_key: plan.key,
+        billing_interval: billingInterval,
         stripe_mode: stripeMode,
         status: "created",
       });
       if (intentError?.code === "23505") {
         const { data: racedIntent, error: rereadError } = await db.from("billing_checkout_intents")
-          .select("id,email,full_name,company_name,plan_key,status,checkout_url")
+          .select("id,email,full_name,company_name,plan_key,billing_interval,status,checkout_url")
           .eq("idempotency_key", idempotencyKey)
           .maybeSingle();
         if (rereadError) throw rereadError;
-        if (racedIntent?.email === email && racedIntent.plan_key === plan.key && racedIntent.company_name === companyName && typeof racedIntent.checkout_url === "string" && racedIntent.checkout_url) {
+        if (racedIntent?.email === email && racedIntent.plan_key === plan.key && racedIntent.billing_interval === billingInterval && racedIntent.company_name === companyName && typeof racedIntent.checkout_url === "string" && racedIntent.checkout_url) {
           return NextResponse.json({ url: racedIntent.checkout_url, reused: true }, { status: 200 });
         }
         return NextResponse.json({ error: "That checkout request is already being started. Please try again in a moment." }, { status: 409 });
@@ -123,10 +125,10 @@ export async function POST(request: Request) {
         // explicitly off until that separate compliance setup is approved.
         managed_payments: { enabled: false },
         line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&billing=cancelled`,
-        metadata: { checkout_intent_id: intentId, plan_key: plan.key },
-        subscription_data: { metadata: { checkout_intent_id: intentId, plan_key: plan.key } },
+        success_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&interval=${billingInterval}&billing=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl(request)}/signup?plan=${encodeURIComponent(plan.key)}&interval=${billingInterval}&billing=cancelled`,
+        metadata: { checkout_intent_id: intentId, plan_key: plan.key, billing_interval: billingInterval },
+        subscription_data: { metadata: { checkout_intent_id: intentId, plan_key: plan.key, billing_interval: billingInterval } },
       }, { idempotencyKey: `costivra-preauth-checkout-${intentId}` });
     } catch (error) {
       const { error: intentFailureError } = await db.from("billing_checkout_intents").update({

@@ -19,7 +19,8 @@ async function planFromPrice(db: ReturnType<typeof createServerSupabaseClient>, 
   if (priceId && priceId === process.env.STRIPE_PRICE_GROWTH_MONTHLY) return "growth";
   if (priceId) {
     const { data } = await db.from("billing_plan_catalog").select("plan_key").eq("stripe_price_id", priceId).maybeSingle();
-    const catalogPlan = getBillingPlan(data?.plan_key);
+    const annual = data ? null : (await db.from("billing_plan_catalog").select("plan_key").eq("annual_stripe_price_id", priceId).maybeSingle()).data;
+    const catalogPlan = getBillingPlan(data?.plan_key ?? annual?.plan_key);
     if (catalogPlan) return catalogPlan.key;
   }
   return null;
@@ -105,6 +106,7 @@ async function handleEvent(db: ReturnType<typeof createServerSupabaseClient>, ev
       stripe_subscription_id: subscription.id,
       stripe_price_id: priceId,
       plan_key: planKey,
+      billing_interval: subscription.metadata?.billing_interval === "year" || currentItem?.price?.recurring?.interval === "year" ? "year" : "month",
       status,
       cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
       current_period_start: isoFromUnix(currentItem?.current_period_start),

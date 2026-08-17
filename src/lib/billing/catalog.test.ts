@@ -14,6 +14,12 @@ describe("billing catalog", () => {
     expect(getConfiguredPriceId(starter!)).toBeNull();
   });
 
+  it("reads annual prices from their separate Stripe configuration", () => {
+    vi.stubEnv("STRIPE_PRICE_STARTER_ANNUAL", "price_starter_annual_test");
+    const starter = getBillingPlan("starter");
+    expect(getConfiguredPriceId(starter!, "year")).toBe("price_starter_annual_test");
+  });
+
   it("does not offer enterprise through self-serve checkout", () => {
     const enterprise = getBillingPlan("enterprise");
     expect(enterprise?.checkoutEnabled).toBe(false);

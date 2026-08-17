@@ -43,15 +43,19 @@ export async function PATCH(request: Request) {
     const description = cleanText(body?.description, 320) || definition.description;
     const features = normalizedFeatures(body?.features);
     const active = body?.active !== false;
-    const interval: "month" | "year" | "custom" = planKey === "enterprise" ? "custom" : cleanText(body?.interval, 12) === "year" ? "year" : "month";
+    const interval: "month" | "custom" = planKey === "enterprise" ? "custom" : "month";
     const amountCents = planKey === "enterprise" ? null : Number(body?.amountCents);
+    const annualAmountCents = planKey === "enterprise" ? null : Number(body?.annualAmountCents);
     if (planKey !== "enterprise" && (!Number.isInteger(amountCents) || (amountCents ?? 0) < 100)) {
       return NextResponse.json({ error: "Enter a monthly or annual price of at least $1.00." }, { status: 400 });
+    }
+    if (planKey !== "enterprise" && (!Number.isInteger(annualAmountCents) || (annualAmountCents ?? 0) < 100)) {
+      return NextResponse.json({ error: "Enter an annual price of at least $1.00." }, { status: 400 });
     }
 
     const { data: current, error: currentError } = await operator.db
       .from("billing_plan_catalog")
-      .select("stripe_product_id,stripe_price_id,amount_cents,interval")
+      .select("stripe_product_id,stripe_price_id,annual_stripe_price_id,amount_cents,annual_amount_cents,interval")
       .eq("plan_key", planKey)
       .eq("stripe_mode", mode)
       .maybeSingle();
@@ -59,8 +63,10 @@ export async function PATCH(request: Request) {
 
     let stripeProductId = typeof current?.stripe_product_id === "string" ? current.stripe_product_id : null;
     let stripePriceId = typeof current?.stripe_price_id === "string" ? current.stripe_price_id : getConfiguredPriceId(definition);
-    const priceChanged = planKey !== "enterprise" && active && (!stripePriceId || current?.amount_cents !== amountCents || current?.interval !== interval);
-    if (priceChanged) {
+    let annualStripePriceId = typeof current?.annual_stripe_price_id === "string" ? current.annual_stripe_price_id : getConfiguredPriceId(definition, "year");
+    const monthlyPriceChanged = planKey !== "enterprise" && active && (!stripePriceId || current?.amount_cents !== amountCents || current?.interval !== "month");
+    const annualPriceChanged = planKey !== "enterprise" && active && (!annualStripePriceId || current?.annual_amount_cents !== annualAmountCents);
+    if (monthlyPriceChanged || annualPriceChanged) {
       const stripe = getStripeClient();
       const key = idempotencyKey(request);
       if (!stripeProductId && stripePriceId) {
@@ -78,17 +84,29 @@ export async function PATCH(request: Request) {
       } else {
         await stripe.products.update(stripeProductId, { name: displayName, description, metadata: { costivra_plan_key: planKey } });
       }
-      const price = await stripe.prices.create({
-        product: stripeProductId,
-        unit_amount: amountCents as number,
-        currency: "usd",
-        recurring: { interval: interval as "month" | "year" },
-        metadata: { costivra_plan_key: planKey },
-      }, { idempotencyKey: `${key}-price` });
-      const previousPriceId = stripePriceId;
-      stripePriceId = price.id;
-      if (previousPriceId && previousPriceId !== stripePriceId) {
-        await stripe.prices.update(previousPriceId, { active: false });
+      if (monthlyPriceChanged) {
+        const price = await stripe.prices.create({
+          product: stripeProductId,
+          unit_amount: amountCents as number,
+          currency: "usd",
+          recurring: { interval: "month" },
+          metadata: { costivra_plan_key: planKey, billing_interval: "month" },
+        }, { idempotencyKey: `${key}-monthly-price` });
+        const previousPriceId = stripePriceId;
+        stripePriceId = price.id;
+        if (previousPriceId && previousPriceId !== stripePriceId) await stripe.prices.update(previousPriceId, { active: false });
+      }
+      if (annualPriceChanged) {
+        const price = await stripe.prices.create({
+          product: stripeProductId,
+          unit_amount: annualAmountCents as number,
+          currency: "usd",
+          recurring: { interval: "year" },
+          metadata: { costivra_plan_key: planKey, billing_interval: "year" },
+        }, { idempotencyKey: `${key}-annual-price` });
+        const previousPriceId = annualStripePriceId;
+        annualStripePriceId = price.id;
+        if (previousPriceId && previousPriceId !== annualStripePriceId) await stripe.prices.update(previousPriceId, { active: false });
       }
     } else if (planKey !== "enterprise" && active && stripePriceId) {
       const stripe = getStripeClient();
@@ -98,11 +116,16 @@ export async function PATCH(request: Request) {
         stripeProductId = typeof existingPrice.product === "string" ? existingPrice.product : existingPrice.product.id;
       }
       await stripe.products.update(stripeProductId, { name: displayName, description, metadata: { costivra_plan_key: planKey } });
-    } else if (planKey !== "enterprise" && !active && stripePriceId) {
-      await getStripeClient().prices.update(stripePriceId, { active: false });
-    } else if (planKey === "enterprise" && stripePriceId) {
-      await getStripeClient().prices.update(stripePriceId, { active: false });
+    } else if (planKey !== "enterprise" && !active) {
+      const stripe = getStripeClient();
+      if (stripePriceId) await stripe.prices.update(stripePriceId, { active: false });
+      if (annualStripePriceId) await stripe.prices.update(annualStripePriceId, { active: false });
+    } else if (planKey === "enterprise" && (stripePriceId || annualStripePriceId)) {
+      const stripe = getStripeClient();
+      if (stripePriceId) await stripe.prices.update(stripePriceId, { active: false });
+      if (annualStripePriceId) await stripe.prices.update(annualStripePriceId, { active: false });
       stripePriceId = null;
+      annualStripePriceId = null;
     }
 
     const { data, error } = await operator.db.from("billing_plan_catalog").upsert({
@@ -111,11 +134,13 @@ export async function PATCH(request: Request) {
       display_name: displayName,
       description,
       amount_cents: amountCents as number,
+      annual_amount_cents: annualAmountCents as number,
       currency: "usd",
       interval,
       features,
       stripe_product_id: stripeProductId,
       stripe_price_id: stripePriceId,
+      annual_stripe_price_id: annualStripePriceId,
       active,
       updated_by: operator.userId,
       updated_at: new Date().toISOString(),
@@ -128,7 +153,7 @@ export async function PATCH(request: Request) {
       action: "billing.catalog_updated",
       resource_type: "billing_plan_catalog",
       resource_id: data.id,
-      safe_metadata: { plan_key: planKey, stripe_mode: mode, amount_cents: amountCents, interval, active },
+      safe_metadata: { plan_key: planKey, stripe_mode: mode, amount_cents: amountCents, annual_amount_cents: annualAmountCents, active },
     });
     if (auditError) throw auditError;
     return NextResponse.json({ plan: data, plans: await getBillingCatalog() });

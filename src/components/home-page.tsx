@@ -35,10 +35,12 @@ export type PublicBillingPlan = {
   name: string;
   description: string;
   amountCents: number | null;
+  annualAmountCents: number | null;
   currency: string;
   interval: "month" | "year" | "custom";
   features: string[];
   active: boolean;
+  annualAvailable: boolean;
 };
 
 const trust = [

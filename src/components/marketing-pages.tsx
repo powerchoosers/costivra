@@ -330,6 +330,9 @@ function SpecPage({ spec }: { spec: PageSpec }) {
 }
 
 function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+  const activePlans = plans.filter((plan) => plan.active);
+  const annualCheckoutReady = activePlans.some((plan) => plan.annualAvailable);
 
   return (
     <PageFrame>
@@ -355,16 +358,29 @@ function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
         <div><span>Not a fit yet</span><strong>If you manage only a handful of simple bills, a contained review may be the better starting point.</strong></div>
       </section>
 
+      <section className="pricing-billing-toggle" aria-label="Billing cadence">
+        <div><span className="pricing-billing-toggle-kicker">Choose your cadence</span><strong>Save with annual billing</strong><small>{annualCheckoutReady ? "Annual checkout is available on configured plans." : "Annual pricing is shown below while annual checkout is being configured."}</small></div>
+        <div className="pricing-billing-toggle-controls" role="group" aria-label="Billing cadence options">
+          <button type="button" className={billingInterval === "month" ? "is-selected" : ""} aria-pressed={billingInterval === "month"} onClick={() => setBillingInterval("month")}>Monthly</button>
+          <button type="button" className={billingInterval === "year" ? "is-selected" : ""} aria-pressed={billingInterval === "year"} onClick={() => setBillingInterval("year")}>Annual <span>Save 20%</span></button>
+        </div>
+      </section>
+
       <div className="content-grid pricing-plan-grid">
-        {plans.filter((plan) => plan.active).map(({ key, name, amountCents, currency, interval, description, features }) => (
-          <article className={`content-block pricing-plan-card pricing-plan-card--${key}`} key={name}>
+        {activePlans.map(({ key, name, amountCents, annualAmountCents, currency, description, features, annualAvailable }) => {
+          const displayAmountCents = billingInterval === "year" ? annualAmountCents : amountCents;
+          const savings = amountCents && annualAmountCents ? Math.round((1 - annualAmountCents / (amountCents * 12)) * 100) : 0;
+          const checkoutReady = billingInterval === "month" || annualAvailable;
+          const href = key === "enterprise" ? "/contact" : checkoutReady ? `/signup?plan=${key}&interval=${billingInterval}` : "/contact?topic=annual-billing";
+          return <article className={`content-block pricing-plan-card pricing-plan-card--${key}`} key={name}>
             <div className="pricing-plan-card-topline"><span className="pricing-plan-name">{name}</span>{key === "starter" ? <span className="pricing-plan-tag">Focused team</span> : key === "growth" ? <span className="pricing-plan-tag">More coverage</span> : <span className="pricing-plan-tag">Custom control</span>}</div>
-            <div className="pricing-plan-price">{amountCents == null ? "Custom" : new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amountCents / 100)}{amountCents != null ? <small> / {interval}</small> : null}</div>
+            <div className="pricing-plan-price">{displayAmountCents == null ? "Custom" : new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: billingInterval === "year" ? 2 : 0 }).format(displayAmountCents / 100)}{displayAmountCents != null ? <small> / {billingInterval === "year" ? "year" : "month"}</small> : null}</div>
+            {billingInterval === "year" && amountCents != null ? <span className="pricing-plan-price-note">{savings > 0 ? `Save ${savings}% · billed annually` : "Billed annually"}</span> : null}
             <p className="pricing-plan-fit">{description}</p>
             {features.map((feature) => <p className="pricing-plan-feature" key={feature}><Check aria-hidden="true" size={16} /> {feature}</p>)}
-            <Link className={key === "starter" ? "button button-primary" : "button button-secondary"} href={key === "enterprise" ? "/contact" : `/signup?plan=${key}`}>{key === "enterprise" ? "Talk to us" : `Choose ${name}`}</Link>
-          </article>
-        ))}
+            <Link className={key === "starter" ? "button button-primary" : "button button-secondary"} href={href}>{key === "enterprise" ? "Talk to us" : billingInterval === "year" && !annualAvailable ? "Ask about annual billing" : `Choose ${name}`}</Link>
+          </article>;
+        })}
       </div>
 
       <Reveal>
@@ -427,6 +443,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
   // after a lost response, the server can reuse the same intent/customer.
   const preauthRequestKey = useRef<string | null>(null);
   const selectedPlanKey = searchParams?.get("plan");
+  const selectedBillingInterval = searchParams?.get("interval") === "year" ? "year" : "month";
   const selectedPlan = plans.find((plan) => plan.key === selectedPlanKey && plan.active && plan.key !== "enterprise");
   const preauthSignup = signup && Boolean(selectedPlan);
   const checkoutSessionId = searchParams?.get("checkout_session_id");
@@ -476,7 +493,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     const next = searchParams?.get("next");
     const safeNext = next?.startsWith("/app") || next?.startsWith("/manage") ? next : null;
     const planDestination = selectedPlan
-      ? `/app/settings?tab=billing&plan=${encodeURIComponent(selectedPlan.key)}`
+      ? `/app/settings?tab=billing&plan=${encodeURIComponent(selectedPlan.key)}&interval=${selectedBillingInterval}`
       : null;
     const callback = new URL("/auth/callback", window.location.origin);
     if (safeNext || planDestination) callback.searchParams.set("next", safeNext ?? planDestination!);
@@ -504,6 +521,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             planKey: selectedPlan.key,
+            billingInterval: selectedBillingInterval,
             email,
             fullName: String(form.get("fullName") ?? "").trim(),
             companyName: String(form.get("companyName") ?? "").trim(),
@@ -538,6 +556,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     const safeNext = next?.startsWith("/app") || next?.startsWith("/manage") ? next : null;
     const confirmationParams = new URLSearchParams({ confirmed: "1" });
     if (selectedPlan) confirmationParams.set("plan", selectedPlan.key);
+    if (selectedPlan) confirmationParams.set("interval", selectedBillingInterval);
     if (safeNext) confirmationParams.set("next", safeNext);
     const result = signup
       ? await client.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/login?${confirmationParams.toString()}`, data: { full_name: String(form.get("fullName") ?? "").trim(), company_name: String(form.get("companyName") ?? "").trim() } } })
@@ -545,7 +564,7 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     if (result.error) { setMessage(result.error.message); setBusy(false); return; }
     if (signup && !result.data.session) { setMessageTone("info"); setMessage("Check your email to confirm your account, then sign in."); setBusy(false); return; }
     const requestedDestination = safeNext ?? (selectedPlan
-      ? `/app/settings?tab=billing&plan=${encodeURIComponent(selectedPlan.key)}`
+      ? `/app/settings?tab=billing&plan=${encodeURIComponent(selectedPlan.key)}&interval=${selectedBillingInterval}`
       : null);
     const destination = requestedDestination ? `/access?next=${encodeURIComponent(requestedDestination)}` : "/access";
     // A full navigation lets the browser send the newly written Supabase auth
@@ -553,7 +572,8 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     // transition can otherwise race the cookie write and be sent back to login.
     window.location.assign(destination);
   }
-  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span className="account-brand-wordmark">Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span>{selectedPlan && <span><CircleDollarSign aria-hidden="true" size={16} /> {selectedPlan.name} · {new Intl.NumberFormat("en-US", { style: "currency", currency: selectedPlan.currency, maximumFractionDigits: 0 }).format((selectedPlan.amountCents ?? 0) / 100)} / {selectedPlan.interval}</span>}</div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? preauthSignup ? "Start with secure checkout." : "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? selectedPlan ? `Enter your details, then continue to secure checkout for ${selectedPlan.name}.` : "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : selectedPlan ? `Sign in to continue with ${selectedPlan.name}.` : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
+  const selectedPlanAmount = selectedPlan ? selectedBillingInterval === "year" ? selectedPlan.annualAmountCents : selectedPlan.amountCents : null;
+  return <PageFrame><div className="account-page"><aside className="account-intro"><div className="account-intro-mark"><span className="account-brand-mark"><CostivraMark size={34} /></span><span className="account-brand-wordmark">Costivra workspace</span></div><div><p className="eyebrow">A calmer way to control recurring cost</p><h1>{signup ? "Build your cost command center." : resetMode ? "Reset your password." : "Welcome back."}</h1><p>{signup ? "Start with a private workspace for bills, contracts, evidence, and decisions that need a clear owner." : resetMode ? "Enter your work email and we’ll send a secure link to choose a new password." : "Review evidence, approve bounded actions, and keep the next decision in view."}</p></div><div className="account-trust"><span><LockKeyhole aria-hidden="true" size={16} /> Private by organization</span><span><BadgeCheck aria-hidden="true" size={16} /> Evidence stays attached</span>{selectedPlan && <span><CircleDollarSign aria-hidden="true" size={16} /> {selectedPlan.name} · {new Intl.NumberFormat("en-US", { style: "currency", currency: selectedPlan.currency, maximumFractionDigits: selectedBillingInterval === "year" ? 2 : 0 }).format((selectedPlanAmount ?? 0) / 100)} / {selectedBillingInterval}</span>}</div></aside><form className="account-card" onSubmit={submitAccount}><div className="account-card-heading"><span className="account-card-kicker">{signup ? "Create workspace" : resetMode ? "Password recovery" : "Sign in"}</span><h2>{signup ? preauthSignup ? "Start with secure checkout." : "Start with a secure account." : resetMode ? "Get a fresh password link." : "Your workspace is ready."}</h2><p>{signup ? selectedPlan ? `Enter your details, then continue to secure checkout for ${selectedPlan.name}.` : "Use your work email to create an organization-scoped workspace." : resetMode ? "Use the email attached to your Costivra account." : selectedPlan ? `Sign in to continue with ${selectedPlan.name}.` : "Continue with the credentials associated with your Costivra workspace."}</p></div>{!resetMode && (googleEnabled || microsoftEnabled) && (
   <div className="account-provider-grid" aria-label="Sign-in providers">
     {googleEnabled && (
       <button className="account-provider" type="button" disabled={Boolean(oauthProvider)} onClick={() => void signInWithProvider("google")}>

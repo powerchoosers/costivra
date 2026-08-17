@@ -4,12 +4,14 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getStripeBillingMode } from "@/lib/billing/stripe";
 
 export type BillingPlanKey = "starter" | "growth" | "enterprise";
+export type BillingInterval = "month" | "year";
 
 export type BillingPlan = {
   key: BillingPlanKey;
   name: string;
   description: string;
   priceEnv: "STRIPE_PRICE_STARTER_MONTHLY" | "STRIPE_PRICE_GROWTH_MONTHLY" | null;
+  annualPriceEnv: "STRIPE_PRICE_STARTER_ANNUAL" | "STRIPE_PRICE_GROWTH_ANNUAL" | null;
   checkoutEnabled: boolean;
 };
 
@@ -17,11 +19,13 @@ export type BillingCatalogPlan = BillingPlan & {
   displayName: string;
   description: string;
   amountCents: number | null;
+  annualAmountCents: number | null;
   currency: string;
   interval: "month" | "year" | "custom";
   features: string[];
   stripeProductId: string | null;
   stripePriceId: string | null;
+  annualStripePriceId: string | null;
   active: boolean;
   mode: "test" | "live";
 };
@@ -32,6 +36,7 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     name: "Starter",
     description: "Evidence-backed cost review for a focused operating team.",
     priceEnv: "STRIPE_PRICE_STARTER_MONTHLY",
+    annualPriceEnv: "STRIPE_PRICE_STARTER_ANNUAL",
     checkoutEnabled: true,
   },
   {
@@ -39,6 +44,7 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     name: "Growth",
     description: "Broader monitoring and review workflows for a growing business.",
     priceEnv: "STRIPE_PRICE_GROWTH_MONTHLY",
+    annualPriceEnv: "STRIPE_PRICE_GROWTH_ANNUAL",
     checkoutEnabled: true,
   },
   {
@@ -46,6 +52,7 @@ export const BILLING_PLANS: readonly BillingPlan[] = [
     name: "Enterprise",
     description: "A tailored deployment with a reviewed commercial agreement.",
     priceEnv: null,
+    annualPriceEnv: null,
     checkoutEnabled: false,
   },
 ] as const;
@@ -56,9 +63,10 @@ export function getBillingPlan(value: unknown): BillingPlan | null {
     : null;
 }
 
-export function getConfiguredPriceId(plan: BillingPlan): string | null {
-  if (!plan.priceEnv) return null;
-  const value = process.env[plan.priceEnv];
+export function getConfiguredPriceId(plan: BillingPlan, interval: BillingInterval = "month"): string | null {
+  const priceEnv = interval === "year" ? plan.annualPriceEnv : plan.priceEnv;
+  if (!priceEnv) return null;
+  const value = process.env[priceEnv];
   return typeof value === "string" && value.startsWith("price_") ? value : null;
 }
 
@@ -69,10 +77,14 @@ const FALLBACK_AMOUNT_CENTS: Record<BillingPlanKey, number | null> = {
 };
 
 const FALLBACK_FEATURES: Record<BillingPlanKey, string[]> = {
-  starter: ["Up to three active expense accounts", "Monthly monitoring", "Renewal reminders"],
-  growth: ["Multiple locations", "Team and approval workflows", "Weekly monitoring", "Advanced reports"],
-  enterprise: ["SSO and custom roles", "Custom integrations", "Retention controls", "Dedicated support"],
+  starter: ["Up to three active expense accounts", "Monthly monitoring", "Renewal reminders", "Source-linked findings", "Evidence stays attached", "Human approval controls"],
+  growth: ["Multiple locations", "Team and approval workflows", "Weekly monitoring", "Advanced reports", "Source-linked findings", "Human approval controls"],
+  enterprise: ["SSO and custom roles", "Custom integrations", "Retention controls", "Dedicated support", "Audit history", "Reviewed commercial agreement"],
 };
+
+function annualAmountCents(amountCents: number | null): number | null {
+  return amountCents == null ? null : Math.round(amountCents * 12 * 0.8);
+}
 
 function modeForCatalog(): "test" | "live" {
   return getStripeBillingMode() === "live" ? "live" : "test";
@@ -83,11 +95,13 @@ function fallbackPlan(plan: BillingPlan, mode: "test" | "live"): BillingCatalogP
     ...plan,
     displayName: plan.name,
     amountCents: FALLBACK_AMOUNT_CENTS[plan.key],
+    annualAmountCents: annualAmountCents(FALLBACK_AMOUNT_CENTS[plan.key]),
     currency: "usd",
     interval: plan.key === "enterprise" ? "custom" : "month",
     features: FALLBACK_FEATURES[plan.key],
     stripeProductId: null,
     stripePriceId: getConfiguredPriceId(plan),
+    annualStripePriceId: getConfiguredPriceId(plan, "year"),
     active: true,
     mode,
   };
@@ -100,11 +114,13 @@ function mapCatalogRow(row: Record<string, unknown>, fallback: BillingCatalogPla
     displayName: typeof row.display_name === "string" && row.display_name.trim() ? row.display_name : fallback.displayName,
     description: typeof row.description === "string" ? row.description : fallback.description,
     amountCents: typeof row.amount_cents === "number" ? row.amount_cents : fallback.amountCents,
+    annualAmountCents: typeof row.annual_amount_cents === "number" ? row.annual_amount_cents : fallback.annualAmountCents,
     currency: typeof row.currency === "string" ? row.currency.toLowerCase() : fallback.currency,
     interval: row.interval === "year" || row.interval === "custom" ? row.interval : "month",
     features,
     stripeProductId: typeof row.stripe_product_id === "string" ? row.stripe_product_id : fallback.stripeProductId,
     stripePriceId: typeof row.stripe_price_id === "string" ? row.stripe_price_id : fallback.stripePriceId,
+    annualStripePriceId: typeof row.annual_stripe_price_id === "string" ? row.annual_stripe_price_id : fallback.annualStripePriceId,
     active: row.active !== false,
     mode,
   };
@@ -117,7 +133,7 @@ export async function getBillingCatalog(): Promise<BillingCatalogPlan[]> {
   try {
     const { data, error } = await createServerSupabaseClient()
       .from("billing_plan_catalog")
-      .select("plan_key,display_name,description,amount_cents,currency,interval,features,stripe_product_id,stripe_price_id,active")
+      .select("plan_key,display_name,description,amount_cents,annual_amount_cents,currency,interval,features,stripe_product_id,stripe_price_id,annual_stripe_price_id,active")
       .eq("stripe_mode", mode)
       .order("plan_key");
     if (error || !data?.length) return fallback;
@@ -135,15 +151,17 @@ export async function getBillingCatalogPlan(key: BillingPlanKey): Promise<Billin
 /** Public pages receive only display fields; price IDs and provider identifiers stay server-side. */
 export async function getPublicBillingCatalog() {
   const plans = await getBillingCatalog();
-  return plans.map(({ key, displayName, description, amountCents, currency, interval, features, active }) => ({
+  return plans.map(({ key, displayName, description, amountCents, annualAmountCents, currency, interval, features, active, annualStripePriceId }) => ({
     key,
     name: displayName,
     description,
     amountCents,
+    annualAmountCents,
     currency,
     interval,
     features,
     active,
+    annualAvailable: Boolean(annualStripePriceId),
   }));
 }
 

@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 16, 2026 — Pricing feature depth and annual billing
+
+- Expanded the public pricing cards from three or four sparse bullets to six concrete capability lines per plan, including source-linked findings, attached evidence, approval controls, audit history, and support boundaries. Added a Monthly / Annual cadence toggle with a displayed 20% annual discount and a clear note when annual checkout still needs configuration.
+- Added separate annual catalog amounts and Stripe price IDs for Starter and Growth, annual billing interval persistence for checkout intents/subscriptions, annual-aware Checkout and preauth flows, webhook/reconciliation mapping, Manage catalog inputs, and migration files `20260816120000_billing_annual_prices.sql` and `20260816121000_billing_interval_projection.sql`. Enterprise annual prices are explicitly deactivated if present.
+- Compared against Mobbin references from Cake Equity, Webflow, Ghost, and Deezer. Those references commonly pair a billing-cadence switch with a denser feature set or comparison rows; the current six-line cards are a better minimum, while a later detailed comparison table may be useful if plan differences continue to grow. Local Node 24 pricing fetch returned HTTP 200 with the cadence toggle, annual copy, and all 18 plan-feature rows. Focused catalog tests passed 4/4; `git diff --check` passed. Node 24 `npm run typecheck` was attempted for 90 seconds without diagnostics and stopped, so it is not claimed as passed. In-app browser visual QA remains blocked by the browser's local URL policy after a connection-error page; no deployment, commit, or push was performed.
+
 ## August 16, 2026 — Pricing entry point and plan clarity
 
 - Added a prominent free first-review entry point to pricing: up to three selected bills, a private workspace, no payment card required, and a direct path to the existing `/scan` flow. Kept this as a contained review rather than advertising a seven-day subscription trial because the current billing/entitlement layer does not yet enforce trial expiry. Strengthened the paid plan cards with visible borders, lift, plan-fit labels, a clearer Starter hierarchy, and readable secondary buttons for Starter, Growth, and Enterprise.
