@@ -21,8 +21,10 @@ test("public site navigates without runtime errors", async ({ page }, testInfo) 
   await expect(page.getByRole("heading", { level: 1, name: "Find hidden waste in your business bills." })).toBeVisible();
   await expect(page.getByText("Recurring bill review for growing businesses", { exact: true })).toBeVisible();
   await expect(page.getByText("Upload software, internet, or energy bills. Costivra finds price increases, duplicate charges, unused services, and renewal risks—with the exact source attached.", { exact: true })).toBeVisible();
-  await expect(page.locator(".hero-loop")).toHaveCount(0);
-  await expect(page.locator(".hero-review-result-grid")).toBeVisible();
+  const walkthrough = page.getByRole("complementary", { name: "Illustrative bill review example" });
+  await expect(walkthrough).toBeVisible();
+  await expect(walkthrough.getByText("Product walkthrough", { exact: true })).toBeVisible();
+  await expect(walkthrough.getByText("Guided demo", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Review 3 bills free", exact: true })).toHaveAttribute("href", "/scan");
   await expect(page.getByRole("link", { name: "See a sample review", exact: true })).toHaveAttribute("href", "#evidence");
   await page.getByRole("link", { name: "See a sample review", exact: true }).click();
@@ -110,9 +112,11 @@ test("hero review preview keeps source evidence and potential value explicit", a
   await page.goto("/");
   const preview = page.getByRole("complementary", { name: "Illustrative bill review example" });
   await expect(preview).toBeVisible();
-  await expect(preview.getByText("Source evidence", { exact: true })).toBeVisible();
-  await expect(preview.getByText("Potential impact · not verified", { exact: true })).toBeVisible();
-  await expect(preview.getByText("Monthly circuit charge increased", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Selected source files stay linked to their findings.", { exact: true })).toBeVisible();
+  await expect(preview.getByText("Private intake · evidence · human decision", { exact: true })).toBeVisible();
+  await preview.getByRole("tab", { name: "Review" }).click();
+  await expect(preview.getByRole("heading", { name: "Monthly circuit charge increased", exact: true })).toBeVisible();
+  await expect(preview.getByText("Not verified · source linked", { exact: true })).toBeVisible();
 });
 
 test("interactive hero demo respects reduced motion", async ({ page }) => {
