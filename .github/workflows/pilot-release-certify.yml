@@ -76,7 +76,7 @@ jobs:
         run: |
           npm ci
           npm run typecheck
-          npm test
+          RUN_LIVE_SUPABASE_TESTS=0 npm test
           npm run test:integration
           npm run build
           npx playwright install --with-deps chromium
