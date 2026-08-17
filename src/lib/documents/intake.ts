@@ -19,6 +19,14 @@ export const DOCUMENT_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
 
+export function evidencePageNumber(
+  inputMode: DocumentExtractionInputMode,
+  pageCount: number | null,
+  explicitPageNumber: number | null | undefined,
+) {
+  return explicitPageNumber ?? (inputMode === "native_text" ? 1 : pageCount === 1 ? 1 : null);
+}
+
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
 
 export async function ingestDocumentBuffer(input: {
@@ -168,13 +176,25 @@ export async function processDocumentBuffer(input: {
   // Persistence is deliberately outside the extraction catch. A database or
   // audit failure must fail the request; it is not a document-quality issue.
   {
+    const candidateEvidenceRows = intelligence.evidence.map((evidence) => ({
+      document_id: input.documentId,
+      // The evidence table requires a page number. If a scanned document has
+      // no trustworthy marker, omit that reference and route the record to
+      // review instead of inventing a page.
+      page_number: evidencePageNumber(inputMode, extracted.pageCount, evidence.pageNumber),
+      text_excerpt: evidence.quote,
+      field_path: evidence.field,
+      source_key: evidence.sourceKey ?? null,
+    }));
+    const evidenceRows = candidateEvidenceRows.filter((row) => row.page_number !== null);
+    const omittedEvidenceCount = candidateEvidenceRows.length - evidenceRows.length;
     const { data: version, error: versionError } = await input.db.from("document_extraction_versions").insert({
       document_id: input.documentId,
       extractor_version: "costivra-intake-v3",
       provider: inputMode === "pdf_ocr" ? "openrouter-pdf-ocr" : "openrouter",
       model_identifier: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
       schema_version: "cost-document-v2",
-      status: intelligence.confidence < .75 ? "needs_review" : "completed",
+      status: intelligence.confidence < .75 || omittedEvidenceCount > 0 ? "needs_review" : "completed",
       input_mode: inputMode,
       failure_code: null,
       structured_output: intelligence,
@@ -183,17 +203,7 @@ export async function processDocumentBuffer(input: {
     }).select("id").single();
     if (versionError) throw versionError;
     let evidenceReferences: Array<{ id: string; fieldPath: string | null; sourceKey: string | null }> = [];
-    if (intelligence.evidence.length) {
-      const evidenceRows = intelligence.evidence.map((evidence) => ({
-        document_id: input.documentId,
-        // The production evidence table requires a page number. Native text
-        // uploads are treated as one logical page, even when the extractor
-        // does not return an explicit page marker.
-        page_number: evidence.pageNumber ?? (inputMode === "native_text" ? 1 : extracted.pageCount === 1 ? 1 : null),
-        text_excerpt: evidence.quote,
-        field_path: evidence.field,
-        source_key: evidence.sourceKey ?? null,
-      }));
+    if (evidenceRows.length) {
       const { data: insertedEvidence, error: evidenceError } = await input.db
         .from("evidence_references")
         .insert(evidenceRows)
@@ -215,7 +225,7 @@ export async function processDocumentBuffer(input: {
       intelligence,
       evidenceReferences,
     });
-    const finalStatus = intelligence.confidence < .75 || invoiceRecord?.reviewStatus === "needs_review" ? "needs_review" : "ready";
+    const finalStatus = intelligence.confidence < .75 || omittedEvidenceCount > 0 || invoiceRecord?.reviewStatus === "needs_review" ? "needs_review" : "ready";
     const { error: documentUpdateError } = await input.db.from("documents").update({ page_count: extracted.pageCount, document_type: intelligence.classification, extraction_summary: intelligence.summary, status: finalStatus, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
     if (documentUpdateError) throw documentUpdateError;
     const { error: auditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId, safe_metadata: input.requestId ? { request_id: input.requestId } : {} });

@@ -5,9 +5,16 @@ vi.mock("@/lib/security/document-scan-provenance", () => ({
   persistDocumentSecurityScan,
 }));
 
-import { ingestDocumentBuffer } from "@/lib/documents/intake";
+import { evidencePageNumber, ingestDocumentBuffer } from "@/lib/documents/intake";
 
 describe("ingestDocumentBuffer security boundary", () => {
+  it("does not invent a page for scanned evidence without a trustworthy marker", () => {
+    expect(evidencePageNumber("pdf_ocr", null, null)).toBeNull();
+    expect(evidencePageNumber("pdf_ocr", 1, null)).toBe(1);
+    expect(evidencePageNumber("native_text", null, null)).toBe(1);
+    expect(evidencePageNumber("pdf_ocr", null, 4)).toBe(4);
+  });
+
   it.each(["unavailable", "failed", "infected"] as const)(
     "refuses a %s malware result before touching persistence",
     async (status) => {
