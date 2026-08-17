@@ -122,7 +122,7 @@ function runLocalGates(): Gate[] {
 function main() {
   const initialSource = sourceState();
   if (initialSource.workingTree.length > 0) {
-    throw new Error("Release verification requires a clean tracked working tree at start.");
+    throw new Error("Release verification requires a clean working tree at start, including no untracked files.");
   }
   const args = process.argv.slice(2);
   const resultsIndex = args.indexOf("--results");
