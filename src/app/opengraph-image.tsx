@@ -11,7 +11,6 @@ export default function Image() {
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", color: "#101616", background: "#f4f1e8", padding: "68px 76px", fontFamily: "Arial, sans-serif" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 20, fontSize: 42, fontWeight: 800 }}>
         {/* next/og uses a plain image element so Satori can embed the remote brand asset. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={COSTIVRA_MARK_URL} width={64} height={64} alt="" style={{ objectFit: "contain" }} />
         Costivra
       </div>

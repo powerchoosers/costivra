@@ -76,7 +76,7 @@ jobs:
         run: |
           npm ci
           npm run typecheck
-          npm run lint
+          npx --no-install eslint .
           npm test
           npm run test:integration
           npm run build
