@@ -1,9 +1,12 @@
-import "server-only";
-
 import { createHash } from "node:crypto";
 import { Resend } from "resend";
 import { isMalwareScannerConfigured } from "@/lib/security/malware-scanner";
 import { isConfiguredSecret } from "@/lib/env/secrets";
+import {
+  captureTransactionalEmail,
+  getEmailDeliveryMode,
+  isTestOrReservedDomain,
+} from "./email-capture";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -179,13 +182,31 @@ export function isInboundEmailPlatformReady() {
 export async function sendTransactionalEmail(
   email: TransactionalEmail,
 ): Promise<EmailDeliveryResult> {
-  if (!isConfiguredSecret(process.env.RESEND_API_KEY))
+  const mode = getEmailDeliveryMode();
+  if (mode === "disabled") {
+    return { ok: false, error: "EMAIL_DELIVERY_DISABLED" };
+  }
+
+  const recipient = email.to.trim().toLowerCase();
+  if (isTestOrReservedDomain(recipient)) {
+    if (mode !== "capture") {
+      return { ok: false, error: "TEST_DOMAIN_LIVE_DELIVERY_BLOCKED" };
+    }
+  }
+
+  if (mode === "capture") {
+    return captureTransactionalEmail(email);
+  }
+
+  if (!isConfiguredSecret(process.env.RESEND_API_KEY)) {
     return { ok: false, error: "EMAIL_PROVIDER_NOT_CONFIGURED" };
+  }
+
   try {
     const { data, error } = await getResendClient().emails.send(
       {
         from: process.env.RESEND_FROM_EMAIL || "Costivra <hello@costivra.ai>",
-        to: [email.to],
+        to: [recipient],
         subject: email.subject,
         text: email.text,
         html: email.html,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Building2,
@@ -11,6 +11,8 @@ import {
   FileCheck2,
   FileLock2,
   FileText,
+  Pause,
+  Play,
   RadioTower,
   ShieldCheck,
   Upload,
@@ -20,21 +22,13 @@ import {
 } from "@/lib/icons";
 import { Faq } from "@/components/faq";
 import { PublicProofSection } from "@/components/public-proof-section";
+import { CostivraMark } from "@/components/brand";
 
 const steps = [
   { title: "Choose current bills", copy: "Start with the software, internet, or energy documents you want reviewed.", artifact: "Selected documents", icon: FileCheck2 },
   { title: "Review what changed", copy: "See possible price increases, duplicate charges, unused services, or renewal deadlines with the source attached.", artifact: "Source linked · review needed", icon: FileText },
   { title: "Decide the next step", copy: "Your team can save, investigate, assign, or approve a bounded action. Later evidence determines what is verified.", artifact: "Your approval required", icon: UserCheck },
 ] as const;
-
-const heroReviewExample = {
-  previousMonthlyCents: 131000,
-  currentMonthlyCents: 151000,
-} as const;
-
-const heroReviewMonthlyChangeCents = heroReviewExample.currentMonthlyCents - heroReviewExample.previousMonthlyCents;
-const heroReviewAnnualImpactCents = heroReviewMonthlyChangeCents * 12;
-const formatHeroReviewCurrency = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
 
 export type PublicBillingPlan = {
   key: "starter" | "growth" | "enterprise";
@@ -243,49 +237,143 @@ export function HomePage({ plans }: { plans: PublicBillingPlan[] }) {
   );
 }
 
-function HeroReviewPreview() {
+const heroTourTiming = {
+  moveDelayMs: 420,
+  cursorTravelMs: 780,
+  targetDwellMs: 2200,
+  clickDurationMs: 440,
+} as const;
+
+type HeroTourCursorPosition = {
+  left: number;
+  top: number;
+};
+
+function HeroTourCursor({ isClicking, position }: { isClicking: boolean; position: HeroTourCursorPosition }) {
   return (
-    <aside className="hero-review-preview" aria-label="Illustrative bill review example">
+    <span className={`hero-tour-cursor${isClicking ? " is-clicking" : ""}`} aria-hidden="true" style={{ transform: `translate3d(${position.left}px, ${position.top}px, 0)` }}>
+      <span className="hero-tour-cursor-motion">
+        <svg viewBox="0 0 30 40" role="presentation" focusable="false">
+          <path d="M3.5 2.5 4.9 32.1c.1 2 2.6 2.8 3.8 1.3l6.1-7.3 5.9 10.8c.7 1.3 2.4 1.8 3.7 1.1l2.4-1.3c1.3-.7 1.8-2.3 1.1-3.6l-5.9-10.8 9.1-1.2c1.9-.3 2.6-2.7 1.1-3.9L6.9 1.1C5.5.2 3.4.9 3.5 2.5Z" />
+        </svg>
+      </span>
+      {isClicking ? <span className="hero-tour-click" /> : null}
+    </span>
+  );
+}
+
+function HeroReviewPreview() {
+  const [activeStage, setActiveStage] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isClicking, setIsClicking] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState<HeroTourCursorPosition>({ left: 30, top: 272 });
+  const screenRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef<HTMLSpanElement>(null);
+  const tourLocation = [
+    "app.costivra.ai / bills",
+    "app.costivra.ai / findings / AT&T Business",
+    "app.costivra.ai / actions / review plan",
+  ][activeStage] ?? "app.costivra.ai";
+  const targetClassName = `hero-tour-demo-target${isClicking ? " hero-tour-demo-target--clicking" : ""}`;
+
+  const moveCursorToTarget = useCallback(() => {
+    const screen = screenRef.current;
+    const target = targetRef.current;
+
+    if (!screen || !target) return;
+
+    const screenRect = screen.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+
+    setCursorPosition({
+      left: Math.round(targetRect.left - screenRect.left + targetRect.width / 2 - 2),
+      top: Math.round(targetRect.top - screenRect.top + targetRect.height / 2 - 2),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      moveCursorToTarget();
+      return;
+    }
+
+    const moveTimer = window.setTimeout(moveCursorToTarget, heroTourTiming.moveDelayMs);
+
+    if (!isPlaying) return () => window.clearTimeout(moveTimer);
+
+    const clickDelay = heroTourTiming.moveDelayMs + heroTourTiming.cursorTravelMs + heroTourTiming.targetDwellMs;
+    const clickTimer = window.setTimeout(() => setIsClicking(true), clickDelay);
+    const advanceTimer = window.setTimeout(() => {
+      setIsClicking(false);
+      setActiveStage((current) => (current + 1) % 3);
+    }, clickDelay + heroTourTiming.clickDurationMs);
+
+    return () => {
+      window.clearTimeout(moveTimer);
+      window.clearTimeout(clickTimer);
+      window.clearTimeout(advanceTimer);
+    };
+  }, [activeStage, isPlaying, moveCursorToTarget]);
+
+  useEffect(() => {
+    window.addEventListener("resize", moveCursorToTarget);
+
+    return () => window.removeEventListener("resize", moveCursorToTarget);
+  }, [moveCursorToTarget]);
+
+  const selectStage = (stage: number) => {
+    setIsClicking(false);
+    setIsPlaying(false);
+    setActiveStage(stage);
+  };
+
+  const togglePlayback = () => {
+    setIsClicking(false);
+    setIsPlaying((current) => !current);
+  };
+
+  return (
+    <aside className="hero-review-preview hero-product-preview" aria-label="Illustrative bill review example">
       <div className="hero-review-topline">
-        <span>Bill review</span>
-        <span>Illustrative example</span>
+        <span>Product walkthrough</span>
+        <span><span className="hero-tour-live-dot" /> Guided demo</span>
       </div>
-      <div className="hero-review-document">
-        <div className="hero-review-document-heading">
-          <span className="hero-review-document-icon" aria-hidden="true"><Building2 size={20} /></span>
-          <div>
-            <span>AT&amp;T Business</span>
-            <strong>May internet bill</strong>
+      <div className="hero-tour-viewport">
+        <div className="hero-tour-browser-bar"><span className="hero-tour-browser-dot red" /><span className="hero-tour-browser-dot yellow" /><span className="hero-tour-browser-dot green" /><span className="hero-tour-address">{tourLocation}</span></div>
+        <div ref={screenRef} className={`hero-tour-screen hero-tour-screen-${activeStage}`}>
+          <div className="hero-tour-sidebar">
+            <div className="hero-tour-wordmark"><CostivraMark size={16} /> <span>Costivra</span></div>
+            <span className="hero-tour-workspace-label">Workspace</span>
+            <div className={`hero-tour-nav-item${activeStage === 0 ? " active" : ""}`}><FileText aria-hidden="true" size={12} /> Bills <small>12</small></div>
+            <div className={`hero-tour-nav-item${activeStage === 1 ? " active" : ""}`}><CircleAlert aria-hidden="true" size={12} /> Findings <small>{activeStage > 0 ? "1" : "—"}</small></div>
+            <div className={`hero-tour-nav-item${activeStage === 2 ? " active" : ""}`}><UserCheck aria-hidden="true" size={12} /> Actions</div>
+            <div className="hero-tour-sidebar-bottom"><ShieldCheck aria-hidden="true" size={12} /> Private workspace</div>
           </div>
-          <small>Page 2</small>
-        </div>
-        <div className="hero-review-question">
-          <CircleAlert aria-hidden="true" size={19} />
-          <div>
-            <span>Needs your review</span>
-            <strong>Monthly circuit charge increased</strong>
+          <div className="hero-tour-content">
+            <div className="hero-tour-content-top"><div><span className="hero-tour-kicker">{activeStage === 0 ? "Bills" : activeStage === 1 ? "Finding detail" : "Action review"}</span><strong>{activeStage === 0 ? "Your uploaded bills" : activeStage === 1 ? "Monthly circuit charge increased" : "Choose what happens next"}</strong></div><span className="hero-tour-avatar">LP</span></div>
+            {activeStage === 0 ? (
+              <div className="hero-tour-bills-view"><div className="hero-tour-page-intro"><div><h3>Recent bills</h3><p>Selected source files stay linked to their findings.</p></div><span ref={targetRef} className={`hero-tour-primary ${targetClassName}`} aria-hidden="true"><Upload size={12} /> Upload bill</span></div><div className="hero-tour-table"><div className="hero-tour-table-head"><span>Document</span><span>Vendor</span><span>Status</span><span /></div><div className="hero-tour-table-row"><FileText aria-hidden="true" size={13} /><span>May internet bill.pdf</span><span>AT&amp;T Business</span><em>Ready</em><ArrowRight aria-hidden="true" size={12} /></div><div className="hero-tour-table-row muted"><FileText aria-hidden="true" size={13} /><span>Acme software invoice.pdf</span><span>Acme Software</span><em>Reviewed</em><ArrowRight aria-hidden="true" size={12} /></div></div><div className="hero-tour-callout"><ShieldCheck aria-hidden="true" size={13} /><span>Upload selected documents. Costivra keeps the source and evidence together.</span></div></div>
+            ) : activeStage === 1 ? (
+              <div className="hero-tour-finding-view"><div className="hero-tour-breadcrumb">Bills <ArrowRight aria-hidden="true" size={10} /> May internet bill <ArrowRight aria-hidden="true" size={10} /> Finding</div><div className="hero-tour-finding-grid"><div className="hero-tour-paper"><div className="hero-tour-paper-heading"><FileText aria-hidden="true" size={13} /><span>AT&amp;T Business</span><small>Page 2 of 2</small></div><div className="hero-tour-paper-line" /><div className="hero-tour-paper-line short" /><div className="hero-tour-paper-highlight"><span>Monthly circuit charge</span><strong>$1,510.00</strong></div><div className="hero-tour-paper-line" /><div className="hero-tour-paper-line medium" /></div><div className="hero-tour-finding-card"><span className="hero-tour-finding-status"><CircleAlert aria-hidden="true" size={12} /> Review needed</span><h3>Monthly circuit charge increased</h3><p>Current bill: <strong>$1,510 / mo</strong><br />Previous bill: $1,310 / mo</p><div className="hero-tour-potential"><span>Potential annual impact</span><strong>+$2,400</strong><small>Not verified · source linked</small></div><span ref={targetRef} className={`hero-tour-secondary ${targetClassName}`} aria-hidden="true">View evidence <ArrowRight size={11} /></span></div></div></div>
+            ) : (
+              <div className="hero-tour-action-view"><div><span className="hero-tour-kicker">Human approval</span><h3>Review the suggested next step</h3><p>Costivra prepares the plan. Your team decides whether anything moves forward.</p></div><div className="hero-tour-action-card"><div className="hero-tour-action-card-heading"><span className="hero-tour-action-icon"><UserCheck aria-hidden="true" size={14} /></span><div><strong>Ask vendor to explain the increase</strong><small>Draft only · no message will be sent</small></div><span className="hero-tour-approval-badge">Approval required</span></div><div className="hero-tour-action-evidence"><FileText aria-hidden="true" size={12} /><span>May internet bill · Page 2 · $1,510.00 charge</span></div><div className="hero-tour-action-buttons"><span ref={targetRef} className={`hero-tour-primary ${targetClassName}`} aria-hidden="true"><Check size={12} /> Approve review plan</span><span className="hero-tour-secondary" aria-hidden="true">Save for later</span></div></div><div className="hero-tour-callout"><ShieldCheck aria-hidden="true" size={13} /><span>No outside communication happens without your approval.</span></div></div>
+            )}
           </div>
-        </div>
-        <div className="hero-review-comparison" aria-label="Illustrative monthly bill comparison">
-          <div><span>Previous bill</span><strong>{formatHeroReviewCurrency(heroReviewExample.previousMonthlyCents)} <small>/ month</small></strong></div>
-          <div><span>Current bill</span><strong>{formatHeroReviewCurrency(heroReviewExample.currentMonthlyCents)} <small>/ month</small></strong></div>
-        </div>
-        <div className="hero-review-result-grid">
-          <div className="hero-review-impact">
-            <span>Potential annual impact</span>
-            <strong>+{formatHeroReviewCurrency(heroReviewAnnualImpactCents)}</strong>
-            <small>+$200 / month × 12 · not verified</small>
-          </div>
-          <div className="hero-review-evidence">
-            <span>Source evidence</span>
-            <strong>May internet bill · Page 2</strong>
-            <q>Monthly circuit charge: $1,510.00</q>
-          </div>
+          <HeroTourCursor isClicking={isClicking} position={cursorPosition} />
         </div>
       </div>
-      <div className="hero-review-footer">
-        <Link href="#evidence">Review the source <ArrowRight aria-hidden="true" size={15} /></Link>
-        <strong>Potential impact · not verified</strong>
+      <div className="hero-product-controls">
+        <div className="hero-product-stage-controls" role="tablist" aria-label="Product walkthrough steps">
+          {[{ label: "Upload", icon: Upload }, { label: "Review", icon: CircleAlert }, { label: "Decide", icon: UserCheck }].map(({ label, icon: Icon }, index) => (
+            <button key={label} type="button" role="tab" aria-selected={activeStage === index} className={activeStage === index ? "active" : ""} onClick={() => selectStage(index)}>
+              <Icon aria-hidden="true" size={13} />{label}
+            </button>
+          ))}
+          <button type="button" className="hero-product-play" onClick={togglePlayback} aria-label={isPlaying ? "Pause product walkthrough" : "Play product walkthrough"}>
+            {isPlaying ? <Pause aria-hidden="true" size={13} /> : <Play aria-hidden="true" size={13} />}
+          </button>
+        </div>
+        <span>Private intake · evidence · human decision</span>
       </div>
     </aside>
   );

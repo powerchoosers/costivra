@@ -79,6 +79,14 @@ async function main() {
       details: retentionCron.body || "no body",
     });
 
+    const operationsAlertsCron = await request("/api/cron/operations-alerts");
+    checks.push({
+      name: "Operations alerts cron requires auth",
+      ok: operationsAlertsCron.status === 401,
+      status: operationsAlertsCron.status,
+      details: operationsAlertsCron.body || "no body",
+    });
+
     const webhookGet = await request("/api/webhooks/resend");
     checks.push({
       name: "Webhook endpoint rejects browser GET",

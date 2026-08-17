@@ -5,6 +5,7 @@ import {
   getMalwareScannerConfig,
   scanFileForMalware,
 } from "@/lib/security/malware-scanner";
+import { getLatestValidScannerProof } from "@/lib/security/scanner-proof";
 import { getConfiguredEnv, isConfiguredSecret } from "@/lib/env/secrets";
 import { retentionPolicyFromEnvironment } from "@/lib/retention/policy";
 
@@ -262,7 +263,7 @@ async function openRouterReadiness(): Promise<ReadinessService> {
       };
 }
 
-async function malwareReadiness(runLiveProbe: boolean): Promise<ReadinessService> {
+async function malwareReadiness(db: SupabaseClient, runLiveProbe: boolean): Promise<ReadinessService> {
   const config = getMalwareScannerConfig();
   if (config.provider === "unavailable") {
     const message = config.code === "ambiguous_configuration"
@@ -277,35 +278,51 @@ async function malwareReadiness(runLiveProbe: boolean): Promise<ReadinessService
       message,
     };
   }
-  if (!runLiveProbe)
+
+  // 1. Check for valid durable release proof in database
+  const proofResult = await getLatestValidScannerProof(db);
+  if (proofResult.valid && proofResult.proof) {
+    const shortSha = proofResult.proof.releaseSha.slice(0, 8);
+    return {
+      id: "malware",
+      name: "Malware scanning",
+      status: "ready",
+      message: `${config.provider === "cloudmersive" ? "Cloudmersive" : "Scanner"} release proof verified for release ${shortSha} (expires ${proofResult.proof.expiresAt}).`,
+    };
+  }
+
+  if (!runLiveProbe) {
     return {
       id: "malware",
       name: "Malware scanning",
       status: "warning",
-      message: config.provider === "cloudmersive"
-        ? `Cloudmersive is configured (${config.monthlyLimit} monthly calls, ${config.minIntervalMs}ms minimum interval, ${(config.maxFileBytes / 1024 / 1024).toFixed(2)} MB provider limit); an owner must run the live clean and inert-file probes.`
-        : "A scanner is configured; an owner can run the live readiness probe.",
+      message: proofResult.reason
+        ? `Scanner proof needed: ${proofResult.reason}`
+        : "Scanner is configured; run `npm run ops:scanner:prove` to record durable release proof.",
     };
+  }
 
   const probe = await scanFileForMalware({
-    buffer: Buffer.from("Costivra malware-scanner readiness probe. This harmless file contains no executable content.", "utf8"),
+    buffer: Buffer.from("Costivra malware-scanner readiness probe. Harmless text file.", "utf8"),
     filename: "costivra-readiness-probe.txt",
     mimeType: "text/plain",
   });
-  if (probe.status === "clean")
+  if (probe.status === "clean") {
     return {
       id: "malware",
       name: "Malware scanning",
       status: "warning",
-      message: "The scanner accepted a live clean-file probe. Run the documented infected-file exercise before launch.",
+      message: "The scanner accepted a live clean-file probe. Run `npm run ops:scanner:prove` to record clean + inert release proof.",
     };
-  if (probe.status === "infected")
+  }
+  if (probe.status === "infected") {
     return {
       id: "malware",
       name: "Malware scanning",
       status: "blocked",
       message: "The scanner incorrectly classified the harmless readiness file as infected.",
     };
+  }
   return {
     id: "malware",
     name: "Malware scanning",
@@ -427,7 +444,7 @@ export async function checkSystemReadiness(
     resendReadiness(),
     workerReadiness(db),
     openRouterReadiness(),
-    malwareReadiness(runLiveMalwareProbe),
+    malwareReadiness(db, runLiveMalwareProbe),
     includeOperatorServices ? retentionReadiness(db) : Promise.resolve(null),
     includeOptionalServices ? apolloReadiness() : Promise.resolve(null),
   ]);

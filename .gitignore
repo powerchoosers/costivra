@@ -25,12 +25,8 @@ qa-server.*.log
 /qa-server-*.log
 /\.playwright-cli/*.log
 /docs/qa/
-/artifacts/invoice-evaluation/
-/artifacts/category-intelligence-evaluation/
-/artifacts/pilot-evaluation/
-/artifacts/release/
-/artifacts/status*.png
-/artifacts/ui-audit/
+/artifacts/
+/Pilot Docs 8152026/
 /tests/golden-private/
 /private-evaluation/
 

@@ -152,19 +152,19 @@ const money = (value: number | null | undefined, currency = "USD") =>
 const titleCase = (value: string) =>
   value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-export function BillBreakdownModal({
-  documentId,
-  documentIds = [],
-  onClose,
-  onNavigateDocument,
-}: {
-  documentId: string | null;
-  documentIds?: string[];
-  onClose: () => void;
+interface BillBreakdownContentProps {
+  documentId: string;
+  documentIds: string[];
+  onRequestClose: () => void;
   onNavigateDocument?: (documentId: string) => void;
-}) {
-  const [activeId, setActiveId] = useState<string | null>(documentId);
-  const [isClosing, setIsClosing] = useState(false);
+}
+
+function BillBreakdownContent({
+  documentId,
+  documentIds,
+  onRequestClose,
+  onNavigateDocument,
+}: BillBreakdownContentProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -172,53 +172,19 @@ export function BillBreakdownModal({
   const [targetPdfPage, setTargetPdfPage] = useState<number | null>(null);
   const { openDrawer, setContext } = useClientAssistant();
 
-  // Sync activeId with documentId prop
   useEffect(() => {
-    if (documentId) {
-      setActiveId(documentId);
-      setIsClosing(false);
-    } else if (activeId && !isClosing) {
-      setIsClosing(true);
-      const timer = window.setTimeout(() => {
-        setActiveId(null);
-        setIsClosing(false);
-        setData(null);
-      }, 230);
-      return () => window.clearTimeout(timer);
-    }
-  }, [documentId, activeId, isClosing]);
+    const controller = new AbortController();
 
-  const requestClose = useCallback(() => {
-    if (isClosing) return;
-    setIsClosing(true);
-    const timer = window.setTimeout(() => {
-      onClose();
-      setActiveId(null);
-      setIsClosing(false);
-      setData(null);
-    }, 230);
-    return () => window.clearTimeout(timer);
-  }, [isClosing, onClose]);
-
-  // Fetch document breakdown data whenever activeId changes
-  useEffect(() => {
-    if (!activeId) return;
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setProcessingMessage(null);
-    setTargetPdfPage(null);
-
-    fetch(`/api/portal/documents/${activeId}/breakdown`)
+    fetch(`/api/portal/documents/${documentId}/breakdown`, {
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (response.status === 202) {
           const payload = await response.json().catch(() => null);
-          if (active) {
-            setProcessingMessage(
-              payload?.message || "Costivra is still preparing this bill breakdown.",
-            );
-            setLoading(false);
-          }
+          setProcessingMessage(
+            payload?.message || "Costivra is still preparing this bill breakdown.",
+          );
+          setLoading(false);
           return null;
         }
         if (!response.ok) {
@@ -228,12 +194,12 @@ export function BillBreakdownModal({
         return response.json() as Promise<BreakdownData>;
       })
       .then((payload) => {
-        if (!active || !payload) return;
+        if (!payload) return;
         setData(payload);
         setLoading(false);
       })
       .catch((caught: unknown) => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         setError(
           caught instanceof Error ? caught.message : "Error loading document.",
         );
@@ -241,21 +207,20 @@ export function BillBreakdownModal({
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
-  }, [activeId]);
+  }, [documentId]);
 
   useEffect(() => {
-    if (!activeId) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        requestClose();
+        onRequestClose();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeId, requestClose]);
+  }, [onRequestClose]);
 
   const explanationsByLineItem = useMemo(
     () =>
@@ -269,16 +234,14 @@ export function BillBreakdownModal({
   );
 
   const currentIndex = useMemo(() => {
-    if (!activeId || !documentIds.length) return -1;
-    return documentIds.indexOf(activeId);
-  }, [activeId, documentIds]);
-
-  if (!activeId && !isClosing) return null;
+    if (!documentId || !documentIds.length) return -1;
+    return documentIds.indexOf(documentId);
+  }, [documentId, documentIds]);
 
   const askAssistant = () => {
     if (!data?.document.id) return;
     setContext({ kind: "document", id: data.document.id });
-    requestClose();
+    onRequestClose();
     openDrawer();
   };
 
@@ -295,6 +258,432 @@ export function BillBreakdownModal({
   const currency = data?.invoice?.currency ?? "USD";
 
   return (
+    <>
+      <header className="bill-breakdown-header">
+        <div className="bill-breakdown-title-row">
+          <span className="bill-breakdown-file-icon">
+            <FileText size={21} />
+          </span>
+          <div>
+            <div className="bill-breakdown-title-line">
+              <h2 id="bill-breakdown-title">
+                {data?.vendor?.name
+                  ? `${data.vendor.name} — Bill Breakdown`
+                  : data?.document.filename ?? "Document Breakdown"}
+              </h2>
+              {data?.document.securityScanStatus === "clean" && (
+                <span className="bill-breakdown-clean-status">
+                  <ShieldCheck size={13} /> Security scan clean
+                </span>
+              )}
+            </div>
+            <p>
+              {data?.document.filename ?? "Loading document"}
+              {data?.document.byteSize != null
+                ? ` · ${(data.document.byteSize / 1024).toFixed(1)} KB`
+                : ""}
+              {data?.document.sha256 ? " · SHA-256 recorded" : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="bill-breakdown-header-actions">
+          {documentIds.length > 1 && currentIndex >= 0 && (
+            <div className="bill-breakdown-cycler" aria-label="Cycle vendor bills">
+              <button
+                type="button"
+                className="bill-breakdown-cycle-btn"
+                disabled={currentIndex <= 0}
+                onClick={() => onNavigateDocument?.(documentIds[currentIndex - 1])}
+                aria-label="Previous bill"
+                title="View previous bill for this vendor"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <span className="bill-breakdown-cycle-label">
+                Bill {currentIndex + 1} of {documentIds.length}
+              </span>
+              <button
+                type="button"
+                className="bill-breakdown-cycle-btn"
+                disabled={currentIndex >= documentIds.length - 1}
+                onClick={() => onNavigateDocument?.(documentIds[currentIndex + 1])}
+                aria-label="Next bill"
+                title="View next bill for this vendor"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          )}
+          <button type="button" className="bill-breakdown-ask" onClick={askAssistant}>
+            <MessageCircle size={15} /> Ask Costivra
+          </button>
+          {data?.document.downloadUrl && (
+            <a
+              className="bill-breakdown-secondary-action"
+              href={data.document.downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Download size={15} /> Download
+            </a>
+          )}
+          <button
+            type="button"
+            className="bill-breakdown-close"
+            onClick={onRequestClose}
+            aria-label="Close bill breakdown"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </header>
+
+      {loading ? (
+        <div className="bill-breakdown-state">
+          <span className="bill-breakdown-spinner" />
+          <p>Loading source evidence and bill analysis…</p>
+        </div>
+      ) : processingMessage ? (
+        <div className="bill-breakdown-state">
+          <CircleHelp size={36} />
+          <p>{processingMessage}</p>
+          <button type="button" onClick={onRequestClose}>Close</button>
+        </div>
+      ) : error ? (
+        <div className="bill-breakdown-state bill-breakdown-error">
+          <AlertTriangle size={36} />
+          <p>{error}</p>
+          <button type="button" onClick={onRequestClose}>Close</button>
+        </div>
+      ) : data ? (
+        <div className="bill-breakdown-body">
+          <div className="bill-breakdown-preview">
+            <div className="bill-breakdown-preview-bar">
+              <span>Source file · {data.document.filename}</span>
+              <span>
+                {data.document.securityScanStatus === "clean" ? (
+                  <><CheckCircle2 size={13} /> Clean</>
+                ) : (
+                  <><CircleHelp size={13} /> {titleCase(data.document.securityScanStatus)}</>
+                )}
+              </span>
+            </div>
+            <div className="bill-breakdown-preview-content">
+              {data.document.downloadUrl ? (
+                isPdf ? (
+                  <BreakdownPdfViewer
+                    sourceUrl={data.document.downloadUrl}
+                    filename={data.document.filename}
+                    initialPage={targetPdfPage}
+                  />
+                ) : isImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={data.document.downloadUrl} alt={data.document.filename} />
+                ) : (
+                  <div className="bill-breakdown-no-preview">
+                    <FileText size={46} />
+                    <p>A browser preview is not available for this file type.</p>
+                    <a href={data.document.downloadUrl} target="_blank" rel="noreferrer">
+                      Open source file <ExternalLink size={14} />
+                    </a>
+                  </div>
+                )
+              ) : (
+                <div className="bill-breakdown-no-preview">
+                  <CircleHelp size={46} />
+                  <p>The protected source file is not available for preview yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bill-breakdown-analysis" data-workspace-scrollbar="">
+            <article className="bill-breakdown-card">
+              <div className="bill-breakdown-card-heading">
+                <div>
+                  <span className="bill-breakdown-label">Extracted record</span>
+                  <h3>{data.vendor?.name ?? "Vendor not matched"}</h3>
+                </div>
+                <span className="bill-breakdown-category">
+                  {data.category?.displayName ?? data.vendor?.category ?? "Unclassified"}
+                </span>
+              </div>
+              <div className="bill-breakdown-metrics">
+                <div>
+                  <span>Total</span>
+                  <strong>{money(data.invoice?.totalAmount, currency)}</strong>
+                </div>
+                <div>
+                  <span>Invoice</span>
+                  <strong>{data.invoice?.invoiceNumber ?? "Not extracted"}</strong>
+                </div>
+                <div>
+                  <span>Date</span>
+                  <strong>{formatFinancialDate(data.invoice?.invoiceDate, "Not extracted")}</strong>
+                </div>
+              </div>
+            </article>
+
+            {data.lineItems.length > 0 && (
+              <article className="bill-breakdown-card">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Line-item interpretation</span>
+                    <h3>{data.lineItems.length} extracted items</h3>
+                  </div>
+                </div>
+                <div className="bill-breakdown-line-items">
+                  {data.lineItems.map((item) => {
+                    const explanation = explanationsByLineItem.get(item.id);
+                    const lineEvidence = (explanation?.evidenceIds ?? [])
+                      .map((id) => data.evidence.find((reference) => reference.id === id))
+                      .filter((reference): reference is BreakdownData["evidence"][number] => Boolean(reference));
+                    const primaryEvidence = lineEvidence[0];
+                    return (
+                      <div className="bill-breakdown-line-item" key={item.id}>
+                        <div>
+                          <strong>{item.description}</strong>
+                          <span>
+                            {explanation?.canonicalCode
+                              ? `${explanation.chargeClass} · ${explanation.canonicalCode}`
+                              : "Unclassified · review required"}
+                          </span>
+                          {explanation?.explanation && (
+                            <p>{explanation.explanation}</p>
+                          )}
+                          {primaryEvidence ? (
+                            <div className="bill-breakdown-line-evidence">
+                              <span>
+                                {primaryEvidence.pageNumber == null
+                                  ? "Source page unknown"
+                                  : `Source page ${primaryEvidence.pageNumber}`}
+                              </span>
+                              <p>“{primaryEvidence.textExcerpt}”</p>
+                              {isPdf && primaryEvidence.pageNumber != null ? (
+                                <button
+                                  type="button"
+                                  className="bill-breakdown-page-jump-btn"
+                                  onClick={() => setTargetPdfPage(primaryEvidence.pageNumber)}
+                                >
+                                  Jump to page {primaryEvidence.pageNumber} <ExternalLink size={11} />
+                                </button>
+                              ) : data.document.downloadUrl && primaryEvidence.pageNumber != null ? (
+                                <a
+                                  href={`${data.document.downloadUrl}#page=${primaryEvidence.pageNumber}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open source page <ExternalLink size={11} />
+                                </a>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <div className="bill-breakdown-line-evidence missing">
+                              <span>Source evidence needs review</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="bill-breakdown-line-amount">
+                          {money(item.amount, currency)}
+                          {explanation?.reviewRequired && <em>Review</em>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            )}
+
+            {data.anomalies.length > 0 && (
+              <article className="bill-breakdown-card bill-breakdown-warning-card">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Review findings</span>
+                    <h3>Items that need attention</h3>
+                  </div>
+                  <AlertTriangle size={18} />
+                </div>
+                <div className="bill-breakdown-findings">
+                  {data.anomalies.map((finding, index) => (
+                    <div key={`${finding.title}-${index}`}>
+                      <strong>{finding.title}</strong>
+                      <p>{finding.message}</p>
+                      {finding.state === "needs_evidence" && (
+                        <span className="bill-breakdown-finding-state">Needs source evidence</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </article>
+            )}
+
+            <article className="bill-breakdown-card bill-breakdown-market-card">
+              <div className="bill-breakdown-card-heading">
+                <div>
+                  <span className="bill-breakdown-label">Market comparison</span>
+                  <h3>{data.marketBenchmark.category}</h3>
+                </div>
+                <TrendingUp size={18} />
+              </div>
+
+              {benchmarkAvailable ? (
+                <>
+                  <div className="bill-breakdown-metrics two-column">
+                    <div>
+                      <span>Comparable median</span>
+                      <strong>
+                        {money(data.marketBenchmark.estimatedMarketRate, currency)}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Variance</span>
+                      <strong>
+                        {data.marketBenchmark.variancePercentage! > 0 ? "+" : ""}
+                        {data.marketBenchmark.variancePercentage}%
+                      </strong>
+                    </div>
+                  </div>
+                  {data.marketBenchmark.potentialAnnualSavings != null &&
+                    data.marketBenchmark.potentialAnnualSavings > 0 && (
+                      <div className="bill-breakdown-savings">
+                        <span>Estimated annual opportunity</span>
+                        <strong>
+                          {money(
+                            data.marketBenchmark.potentialAnnualSavings,
+                            currency,
+                          )}
+                        </strong>
+                      </div>
+                    )}
+                </>
+              ) : (
+                <div className="bill-breakdown-unavailable">
+                  <CircleHelp size={20} />
+                  <div>
+                    <strong>
+                      {data.marketBenchmark.benchmarkStatus === "insufficient_data"
+                        ? "Market comparison needs more detail"
+                        : data.marketBenchmark.benchmarkStatus === "quote_required"
+                        ? "Live quote required"
+                        : titleCase(data.marketBenchmark.benchmarkStatus)}
+                    </strong>
+                    <p>
+                      {data.marketBenchmark.benchmarkStatus === "insufficient_data"
+                        ? "Costivra needs the service specification, location, usage, contract term, and current comparable offers before estimating a market range."
+                        : data.marketBenchmark.benchmarkStatus === "quote_required"
+                        ? "Public benchmarks are not comparable enough for this service. Obtain current quotes using the same scope and commercial terms."
+                        : "Costivra did not manufacture a market average or savings estimate from this invoice total."}
+                    </p>
+                    {data.marketBenchmark.missingDimensions.length > 0 && (
+                      <ul>
+                        {data.marketBenchmark.missingDimensions.map((dimension) => (
+                          <li key={dimension}>{titleCase(dimension)}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <p className="bill-breakdown-source-note">
+                {data.marketBenchmark.benchmarkSource}
+                {data.marketBenchmark.asOf
+                  ? ` · As of ${formatFinancialDate(data.marketBenchmark.asOf)}`
+                  : ""}
+              </p>
+            </article>
+
+            <article className="bill-breakdown-card">
+              <div className="bill-breakdown-card-heading">
+                <div>
+                  <span className="bill-breakdown-label">Recommended next steps</span>
+                  <h3>Evidence-led actions</h3>
+                </div>
+              </div>
+              <div className="bill-breakdown-guidance">
+                {data.guidance.map((item, index) => (
+                  <div key={`${item.title}-${index}`}>
+                    <span>{index + 1}</span>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.action}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            {data.evidence.length > 0 && (
+              <article className="bill-breakdown-card">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Source evidence</span>
+                    <h3>{data.evidence.length} references</h3>
+                    <p className="bill-breakdown-source-counts">
+                      {data.evidenceCounts?.invoiceField ?? data.evidence.length} invoice fields · {data.evidenceCounts?.lineItem ?? 0} line-item links · opportunity evidence separate
+                    </p>
+                  </div>
+                </div>
+                <div className="bill-breakdown-evidence">
+                  {data.evidence.map((item) => (
+                    <blockquote key={item.id}>
+                      <span>
+                        {item.pageNumber == null ? "Source page unknown" : `Page ${item.pageNumber}`}
+                        {item.fieldPath ? ` · ${item.fieldPath}` : ""}
+                      </span>
+                      <p>“{item.textExcerpt}”</p>
+                      {isPdf && item.pageNumber != null && (
+                        <button
+                          type="button"
+                          className="bill-breakdown-page-jump-btn"
+                          onClick={() => setTargetPdfPage(item.pageNumber)}
+                        >
+                          Jump to page {item.pageNumber} <ExternalLink size={11} />
+                        </button>
+                      )}
+                    </blockquote>
+                  ))}
+                </div>
+              </article>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+export function BillBreakdownModal({
+  documentId,
+  documentIds = [],
+  onClose,
+  onNavigateDocument,
+}: {
+  documentId: string | null;
+  documentIds?: string[];
+  onClose: () => void;
+  onNavigateDocument?: (documentId: string) => void;
+}) {
+  const [closingId, setClosingId] = useState<string | null>(null);
+
+  const requestClose = useCallback(() => {
+    if (closingId) return;
+    const currentId = documentId || closingId;
+    if (!currentId) return;
+    setClosingId(currentId);
+    window.setTimeout(() => {
+      setClosingId(null);
+      onClose();
+    }, 220);
+  }, [closingId, documentId, onClose]);
+
+  const activeId = documentId || closingId;
+  const isClosing = Boolean(closingId);
+
+  if (!activeId) return null;
+
+  return (
     <div
       className={`bill-breakdown-backdrop ${isClosing ? "is-closing" : ""}`}
       role="presentation"
@@ -308,397 +697,13 @@ export function BillBreakdownModal({
         aria-modal="true"
         aria-labelledby="bill-breakdown-title"
       >
-        <header className="bill-breakdown-header">
-          <div className="bill-breakdown-title-row">
-            <span className="bill-breakdown-file-icon">
-              <FileText size={21} />
-            </span>
-            <div>
-              <div className="bill-breakdown-title-line">
-                <h2 id="bill-breakdown-title">
-                  {data?.vendor?.name
-                    ? `${data.vendor.name} — Bill Breakdown`
-                    : data?.document.filename ?? "Document Breakdown"}
-                </h2>
-                {data?.document.securityScanStatus === "clean" && (
-                  <span className="bill-breakdown-clean-status">
-                    <ShieldCheck size={13} /> Security scan clean
-                  </span>
-                )}
-              </div>
-              <p>
-                {data?.document.filename ?? "Loading document"}
-                {data?.document.byteSize != null
-                  ? ` · ${(data.document.byteSize / 1024).toFixed(1)} KB`
-                  : ""}
-                {data?.document.sha256 ? " · SHA-256 recorded" : ""}
-              </p>
-            </div>
-          </div>
-
-          <div className="bill-breakdown-header-actions">
-            {documentIds.length > 1 && currentIndex >= 0 && (
-              <div className="bill-breakdown-cycler" aria-label="Cycle vendor bills">
-                <button
-                  type="button"
-                  className="bill-breakdown-cycle-btn"
-                  disabled={currentIndex <= 0}
-                  onClick={() => onNavigateDocument?.(documentIds[currentIndex - 1])}
-                  aria-label="Previous bill"
-                  title="View previous bill for this vendor"
-                >
-                  <ChevronLeft size={15} />
-                </button>
-                <span className="bill-breakdown-cycle-label">
-                  Bill {currentIndex + 1} of {documentIds.length}
-                </span>
-                <button
-                  type="button"
-                  className="bill-breakdown-cycle-btn"
-                  disabled={currentIndex >= documentIds.length - 1}
-                  onClick={() => onNavigateDocument?.(documentIds[currentIndex + 1])}
-                  aria-label="Next bill"
-                  title="View next bill for this vendor"
-                >
-                  <ChevronRight size={15} />
-                </button>
-              </div>
-            )}
-            <button type="button" className="bill-breakdown-ask" onClick={askAssistant}>
-              <MessageCircle size={15} /> Ask Costivra
-            </button>
-            {data?.document.downloadUrl && (
-              <a
-                className="bill-breakdown-secondary-action"
-                href={data.document.downloadUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <Download size={15} /> Download
-              </a>
-            )}
-            <button
-              type="button"
-              className="bill-breakdown-close"
-              onClick={requestClose}
-              aria-label="Close bill breakdown"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </header>
-
-        {loading ? (
-          <div className="bill-breakdown-state">
-            <span className="bill-breakdown-spinner" />
-            <p>Loading source evidence and bill analysis…</p>
-          </div>
-        ) : processingMessage ? (
-          <div className="bill-breakdown-state">
-            <CircleHelp size={36} />
-            <p>{processingMessage}</p>
-            <button type="button" onClick={requestClose}>Close</button>
-          </div>
-        ) : error ? (
-          <div className="bill-breakdown-state bill-breakdown-error">
-            <AlertTriangle size={36} />
-            <p>{error}</p>
-            <button type="button" onClick={requestClose}>Close</button>
-          </div>
-        ) : data ? (
-          <div className="bill-breakdown-body">
-            <div className="bill-breakdown-preview">
-              <div className="bill-breakdown-preview-bar">
-                <span>Source file · {data.document.filename}</span>
-                <span>
-                  {data.document.securityScanStatus === "clean" ? (
-                    <><CheckCircle2 size={13} /> Clean</>
-                  ) : (
-                    <><CircleHelp size={13} /> {titleCase(data.document.securityScanStatus)}</>
-                  )}
-                </span>
-              </div>
-              <div className="bill-breakdown-preview-content">
-                {data.document.downloadUrl ? (
-                  isPdf ? (
-                    <BreakdownPdfViewer
-                      sourceUrl={data.document.downloadUrl}
-                      filename={data.document.filename}
-                      initialPage={targetPdfPage}
-                    />
-                  ) : isImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={data.document.downloadUrl} alt={data.document.filename} />
-                  ) : (
-                    <div className="bill-breakdown-no-preview">
-                      <FileText size={46} />
-                      <p>A browser preview is not available for this file type.</p>
-                      <a href={data.document.downloadUrl} target="_blank" rel="noreferrer">
-                        Open source file <ExternalLink size={14} />
-                      </a>
-                    </div>
-                  )
-                ) : (
-                  <div className="bill-breakdown-no-preview">
-                    <CircleHelp size={46} />
-                    <p>The protected source file is not available for preview yet.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bill-breakdown-analysis" data-workspace-scrollbar="">
-              <article className="bill-breakdown-card">
-                <div className="bill-breakdown-card-heading">
-                  <div>
-                    <span className="bill-breakdown-label">Extracted record</span>
-                    <h3>{data.vendor?.name ?? "Vendor not matched"}</h3>
-                  </div>
-                  <span className="bill-breakdown-category">
-                    {data.category?.displayName ?? data.vendor?.category ?? "Unclassified"}
-                  </span>
-                </div>
-                <div className="bill-breakdown-metrics">
-                  <div>
-                    <span>Total</span>
-                    <strong>{money(data.invoice?.totalAmount, currency)}</strong>
-                  </div>
-                  <div>
-                    <span>Invoice</span>
-                    <strong>{data.invoice?.invoiceNumber ?? "Not extracted"}</strong>
-                  </div>
-                  <div>
-                    <span>Date</span>
-                    <strong>{formatFinancialDate(data.invoice?.invoiceDate, "Not extracted")}</strong>
-                  </div>
-                </div>
-              </article>
-
-              {data.lineItems.length > 0 && (
-                <article className="bill-breakdown-card">
-                  <div className="bill-breakdown-card-heading">
-                    <div>
-                      <span className="bill-breakdown-label">Line-item interpretation</span>
-                      <h3>{data.lineItems.length} extracted items</h3>
-                    </div>
-                  </div>
-                  <div className="bill-breakdown-line-items">
-                    {data.lineItems.map((item) => {
-                      const explanation = explanationsByLineItem.get(item.id);
-                      const lineEvidence = (explanation?.evidenceIds ?? [])
-                        .map((id) => data.evidence.find((reference) => reference.id === id))
-                        .filter((reference): reference is BreakdownData["evidence"][number] => Boolean(reference));
-                      const primaryEvidence = lineEvidence[0];
-                      return (
-                        <div className="bill-breakdown-line-item" key={item.id}>
-                          <div>
-                            <strong>{item.description}</strong>
-                            <span>
-                              {explanation?.canonicalCode
-                                ? `${explanation.chargeClass} · ${explanation.canonicalCode}`
-                                : "Unclassified · review required"}
-                            </span>
-                            {explanation?.explanation && (
-                              <p>{explanation.explanation}</p>
-                            )}
-                            {primaryEvidence ? (
-                              <div className="bill-breakdown-line-evidence">
-                                <span>
-                                  {primaryEvidence.pageNumber == null
-                                    ? "Source page unknown"
-                                    : `Source page ${primaryEvidence.pageNumber}`}
-                                </span>
-                                <p>“{primaryEvidence.textExcerpt}”</p>
-                                {isPdf && primaryEvidence.pageNumber != null ? (
-                                  <button
-                                    type="button"
-                                    className="bill-breakdown-page-jump-btn"
-                                    onClick={() => setTargetPdfPage(primaryEvidence.pageNumber)}
-                                  >
-                                    Jump to page {primaryEvidence.pageNumber} <ExternalLink size={11} />
-                                  </button>
-                                ) : data.document.downloadUrl && primaryEvidence.pageNumber != null ? (
-                                  <a
-                                    href={`${data.document.downloadUrl}#page=${primaryEvidence.pageNumber}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    Open source page <ExternalLink size={11} />
-                                  </a>
-                                ) : null}
-                              </div>
-                            ) : (
-                              <div className="bill-breakdown-line-evidence missing">
-                                <span>Source evidence needs review</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="bill-breakdown-line-amount">
-                            {money(item.amount, currency)}
-                            {explanation?.reviewRequired && <em>Review</em>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </article>
-              )}
-
-              {data.anomalies.length > 0 && (
-                <article className="bill-breakdown-card bill-breakdown-warning-card">
-                  <div className="bill-breakdown-card-heading">
-                    <div>
-                      <span className="bill-breakdown-label">Review findings</span>
-                      <h3>Items that need attention</h3>
-                    </div>
-                    <AlertTriangle size={18} />
-                  </div>
-                  <div className="bill-breakdown-findings">
-                    {data.anomalies.map((finding, index) => (
-                      <div key={`${finding.title}-${index}`}>
-                        <strong>{finding.title}</strong>
-                        <p>{finding.message}</p>
-                        {finding.state === "needs_evidence" && (
-                          <span className="bill-breakdown-finding-state">Needs source evidence</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              )}
-
-              <article className="bill-breakdown-card bill-breakdown-market-card">
-                <div className="bill-breakdown-card-heading">
-                  <div>
-                    <span className="bill-breakdown-label">Market comparison</span>
-                    <h3>{data.marketBenchmark.category}</h3>
-                  </div>
-                  <TrendingUp size={18} />
-                </div>
-
-                {benchmarkAvailable ? (
-                  <>
-                    <div className="bill-breakdown-metrics two-column">
-                      <div>
-                        <span>Comparable median</span>
-                        <strong>
-                          {money(data.marketBenchmark.estimatedMarketRate, currency)}
-                        </strong>
-                      </div>
-                      <div>
-                        <span>Variance</span>
-                        <strong>
-                          {data.marketBenchmark.variancePercentage! > 0 ? "+" : ""}
-                          {data.marketBenchmark.variancePercentage}%
-                        </strong>
-                      </div>
-                    </div>
-                    {data.marketBenchmark.potentialAnnualSavings != null &&
-                      data.marketBenchmark.potentialAnnualSavings > 0 && (
-                        <div className="bill-breakdown-savings">
-                          <span>Estimated annual opportunity</span>
-                          <strong>
-                            {money(
-                              data.marketBenchmark.potentialAnnualSavings,
-                              currency,
-                            )}
-                          </strong>
-                        </div>
-                      )}
-                  </>
-                ) : (
-                  <div className="bill-breakdown-unavailable">
-                    <CircleHelp size={20} />
-                    <div>
-                      <strong>
-                        {data.marketBenchmark.benchmarkStatus === "insufficient_data"
-                          ? "Market comparison needs more detail"
-                          : data.marketBenchmark.benchmarkStatus === "quote_required"
-                          ? "Live quote required"
-                          : titleCase(data.marketBenchmark.benchmarkStatus)}
-                      </strong>
-                      <p>
-                        {data.marketBenchmark.benchmarkStatus === "insufficient_data"
-                          ? "Costivra needs the service specification, location, usage, contract term, and current comparable offers before estimating a market range."
-                          : data.marketBenchmark.benchmarkStatus === "quote_required"
-                          ? "Public benchmarks are not comparable enough for this service. Obtain current quotes using the same scope and commercial terms."
-                          : "Costivra did not manufacture a market average or savings estimate from this invoice total."}
-                      </p>
-                      {data.marketBenchmark.missingDimensions.length > 0 && (
-                        <ul>
-                          {data.marketBenchmark.missingDimensions.map((dimension) => (
-                            <li key={dimension}>{titleCase(dimension)}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <p className="bill-breakdown-source-note">
-                  {data.marketBenchmark.benchmarkSource}
-                  {data.marketBenchmark.asOf
-                    ? ` · As of ${formatFinancialDate(data.marketBenchmark.asOf)}`
-                    : ""}
-                </p>
-              </article>
-
-              <article className="bill-breakdown-card">
-                <div className="bill-breakdown-card-heading">
-                  <div>
-                    <span className="bill-breakdown-label">Recommended next steps</span>
-                    <h3>Evidence-led actions</h3>
-                  </div>
-                </div>
-                <div className="bill-breakdown-guidance">
-                  {data.guidance.map((item, index) => (
-                    <div key={`${item.title}-${index}`}>
-                      <span>{index + 1}</span>
-                      <div>
-                        <strong>{item.title}</strong>
-                        <p>{item.action}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </article>
-
-              {data.evidence.length > 0 && (
-                <article className="bill-breakdown-card">
-                  <div className="bill-breakdown-card-heading">
-                    <div>
-                      <span className="bill-breakdown-label">Source evidence</span>
-                      <h3>{data.evidence.length} references</h3>
-                      <p className="bill-breakdown-source-counts">
-                        {data.evidenceCounts?.invoiceField ?? data.evidence.length} invoice fields · {data.evidenceCounts?.lineItem ?? 0} line-item links · opportunity evidence separate
-                      </p>
-                    </div>
-                  </div>
-                  <div className="bill-breakdown-evidence">
-                    {data.evidence.map((item) => (
-                      <blockquote key={item.id}>
-                        <span>
-                          {item.pageNumber == null ? "Source page unknown" : `Page ${item.pageNumber}`}
-                          {item.fieldPath ? ` · ${item.fieldPath}` : ""}
-                        </span>
-                        <p>“{item.textExcerpt}”</p>
-                        {isPdf && item.pageNumber != null && (
-                          <button
-                            type="button"
-                            className="bill-breakdown-page-jump-btn"
-                            onClick={() => setTargetPdfPage(item.pageNumber)}
-                          >
-                            Jump to page {item.pageNumber} <ExternalLink size={11} />
-                          </button>
-                        )}
-                      </blockquote>
-                    ))}
-                  </div>
-                </article>
-              )}
-            </div>
-          </div>
-        ) : null}
+        <BillBreakdownContent
+          key={activeId}
+          documentId={activeId}
+          documentIds={documentIds}
+          onRequestClose={requestClose}
+          onNavigateDocument={onNavigateDocument}
+        />
       </section>
 
       <style>{`

@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   FormEvent,
   ReactNode,
-  startTransition,
   useCallback,
   useEffect,
   useId,
@@ -795,7 +794,6 @@ function BillsWorkspace({
   onAddExpense: () => void;
   onAddContract: () => void;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
   const canWrite = data.currentUser.role !== "viewer";
@@ -1302,7 +1300,6 @@ function FindingsWorkspace({
   data: PortalData;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(() => searchParams?.get("q") ?? "");
   const [activeView, setActiveView] = useState(() => resolveFindingView(searchParams?.get("view")));
@@ -1404,7 +1401,6 @@ function FindingsWorkspace({
   );
 }
 function Contracts({ data }: { data: PortalData }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [activeView, setActiveView] = useState(() => resolveContractView(searchParams?.get("view")));
   const updateParams = (updates: Record<string, string | null>) => {
@@ -1518,7 +1514,6 @@ function Actions({
   data: PortalData;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(() => searchParams?.get("q") ?? "");
   const [activeView, setActiveView] = useState(() => resolveActionView(searchParams?.get("view")));
@@ -1673,7 +1668,6 @@ function Actions({
 const DEFAULT_REPORT_PREFERENCES = { immediate_finding_alerts: true, review_alerts: true, approval_requests: true, missed_bill_alerts: true, weekly_digest: true, monthly_executive_report: true, allow_empty_reports: false } as const;
 
 function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData; initialView?: "verified" | "in_progress" | "reports" | "summary" }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
   const [schedules, setSchedules] = useState<Array<{ id: string; report_definition_id: string; status: string; cadence: string; timezone?: string; weekday?: number | null; day_of_month?: number | null; send_time_local?: string; recipient_emails: string[]; next_run_at: string | null }>>([]);

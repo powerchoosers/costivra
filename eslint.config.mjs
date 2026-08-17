@@ -6,6 +6,9 @@ export default defineConfig([
   ...nextCoreWebVitals,
   ...nextTypescript,
   globalIgnores([
+    "node_modules/**",
+    ".git/**",
+    ".agents/**",
     ".next/**",
     "out/**",
     "coverage/**",
