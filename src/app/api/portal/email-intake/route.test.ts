@@ -20,6 +20,12 @@ const organizationId = "22222222-2222-4222-8222-222222222222";
 const userId = "33333333-3333-4333-8333-333333333333";
 
 function createDatabase() {
+  const paidSubscriptions = {
+    select: vi.fn(() => paidSubscriptions),
+    eq: vi.fn(() => paidSubscriptions),
+    in: vi.fn(() => paidSubscriptions),
+    limit: vi.fn().mockResolvedValue({ data: [{ status: "active" }], error: null }),
+  };
   const inboundAddresses = {
     select: vi.fn(() => inboundAddresses),
     eq: vi.fn(() => inboundAddresses),
@@ -34,6 +40,7 @@ function createDatabase() {
   };
   const db = {
     from: vi.fn((table: string) => {
+      if (table === "billing_subscriptions") return paidSubscriptions;
       if (table === "inbound_email_addresses") return inboundAddresses;
       if (table === "inbound_email_events") {
         return { update: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), maybeSingle: vi.fn() };
@@ -89,6 +96,17 @@ describe("PATCH /api/portal/email-intake", () => {
       integrationUpdates: [] as Array<Record<string, unknown>>,
       auditRows: [] as Array<Record<string, unknown>>,
       from: vi.fn((table: string) => {
+        if (table === "billing_subscriptions") {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                in: vi.fn(() => ({
+                  limit: vi.fn().mockResolvedValue({ data: [{ status: "active" }], error: null }),
+                })),
+              })),
+            })),
+          };
+        }
         if (table === "inbound_email_addresses") {
           return {
             select: vi.fn(() => ({

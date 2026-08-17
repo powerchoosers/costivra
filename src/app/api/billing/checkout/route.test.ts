@@ -91,8 +91,8 @@ describe("POST /api/billing/checkout", () => {
     const stripe = getStripeClient.mock.results[0]?.value;
     expect(stripe.checkout.sessions.create).toHaveBeenCalledWith(expect.objectContaining({
       integration_identifier: expect.stringMatching(/^costivra_workspace_[a-z]{8}$/),
-      success_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&billing=success",
-      cancel_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&billing=cancelled",
+      success_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&interval=month&billing=success",
+      cancel_url: "http://localhost:3000/app/settings?tab=billing&plan=starter&interval=month&billing=cancelled",
     }), expect.any(Object));
   });
 });
