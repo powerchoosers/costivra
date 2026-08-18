@@ -168,11 +168,11 @@ export function WorkspaceOnboardingTour() {
         {step.action === "upload" && <button type="button" className="workspace-tour__inline-action" onClick={() => { void persist("in_progress"); setOpen(false); window.setTimeout(() => window.dispatchEvent(new CustomEvent("costivra:global-action", { detail: "upload" })), 120); }}>Try uploading a bill <ArrowRight size={14} /></button>}
       </div>
       <div className="workspace-tour__footer">
+        {stepIndex > 0 && <button type="button" className="workspace-tour__back" onClick={() => { void persist("in_progress", stepIndex - 1); setStepIndex((current) => current - 1); }}><ArrowLeft size={13} /> Back</button>}
         <div className="workspace-tour__progress" aria-label={`Tour step ${stepIndex + 1} of ${TOUR_STEPS.length}`}>{TOUR_STEPS.map((item, index) => <span key={item.id} className={index === stepIndex ? "is-current" : index < stepIndex ? "is-complete" : ""}>{index < stepIndex ? <Check size={11} /> : index + 1}</span>)}</div>
         <button type="button" className="button button-quiet button-sm" onClick={() => void close("skipped")}>Skip tour</button>
         <button type="button" className="button button-primary button-sm" onClick={() => { if (isLast) void close("completed"); else { void persist("in_progress", stepIndex + 1); setStepIndex((current) => current + 1); } }}>{isLast ? "Finish tour" : "Next"} {isLast ? <Check size={14} /> : <ArrowRight size={14} />}</button>
       </div>
-      {stepIndex > 0 && <button type="button" className="workspace-tour__back" onClick={() => { void persist("in_progress", stepIndex - 1); setStepIndex((current) => current - 1); }}><ArrowLeft size={13} /> Back</button>}
       {stepIndex === 0 && <Link className="workspace-tour__free-note" href="/pricing?from=tour" onClick={() => void close("skipped")}>See the full paid workspace <ArrowRight size={13} /></Link>}
     </div>
   </div>;

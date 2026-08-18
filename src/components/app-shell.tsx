@@ -674,6 +674,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         </aside>
 
         <main className="app-main">
+          <WorkspaceExperienceBanner initialDocumentCount={data.documents.filter((document) => document.status !== "rejected").length} />
           <div className="app-work-canvas" data-workspace-slot="canvas">
             <div className="app-topbar" data-workspace-slot="topbar">
             {mobileUtilities}
@@ -758,7 +759,6 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
             </div>
             </div>
 
-            <WorkspaceExperienceBanner initialDocumentCount={data.documents.filter((document) => document.status !== "rejected").length} />
             {children}
           </div>
 

@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 17, 2026 — Customer and Manage mobile shell pass
+
+- Reworked the customer mobile shell so the warning banner sits above the page header, the header/search controls use a deliberate two-row layout, and the customer bottom navigation remains usable at phone widths.
+- Added a consistent Manage mobile bottom navigation for Overview, Accounts, Contacts, Outreach, and More. The More action opens the existing owner-operations drawer; the bottom bar moves behind the scrim while the drawer is open.
+- Browser QA at 412×915 confirmed no horizontal overflow on `/app`, `/app/bills`, `/app/findings`, `/app/actions`, `/app/settings`, `/manage`, `/manage/accounts`, `/manage/contacts`, `/manage/outreach`, `/manage/mail`, `/manage/settings`, `/manage/invoice-review`, `/manage/intake`, `/manage/operations`, `/manage/category-intelligence`, `/manage/trust-review`, and `/manage/activity`. Confirmed the Manage drawer opens at 300px and bottom navigation reaches `/manage/outreach`.
+- Validation: bundled Node 24 TSX syntax check passed; `git diff --check` passed. Full typecheck, lint, build, and end-to-end release gates were not rerun for this focused UI pass.
+
 ## August 16, 2026 — Pricing feature depth and annual billing
 
 - Expanded the public pricing cards from three or four sparse bullets to six concrete capability lines per plan, including source-linked findings, attached evidence, approval controls, audit history, and support boundaries. Added a Monthly / Annual cadence toggle with a displayed 20% annual discount and a clear note when annual checkout still needs configuration.

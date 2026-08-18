@@ -713,7 +713,9 @@ export function ManagePortal({
   useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
   const [mobileNav, setMobileNav] = useState(() => {
-    if (typeof window === "undefined") return true;
+    // Start closed so a phone never flashes the desktop rail before the
+    // responsive viewport effect has classified the device.
+    if (typeof window === "undefined") return false;
     try {
       return window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY) !== "true";
     } catch {
@@ -1468,6 +1470,42 @@ export function ManagePortal({
           )}
         </div>
       </main>
+      <nav className={`manage-mobile-nav${mobileNav ? " is-menu-open" : ""}`} aria-label="Owner operations mobile navigation">
+        {([
+          ["Overview", "/manage", LayoutDashboard],
+          ["Accounts", "/manage/accounts", Building2],
+          ["Contacts", "/manage/contacts", Users],
+          ["Outreach", "/manage/outreach", MessageSquareText],
+        ] as const).map(([label, href, Icon]) => {
+          const active = isWorkspaceRouteActive({ href: href as string, pathname: currentPathname, exact: href === "/manage" });
+          return (
+            <Link
+              key={href as string}
+              className={active ? "active" : ""}
+              href={href as string}
+              aria-current={active ? "page" : undefined}
+              aria-label={`Open ${label}`}
+              onClick={() => {
+                if (href !== pathname) setOptimisticHref(href as string);
+                handleManageNavSelect();
+              }}
+            >
+              <Icon size={18} aria-hidden="true" />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          className={mobileNav ? "active" : ""}
+          aria-label="Open more owner operations"
+          aria-expanded={mobileNav}
+          onClick={() => setMobileNav(true)}
+        >
+          <Menu size={18} aria-hidden="true" />
+          <span>More</span>
+        </button>
+      </nav>
       <div id="manage-ai-drawer">
         <ManageAiDrawer
           open={assistantOpen}
