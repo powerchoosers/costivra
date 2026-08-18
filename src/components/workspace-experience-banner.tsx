@@ -64,7 +64,7 @@ export function WorkspaceExperienceBanner({ initialDocumentCount }: { initialDoc
       <div className="workspace-experience-banner__copy"><strong>Free review · {used} of {limit} bills used</strong><span>{remaining ? `${remaining} bill${remaining === 1 ? "" : "s"} left to analyze. Your source evidence stays private.` : "Your free review is complete. Subscribe to keep analyzing bills and monitoring costs."}</span></div>
       <div className="workspace-experience-banner__progress" aria-label={`${used} of ${limit} free bills used`}><span style={{ width: `${Math.min((used / limit) * 100, 100)}%` }} /></div>
       <Link className="button button-quiet button-sm" href="/pricing?from=workspace">{remaining ? "See paid plans" : "Unlock the full workspace"} <ArrowRight size={14} /></Link>
-      <button type="button" className="workspace-experience-banner__dismiss" onClick={dismiss} aria-label="Dismiss free review notice" tabIndex={visible ? 0 : -1}><X size={15} /></button>
+      <button type="button" className="workspace-experience-banner__dismiss" onPointerDown={(event) => { event.stopPropagation(); dismiss(); }} onClick={(event) => { event.stopPropagation(); dismiss(); }} aria-label="Dismiss free review notice" tabIndex={visible ? 0 : -1}><X size={15} /></button>
       <LockKeyhole className="workspace-experience-banner__lock" aria-hidden="true" size={15} />
     </div>
   </div>;

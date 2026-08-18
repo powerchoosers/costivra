@@ -11084,7 +11084,7 @@ button.workspace-notification-row:focus-visible {
 }
 
 /* First-run product journey: the free boundary stays visible inside the real workspace. */
-.workspace-experience-banner-shell { display:grid; grid-template-rows:minmax(0,0fr); transition:grid-template-rows 260ms cubic-bezier(.23,1,.32,1); }
+.workspace-experience-banner-shell { display:grid; grid-template-rows:minmax(0,0fr); padding-top:12px; transition:grid-template-rows 260ms cubic-bezier(.23,1,.32,1); }
 .workspace-experience-banner-shell.is-visible { grid-template-rows:minmax(0,1fr); }
 .workspace-experience-banner-shell > .workspace-experience-banner { min-height:0; overflow:hidden; opacity:0; transform:translateY(-8px); transition:opacity 180ms ease-out, transform 260ms cubic-bezier(.23,1,.32,1); }
 .workspace-experience-banner-shell.is-visible > .workspace-experience-banner { opacity:1; transform:translateY(0); }

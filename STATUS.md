@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 18, 2026 — Free-review banner interaction and spacing
+
+- Fixed the mobile free-review banner dismiss control by handling pointer-down explicitly and stopping propagation before surrounding workspace handlers can interfere. Added a 12px shell inset so the banner has visible breathing room from the viewport edge.
+- Browser QA reproduced the prior non-working close action, then confirmed the button removes the visible shell after the fix. The local mobile render no longer places the banner directly against the top edge.
+- Validation: direct `tsc --noEmit` and `git diff --check` passed. Full lint, build, and release gates were not rerun for this focused UI fix.
+
 ## August 18, 2026 — Mobile search sheet
 
 - Replaced the full-width mobile search fields in both `/app` and `/manage` with the same compact search icon treatment. Opening the icon shows an animated, dismissible search sheet with a visible focus ring on the trigger; existing categorized result content remains inside the sheet and keeps its entrance/exit animation.
