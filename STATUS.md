@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 18, 2026 — One-row mobile workspace headers
+
+- Refined both mobile headers into a single 64px row. The customer company badge is no longer shown in the mobile header; search now sits with the other actions, and the controls use compact rounded tool buttons instead of a crowded set of circles.
+- Preserved the existing search sheet and active state: browser QA confirmed the App search button still opens `#app-mobile-search-modal` and receives its active ring after the header move. Manage rendered with the same one-row arrangement and compact action group.
+- Validation: direct `tsc --noEmit` and `git diff --check` passed. Full lint, build, and release gates were not rerun for this focused UI refinement.
+
 ## August 18, 2026 — Free-review banner interaction and spacing
 
 - Fixed the mobile free-review banner dismiss control by handling pointer-down explicitly and stopping propagation before surrounding workspace handlers can interfere. Added a 12px shell inset so the banner has visible breathing room from the viewport edge.

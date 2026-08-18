@@ -711,6 +711,9 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
               </div>
             </div>
             <div className="workspace-header-action-group">
+              <button className={`workspace-mobile-search-trigger app-mobile-header-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="app-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
+                <MagnifyingGlass aria-hidden="true" size={17} />
+              </button>
               <div className="app-topbar-center">
                 <div className="app-create-wrap" ref={createMenuRef}>
                 <WorkspaceUtilityButton

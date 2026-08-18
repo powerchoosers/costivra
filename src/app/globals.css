@@ -260,6 +260,58 @@ textarea:focus-visible {
   .manage-mobile-search-trigger { flex:0 0 38px; }
 }
 
+/* Final phone header: one quiet row, no workspace badge, and controls that
+   read as a compact tool group instead of a cluster of circles. */
+@media (max-width:780px) {
+  .app-body .app-work-canvas > .app-topbar,
+  .manage-shell-v2 .manage-topbar {
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"leading actions";
+    align-items:center;
+    gap:8px 12px;
+    height:64px !important;
+    min-height:64px !important;
+    padding:10px 12px !important;
+  }
+  .app-body .app-work-canvas > .app-topbar > .app-mobile-utilities { display:none !important; }
+  .app-body .app-work-canvas > .app-topbar .app-topbar-leading,
+  .manage-shell-v2 .manage-topbar-leading { grid-area:leading; }
+  .app-body .app-work-canvas > .app-topbar .workspace-header-action-group,
+  .manage-shell-v2 .workspace-header-action-group { grid-area:actions; gap:4px; }
+  .app-mobile-header-search-trigger { display:grid !important; }
+  .app-body .app-work-canvas > .app-topbar .app-topbar-center,
+  .app-body .app-work-canvas > .app-topbar .app-top-actions,
+  .manage-shell-v2 .manage-topbar-center,
+  .manage-shell-v2 .manage-top-actions,
+  .manage-shell-v2 .manage-topbar-utilities { gap:4px; }
+  .app-body .app-work-canvas > .app-topbar .app-create-trigger,
+  .app-body .app-work-canvas > .app-topbar .app-top-actions > *,
+  .app-body .app-work-canvas > .app-topbar .workspace-mobile-search-trigger,
+  .manage-shell-v2 .manage-menu,
+  .manage-shell-v2 .manage-topbar-icon,
+  .manage-shell-v2 .manage-create-trigger,
+  .manage-shell-v2 .manage-top-actions > .manage-button,
+  .manage-shell-v2 .workspace-mobile-search-trigger {
+    width:34px !important;
+    min-width:34px !important;
+    height:34px !important;
+    min-height:34px !important;
+    border-radius:10px !important;
+    border:1px solid #e1e7ef !important;
+    background:#f8fafc !important;
+    box-shadow:none !important;
+  }
+  .app-body .app-work-canvas > .app-topbar .workspace-mobile-search-trigger.is-open,
+  .manage-shell-v2 .workspace-mobile-search-trigger.is-open { border-color:#4c6fc3 !important; background:#f7faff !important; box-shadow:0 0 0 3px rgba(49,91,187,.16) !important; }
+  .app-body .app-work-canvas > .app-topbar .app-topbar-title strong,
+  .manage-shell-v2 .manage-topbar h1 { font-size:.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .manage-shell-v2 .manage-topbar-leading > div { min-width:0; }
+}
+
+@media (min-width:781px) {
+  .app-mobile-header-search-trigger { display:none; }
+}
+
 .pricing .plan .button-secondary:hover,
 .pricing .plan .button-secondary:focus-visible {
   border-color: #315cff;
