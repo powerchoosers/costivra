@@ -6,11 +6,11 @@ This handoff covers the supervised design-partner pilot engineering release: exa
 
 ## Release record
 
-- Final SHA: updated by the documentation closeout commit and re-certified before handoff
-- Production deployment: exact SHA-matched Vercel deployment
+- Final SHA: `6effb11a350a8a92cdf266cfba0267222531762f`
+- Production deployment: `dpl_CyRQiPFn9QXacnMdXdxw6XBUiT9y` (exact SHA-matched Vercel deployment)
 - Scanner proof: exact-SHA Cloudmersive clean and inert EICAR proof
 - Migration parity: linked comparison passed with documented historical reconciliation
-- Certificate: uploaded by the protected `pilot-release-certify.yml` workflow
+- Certificate: uploaded as artifact `9307216240` by the protected `pilot-release-certify.yml` workflow
 
 ## What passed
 
