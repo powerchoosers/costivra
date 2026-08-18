@@ -105,7 +105,7 @@ jobs:
       - name: Run linked production status checks
         run: |
           curl --fail --silent --show-error https://costivra.ai/api/status > public-status.json
-          jq -e '.overall == "operational" and .website == "operational" and .workspace == "operational" and .intake == "operational" and .extraction == "operational"' public-status.json
+          jq -e '.overall == "operational" and ([.services[]? | select(.id == "website" or .id == "workspace" or .id == "intake" or .id == "extraction") | .state] | length == 4 and all(. == "operational"))' public-status.json
       - name: Write final certification artifact
         shell: bash
         run: |
