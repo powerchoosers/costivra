@@ -56,6 +56,9 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           test -n "$DEPLOYMENT_ID" -a -n "$VERCEL_TOKEN" -a -n "$VERCEL_TEAM_ID" -a -n "$E2E_SUPABASE_SECRET_KEY" -a -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" -a -n "$SUPABASE_SECRET_KEY" -a -n "$CLOUDMERSIVE_API_KEY" -a -n "$CRON_SECRET"
+      - name: Record production hygiene start
+        shell: bash
+        run: echo "HYGIENE_RUN_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
       - name: Require green Quality workflow for exact SHA
         env:
           GH_TOKEN: ${{ github.token }}
@@ -106,6 +109,11 @@ jobs:
         run: |
           curl --fail --silent --show-error https://costivra.ai/api/status > public-status.json
           jq -e '.overall == "operational" and ([.services[]? | select(.id == "website" or .id == "workspace" or .id == "intake" or .id == "extraction") | .state] | length == 4 and all(. == "operational"))' public-status.json
+      - name: Run final production hygiene check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: npm run ops:production-hygiene -- --deployment "$DEPLOYMENT_ID"
       - name: Write final certification artifact
         shell: bash
         run: |
