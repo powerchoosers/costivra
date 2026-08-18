@@ -1,0 +1,55 @@
+{
+  "historicalBefore": "20260815120000",
+  "groups": [
+    {
+      "remote": ["20260815165420"],
+      "local": ["20260815120000"],
+      "reason": "The scanner budget migration was applied through the supported Supabase management path under a generated remote timestamp; the repository SQL is the applied migration source."
+    },
+    {
+      "remote": ["20260815212430"],
+      "local": ["20260815212355"],
+      "reason": "The public electricity vendor migration was applied through the supported management path under a generated remote timestamp; the migration name and SQL source are preserved locally."
+    },
+    {
+      "remote": ["20260816010449"],
+      "local": ["20260816010409"],
+      "reason": "The provider delivery-status migration was applied through the supported management path under a generated remote timestamp; the repository records the exact corrective SQL and live verification."
+    },
+    {
+      "remote": ["20260817001233"],
+      "local": ["20260816020000"],
+      "reason": "The scanner release-proof migration was applied through the supported management path under a generated remote timestamp; the remote name retains the original migration filename."
+    },
+    {
+      "remote": ["20260817001536"],
+      "local": ["20260816030000"],
+      "reason": "The service-only deny-policy migration was applied through the supported management path under a generated remote timestamp; the remote name retains the original migration filename."
+    },
+    {
+      "remote": ["20260817001711"],
+      "local": ["20260816040000"],
+      "reason": "The operational-alert ledger migration was applied through the supported management path under a generated remote timestamp; the remote name retains the original migration filename."
+    },
+    {
+      "remote": ["20260817031111"],
+      "local": ["20260816130000", "20260816131000"],
+      "reason": "The free-review slot and member-workspace tutorial SQL was applied as one reviewed management migration; the repository retains the two source files and their combined application is documented in STATUS.md."
+    },
+    {
+      "remote": ["20260817031714"],
+      "local": ["20260816132000"],
+      "reason": "The free-review recovery migration was applied through the supported management path under a generated remote timestamp."
+    },
+    {
+      "remote": ["20260817032056"],
+      "local": ["20260816120000", "20260816121000"],
+      "reason": "The annual billing columns and interval projection SQL was applied as one reviewed management migration; the repository retains the two source files."
+    },
+    {
+      "remote": ["20260817153830"],
+      "local": ["20260817100000"],
+      "reason": "The operational-alert delivery ledger migration was applied through the supported management path under a generated remote timestamp; the migration name and SQL source are preserved locally."
+    }
+  ]
+}

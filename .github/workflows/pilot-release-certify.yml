@@ -97,7 +97,7 @@ jobs:
           npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
           npx tsx scripts/audit-supabase-migration-parity.ts
           cp artifacts/migration-parity/report.json migration-parity.json
-          jq -e '(.LOCAL_ONLY | length) == 0 and (.REMOTE_ONLY | length) == 0 and (.VERSION_NAME_MISMATCH | length) == 0 and (.UNREADABLE | length) == 0' migration-parity.json
+          jq -e '(.UNRESOLVED_LOCAL_ONLY | length) == 0 and (.UNRESOLVED_REMOTE_ONLY | length) == 0 and (.UNRESOLVED_VERSION_NAME_MISMATCH | length) == 0 and (.UNREADABLE | length) == 0' migration-parity.json
       - name: Run exact-SHA scanner proof
         env:
           COSTIVRA_RELEASE_SHA: ${{ inputs.expected_sha }}

@@ -42,4 +42,4 @@ The three Packet 03 migrations are present locally and applied remotely:
 
 ## Limitations and next action
 
-Migration parity is structurally reconciled for the current head, but the historical rename/split differences need a human-reviewed mapping if a fully one-to-one history is required. No production migration was applied except the three narrowly scoped Packet 03 security/function fixes documented here.
+The repository now records the reviewed current-head reconciliation in `supabase/migrations/parity-reconciliation.json`. The audit uses the supported linked CLI JSON output, reports raw historical drift separately, and fails on any unresolved local-only, remote-only, or version/name mismatch. The historical rename/split differences remain documented rather than being silently renamed or repaired in the remote ledger. No production migration ledger was edited.
