@@ -1299,14 +1299,16 @@ export function ManagePortal({
             >
               <Menu size={20} />
             </button>
-            <div>
-              <small>COSTIVRA INTERNAL</small>
-              <h1>{pageTitle}</h1>
-            </div>
+          <div>
+            <small>COSTIVRA INTERNAL</small>
+            <h1>{pageTitle}</h1>
           </div>
-          <div className="manage-topbar-center">
-          {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
-            <div className="manage-create-wrap" ref={createMenuRef}>
+          </div>
+          <div className="manage-mobile-header-search">{globalSearchControl}</div>
+          <div className="workspace-header-action-group manage-header-action-group">
+            <div className="manage-topbar-center">
+            {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
+              <div className="manage-create-wrap" ref={createMenuRef}>
               <WorkspaceUtilityButton active={createMenuOpen} className="manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
                 <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
               </WorkspaceUtilityButton>
@@ -1337,15 +1339,15 @@ export function ManagePortal({
                   )}
                 </div>
               )}
+              </div>
+            )}
             </div>
-          )}
-          </div>
-          <div className="manage-top-actions">
-            <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
+            <div className="manage-top-actions">
+              <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
               <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
               <ManageNotificationCenter soundEnabled={data.operator.notificationSoundEnabled} />
-            </div>
-          {section === "mail" ? null : section === "settings" || section === "operations" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
+              </div>
+            {section === "mail" ? null : section === "settings" || section === "operations" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
               <button
                 className="manage-button manage-button--primary"
                 onClick={() => openDialog("note")}
@@ -1372,7 +1374,8 @@ export function ManagePortal({
                     ? "Add task"
                     : "Add account"}
               </button>
-            )}
+              )}
+            </div>
           </div>
         </header>
         <div

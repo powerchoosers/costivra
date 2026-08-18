@@ -1,5 +1,17 @@
 # Costivra Status
 
+## August 18, 2026 — Shared mobile header redesign
+
+- Reorganized both authenticated shells around the same mobile header contract: search/context gets its own row, while the page title and create/assistant/notification controls share one compact action row. Manage now exposes its global search in the mobile header instead of leaving search buried in the hidden desktop rail.
+- Kept the desktop three-column header behavior intact through a shared action wrapper that becomes a normal flex group only below the phone breakpoint. The layout direction was informed by Mobbin mobile dashboard references, including GitHub, SoFi, Oura, and Flighty screens.
+- Browser QA at 412×915 confirmed all three app and Manage action buttons stay in one row, Manage’s search spans the first row, both shells avoid horizontal overflow, and desktop headers remain 72px with mobile-only controls hidden. A pre-existing Manage hydration warning about responsive sidebar state remains visible in the dev console and is unrelated to the header grouping change.
+- Validation: Node 24 TSX syntax check passed and `git diff --check` passed. Full typecheck, lint, build, and release E2E gates were not rerun for this focused UI pass.
+
+## August 18, 2026 — Mobile workspace tour presentation
+
+- On phone widths, the workspace tour now presents as a focused modal: the page remains dimmed, but the behind-the-page spotlight is hidden because the highlighted target is not reliably visible beneath a mobile sheet. Desktop keeps the spatial spotlight and target walkthrough unchanged.
+- Validation: Node 24 tour-component syntax check passed, `git diff --check` passed, and the local Costivra app rendered at phone width without a framework error. The signed-in session did not start with the tour open, so the actual replay interaction was not exercised in-browser during this pass.
+
 ## August 17, 2026 — Customer and Manage mobile shell pass
 
 - Reworked the customer mobile shell so the warning banner sits above the page header, the header/search controls use a deliberate two-row layout, and the customer bottom navigation remains usable at phone widths.

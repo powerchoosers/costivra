@@ -11151,6 +11151,12 @@ button.workspace-notification-row:focus-visible {
   .workspace-tour__footer { flex-wrap:wrap; padding:13px 14px 16px; }
   .workspace-tour__progress { order:-1; flex-basis:100%; }
   .workspace-tour__progress span { width:19px; height:19px; }
+  /* On a phone the target is usually behind the sheet or outside the
+     viewport. Keep the tour focused on the readable modal instead of
+     drawing an incomplete spotlight over the page. Desktop retains the
+     spatial walkthrough and highlighted targets above. */
+  .workspace-tour__backdrop { background:rgba(8,16,29,.52); }
+  .workspace-tour__spotlight { display:none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .workspace-experience-banner-shell,.workspace-experience-banner-shell > .workspace-experience-banner,.workspace-experience-banner__progress span,.workspace-tour__backdrop,.workspace-tour__spotlight,.workspace-tour__panel { animation:none; transition:none; }
@@ -11306,4 +11312,119 @@ button.workspace-notification-row:focus-visible {
 
 @media (min-width:781px) {
   .manage-mobile-nav { display:none; }
+}
+
+/* Shared mobile header contract: one context/search row, then one page/action
+   row. Both authenticated shells use the same action grouping so a phone does
+   not inherit desktop columns that force controls onto separate lines. */
+.workspace-header-action-group { display:contents; }
+.manage-mobile-header-search { display:none; }
+
+@media (max-width:780px) {
+  .app-body .app-work-canvas > .app-topbar {
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"utilities utilities" "leading actions";
+    gap:8px 10px;
+    height:auto !important;
+    padding:10px 12px 12px;
+  }
+
+  .app-work-canvas > .app-topbar .app-topbar-leading {
+    grid-area:leading;
+    min-width:0;
+    align-self:center;
+  }
+
+  .app-work-canvas > .app-topbar .app-topbar-title strong { font-size:.92rem; }
+  .app-work-canvas > .app-topbar .app-topbar-title small { display:none; }
+  .app-work-canvas > .app-topbar .workspace-header-action-group {
+    grid-area:actions;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:6px;
+    min-width:0;
+  }
+  .app-work-canvas > .app-topbar .app-topbar-center,
+  .app-work-canvas > .app-topbar .app-top-actions {
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+    margin:0;
+  }
+  .app-work-canvas > .app-topbar .app-topbar-center { position:static; }
+  .app-work-canvas > .app-topbar .app-create-trigger,
+  .app-work-canvas > .app-topbar .app-top-actions > * {
+    width:38px;
+    min-width:38px;
+    height:38px;
+    min-height:38px;
+  }
+  .app-work-canvas > .app-topbar .app-create-trigger svg { width:18px; height:18px; }
+
+  .manage-shell-v2 .manage-topbar {
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"search search" "leading actions";
+    gap:8px 10px;
+    height:108px !important;
+    min-height:108px !important;
+    padding:10px 12px 12px;
+  }
+  .manage-mobile-header-search {
+    display:block;
+    grid-area:search;
+    min-width:0;
+  }
+  .manage-mobile-header-search .manage-global-search-wrap,
+  .manage-mobile-header-search .manage-search { width:100%; min-width:0; }
+  .manage-mobile-header-search .manage-search {
+    display:flex;
+    height:38px;
+    align-items:center;
+    gap:8px;
+    padding:0 11px;
+    border:1px solid #dce3eb;
+    border-radius:11px;
+    background:#fff;
+  }
+  .manage-mobile-header-search .manage-search input { width:100%; min-width:0; font-size:.76rem; }
+  .manage-mobile-header-search .manage-kbd { display:none; }
+  .manage-mobile-header-search .manage-global-results { top:58px; right:10px; left:10px; width:auto; }
+  .manage-shell-v2 .manage-topbar-leading { grid-area:leading; min-width:0; }
+  .manage-shell-v2 .manage-topbar-leading > div { min-width:0; }
+  .manage-shell-v2 .manage-topbar h1 { font-size:.92rem; }
+  .manage-shell-v2 .workspace-header-action-group {
+    grid-area:actions;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:6px;
+    min-width:0;
+  }
+  .manage-shell-v2 .manage-topbar-center,
+  .manage-shell-v2 .manage-top-actions,
+  .manage-shell-v2 .manage-topbar-utilities {
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+    margin:0;
+    padding:0;
+    border:0;
+    box-shadow:none;
+  }
+  .manage-shell-v2 .manage-topbar-center { position:static; }
+  .manage-shell-v2 .manage-menu,
+  .manage-shell-v2 .manage-topbar-icon,
+  .manage-shell-v2 .manage-create-trigger,
+  .manage-shell-v2 .manage-top-actions > .manage-button {
+    width:38px;
+    min-width:38px;
+    height:38px;
+    min-height:38px;
+    padding:0;
+  }
+  .manage-shell-v2 .manage-top-actions > .manage-button { font-size:0; }
+  .manage-shell-v2 .manage-top-actions > .manage-button svg { margin:0; }
 }

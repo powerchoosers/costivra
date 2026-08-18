@@ -705,8 +705,9 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 <small>{appHeader.description}</small>
               </div>
             </div>
-            <div className="app-topbar-center">
-              <div className="app-create-wrap" ref={createMenuRef}>
+            <div className="workspace-header-action-group">
+              <div className="app-topbar-center">
+                <div className="app-create-wrap" ref={createMenuRef}>
                 <WorkspaceUtilityButton
                   active={createMenuOpen}
                   className="app-create-trigger"
@@ -719,7 +720,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 >
                   <Plus aria-hidden="true" size={18} strokeWidth={2.2} />
                 </WorkspaceUtilityButton>
-                <div className={`app-create-menu${createMenuOpen ? " is-open" : ""}`} role="menu" aria-label="Add to workspace" aria-hidden={!createMenuOpen}>
+                  <div className={`app-create-menu${createMenuOpen ? " is-open" : ""}`} role="menu" aria-label="Add to workspace" aria-hidden={!createMenuOpen}>
                     <Link href={pathname} role="menuitem" onClick={(event) => { event.preventDefault(); openGlobalCreateAction("upload"); }}>
                       <span className="app-create-icon"><Upload aria-hidden="true" size={16} /></span>
                       <span className="app-create-label"><strong>Upload document</strong><small>Bill, contract, or source file</small></span>
@@ -732,30 +733,30 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                       <span className="app-create-icon"><FileText aria-hidden="true" size={16} /></span>
                       <span className="app-create-label"><strong>Add contract</strong><small>Track renewal terms and dates</small></span>
                     </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className="top-actions app-top-actions">
-              <ClientAssistantTrigger />
-              <WorkspaceNotificationCenter
-                notifications={data.notifications.map((notification) => ({
-                  id: notification.id,
-                  title: notification.title,
-                  body: notification.body,
-                  createdAt: notification.createdAt,
-                  readAt: notification.readAt,
-                }))}
-                onMarkAllRead={() => markNotificationsRead()}
-                onNotificationSelect={(notification) => {
-                  if (!notification.readAt) return markNotificationRead(notification.id);
-                }}
-                onOpenChange={(open) => {
-                  setNotificationsOpen(open);
-                  if (open) setProfileOpen(false);
-                }}
-                open={notificationsOpen}
-              />
+              <div className="top-actions app-top-actions">
+                <ClientAssistantTrigger />
+                <WorkspaceNotificationCenter
+                  notifications={data.notifications.map((notification) => ({
+                    id: notification.id,
+                    title: notification.title,
+                    body: notification.body,
+                    createdAt: notification.createdAt,
+                    readAt: notification.readAt,
+                  }))}
+                  onMarkAllRead={() => markNotificationsRead()}
+                  onNotificationSelect={(notification) => {
+                    if (!notification.readAt) return markNotificationRead(notification.id);
+                  }}
+                  onOpenChange={(open) => {
+                    setNotificationsOpen(open);
+                    if (open) setProfileOpen(false);
+                  }}
+                  open={notificationsOpen}
+                />
+              </div>
             </div>
             </div>
 
