@@ -740,6 +740,8 @@ export function ManagePortal({
   const [searchClosing, setSearchClosing] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchSheetRef = useRef<HTMLDivElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const sidebarTooltipCloseTimerRef = useRef<number | null>(null);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -838,6 +840,10 @@ export function ManagePortal({
   }, []);
 
   useEffect(() => {
+    if (searchFocused) window.requestAnimationFrame(() => mobileSearchInputRef.current?.focus());
+  }, [searchFocused]);
+
+  useEffect(() => {
     if (!sidebarPreferenceLoaded || sidebarViewport === "mobile") return;
     try {
       window.sessionStorage.setItem(
@@ -916,7 +922,7 @@ export function ManagePortal({
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
-      if (!searchContainerRef.current?.contains(event.target as Node)) closeSearch();
+      if (!searchContainerRef.current?.contains(event.target as Node) && !mobileSearchSheetRef.current?.contains(event.target as Node) && !(event.target as Element).closest?.(".workspace-mobile-search-trigger")) closeSearch();
       if (!createMenuRef.current?.contains(event.target as Node)) closeCreateMenu();
       if (!profileMenuRef.current?.contains(event.target as Node)) closeProfileMenu();
     }
@@ -1304,8 +1310,10 @@ export function ManagePortal({
             <h1>{pageTitle}</h1>
           </div>
           </div>
-          <div className="manage-mobile-header-search">{globalSearchControl}</div>
           <div className="workspace-header-action-group manage-header-action-group">
+            <button className={`workspace-mobile-search-trigger manage-mobile-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="manage-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
+              <Search aria-hidden="true" size={17} />
+            </button>
             <div className="manage-topbar-center">
             {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
               <div className="manage-create-wrap" ref={createMenuRef}>
@@ -1378,6 +1386,21 @@ export function ManagePortal({
             </div>
           </div>
         </header>
+        {(searchFocused || searchClosing) && (
+          <>
+            <button className="workspace-mobile-search-overlay" type="button" aria-label="Close search" onClick={closeSearch} />
+            <div className={`workspace-mobile-search-sheet${searchClosing ? " is-closing" : ""}`} id="manage-mobile-search-modal" ref={mobileSearchSheetRef} role="dialog" aria-modal="true" aria-label="Search all Costivra records">
+              <div className="workspace-mobile-search-sheet__header">
+                <label className="manage-search global-search workspace-mobile-search-sheet__input-wrap">
+                  <Search aria-hidden="true" size={16} />
+                  <input ref={mobileSearchInputRef} autoFocus aria-label="Search all Costivra records" type="text" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search all Costivra records" />
+                </label>
+                <button className="workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
+              </div>
+              {search.trim() && <div className={`manage-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Global search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="manage-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}{category === currentSearchOrder(section)[0] && <span>Current page</span>}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="manage-global-no-results">No records match “{search.trim()}”.</p>}</div>}
+            </div>
+          </>
+        )}
         <div
           key={section}
           data-workspace-scrollbar=""

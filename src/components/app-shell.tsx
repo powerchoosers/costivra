@@ -293,6 +293,8 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 
   const currentPathname = optimisticHref ?? pathname;
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchSheetRef = useRef<HTMLDivElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -406,7 +408,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node) && !mobileSearchSheetRef.current?.contains(event.target as Node) && !(event.target as Element).closest?.(".workspace-mobile-search-trigger")) {
         closeSearch();
       }
       if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) {
@@ -424,7 +426,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        document.querySelector<HTMLInputElement>(window.innerWidth <= 760 ? ".app-mobile-utilities input[aria-label='Search Costivra records']" : ".app-sidebar-search input[aria-label='Search Costivra records']")?.focus();
+        (window.innerWidth <= 760 ? mobileSearchInputRef.current : document.querySelector<HTMLInputElement>(".app-sidebar-search input[aria-label='Search Costivra records']"))?.focus();
         setSearchFocused(true);
         setSearchClosing(false);
       } else if (e.key === "Escape") {
@@ -440,6 +442,10 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeSearch]);
+
+  useEffect(() => {
+    if (searchFocused) window.requestAnimationFrame(() => mobileSearchInputRef.current?.focus());
+  }, [searchFocused]);
 
   const results = useMemo(() => appSearchResults(data, searchQuery), [data, searchQuery]);
   const resultsByCategory = useMemo(() => {
@@ -549,10 +555,9 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         </button>
         {orgOpen && <div className="app-organization-menu"><div className="app-organization-menu-heading"><CompanyLogo entity="organization" id={data.organization.id} name={data.organization.name} className="app-organization-menu-logo" /><span><strong>{data.organization.name}</strong><small>{data.locations.length} location{data.locations.length === 1 ? "" : "s"}</small></span></div><div className="app-organization-menu-stat"><span>Source documents</span><strong>{data.documents.length}</strong></div><div className="app-organization-menu-stat"><span>Monitored spend</span><strong>{new Intl.NumberFormat("en-US", { style:"currency", currency:data.organization.currency, notation:"compact", maximumFractionDigits:1 }).format(spend)} / yr</strong></div></div>}
       </div>
-      <div className="app-mobile-utility-search app-global-search-wrap">
-        <label className="manage-search global-search"><MagnifyingGlass aria-hidden="true" size={15} /><input aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search..." /><span className="manage-kbd">⌘K</span></label>
-        {(searchFocused || searchClosing) && searchQuery.trim() && <div className={`app-global-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}</div>}
-      </div>
+      <button className={`workspace-mobile-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="app-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
+        <MagnifyingGlass aria-hidden="true" size={17} />
+      </button>
     </div>
   );
   return (
@@ -762,6 +767,22 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 
             {children}
           </div>
+
+          {(searchFocused || searchClosing) && (
+            <>
+              <button className="workspace-mobile-search-overlay" type="button" aria-label="Close search" onClick={closeSearch} />
+              <div className={`workspace-mobile-search-sheet${searchClosing ? " is-closing" : ""}`} id="app-mobile-search-modal" ref={mobileSearchSheetRef} role="dialog" aria-modal="true" aria-label="Search Costivra records">
+                <div className="workspace-mobile-search-sheet__header">
+                  <label className="manage-search global-search workspace-mobile-search-sheet__input-wrap">
+                    <MagnifyingGlass aria-hidden="true" size={16} />
+                    <input ref={mobileSearchInputRef} autoFocus aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search Costivra records" />
+                  </label>
+                  <button className="workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
+                </div>
+                {searchQuery.trim() && <div className={`app-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}</div>}
+              </div>
+            </>
+          )}
 
           <nav className="app-mobile-nav" aria-label="Mobile workspace navigation">
             <Link className={isRouteActive("/app", pathname) ? "active" : ""} href="/app" aria-label="Open Command Center" onClick={() => setMobileMenuOpen(false)}>

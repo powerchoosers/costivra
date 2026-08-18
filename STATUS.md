@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 18, 2026 — Mobile search sheet
+
+- Replaced the full-width mobile search fields in both `/app` and `/manage` with the same compact search icon treatment. Opening the icon shows an animated, dismissible search sheet with a visible focus ring on the trigger; existing categorized result content remains inside the sheet and keeps its entrance/exit animation.
+- Desktop rail search remains unchanged. Added mobile focus behavior for the keyboard shortcut, Escape/backdrop close behavior, reduced-motion handling, and accessible dialog labels.
+- Browser QA at 412×915 confirmed opening, active state, typing `AT&T` in `/app`, typing `Apex` in `/manage`, categorized results, and animated close/unmount in both shells. A mobile screenshot was captured during the app check.
+- Validation: direct `tsc --noEmit` passed and `git diff --check` passed. `pnpm typecheck` could not run because the installed pnpm attempted to run ignored dependency build scripts; the only available bundled Node executable reported `v22.22.2`, while the repository requires Node 24. Full lint, build, and release gates were not rerun for this focused UI pass.
+
 ## August 18, 2026 — Shared mobile header redesign
 
 - Reorganized both authenticated shells around the same mobile header contract: search/context gets its own row, while the page title and create/assistant/notification controls share one compact action row. Manage now exposes its global search in the mobile header instead of leaving search buried in the hidden desktop rail.
