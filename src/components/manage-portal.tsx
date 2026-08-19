@@ -2270,16 +2270,17 @@ function AccountInspector({
 
   return (
     <aside className="manage-panel manage-inspector">
-      <header className="manage-inspector-header">
-        <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-account manage-inspector-record-card" title={`Open ${account.name}`}>
-          <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />
-          <div>
-            <h3>{account.name}</h3>
-            <p>{account.industry || "Industry not set"}</p>
-          </div>
-        </Link>
-      </header>
-      <div className="manage-inspector-tabs" style={{ "--active-tab": tab === "overview" ? 0 : tab === "timeline" ? 1 : 2 } as CSSProperties}>
+      <div className="manage-inspector-account-content" key={account.id}>
+        <header className="manage-inspector-header">
+          <Link href={`/manage/accounts/${account.id}`} className="manage-inspector-account manage-inspector-record-card" title={`Open ${account.name}`}>
+            <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-account-avatar" />
+            <div>
+              <h3>{account.name}</h3>
+              <p>{account.industry || "Industry not set"}</p>
+            </div>
+          </Link>
+        </header>
+        <div className="manage-inspector-tabs" style={{ "--active-tab": tab === "overview" ? 0 : tab === "timeline" ? 1 : 2 } as CSSProperties}>
         <button
           className={tab === "overview" ? "active" : ""}
           onClick={() => setTab("overview")}
@@ -2298,9 +2299,9 @@ function AccountInspector({
         >
           Contacts ({contacts.length})
         </button>
-      </div>
+        </div>
 
-      <div key={tab} className="manage-inspector-tab-panel">
+        <div key={tab} className="manage-inspector-tab-panel">
       {tab === "overview" && (
         <>
           <dl>
@@ -2418,12 +2419,13 @@ function AccountInspector({
           )}
         </div>
       )}
-      </div>
+        </div>
 
-      <p className="manage-inspector-note">
-        Customer workspaces stay tenant-isolated. This portal shows operational
-        context without impersonating a client.
-      </p>
+        <p className="manage-inspector-note">
+          Customer workspaces stay tenant-isolated. This portal shows operational
+          context without impersonating a client.
+        </p>
+      </div>
     </aside>
   );
 }

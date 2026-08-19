@@ -2602,11 +2602,13 @@ html { scroll-padding-top: 92px; }
 .manage-inspector-tabs button, .manage-inspector-tabs a { padding:12px 0 10px; background:none; border:0; color:#7a8494; font-size:.67rem; font-weight:680; text-decoration:none; }
 .manage-inspector-tabs .active { color:#1d4ed8; }
 .manage-inspector { min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.manage-inspector-account-content { display:flex; min-height:0; flex:1; flex-direction:column; animation:manage-inspector-account-change 200ms cubic-bezier(.23,1,.32,1) both; }
 .manage-inspector-tab-panel { min-height:0; flex:1; overflow-y:auto; overscroll-behavior-x:contain; overscroll-behavior-y:auto; animation:manage-inspector-panel-in 180ms cubic-bezier(.23,1,.32,1) both; }
 .manage-inspector-tab-panel dl>div, .manage-inspector-tab-panel .manage-compact-list article, .manage-inspector-tab-panel .manage-compact-record-row, .manage-inspector-tab-panel .manage-empty { animation:manage-inspector-item-in 200ms cubic-bezier(.23,1,.32,1) both; }
 .manage-inspector-tab-panel dl>div:nth-child(2) { animation-delay:25ms; }.manage-inspector-tab-panel dl>div:nth-child(3) { animation-delay:50ms; }.manage-inspector-tab-panel dl>div:nth-child(4) { animation-delay:75ms; }.manage-inspector-tab-panel dl>div:nth-child(5) { animation-delay:100ms; }
 @keyframes manage-inspector-panel-in { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
 @keyframes manage-inspector-item-in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+@keyframes manage-inspector-account-change { from { opacity:.28; transform:translateX(8px); } to { opacity:1; transform:translateX(0); } }
 .manage-inspector dl { margin:0; padding:7px 18px; }
 .manage-inspector dl>div { display:flex; justify-content:space-between; gap:16px; padding:14px 0; border-bottom:1px solid #edf0f3; }
 .manage-inspector dt { color:#7d8795; font-size:.66rem; }
@@ -3967,6 +3969,7 @@ html { scroll-padding-top: 92px; }
   .manage-outreach-task-origin { margin-left:41px; }
   .manage-outreach-task-actions button { margin-left:0; }
 }
+@media (prefers-reduced-motion: reduce) { .manage-inspector-account-content { animation:none; } }
 .manage-app .global-back-control__floating { top:84px; left:calc(72px + 20px); }
 .manage-app:not(.is-assistant-open) .manage-sidebar:not(.is-collapsed) ~ .manage-main .global-back-control__floating { left:258px; }
 @media (max-width:780px) { .global-back-control__floating,.manage-app .global-back-control__floating { top:calc(72px + env(safe-area-inset-top)); left:12px; max-width:calc(100vw - 24px); } .global-back-control { margin-bottom:15px; } .manage-outreach-context-row { margin-bottom:15px; } .manage-outreach-board-toolbar { margin-bottom:14px; } .manage-outreach-priority-filter__menu { max-width:calc(100vw - 32px); } }

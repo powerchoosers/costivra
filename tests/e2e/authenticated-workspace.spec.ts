@@ -1132,6 +1132,18 @@ test.describe("authenticated customer workspace", () => {
 
       await page.goto("/manage");
       await expect(page.getByRole("heading", { name: "Client operations" })).toBeVisible({ timeout: 30_000 });
+      const accountRows = page.locator(".manage-account-data-table tbody tr");
+      const inspector = page.locator(".manage-inspector-account-content");
+      await expect(accountRows).toHaveCount(8);
+      const initialInspectorName = await inspector.getByRole("heading", { level: 3 }).innerText();
+      await accountRows.nth(1).click();
+      await expect(inspector.getByRole("heading", { level: 3 })).not.toHaveText(initialInspectorName);
+      const inspectorMotion = await inspector.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { duration: style.animationDuration, name: style.animationName };
+      });
+      expect(inspectorMotion.name).toContain("manage-inspector-account-change");
+      expect(inspectorMotion.duration).not.toBe("0s");
       await expectNotificationMotion();
       expect(failures).toEqual([]);
     } finally {
