@@ -286,6 +286,7 @@ textarea:focus-visible {
   .manage-shell-v2 .manage-topbar-utilities { gap:4px; }
   .app-body .app-work-canvas > .app-topbar .app-create-trigger,
   .app-body .app-work-canvas > .app-topbar .app-top-actions > *,
+  .app-body .app-work-canvas > .app-topbar .workspace-notification-center__trigger,
   .app-body .app-work-canvas > .app-topbar .workspace-mobile-search-trigger,
   .manage-shell-v2 .manage-menu,
   .manage-shell-v2 .manage-topbar-icon,
@@ -11136,8 +11137,8 @@ button.workspace-notification-row:focus-visible {
 }
 
 /* First-run product journey: the free boundary stays visible inside the real workspace. */
-.workspace-experience-banner-shell { display:grid; grid-template-rows:minmax(0,0fr); padding-top:12px; transition:grid-template-rows 260ms cubic-bezier(.23,1,.32,1); }
-.workspace-experience-banner-shell.is-visible { grid-template-rows:minmax(0,1fr); }
+.workspace-experience-banner-shell { display:grid; grid-template-rows:minmax(0,0fr); padding-top:0; transition:grid-template-rows 260ms cubic-bezier(.23,1,.32,1), padding-top 180ms ease-out; }
+.workspace-experience-banner-shell.is-visible { grid-template-rows:minmax(0,1fr); padding-top:12px; }
 .workspace-experience-banner-shell > .workspace-experience-banner { min-height:0; overflow:hidden; opacity:0; transform:translateY(-8px); transition:opacity 180ms ease-out, transform 260ms cubic-bezier(.23,1,.32,1); }
 .workspace-experience-banner-shell.is-visible > .workspace-experience-banner { opacity:1; transform:translateY(0); }
 .workspace-experience-banner-shell:not(.is-visible) > .workspace-experience-banner { visibility:hidden; pointer-events:none; }
@@ -11526,11 +11527,13 @@ button.workspace-notification-row:focus-visible {
 @media (max-width:780px) {
   .app-body .app-work-canvas > .app-topbar {
     grid-template-columns:minmax(0,1fr) auto;
-    grid-template-areas:"utilities utilities" "leading actions";
-    gap:8px 10px;
-    height:auto !important;
-    padding:10px 12px 12px;
+    grid-template-areas:"leading actions";
+    gap:0 12px;
+    height:64px !important;
+    min-height:64px !important;
+    padding:8px 12px !important;
   }
+  .app-body .app-work-canvas > .app-topbar > .app-mobile-utilities { display:none !important; }
 
   .app-work-canvas > .app-topbar .app-topbar-leading {
     grid-area:leading;

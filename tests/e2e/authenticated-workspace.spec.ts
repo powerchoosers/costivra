@@ -956,6 +956,9 @@ test.describe("authenticated customer workspace", () => {
 
       await page.getByRole("button", { name: "Dismiss free review notice" }).click();
       await expect(banner).toHaveAttribute("aria-hidden", "true");
+      await expect
+        .poll(() => page.locator(".workspace-experience-banner-shell").evaluate((element) => element.getBoundingClientRect().height))
+        .toBeLessThanOrEqual(1);
 
       const appHeaderGeometry = await page.locator(".app-work-canvas > .app-topbar").evaluate((header) => {
         const rectFor = (selector: string) => {
@@ -980,12 +983,15 @@ test.describe("authenticated customer workspace", () => {
           buttons,
           height: rect.height,
           leading: rectFor(".app-topbar-leading"),
+          notification: rectFor(".workspace-notification-center__trigger"),
           overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         };
       });
       expect(appHeaderGeometry.height).toBeLessThanOrEqual(72);
       expect(appHeaderGeometry.overflow).toBeLessThanOrEqual(1);
       expect(appHeaderGeometry.leading?.right ?? 0).toBeLessThanOrEqual((appHeaderGeometry.actions?.left ?? 0) + 1);
+      expect(appHeaderGeometry.notification?.right ?? 0).toBeLessThanOrEqual(390);
+      expect((appHeaderGeometry.notification?.right ?? 0) - (appHeaderGeometry.notification?.left ?? 0)).toBeLessThanOrEqual(34);
       for (let index = 1; index < appHeaderGeometry.buttons.length; index += 1) {
         expect(appHeaderGeometry.buttons[index - 1].right).toBeLessThanOrEqual(appHeaderGeometry.buttons[index].left + 1);
       }
