@@ -917,4 +917,169 @@ test.describe("authenticated customer workspace", () => {
       await removeWorkspaceFixture(fixture);
     }
   });
+
+  test("keeps mobile workspace controls interactive in customer and owner shells", async ({ page }) => {
+    test.setTimeout(180_000);
+    const fixture = await createWorkspaceFixture();
+    const failures = collectRuntimeFailures(page);
+
+    try {
+      await page.setViewportSize({ width: 390, height: 844 });
+      // Land on the established authenticated route first. This lets the
+      // browser finish writing the Supabase session before the root workspace
+      // route asks the server for tenant-scoped data.
+      await page.goto("/login?next=/app/findings");
+      await page.getByRole("textbox", { name: "Work email" }).fill(fixture.email);
+      await page.getByRole("textbox", { name: "Password" }).fill(fixture.password);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page).toHaveURL(/\/app\/findings$/, { timeout: 30_000 });
+      await expect(page.getByRole("navigation", { name: "Finding views" })).toBeVisible({ timeout: 30_000 });
+      await page.goto("/app");
+      await expect(page).toHaveURL(/\/app$/, { timeout: 30_000 });
+      await expect(page.locator(".app-work-canvas > .app-topbar")).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => window.matchMedia("(max-width: 780px)").matches))
+        .toBe(true);
+
+      const tour = page.locator(".workspace-tour__panel");
+      // The tour is fetched after the route shell mounts. Wait for it instead
+      // of sampling visibility too early; its backdrop intentionally prevents
+      // interacting with the underlying workspace while the tour is open.
+      await expect(tour).toBeVisible({ timeout: 30_000 });
+      await tour.getByRole("button", { name: "Skip tour", exact: true }).click();
+      await expect(tour).toBeHidden();
+
+      const banner = page.locator(".workspace-experience-banner--free");
+      await expect(banner).toBeVisible({ timeout: 30_000 });
+      const bannerBounds = await banner.boundingBox();
+      expect(bannerBounds?.y ?? 0).toBeGreaterThanOrEqual(8);
+
+      await page.getByRole("button", { name: "Dismiss free review notice" }).click();
+      await expect(banner).toHaveAttribute("aria-hidden", "true");
+
+      const appHeaderGeometry = await page.locator(".app-work-canvas > .app-topbar").evaluate((header) => {
+        const rectFor = (selector: string) => {
+          const element = header.querySelector<HTMLElement>(selector);
+          if (!element || !element.getClientRects().length) return null;
+          const rect = element.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+        };
+        const actionGroup = header.querySelector<HTMLElement>(".workspace-header-action-group");
+        const buttons = Array.from(actionGroup?.querySelectorAll<HTMLElement>("button") ?? [])
+          .filter((button) => button.getClientRects().length)
+          .map((button) => {
+            const rect = button.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+          })
+          .sort((first, second) => first.left - second.left);
+        const rect = header.getBoundingClientRect();
+        return {
+          actions: buttons.length
+            ? { left: buttons[0].left, right: buttons[buttons.length - 1].right }
+            : rectFor(".workspace-header-action-group"),
+          buttons,
+          height: rect.height,
+          leading: rectFor(".app-topbar-leading"),
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      expect(appHeaderGeometry.height).toBeLessThanOrEqual(72);
+      expect(appHeaderGeometry.overflow).toBeLessThanOrEqual(1);
+      expect(appHeaderGeometry.leading?.right ?? 0).toBeLessThanOrEqual((appHeaderGeometry.actions?.left ?? 0) + 1);
+      for (let index = 1; index < appHeaderGeometry.buttons.length; index += 1) {
+        expect(appHeaderGeometry.buttons[index - 1].right).toBeLessThanOrEqual(appHeaderGeometry.buttons[index].left + 1);
+      }
+
+      const notificationTrigger = page.getByRole("button", { name: /^Notifications\./ });
+      await notificationTrigger.click();
+      await expect(page.getByRole("dialog", { name: "Notifications" })).toBeVisible();
+      await notificationTrigger.click();
+      await expect(page.getByRole("dialog", { name: "Notifications" })).toBeHidden();
+
+      await page.getByRole("button", { name: "Open search" }).click();
+      const appSearch = page.getByRole("dialog", { name: "Search Costivra records" });
+      await expect(appSearch).toBeVisible();
+      await appSearch.getByRole("button", { name: "Close search" }).click();
+      await expect(appSearch).toBeHidden();
+      await expect(page.locator(".workspace-mobile-search-overlay")).toHaveCount(0);
+
+      await page.getByRole("link", { name: "Open Bills & Spend" }).click();
+      await expect(page).toHaveURL(/\/app\/bills$/, { timeout: 30_000 });
+      await expect(banner).toHaveAttribute("aria-hidden", "true");
+      await expect(page.locator(".workspace-mobile-search-overlay")).toHaveCount(0);
+
+      const staff = await fixture.admin.from("internal_staff_users").insert({
+        user_id: fixture.userId,
+        role: "owner",
+        status: "active",
+      });
+      if (staff.error) throw staff.error;
+
+      await page.goto("/manage");
+      await expect(page.getByRole("heading", { name: "Client operations" })).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator(".manage-topbar")).toBeVisible();
+
+      const manageHeaderGeometry = await page.locator(".manage-topbar").evaluate((header) => {
+        const rectFor = (selector: string) => {
+          const element = header.querySelector<HTMLElement>(selector);
+          if (!element || !element.getClientRects().length) return null;
+          const rect = element.getBoundingClientRect();
+          return { left: rect.left, right: rect.right };
+        };
+        const actionGroup = header.querySelector<HTMLElement>(".workspace-header-action-group");
+        const buttons = Array.from(actionGroup?.querySelectorAll<HTMLElement>("button") ?? [])
+          .filter((button) => button.getClientRects().length)
+          .map((button) => {
+            const rect = button.getBoundingClientRect();
+            return { left: rect.left, right: rect.right };
+          })
+          .sort((first, second) => first.left - second.left);
+        const rect = header.getBoundingClientRect();
+        return {
+          actions: buttons.length
+            ? { left: buttons[0].left, right: buttons[buttons.length - 1].right }
+            : rectFor(".workspace-header-action-group"),
+          buttons,
+          height: rect.height,
+          leading: rectFor(".manage-topbar-leading"),
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      expect(manageHeaderGeometry.height).toBeLessThanOrEqual(72);
+      expect(manageHeaderGeometry.overflow).toBeLessThanOrEqual(1);
+      expect(manageHeaderGeometry.leading?.right ?? 0).toBeLessThanOrEqual((manageHeaderGeometry.actions?.left ?? 0) + 1);
+      for (let index = 1; index < manageHeaderGeometry.buttons.length; index += 1) {
+        expect(manageHeaderGeometry.buttons[index - 1].right).toBeLessThanOrEqual(manageHeaderGeometry.buttons[index].left + 1);
+      }
+
+      await page.getByRole("button", { name: "Open more owner operations" }).click();
+      const manageNavigation = page.getByRole("dialog", { name: "Owner operations navigation" });
+      await expect(manageNavigation).toBeVisible();
+      await expect(manageNavigation.getByRole("link", { name: "Mail", exact: true })).toBeVisible();
+      await expect(manageNavigation.getByRole("link", { name: "Operations", exact: true })).toBeVisible();
+      await manageNavigation.getByRole("button", { name: "Close menu" }).click();
+      await expect(manageNavigation).toBeHidden();
+
+      await page.getByRole("button", { name: "Open menu" }).click();
+      await expect(manageNavigation).toBeVisible();
+      await manageNavigation.getByRole("link", { name: "Operations", exact: true }).click();
+      await expect(page).toHaveURL(/\/manage\/operations$/, { timeout: 30_000 });
+      await expect(manageNavigation).toBeHidden();
+
+      await page.getByRole("button", { name: "Open search" }).click();
+      const manageSearch = page.getByRole("dialog", { name: "Search all Costivra records" });
+      await expect(manageSearch).toBeVisible();
+      await manageSearch.getByRole("button", { name: "Close search" }).click();
+      await expect(manageSearch).toBeHidden();
+      await expect(page.locator(".workspace-mobile-search-overlay")).toHaveCount(0);
+      expect(failures).toEqual([]);
+    } finally {
+      const removedStaff = await fixture.admin
+        .from("internal_staff_users")
+        .delete()
+        .eq("user_id", fixture.userId);
+      if (removedStaff.error) throw removedStaff.error;
+      await removeWorkspaceFixture(fixture);
+    }
+  });
 });

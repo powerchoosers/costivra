@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 18, 2026 — Mobile workspace interactions and Manage navigation sheet
+
+- Fixed the customer-workspace tap interception that made ordinary mobile controls appear unclickable. The shared outside-click handler was starting the search close animation even when search was already closed, which briefly mounted a full-screen search overlay between pointer-down and click. It now does nothing unless search is genuinely open; the closing overlay is also non-interactive while it animates away.
+- Restored the free-review close button to ordinary click behavior now that the overlay conflict is removed. The banner retains its existing mobile inset rather than touching the viewport edge.
+- Replaced Manage's phone-only left-rail behavior with a focused, dismissible navigation sheet matching the App's mobile Menu model. The persistent dock still exposes Overview, Accounts, Contacts, Outreach, and More; More (or the header menu) opens the complete internal navigation with Settings and Sign out. Desktop and compact Manage rails retain their saved preference behavior.
+- Validation: `git diff --check` passed, and the Node 24 workspace-shell unit slice passed (3/3). Focused Node 24 ESLint/typecheck attempts were stopped after they produced no diagnostics in the active local multi-process environment, so they are not recorded as passes. Authenticated mobile browser QA is currently session-gated; no production data or disposable test accounts were created for this UI change.
+
 ## August 18, 2026 — One-row mobile workspace headers
 
 - Refined both mobile headers into a single 64px row. The customer company badge is no longer shown in the mobile header; search now sits with the other actions, and the controls use compact rounded tool buttons instead of a crowded set of circles.

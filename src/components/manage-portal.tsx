@@ -712,16 +712,11 @@ export function ManagePortal({
   const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : outreachSequenceId ? "Sequences" : "Client operations";
   useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
-  const [mobileNav, setMobileNav] = useState(() => {
-    // Start closed so a phone never flashes the desktop rail before the
-    // responsive viewport effect has classified the device.
-    if (typeof window === "undefined") return false;
-    try {
-      return window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY) !== "true";
-    } catch {
-      return true;
-    }
-  });
+  // Keep the first client render deterministic; the viewport effect below
+  // restores the saved desktop/compact rail preference after hydration.
+  const [mobileNav, setMobileNav] = useState(false);
+  const [manageMobileMenuOpen, setManageMobileMenuOpen] = useState(false);
+  const [manageMobileMenuClosing, setManageMobileMenuClosing] = useState(false);
   const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -777,6 +772,8 @@ export function ManagePortal({
             ? "compact"
             : "desktop";
       setSidebarViewport(nextViewport);
+      setManageMobileMenuOpen(false);
+      setManageMobileMenuClosing(false);
       let storedCollapsed: boolean | null = null;
       try {
         const storedPreference = window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY);
@@ -840,6 +837,15 @@ export function ManagePortal({
   }, []);
 
   useEffect(() => {
+    if (!manageMobileMenuOpen && !manageMobileMenuClosing) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [manageMobileMenuClosing, manageMobileMenuOpen]);
+
+  useEffect(() => {
     if (searchFocused) window.requestAnimationFrame(() => mobileSearchInputRef.current?.focus());
   }, [searchFocused]);
 
@@ -855,11 +861,25 @@ export function ManagePortal({
     }
   }, [mobileNav, sidebarPreferenceLoaded, sidebarViewport]);
 
+  const closeManageMobileMenu = useCallback(() => {
+    if (!manageMobileMenuOpen || manageMobileMenuClosing) return;
+    setManageMobileMenuClosing(true);
+    window.setTimeout(() => {
+      setManageMobileMenuOpen(false);
+      setManageMobileMenuClosing(false);
+    }, MANAGE_MODAL_CLOSE_DURATION_MS);
+  }, [manageMobileMenuClosing, manageMobileMenuOpen]);
+
+  const openManageMobileMenu = useCallback(() => {
+    if (manageMobileMenuClosing) return;
+    setManageMobileMenuOpen(true);
+  }, [manageMobileMenuClosing]);
+
   const handleManageNavSelect = useCallback(() => {
     // Customer and internal rails keep their desktop/compact state across route
     // changes. Only a real mobile navigation closes after a selection.
-    if (sidebarViewport === "mobile") setMobileNav(false);
-  }, [sidebarViewport]);
+    if (sidebarViewport === "mobile") closeManageMobileMenu();
+  }, [closeManageMobileMenu, sidebarViewport]);
 
   const closeSearch = useCallback(() => {
     if (!searchFocused || searchClosing) return;
@@ -929,7 +949,7 @@ export function ManagePortal({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         closeProfileMenu();
-        if (sidebarViewport === "mobile") setMobileNav(false);
+        if (sidebarViewport === "mobile") closeManageMobileMenu();
       }
     }
     document.addEventListener("pointerdown", handlePointerDown);
@@ -938,7 +958,7 @@ export function ManagePortal({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeCreateMenu, closeProfileMenu, closeSearch, sidebarViewport]);
+  }, [closeCreateMenu, closeManageMobileMenu, closeProfileMenu, closeSearch, sidebarViewport]);
 
   const results = useMemo(
     () => globalSearchResults(data, search),
@@ -1278,13 +1298,6 @@ export function ManagePortal({
           </div>
         </div>
       </aside>
-      {mobileNav && sidebarViewport === "mobile" && (
-        <button
-          className="manage-nav-scrim"
-          aria-label="Close menu"
-          onClick={() => setMobileNav(false)}
-        />
-      )}
       <main className={`manage-main${sidebarIsCollapsed ? " is-collapsed" : ""}`} data-workspace-slot="canvas">
         <header className="manage-topbar" data-workspace-slot="topbar">
           <div className="manage-topbar-leading">
@@ -1292,7 +1305,7 @@ export function ManagePortal({
               className="manage-menu"
               onClick={() => {
                 if (sidebarViewport === "mobile") {
-                  setMobileNav(true);
+                  openManageMobileMenu();
                   return;
                 }
                 clearSidebarTooltip();
@@ -1300,8 +1313,8 @@ export function ManagePortal({
                 setMobileNav((current) => !current);
               }}
               aria-label={sidebarViewport === "mobile" ? "Open menu" : sidebarIsCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-controls="manage-owner-sidebar"
-              aria-expanded={sidebarViewport === "mobile" ? mobileNav : !sidebarIsCollapsed}
+              aria-controls={sidebarViewport === "mobile" ? "manage-mobile-navigation" : "manage-owner-sidebar"}
+              aria-expanded={sidebarViewport === "mobile" ? manageMobileMenuOpen : !sidebarIsCollapsed}
             >
               <Menu size={20} />
             </button>
@@ -1388,7 +1401,7 @@ export function ManagePortal({
         </header>
         {(searchFocused || searchClosing) && (
           <>
-            <button className="workspace-mobile-search-overlay" type="button" aria-label="Close search" onClick={closeSearch} />
+            <button className={`workspace-mobile-search-overlay${searchClosing ? " is-closing" : ""}`} type="button" aria-label="Close search" onClick={closeSearch} />
             <div className={`workspace-mobile-search-sheet${searchClosing ? " is-closing" : ""}`} id="manage-mobile-search-modal" ref={mobileSearchSheetRef} role="dialog" aria-modal="true" aria-label="Search all Costivra records">
               <div className="workspace-mobile-search-sheet__header">
                 <label className="manage-search global-search workspace-mobile-search-sheet__input-wrap">
@@ -1496,7 +1509,7 @@ export function ManagePortal({
           )}
         </div>
       </main>
-      <nav className={`manage-mobile-nav${mobileNav ? " is-menu-open" : ""}`} aria-label="Owner operations mobile navigation">
+      <nav className="manage-mobile-nav" aria-label="Owner operations mobile navigation">
         {([
           ["Overview", "/manage", LayoutDashboard],
           ["Accounts", "/manage/accounts", Building2],
@@ -1523,15 +1536,98 @@ export function ManagePortal({
         })}
         <button
           type="button"
-          className={mobileNav ? "active" : ""}
+          className={manageMobileMenuOpen ? "active" : ""}
           aria-label="Open more owner operations"
-          aria-expanded={mobileNav}
-          onClick={() => setMobileNav(true)}
+          aria-expanded={manageMobileMenuOpen}
+          aria-controls="manage-mobile-navigation"
+          onClick={() => manageMobileMenuOpen ? closeManageMobileMenu() : openManageMobileMenu()}
         >
           <Menu size={18} aria-hidden="true" />
           <span>More</span>
         </button>
       </nav>
+      {(manageMobileMenuOpen || manageMobileMenuClosing) && (
+        <>
+          <button
+            type="button"
+            className={`manage-mobile-drawer-overlay${manageMobileMenuClosing ? " is-closing" : ""}`}
+            aria-label="Close owner operations navigation"
+            onClick={closeManageMobileMenu}
+          />
+          <section
+            id="manage-mobile-navigation"
+            className={`manage-mobile-drawer${manageMobileMenuClosing ? " is-closing" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Owner operations navigation"
+          >
+            <header className="manage-mobile-drawer__header">
+              <div>
+                <strong>Owner operations</strong>
+                <span>Navigate the internal workspace</span>
+              </div>
+              <button type="button" aria-label="Close menu" onClick={closeManageMobileMenu}>
+                <X aria-hidden="true" size={18} />
+              </button>
+            </header>
+            <nav className="manage-mobile-drawer__nav" aria-label="All owner operations pages">
+              <div className="manage-mobile-drawer__group">
+                {(() => {
+                  const [label, href, Icon] = manageHomeNavigation;
+                  const active = isWorkspaceRouteActive({ href, pathname: currentPathname, exact: true });
+                  return (
+                    <Link
+                      className={active ? "active" : ""}
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => {
+                        if (href !== pathname) setOptimisticHref(href);
+                        handleManageNavSelect();
+                      }}
+                    >
+                      <Icon aria-hidden="true" size={18} />
+                      <span>{label}</span>
+                    </Link>
+                  );
+                })()}
+              </div>
+              {navGroups.map((group) => (
+                <div className="manage-mobile-drawer__group" key={group.label}>
+                  <span className="manage-mobile-drawer__label">{group.label}</span>
+                  {group.items.map(([label, href, Icon]) => {
+                    const active = isWorkspaceRouteActive({ href, pathname: currentPathname });
+                    return (
+                      <Link
+                        key={href}
+                        className={active ? "active" : ""}
+                        href={href}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => {
+                          if (href !== pathname) setOptimisticHref(href);
+                          handleManageNavSelect();
+                        }}
+                      >
+                        <Icon aria-hidden="true" size={18} />
+                        <span>{label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+            <footer className="manage-mobile-drawer__footer">
+              <Link href={settingsNav[1]} onClick={handleManageNavSelect}>
+                <Settings aria-hidden="true" size={17} />
+                <span>{settingsNav[0]}</span>
+              </Link>
+              <button type="button" onClick={() => void signOut()}>
+                <ArrowLeft aria-hidden="true" size={17} />
+                <span>Sign out</span>
+              </button>
+            </footer>
+          </section>
+        </>
+      )}
       <div id="manage-ai-drawer">
         <ManageAiDrawer
           open={assistantOpen}

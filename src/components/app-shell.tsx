@@ -399,12 +399,13 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   }, [mobileMenuOpen]);
 
   const closeSearch = useCallback(() => {
+    if (!searchFocused || searchClosing) return;
     setSearchClosing(true);
     window.setTimeout(() => {
       setSearchFocused(false);
       setSearchClosing(false);
     }, 160);
-  }, []);
+  }, [searchClosing, searchFocused]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -679,7 +680,10 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
         </aside>
 
         <main className="app-main">
-          <WorkspaceExperienceBanner initialDocumentCount={data.documents.filter((document) => document.status !== "rejected").length} />
+          <WorkspaceExperienceBanner
+            initialDocumentCount={data.documents.filter((document) => document.status !== "rejected").length}
+            organizationId={data.organization.id}
+          />
           <div className="app-work-canvas" data-workspace-slot="canvas">
             <div className="app-topbar" data-workspace-slot="topbar">
             {mobileUtilities}
@@ -773,7 +777,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 
           {(searchFocused || searchClosing) && (
             <>
-              <button className="workspace-mobile-search-overlay" type="button" aria-label="Close search" onClick={closeSearch} />
+              <button className={`workspace-mobile-search-overlay${searchClosing ? " is-closing" : ""}`} type="button" aria-label="Close search" onClick={closeSearch} />
               <div className={`workspace-mobile-search-sheet${searchClosing ? " is-closing" : ""}`} id="app-mobile-search-modal" ref={mobileSearchSheetRef} role="dialog" aria-modal="true" aria-label="Search Costivra records">
                 <div className="workspace-mobile-search-sheet__header">
                   <label className="manage-search global-search workspace-mobile-search-sheet__input-wrap">

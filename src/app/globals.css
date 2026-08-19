@@ -11365,8 +11365,61 @@ button.workspace-notification-row:focus-visible {
   }
 
   .manage-mobile-nav :is(a, button):focus-visible { box-shadow:0 0 0 3px rgba(49,91,187,.18); }
-  .manage-mobile-nav.is-menu-open { z-index:65; }
   .manage-shell-v2 .manage-main { padding-bottom:calc(78px + env(safe-area-inset-bottom)); }
+
+  /* Manage now uses the same mobile navigation-sheet model as the customer
+     workspace: the dock stays available, while the complete information
+     architecture opens above it as one focused, dismissible surface. */
+  .manage-mobile-drawer-overlay {
+    position:fixed;
+    z-index:84;
+    inset:0;
+    border:0;
+    background:var(--workspace-overlay, rgba(15,23,42,.42));
+    backdrop-filter:blur(3px);
+    animation:manage-mobile-drawer-overlay-in 180ms ease both;
+  }
+  .manage-mobile-drawer-overlay.is-closing { pointer-events:none; animation:manage-mobile-drawer-overlay-out 190ms ease both; }
+  .manage-mobile-drawer {
+    position:fixed;
+    z-index:85;
+    right:10px;
+    bottom:calc(76px + env(safe-area-inset-bottom));
+    left:10px;
+    display:flex;
+    flex-direction:column;
+    max-height:calc(100dvh - 98px - env(safe-area-inset-top));
+    overflow:hidden;
+    border:1px solid var(--workspace-line, #dfe5ee);
+    border-radius:18px;
+    color:var(--workspace-ink, #1f2b42);
+    background:var(--workspace-surface, #fff);
+    box-shadow:0 24px 64px rgba(15,23,42,.2);
+    animation:manage-mobile-drawer-in 190ms cubic-bezier(.23,1,.32,1) both;
+  }
+  .manage-mobile-drawer.is-closing { pointer-events:none; animation:manage-mobile-drawer-out 190ms ease both; }
+  .manage-mobile-drawer__header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:15px 16px 13px; border-bottom:1px solid var(--workspace-line-soft, #edf0f5); }
+  .manage-mobile-drawer__header > div { display:grid; gap:3px; }
+  .manage-mobile-drawer__header strong { font-size:.94rem; letter-spacing:-.01em; }
+  .manage-mobile-drawer__header span { color:var(--workspace-muted, #6b7890); font-size:.72rem; }
+  .manage-mobile-drawer__header button { display:grid; width:34px; min-width:34px; height:34px; place-items:center; padding:0; border:1px solid var(--workspace-control-line, #dce3eb); border-radius:10px; color:var(--workspace-control-ink, #52637c); background:var(--workspace-surface, #fff); cursor:pointer; }
+  .manage-mobile-drawer__nav { min-height:0; overflow-y:auto; padding:8px; }
+  .manage-mobile-drawer__group { display:grid; gap:2px; padding:5px 0 9px; }
+  .manage-mobile-drawer__group + .manage-mobile-drawer__group { border-top:1px solid var(--workspace-line-soft, #edf0f5); }
+  .manage-mobile-drawer__label { padding:4px 8px 5px; color:var(--workspace-table-heading, #77859b); font:700 .6rem/1.2 var(--font-mono); letter-spacing:.09em; text-transform:uppercase; }
+  .manage-mobile-drawer__nav a,
+  .manage-mobile-drawer__footer > * { display:flex; align-items:center; gap:10px; min-height:40px; padding:0 10px; border:1px solid transparent; border-radius:10px; color:var(--workspace-ink, #1f2b42); background:transparent; font:650 .78rem/1.2 Inter,ui-sans-serif,system-ui,sans-serif; text-decoration:none; cursor:pointer; }
+  .manage-mobile-drawer__nav a.active { border-color:#d6e2f8; color:var(--workspace-control-ink-active, #315bbb); background:var(--workspace-accent-soft, #eef3ff); }
+  .manage-mobile-drawer__nav a:hover,
+  .manage-mobile-drawer__nav a:focus-visible,
+  .manage-mobile-drawer__footer > *:hover,
+  .manage-mobile-drawer__footer > *:focus-visible { outline:0; border-color:var(--workspace-line-soft, #edf0f5); background:var(--workspace-subtle-hover, #f7f9fc); }
+  .manage-mobile-drawer__footer { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:10px; border-top:1px solid var(--workspace-line-soft, #edf0f5); }
+  .manage-mobile-drawer__footer button { justify-content:flex-start; color:#9a3d35; }
+  @keyframes manage-mobile-drawer-overlay-in { from { opacity:0; } to { opacity:1; } }
+  @keyframes manage-mobile-drawer-overlay-out { from { opacity:1; } to { opacity:0; } }
+  @keyframes manage-mobile-drawer-in { from { opacity:0; transform:translateY(12px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes manage-mobile-drawer-out { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(10px) scale(.985); } }
 }
 
 /* Mobile search is a shared, focused sheet in both workspace shells. The
@@ -11403,6 +11456,7 @@ button.workspace-notification-row:focus-visible {
   cursor:pointer;
   animation:workspace-mobile-search-fade-in .18s ease both;
 }
+.workspace-mobile-search-overlay.is-closing { pointer-events:none; animation:workspace-mobile-search-fade-out .16s ease both; }
 .workspace-mobile-search-sheet {
   position:fixed;
   z-index:121;
@@ -11429,6 +11483,7 @@ button.workspace-notification-row:focus-visible {
 .workspace-mobile-search-results { position:static !important; inset:auto !important; width:auto !important; max-height:none !important; overflow:auto; padding:4px 8px 10px; border:0 !important; border-radius:0 !important; box-shadow:none !important; animation:workspace-mobile-search-results-in .2s ease both; }
 .workspace-mobile-search-results.is-closing { animation:workspace-mobile-search-results-out .14s ease both; }
 @keyframes workspace-mobile-search-fade-in { from { opacity:0; } to { opacity:1; } }
+@keyframes workspace-mobile-search-fade-out { from { opacity:1; } to { opacity:0; } }
 @keyframes workspace-mobile-search-sheet-in { from { opacity:0; transform:translateY(-10px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
 @keyframes workspace-mobile-search-sheet-out { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(-8px) scale(.985); } }
 @keyframes workspace-mobile-search-results-in { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
@@ -11450,12 +11505,16 @@ button.workspace-notification-row:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .workspace-mobile-search-overlay,
   .workspace-mobile-search-sheet,
-  .workspace-mobile-search-results { animation:none; }
+  .workspace-mobile-search-results,
+  .manage-mobile-drawer-overlay,
+  .manage-mobile-drawer { animation:none; }
   .workspace-mobile-search-trigger { transition:none; }
 }
 
 @media (min-width:781px) {
-  .manage-mobile-nav { display:none; }
+  .manage-mobile-nav,
+  .manage-mobile-drawer-overlay,
+  .manage-mobile-drawer { display:none; }
 }
 
 /* Shared mobile header contract: one context/search row, then one page/action
