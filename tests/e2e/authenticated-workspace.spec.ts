@@ -924,7 +924,7 @@ test.describe("authenticated customer workspace", () => {
     const failures = collectRuntimeFailures(page);
 
     try {
-      await page.setViewportSize({ width: 390, height: 844 });
+      await page.setViewportSize({ width: 1440, height: 900 });
       // Land on the established authenticated route first. This lets the
       // browser finish writing the Supabase session before the root workspace
       // route asks the server for tenant-scoped data.
@@ -937,6 +937,24 @@ test.describe("authenticated customer workspace", () => {
       await page.goto("/app");
       await expect(page).toHaveURL(/\/app$/, { timeout: 30_000 });
       await expect(page.locator(".app-work-canvas > .app-topbar")).toBeVisible();
+      const desktopBanner = page.locator(".workspace-experience-banner--free");
+      await expect(desktopBanner).toBeVisible({ timeout: 30_000 });
+      const desktopBannerGeometry = await page.evaluate(() => {
+        const readRect = (selector: string) => {
+          const element = document.querySelector<HTMLElement>(selector);
+          if (!element) throw new Error(`Missing ${selector}`);
+          const rect = element.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, width: rect.width };
+        };
+        return {
+          banner: readRect(".workspace-experience-banner"),
+          canvas: readRect(".app-work-canvas"),
+        };
+      });
+      expect(desktopBannerGeometry.banner.left).toBeCloseTo(desktopBannerGeometry.canvas.left, 0);
+      expect(desktopBannerGeometry.banner.right).toBeCloseTo(desktopBannerGeometry.canvas.right, 0);
+
+      await page.setViewportSize({ width: 390, height: 844 });
       await expect
         .poll(() => page.evaluate(() => window.matchMedia("(max-width: 780px)").matches))
         .toBe(true);
@@ -949,7 +967,7 @@ test.describe("authenticated customer workspace", () => {
       await tour.getByRole("button", { name: "Skip tour", exact: true }).click();
       await expect(tour).toBeHidden();
 
-      const banner = page.locator(".workspace-experience-banner--free");
+      const banner = desktopBanner;
       await expect(banner).toBeVisible({ timeout: 30_000 });
       const bannerBounds = await banner.boundingBox();
       expect(bannerBounds?.y ?? 0).toBeGreaterThanOrEqual(8);
