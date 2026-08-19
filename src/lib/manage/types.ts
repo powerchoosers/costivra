@@ -335,6 +335,7 @@ export type ManageData = {
     messages: ManageMailMessage[];
     unreadCount: number;
     mailboxes: ManageMailbox[];
+    mailboxDomains: string[];
     selectedMailboxId: string | null;
     fromAddress: string;
     inboxAddress: string;

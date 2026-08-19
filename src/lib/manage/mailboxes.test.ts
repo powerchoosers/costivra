@@ -5,6 +5,7 @@ import {
   formatMailboxSender,
   isValidMailboxLocalPart,
   mailboxAddress,
+  mailboxDomains,
 } from "./mailboxes";
 
 describe("CRM mailbox seats", () => {
@@ -16,13 +17,20 @@ describe("CRM mailbox seats", () => {
     expect(isValidMailboxLocalPart("sales.")).toBe(false);
   });
 
-  it("always builds addresses on the verified Costivra domain", () => {
+  it("defaults addresses to Costivra.ai and permits configured verified-domain candidates", () => {
     expect(mailboxAddress(" L.Patterson ")).toBe(
       "l.patterson@costivra.ai",
     );
     expect(
       formatMailboxSender("Lewis\nPatterson", "l.patterson@costivra.ai"),
     ).toBe("Lewis Patterson <l.patterson@costivra.ai>");
+    expect(mailboxDomains("costivra.io,costivra.ai,invalid")).toEqual([
+      "costivra.ai",
+      "costivra.io",
+    ]);
+    expect(mailboxAddress("outreach", "costivra.io")).toBe(
+      "outreach@costivra.io",
+    );
   });
 
   it("limits operators to assigned or shared active mailboxes", () => {
@@ -45,4 +53,3 @@ describe("CRM mailbox seats", () => {
     ).toBe(false);
   });
 });
-

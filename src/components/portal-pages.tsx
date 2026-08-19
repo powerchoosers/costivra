@@ -543,7 +543,7 @@ export function PortalPage({
             ? "app-content app-content-chat motion-page"
               : ["bills", "expenses", "documents"].includes(page) && !detailId
               ? "app-content app-content-table-page motion-page"
-              : page === "vendors" && !detailId
+              : ["vendors", "findings", "opportunities"].includes(page) && !detailId
                 ? "app-content app-content-table-page motion-page"
               : "app-content motion-page"
         }
@@ -1368,6 +1368,21 @@ function FindingsWorkspace({
         title="Findings"
         description="What Costivra discovered across every vendor, with evidence and limits visible."
         scope={<PageScopeIndicator mode="global" />}
+        action={
+          <div className="vendor-list-controls">
+            <label className="vendor-list-search">
+              <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+              <span className="sr-only">Search findings or vendors</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => updateParams({ q: event.target.value || null })}
+                placeholder="Search findings or vendors…"
+                aria-label="Search findings or vendors"
+              />
+            </label>
+          </div>
+        }
       />
       <WorkspaceViewTabs
         activeId={activeView}
@@ -1385,38 +1400,38 @@ function FindingsWorkspace({
           countTone: id === "review" || id === "needs_evidence" ? "attention" as const : undefined,
         }))}
       />
-      <Toolbar
-        query={query}
-        setQuery={(value) => updateParams({ q: value || null })}
-        placeholder="Search findings or vendors"
-      />
-      <section className="portal-panel">
-        {filtered.map((item) => (
-          <div className="portal-list-row workflow-list-row workspace-work-item" id={item.id} key={item.id}>
-            <div className="grow">
-              <strong><Link className="record-link" href={`/app/findings/${item.id}`}>{item.title}</Link></strong>
-              <span>{item.vendorName} · {item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</span>
-              <small>{item.summary}</small>
-            </div>
-            <div><span className="table-label">Source bill</span>{(() => {
-              const invoice = data.invoices.find((candidate) => candidate.documentId === item.sourceDocumentId);
-              const expense = data.expenses.find((candidate) => candidate.id === item.sourceExpenseId);
-              const sourceId = invoice?.id ?? expense?.invoiceId ?? expense?.documentId;
-              return sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span>Not linked</span>;
-            })()}</div>
-            <div><span className="table-label">Trust</span><TrustBadge state={item.trustState} /></div>
-            <div><span className="table-label">Evidence</span>{item.evidenceCount} reference{item.evidenceCount === 1 ? "" : "s"}</div>
-            <div><span className="table-label">Potential value</span>{item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? money(item.estimatedAnnualValue) : "Not shown"}</div>
-            <Status value={item.status} />
-            <CostivraSelect aria-label={`Update ${item.title} status`} value={item.status} variant="badge" size="sm" onChange={(newStatus) => void update(item.id, newStatus)} options={statusOptions(item.status)} />
+      <section className="portal-panel vendor-directory findings-directory">
+        {filtered.length ? (
+          <div className="table-wrap vendor-table-wrap">
+            <table className="portal-table vendor-table findings-table">
+              <colgroup>
+                <col className="findings-col-title" /><col className="findings-col-vendor" /><col className="findings-col-source" /><col className="findings-col-trust" /><col className="findings-col-evidence" /><col className="findings-col-value" /><col className="findings-col-status" /><col className="findings-col-action" />
+              </colgroup>
+              <thead><tr><th>Finding</th><th>Vendor &amp; scope</th><th>Source bill</th><th>Trust</th><th>Evidence</th><th>Potential annual value</th><th>Status</th><th><span className="sr-only">Update status</span></th></tr></thead>
+              <tbody>
+                {filtered.map((item) => {
+                  const invoice = data.invoices.find((candidate) => candidate.documentId === item.sourceDocumentId);
+                  const expense = data.expenses.find((candidate) => candidate.id === item.sourceExpenseId);
+                  const sourceId = invoice?.id ?? expense?.invoiceId ?? expense?.documentId;
+                  return <tr id={item.id} key={item.id}>
+                    <td><Link className="record-link" href={`/app/findings/${item.id}`}><strong>{item.title}</strong></Link><small>{item.summary}</small></td>
+                    <td>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}><strong>{item.vendorName}</strong></Link> : <strong>{item.vendorName}</strong>}<small>{item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</small></td>
+                    <td>{sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span className="workspace-secondary-text">Not linked</span>}</td>
+                    <td><TrustBadge state={item.trustState} /></td><td>{item.evidenceCount} reference{item.evidenceCount === 1 ? "" : "s"}</td>
+                    <td><strong>{item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? money(item.estimatedAnnualValue) : "Not shown"}</strong></td>
+                    <td><Status value={item.status} /></td><td><CostivraSelect aria-label={`Update ${item.title} status`} value={item.status} variant="badge" size="sm" onChange={(newStatus) => void update(item.id, newStatus)} options={statusOptions(item.status)} /></td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
           </div>
-        ))}
-        {!filtered.length && (
+        ) : (
           <Empty
             title={activeView === "needs_evidence" ? "No findings need evidence" : "No findings match"}
             copy="Try a broader search or upload new source documents."
           />
         )}
+        <footer className="vendor-table-footer"><span>{filtered.length} {filtered.length === 1 ? "finding" : "findings"}</span><div className="vendor-table-footer-pagination" aria-label="Finding table pagination"><button type="button" disabled aria-label="Previous page"><ChevronLeft size={15} /></button><span>1 / 1</span><button type="button" disabled aria-label="Next page"><ChevronRight size={15} /></button></div></footer>
       </section>
     </>
   );

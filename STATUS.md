@@ -1,5 +1,27 @@
 # Costivra Status
 
+## August 18, 2026 — Findings directory alignment
+
+- Rebuilt the customer Findings index around the same contained directory/table pattern as Vendors: header search placement, sticky table heading and first column, horizontal scrolling on compact screens, row hover treatment, and the shared directory footer. The existing Needs Review, Evidence Backed, Needs Evidence, and Dismissed views remain available because they are finding-specific workflow filters.
+- Validation: Node 24 focused ESLint passed and `git diff --check` passed. The project-wide typecheck was started but remains unusually long-running; it has not been counted as a pass.
+
+## August 18, 2026 — Verified mailbox-domain selection
+
+- Mailbox creation now defaults to `costivra.ai` but uses a domain picker populated only from the server-side `COSTIVRA_MAILBOX_DOMAINS` allowlist. The create route independently checks that the selected domain is configured and currently verified by Resend before saving an address.
+- Personal mailboxes now require an active internal Costivra team-member assignment at creation; shared mailboxes remain unassigned and available under the existing shared-mailbox rules. This keeps sender access deliberate instead of relying on an uncontrolled browser field.
+- Validation: focused mailbox and Manage-assistant unit tests passed with Node 24. The project-wide typecheck and focused lint were started; their completion is pending because the full compiler process is still running.
+
+## August 18, 2026 — Manage header utility spacing
+
+- Moved the Create control into the same Manage utility cluster as the assistant and notification controls. The desktop header now has one evenly spaced group instead of a visually detached Create button; the existing phone control arrangement remains intact.
+- Validation: Node 24 focused ESLint passed. The authenticated 390×844 / 1440×900 Playwright run passed and directly measured the two desktop utility gaps to confirm they are equal. The run cleaned up its disposable fixture in `finally`.
+
+## August 18, 2026 — Manage account inspector selection motion
+
+- Selecting a different company in the Manage account table now gives the inspector a compact slide-and-fade handoff to the newly selected company. The selected inspector tab remains in place, so a person reviewing Contacts or Timeline does not lose their context while moving between accounts.
+- The animation respects reduced-motion preferences and is scoped to the Manage account-inspector content only; it does not change any account data, authorization, or table selection behavior.
+- Validation: Node 24 focused ESLint, `next typegen`, and `tsc --noEmit` passed. The authenticated Playwright flow passed at 390×844 and 1440×900, including selecting a different Manage account and checking the inspector’s changed content plus non-zero animation state. The disposable fixture and its documents, storage paths, organization, and auth user were removed in `finally`.
+
 ## August 18, 2026 — Shared notification center motion
 
 - Fixed the shared App/Manage notification popover so it now fades and settles into place when opened, then visibly fades and lifts away when closed. The close state is immediately inert for keyboard and pointer safety, but remains painted until the exit transition completes.

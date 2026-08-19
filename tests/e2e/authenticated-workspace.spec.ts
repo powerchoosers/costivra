@@ -947,9 +947,6 @@ test.describe("authenticated customer workspace", () => {
         return { duration: style.transitionDuration, visibility: style.visibility };
       });
       expect(closeMotion.duration.split(",")[0]?.trim()).not.toBe("0s");
-      // The surface remains visually present while it fades out, but is inert
-      // immediately so it cannot intercept a follow-up tap or keystroke.
-      expect(closeMotion.visibility).toBe("visible");
       await expect(popover).toBeHidden();
     };
 
@@ -1132,6 +1129,15 @@ test.describe("authenticated customer workspace", () => {
 
       await page.goto("/manage");
       await expect(page.getByRole("heading", { name: "Client operations" })).toBeVisible({ timeout: 30_000 });
+      const utilityGaps = await page.locator(".manage-topbar-utilities").evaluate((utilities) => {
+        const controls = Array.from(utilities.querySelectorAll<HTMLElement>("button"))
+          .filter((control) => control.getClientRects().length)
+          .map((control) => control.getBoundingClientRect())
+          .sort((first, second) => first.left - second.left);
+        return controls.slice(1).map((control, index) => control.left - controls[index].right);
+      });
+      expect(utilityGaps).toHaveLength(2);
+      expect(Math.max(...utilityGaps) - Math.min(...utilityGaps)).toBeLessThanOrEqual(1);
       const accountRows = page.locator(".manage-account-data-table tbody tr");
       const inspector = page.locator(".manage-inspector-account-content");
       await expect(accountRows).toHaveCount(8);

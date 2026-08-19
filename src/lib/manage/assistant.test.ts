@@ -37,7 +37,7 @@ function fixture(): ManageData {
     activities: [],
     mail: {
       folder: "inbox", threads: [], folderCounts: {}, selectedThread: null, messages: [], unreadCount: 2,
-      mailboxes: [], selectedMailboxId: null, fromAddress: "", inboxAddress: "", inboundReady: true,
+      mailboxes: [], mailboxDomains: ["costivra.ai"], selectedMailboxId: null, fromAddress: "", inboxAddress: "", inboundReady: true,
     },
   };
 }

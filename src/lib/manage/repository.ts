@@ -13,7 +13,11 @@ import type {
   ManageVendorContract,
   ManageVendorRelationship,
 } from "@/lib/manage/types";
-import { canUseMailbox, formatMailboxSender } from "@/lib/manage/mailboxes";
+import {
+  canUseMailbox,
+  formatMailboxSender,
+  mailboxDomains,
+} from "@/lib/manage/mailboxes";
 import { recordedSpendTotal } from "@/lib/manage/vendor-costs";
 import { isConfiguredSecret } from "@/lib/env/secrets";
 
@@ -813,6 +817,7 @@ export async function getManageData(input?: {
         0,
       ),
       mailboxes: visibleMailboxes,
+      mailboxDomains: mailboxDomains(),
       selectedMailboxId: selectedMailbox?.id ?? null,
       fromAddress: selectedMailbox
         ? formatMailboxSender(

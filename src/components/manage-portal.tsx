@@ -1327,7 +1327,8 @@ export function ManagePortal({
             <button className={`workspace-mobile-search-trigger manage-mobile-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="manage-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
               <Search aria-hidden="true" size={17} />
             </button>
-            <div className="manage-topbar-center">
+            <div className="manage-top-actions">
+              <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
             {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
               <div className="manage-create-wrap" ref={createMenuRef}>
               <WorkspaceUtilityButton active={createMenuOpen} className="manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
@@ -1362,9 +1363,6 @@ export function ManagePortal({
               )}
               </div>
             )}
-            </div>
-            <div className="manage-top-actions">
-              <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
               <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
               <ManageNotificationCenter soundEnabled={data.operator.notificationSoundEnabled} />
               </div>
@@ -1712,6 +1710,7 @@ export function ManagePortal({
       )}
       {dialog === "mailbox" && (
         <MailboxForm
+          data={data}
           busy={busy}
           onClose={closeDialog}
           isClosing={Boolean(dialogClosing)}
@@ -7069,16 +7068,21 @@ function EditAccount({
 }
 
 function MailboxForm({
+  data,
   busy,
   onClose,
   isClosing,
   onSubmit,
 }: {
+  data: ManageData;
   busy: boolean;
   onClose: () => void;
   isClosing?: boolean;
   onSubmit: (form: FormData) => void;
 }) {
+  const [mailboxType, setMailboxType] = useState<"personal" | "shared">(
+    "personal",
+  );
   return (
     <Modal
       title="Create mailbox seat"
@@ -7112,20 +7116,53 @@ function MailboxForm({
                 pattern="[a-zA-Z0-9]+([._-][a-zA-Z0-9]+)*"
                 placeholder="jordan.lee"
               />
-              <strong>@costivra.ai</strong>
+              <span aria-hidden="true">@</span>
+              <select
+                name="domain"
+                defaultValue="costivra.ai"
+                aria-label="Email domain"
+              >
+                {data.mail.mailboxDomains.map((domain) => (
+                  <option key={domain} value={domain}>
+                    {domain}
+                  </option>
+                ))}
+              </select>
             </div>
           </label>
           <label className="wide">
             <span>Seat type</span>
             <CostivraSelect
               name="mailboxType"
-              defaultValue="personal"
+              value={mailboxType}
+              onChange={(value) =>
+                setMailboxType(
+                  value === "shared" ? "shared" : "personal",
+                )
+              }
               options={[
                 { value: "personal", label: "Personal mailbox" },
                 { value: "shared", label: "Shared team mailbox" },
               ]}
             />
           </label>
+          {mailboxType === "personal" && (
+            <label className="wide">
+              <span>Assigned to</span>
+              <CostivraSelect
+                name="assignedTo"
+                defaultValue={data.operator.id}
+                options={data.staff.map((member) => ({
+                  value: member.id,
+                  label: `${member.fullName} · ${member.email}`,
+                }))}
+              />
+              <small>
+                Only this team member and Costivra owners can use a personal
+                mailbox.
+              </small>
+            </label>
+          )}
         </div>
         <p className="manage-form-note">
           Creating a mailbox does not send an invitation. Platform access and

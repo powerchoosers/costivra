@@ -1,5 +1,23 @@
 export const COSTIVRA_MAIL_DOMAIN = "costivra.ai";
 
+const MAILBOX_DOMAIN_PATTERN =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+export function mailboxDomains(value = process.env.COSTIVRA_MAILBOX_DOMAINS) {
+  const configured = (value ?? "")
+    .split(",")
+    .map((domain) => domain.trim().toLowerCase())
+    .filter((domain) => MAILBOX_DOMAIN_PATTERN.test(domain));
+  return [
+    COSTIVRA_MAIL_DOMAIN,
+    ...configured.filter((domain) => domain !== COSTIVRA_MAIL_DOMAIN),
+  ].filter((domain, index, all) => all.indexOf(domain) === index);
+}
+
+export function isConfiguredMailboxDomain(domain: string) {
+  return mailboxDomains().includes(domain.trim().toLowerCase());
+}
+
 export function normalizeMailboxLocalPart(value: string) {
   return value.trim().toLowerCase();
 }
@@ -13,8 +31,8 @@ export function isValidMailboxLocalPart(value: string) {
   );
 }
 
-export function mailboxAddress(localPart: string) {
-  return `${normalizeMailboxLocalPart(localPart)}@${COSTIVRA_MAIL_DOMAIN}`;
+export function mailboxAddress(localPart: string, domain = COSTIVRA_MAIL_DOMAIN) {
+  return `${normalizeMailboxLocalPart(localPart)}@${domain.trim().toLowerCase()}`;
 }
 
 export function formatMailboxSender(displayName: string, address: string) {
@@ -35,4 +53,3 @@ export function canUseMailbox(
   if (role === "owner") return true;
   return mailbox.mailboxType === "shared" || mailbox.assignedTo === userId;
 }
-
