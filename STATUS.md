@@ -1,11 +1,17 @@
 # Costivra Status
 
+## August 18, 2026 — Shared notification center motion
+
+- Fixed the shared App/Manage notification popover so it now fades and settles into place when opened, then visibly fades and lifts away when closed. The close state is immediately inert for keyboard and pointer safety, but remains painted until the exit transition completes.
+- The defect was an invalid shorthand transition path that the production browser resolved to `0s`. The shared workspace motion tokens now expose the duration and easing separately, and the popover uses explicit transition properties, durations, easing, and close delay.
+- Validation: Node 24 `next typegen` and `tsc --noEmit` passed; focused ESLint passed for the E2E regression. The authenticated Playwright run passed at 390×844 and 1440×900 in both `/app` and `/manage`, checking the active/open state, non-zero motion duration, visible exit frame, final hidden state, and cleanup of the disposable fixture.
+
 ## August 18, 2026 — Mobile workspace interactions and Manage navigation sheet
 
 - Fixed the customer-workspace tap interception that made ordinary mobile controls appear unclickable. The shared outside-click handler was starting the search close animation even when search was already closed, which briefly mounted a full-screen search overlay between pointer-down and click. It now does nothing unless search is genuinely open; the closing overlay is also non-interactive while it animates away.
-- Restored the free-review close button to ordinary click behavior now that the overlay conflict is removed. Its dismissal is now retained for the current browser session and organization, including App navigation; the notice reappears after five minutes or when the review usage changes. The banner retains its existing mobile inset rather than touching the viewport edge.
+- Restored the free-review close button to ordinary click behavior now that the overlay conflict is removed. Its dismissal is now retained for the current browser session and organization, including App navigation; the notice reappears after five minutes or when the review usage changes. The banner retains its existing mobile inset rather than touching the viewport edge, and its desktop edges now align exactly with the App work canvas/header.
 - Replaced Manage's phone-only left-rail behavior with a focused, dismissible navigation sheet matching the App's mobile Menu model. The persistent dock still exposes Overview, Accounts, Contacts, Outreach, and More; More (or the header menu) opens the complete internal navigation with Settings and Sign out. Desktop and compact Manage rails retain their saved preference behavior.
-- Validation: Node 24 `next typegen` and `tsc --noEmit` passed; focused Node 24 ESLint passed for the touched components and regression test. The authenticated 390×844 Playwright regression passed: it exercised the App banner close/persistence, header geometry, notification popover, search sheet, normal navigation, and the matching Manage header/search/navigation sheet. The test created only a clearly named disposable fixture and deleted its documents, storage paths, organization, and auth user in `finally`.
+- Validation: Node 24 `next typegen` and `tsc --noEmit` passed; focused Node 24 ESLint passed for the touched components and regression test. The authenticated 1440×900 and 390×844 Playwright regression passed: it exercised desktop banner/canvas edge alignment, App banner close/persistence, header geometry, notification popover, search sheet, normal navigation, and the matching Manage header/search/navigation sheet. The test created only a clearly named disposable fixture and deleted its documents, storage paths, organization, and auth user in `finally`.
 
 ## August 18, 2026 — One-row mobile workspace headers
 

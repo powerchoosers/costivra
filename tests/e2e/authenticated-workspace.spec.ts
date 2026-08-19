@@ -923,6 +923,36 @@ test.describe("authenticated customer workspace", () => {
     const fixture = await createWorkspaceFixture();
     const failures = collectRuntimeFailures(page);
 
+    const expectNotificationMotion = async () => {
+      const trigger = page.getByRole("button", { name: /^Notifications\./ });
+      const popover = page.locator(".workspace-notification-popover");
+
+      await trigger.click();
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      await expect(popover).toHaveClass(/is-open/);
+
+      const openMotion = await popover.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { duration: style.transitionDuration, visibility: style.visibility };
+      });
+      expect(openMotion.duration.split(",")[0]?.trim()).not.toBe("0s");
+      expect(openMotion.visibility).toBe("visible");
+
+      await trigger.click();
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      await expect(popover).not.toHaveClass(/is-open/);
+
+      const closeMotion = await popover.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { duration: style.transitionDuration, visibility: style.visibility };
+      });
+      expect(closeMotion.duration.split(",")[0]?.trim()).not.toBe("0s");
+      // The surface remains visually present while it fades out, but is inert
+      // immediately so it cannot intercept a follow-up tap or keystroke.
+      expect(closeMotion.visibility).toBe("visible");
+      await expect(popover).toBeHidden();
+    };
+
     try {
       await page.setViewportSize({ width: 1440, height: 900 });
       // Land on the established authenticated route first. This lets the
@@ -1014,11 +1044,7 @@ test.describe("authenticated customer workspace", () => {
         expect(appHeaderGeometry.buttons[index - 1].right).toBeLessThanOrEqual(appHeaderGeometry.buttons[index].left + 1);
       }
 
-      const notificationTrigger = page.getByRole("button", { name: /^Notifications\./ });
-      await notificationTrigger.click();
-      await expect(page.getByRole("dialog", { name: "Notifications" })).toBeVisible();
-      await notificationTrigger.click();
-      await expect(page.getByRole("dialog", { name: "Notifications" })).toBeHidden();
+      await expectNotificationMotion();
 
       await page.getByRole("button", { name: "Open search" }).click();
       const appSearch = page.getByRole("dialog", { name: "Search Costivra records" });
@@ -1096,6 +1122,17 @@ test.describe("authenticated customer workspace", () => {
       await manageSearch.getByRole("button", { name: "Close search" }).click();
       await expect(manageSearch).toBeHidden();
       await expect(page.locator(".workspace-mobile-search-overlay")).toHaveCount(0);
+
+      await expectNotificationMotion();
+
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto("/app");
+      await expect(page.locator(".app-work-canvas > .app-topbar")).toBeVisible({ timeout: 30_000 });
+      await expectNotificationMotion();
+
+      await page.goto("/manage");
+      await expect(page.getByRole("heading", { name: "Client operations" })).toBeVisible({ timeout: 30_000 });
+      await expectNotificationMotion();
       expect(failures).toEqual([]);
     } finally {
       const removedStaff = await fixture.admin

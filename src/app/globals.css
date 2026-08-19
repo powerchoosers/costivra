@@ -8028,7 +8028,9 @@ body.modal-open .app-topbar { filter: blur(7px); }
   --workspace-control-radius: 12px;
   --workspace-status-radius: 999px;
   --workspace-utility-size: 40px;
-  --workspace-motion-fast: 160ms cubic-bezier(.23, 1, .32, 1);
+  --workspace-motion-fast-duration: 160ms;
+  --workspace-motion-fast-ease: cubic-bezier(.23, 1, .32, 1);
+  --workspace-motion-fast: var(--workspace-motion-fast-duration) var(--workspace-motion-fast-ease);
   --workspace-motion-surface: 220ms cubic-bezier(.23, 1, .32, 1);
   /* A quiet, translucent use of the public site's active yellow-green. It
      appears only while a person is actively using a scrollport. */
@@ -8489,7 +8491,13 @@ body.modal-open .app-topbar { filter: blur(7px); }
   pointer-events: none;
   transform: translateY(-4px) scale(.985);
   visibility: hidden;
-  transition: opacity var(--workspace-motion-fast), transform var(--workspace-motion-fast), visibility 0s linear var(--workspace-motion-fast);
+  /* Keep the closed surface in the visual tree until its opacity/transform
+     transition completes. Longhand values avoid the legacy shorthand parse
+     path that collapsed this shared popover's motion to 0s in production. */
+  transition-property: opacity, transform, visibility;
+  transition-duration: var(--workspace-motion-fast-duration), var(--workspace-motion-fast-duration), 0s;
+  transition-timing-function: var(--workspace-motion-fast-ease), var(--workspace-motion-fast-ease), linear;
+  transition-delay: 0s, 0s, var(--workspace-motion-fast-duration);
 }
 
 .workspace-notification-popover.is-open {
@@ -8497,7 +8505,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
   pointer-events: auto;
   transform: translateY(0) scale(1);
   visibility: visible;
-  transition-delay: 0s;
+  transition-delay: 0s, 0s, 0s;
 }
 
 .workspace-notification-popover__header {
