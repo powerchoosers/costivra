@@ -1421,7 +1421,7 @@ export function ManagePortal({
           key={section}
           data-workspace-scrollbar=""
           className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}
-          onWheelCapture={(event) => {
+          onWheelCapture={detailId ? undefined : (event) => {
             const node = event.currentTarget;
             const target = event.target as HTMLElement;
             if (

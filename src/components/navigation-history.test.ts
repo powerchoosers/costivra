@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { navigationStorageKey, nextFloatingBackVisibility, previousNavigationEntry, upsertNavigationEntry } from "@/components/navigation-history";
+import { floatingBackControlClassName, navigationStorageKey, nextFloatingBackVisibility, previousNavigationEntry, upsertNavigationEntry } from "@/components/navigation-history";
 
 describe("navigation history helpers", () => {
   it("keeps Customer App and Manage session storage separate", () => {
@@ -28,6 +28,11 @@ describe("navigation history helpers", () => {
   it("keeps the floating Back control stable while its page-level control crosses the header boundary", () => {
     expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: false, anchorTop: 70, anchorBottom: 106 })).toBe(true);
     expect(nextFloatingBackVisibility({ wasFloating: false, hasUserScrolled: false, anchorTop: 70, anchorBottom: 106 })).toBe(false);
+  });
+
+  it("marks the persistent floating control for its active workspace shell", () => {
+    expect(floatingBackControlClassName("app", false)).toBe("global-back-control__floating global-back-control__floating--app");
+    expect(floatingBackControlClassName("manage", true)).toBe("global-back-control__floating global-back-control__floating--manage is-visible");
   });
 
   it("only shows the floating Back control after user scroll and hides it once the page control is clearly visible", () => {

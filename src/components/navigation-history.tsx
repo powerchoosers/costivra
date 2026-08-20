@@ -73,6 +73,10 @@ export function nextFloatingBackVisibility({
   return wasFloating;
 }
 
+export function floatingBackControlClassName(scope: NavigationScope, visible: boolean) {
+  return `global-back-control__floating global-back-control__floating--${scope}${visible ? " is-visible" : ""}`;
+}
+
 function makeSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -255,7 +259,7 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
     <FloatingBackActionsControllerContext.Provider value={floatingBackActionsController}>
       <NavigationContext.Provider value={value}>
         {children}
-        <PersistentFloatingBackControl floatingActions={floatingBackActions} />
+        <PersistentFloatingBackControl scope={scope} floatingActions={floatingBackActions} />
       </NavigationContext.Provider>
     </FloatingBackActionsControllerContext.Provider>
   );
@@ -285,11 +289,11 @@ function GlobalBackButton({ label, goBack, compact = false, isInteractive = true
   );
 }
 
-function PersistentFloatingBackControl({ floatingActions }: { floatingActions: ReactNode }) {
+function PersistentFloatingBackControl({ scope, floatingActions }: { scope: NavigationScope; floatingActions: ReactNode }) {
   const { label, goBack, floatingBackVisible } = useNavigationHistory();
 
   return (
-    <div className={`global-back-control__floating${floatingBackVisible ? " is-visible" : ""}`} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
+    <div className={floatingBackControlClassName(scope, floatingBackVisible)} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
       <GlobalBackButton label={label} goBack={goBack} compact isInteractive={floatingBackVisible} />
       {floatingActions ? <span className="global-back-control__actions">{floatingActions}</span> : null}
     </div>

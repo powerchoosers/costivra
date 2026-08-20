@@ -1,5 +1,17 @@
 # Costivra Status
 
+## August 20, 2026 — Manage record-detail native scrolling
+
+- Restored native scrolling on desktop Manage account/contact detail pages. Their prior desktop workspace rule set `overflow: hidden`, while a wheel-capture handler manually assigned `scrollTop` on every input event; this made scrolling feel stepped and kept the shared scrollbar layer from detecting the detail page.
+- The fixed-height, table-and-inspector behavior remains limited to the account/contact index routes. Record-detail routes now keep their own `overflow-y: auto` scrollport and no longer intercept their primary wheel gesture, so nested record rails still scroll independently and can naturally hand off at their edge.
+- Validation: Node `v24.19.0`; direct `tsc --noEmit`, focused ESLint, and `src/lib/ui/workspace-scrollbar.test.ts` (5 tests) passed. Browser QA at `http://localhost:3001/manage/accounts/6016f9a4-5392-43df-a8cd-c1226fc3f7fc` verified native detail scrolling and an active yellow-green shared scrollbar thumb during a real scroll gesture; the corresponding App vendor detail kept the same active-overlay behavior. Both pages rendered meaningful content with no framework error overlay or console warnings/errors. `git diff --check` passed with only Git line-ending notices.
+
+## August 20, 2026 — Floating Back-control rail placement
+
+- Tagged the persistent fixed Back control with its active workspace scope. Its horizontal position now derives from the live App or Manage sidebar state rather than from descendant selectors that no longer matched after the control moved into the persistent provider.
+- An open Manage rail now places the control at `284px` and an open App rail at `288px`, clearing each 256px rail and its search area. Closed rails retain their compact `104px` and `108px` positions; the existing mobile `12px` override remains in effect.
+- Validation: Node `v24.19.0`; direct `tsc --noEmit`, focused ESLint, and `src/components/navigation-history.test.ts` (7 tests) passed. Browser QA at `http://localhost:3001/manage/accounts` and `/app/bills` checked both open and closed rail interactions and measured all four offsets; console warnings/errors were empty and both rendered screens were visually inspected. `git diff --check` passed with only Git line-ending notices.
+
 ## August 20, 2026 — Persistent floating Back-control handoff
 
 - Moved the compact, fixed Back control out of individual page components and into the persistent navigation provider. Page components now provide only their in-page Back anchor, so changing pages no longer removes and recreates the fixed control during the handoff.

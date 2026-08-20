@@ -3911,6 +3911,14 @@ html { scroll-padding-top: 92px; }
 .global-back-control__action { padding:0; }
 .global-back-control__action--email { color:#1d4ed8; }
 .global-back-control__action--phone { color:#12735a; }
+/* The floating control is mounted above either workspace shell, so its rail
+   position is derived from the active shell rather than descendant selectors. */
+.global-back-control__floating--app { left:var(--app-floating-back-left,calc(72px + 24px)); }
+.global-back-control__floating--manage { left:var(--manage-floating-back-left,calc(72px + 24px)); }
+body:has(.app-shell:not(.sidebar-collapsed)) { --app-floating-back-left:288px; }
+body:has(.app-shell.sidebar-collapsed) { --app-floating-back-left:108px; }
+body:has(.manage-sidebar:not(.is-collapsed)) { --manage-floating-back-left:284px; }
+body:has(.manage-sidebar.is-collapsed) { --manage-floating-back-left:104px; }
 .app-global-back { margin-bottom:20px; }
 .manage-global-back { margin-bottom:18px; }
 .manage-outreach-context-row { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
@@ -3976,8 +3984,6 @@ html { scroll-padding-top: 92px; }
   .manage-outreach-task-actions button { margin-left:0; }
 }
 @media (prefers-reduced-motion: reduce) { .manage-inspector-account-content { animation:none; } }
-.manage-app .global-back-control__floating { top:84px; left:104px; }
-.manage-app:not(.is-assistant-open) .manage-sidebar:not(.is-collapsed) ~ .manage-main .global-back-control__floating { left:258px; }
 @media (max-width:780px) { .global-back-control__floating,.manage-app .global-back-control__floating { top:calc(72px + env(safe-area-inset-top)); left:12px; max-width:calc(100vw - 24px); } .global-back-control { margin-bottom:15px; } .manage-outreach-context-row { margin-bottom:15px; } .manage-outreach-board-toolbar { margin-bottom:14px; } .manage-outreach-priority-filter__menu { max-width:calc(100vw - 32px); } }
 @media (prefers-reduced-motion:reduce) { .global-back-control__floating,.global-back-control__button,.global-back-control__content,.global-back-control__action,.manage-outreach-priority-filter__trigger,.manage-outreach-priority-filter__menu,.manage-outreach-priority-filter__option { transition:none!important; } }
 .record-detail-heading { display: contents; }
@@ -5089,9 +5095,6 @@ html { scroll-padding-top: 92px; }
 .app-work-canvas .record-section,.app-work-canvas .record-side-section,.app-work-canvas .record-empty { border-color: #e1e6ed; box-shadow: none; }
 .app-work-canvas .invoice-detail-source { top: 96px; }
 .app-work-canvas .invoice-review-bulk { top: 96px; }
-.app-body .global-back-control__floating { top: 120px; left: 288px; }
-.app-shell.sidebar-collapsed .global-back-control__floating { left:108px; }
-.app-body .vendor-detail .global-back-control__floating { top: 96px; }
 .app-body .app-create-trigger {
   width: 40px;
   min-width: 40px;
@@ -9939,11 +9942,13 @@ button.workspace-notification-row:focus-visible {
   background: var(--workspace-subtle-hover);
 }
 
-/* These routes are true desktop workspaces: page chrome and pagination stay
-   put while the table and its companion inspector own their own scrollbars. */
+/* The account/contact indexes are true desktop workspaces: page chrome and
+   pagination stay put while the table and inspector own their scrollbars.
+   Record-detail routes keep the shell's native page scrollport so wheel input
+   and the shared scrollbar overlay stay smooth and visible. */
 @media (min-width: 781px) {
-  .manage-shell-v2 .manage-page--accounts,
-  .manage-shell-v2 .manage-page--contacts {
+  .manage-shell-v2 .manage-page--accounts:not(.manage-page--detail),
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) {
     display: flex;
     height: auto;
     min-height: 0;
