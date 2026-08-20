@@ -14,9 +14,9 @@ describe("finding presentation", () => {
     const noEvidence = presentFindingEvidence({ recordedEvidenceCount: 0, accessibleEvidenceCount: 0 });
 
     expect(describeFindingReadiness({ trustState: "demo_example", evidence: noEvidence, hasCalculation: false }).heading)
-      .toBe("Sample record — not a customer claim");
+      .toBe("Sample record");
     expect(describeFindingReadiness({ trustState: "manual_note", evidence: noEvidence, hasCalculation: false }).heading)
-      .toBe("Evidence required before approval");
+      .toBe("Evidence required");
   });
 
   it("only describes a finding as review-ready with usable evidence and a calculation", () => {

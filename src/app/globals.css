@@ -3913,7 +3913,7 @@ html { scroll-padding-top: 92px; }
 .global-back-control__action--phone { color:#12735a; }
 /* The floating control is mounted above either workspace shell, so its rail
    position is derived from the active shell rather than descendant selectors. */
-.global-back-control__floating--app { left:var(--app-floating-back-left,calc(72px + 24px)); }
+.global-back-control__floating--app { left:calc(var(--app-floating-back-left,96px) - 24px); }
 .global-back-control__floating--manage { left:var(--manage-floating-back-left,calc(72px + 24px)); }
 body:has(.app-shell:not(.sidebar-collapsed)) { --app-floating-back-left:288px; }
 body:has(.app-shell.sidebar-collapsed) { --app-floating-back-left:108px; }
@@ -3990,6 +3990,7 @@ body:has(.manage-sidebar.is-collapsed) { --manage-floating-back-left:104px; }
 .record-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 24px 28px 28px; border: 1px solid #dce3ec; border-bottom: 0; border-radius: 20px 20px 0 0; background: rgba(255,255,255,.38); }
 .record-detail-topline { display:flex; align-items:center; justify-content:space-between; width:100%; gap:18px; min-height:36px; margin-bottom:8px; }
 .record-detail-topline .record-back { margin:0; }
+.record-detail-topline .global-back-control__label { display: block; max-width: min(42vw, 320px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-detail-topline .page-scope-indicator { margin-bottom:0; }
 .record-detail-topline--invoice .page-scope-indicator { margin-left:0; }
 .record-title-row { display:flex; align-items:center; gap:18px; }
@@ -5113,7 +5114,7 @@ body:has(.manage-sidebar.is-collapsed) { --manage-floating-back-left:104px; }
 .app-work-canvas .portal-panel:hover,.app-work-canvas .portal-metric:hover { transform: none; box-shadow: none; }
 .app-work-canvas .record-detail { width: min(1240px,100%); padding-top: 6px; }
 .app-work-canvas .record-detail-header { border-color: #e1e6ed; background: #fff; }
-.app-work-canvas .record-tabs { top: 84px; border-color: #e1e6ed; background: rgba(255,255,255,.96); }
+.app-work-canvas .record-tabs { position: static; top: auto; z-index: auto; border-color: #e1e6ed; background: rgba(255,255,255,.96); }
 .app-work-canvas .record-detail-layout > aside { top: 104px; }
 .app-work-canvas .record-section,.app-work-canvas .record-side-section,.app-work-canvas .record-empty { border-color: #e1e6ed; box-shadow: none; }
 .app-work-canvas .invoice-detail-source { top: 96px; }

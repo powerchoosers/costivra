@@ -111,4 +111,28 @@ describe("portal record context", () => {
       status: "review",
     });
   });
+
+  it("does not present a legacy verified result as evidence-complete", () => {
+    const result = portalRecordContext(data({
+      savings: [{
+        id: "savings-1",
+        title: "Legacy credit",
+        status: "verified",
+        verifiedAt: "2026-07-30",
+        amount: 620,
+        baselineAmount: null,
+        comparisonAmount: null,
+        baselineAcceptedAt: null,
+        baselineExpenseId: null,
+        comparisonExpenseId: null,
+        methodVersion: null,
+        calculationResult: {},
+      } as PortalData["savings"][number]],
+    }), "savings", "savings-1");
+
+    expect(result.quality.find((item) => item.label === "Verification")).toMatchObject({
+      value: "Evidence incomplete",
+      status: "review",
+    });
+  });
 });

@@ -46,15 +46,15 @@ export function describeFindingReadiness({
 }) {
   if (trustState === "demo_example") {
     return {
-      heading: "Sample record — not a customer claim",
-      description: "This demonstration record is not based on your uploaded source files. It cannot support a customer-facing amount or an approval plan.",
+      heading: "Sample record",
+      description: "This demonstration record is not based on your uploaded source files, so it cannot support a customer-facing amount or an approval plan.",
     };
   }
 
   if (trustState === "manual_note") {
     return {
-      heading: "Evidence required before approval",
-      description: "This is an internal note, not a customer-facing finding. Link a source record, cite the evidence, and record a deterministic calculation before advancing it.",
+      heading: "Evidence required",
+      description: "This is an internal note, not a customer-facing finding. Link usable source evidence and a deterministic calculation before it can advance.",
     };
   }
 

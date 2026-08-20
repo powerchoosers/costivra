@@ -11,6 +11,7 @@ import {
 } from "@/lib/portal/invoice-presentation";
 import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { presentFindingEvidence } from "@/lib/portal/finding-presentation";
+import { resultIsVerified, resultNeedsVerificationReview, resultVerificationStatus } from "@/lib/portal/workflow-workspaces";
 
 export type PortalRecordKind =
   | "vendor"
@@ -181,6 +182,7 @@ export function portalRecordContext(
     addExpense(savings?.baselineExpenseId, "Accepted baseline");
     addExpense(savings?.comparisonExpenseId, "Later comparison");
     quality.push(
+      { label: "Verification", value: savings ? resultIsVerified(savings) ? "Verified" : resultNeedsVerificationReview(savings) ? "Evidence incomplete" : "Not verified" : "Not recorded", status: savings && resultIsVerified(savings) ? "ready" : "review" },
       { label: "Baseline", value: savings?.baselineAcceptedAt ? "Accepted" : "Awaiting acceptance", status: savings?.baselineAcceptedAt ? "ready" : "review" },
       { label: "Comparison", value: savings?.comparisonAmount == null ? "Not recorded" : "Recorded", status: savings?.comparisonAmount == null ? "review" : "ready" },
       { label: "Method", value: savings?.methodVersion ?? "Version not recorded", status: savings?.methodVersion ? "ready" : "review" },
@@ -193,7 +195,7 @@ export function portalRecordContext(
     for (const action of data.actions.filter((item) => item.opportunityId === opportunityId))
       add({ type: "Action", title: action.title, href: `/app/actions/${action.id}`, detail: action.status });
     for (const savings of data.savings.filter((item) => item.opportunityId === opportunityId))
-      add({ type: "Result", title: savings.title, href: `/app/results/${savings.id}`, detail: savings.status });
+      add({ type: "Result", title: savings.title, href: `/app/results/${savings.id}`, detail: resultVerificationStatus(savings) });
   }
 
   if (vendorId) {

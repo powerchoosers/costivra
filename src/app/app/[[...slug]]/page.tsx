@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { PortalPage } from "@/components/portal-pages";
 import { getPortalData } from "@/lib/portal/repository";
+import { APP_SIDEBAR_PREFERENCE_COOKIE, parseAppSidebarPreference } from "@/lib/ui/workspace-preferences";
 
 export const metadata: Metadata = { title: "Customer workspace", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -10,6 +12,7 @@ export const revalidate = 0;
 
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
+  const sidebarPreference = parseAppSidebarPreference((await cookies()).get(APP_SIDEBAR_PREFERENCE_COOKIE)?.value);
   let data: Awaited<ReturnType<typeof getPortalData>>;
   try {
     data = await getPortalData();
@@ -30,5 +33,5 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
     if (!knownDocument && !knownInvoice) notFound();
   }
 
-  return <AppShell data={data}><PortalPage slug={slug} data={data} /></AppShell>;
+  return <AppShell data={data} initialSidebarCollapsed={sidebarPreference ?? false} hasInitialSidebarPreference={sidebarPreference !== null}><PortalPage slug={slug} data={data} /></AppShell>;
 }

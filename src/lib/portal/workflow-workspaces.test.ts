@@ -7,6 +7,7 @@ import {
   findingHasCustomerVisibleMonetaryClaim,
   findingNeedsEvidence,
   findingNeedsReview,
+  findingStatusOptions,
   isExpiredContract,
   isUpcomingContract,
   resolveActionView,
@@ -15,6 +16,8 @@ import {
   resolveResultsView,
   resultIsInProgress,
   resultIsVerified,
+  resultNeedsVerificationReview,
+  resultVerificationStatus,
   totalCustomerVisibleFindingValue,
 } from "@/lib/portal/workflow-workspaces";
 import type { PortalAction, PortalContract, PortalOpportunity, PortalSavingsOutcome } from "@/lib/portal/types";
@@ -71,6 +74,13 @@ describe("workflow workspace helpers", () => {
     expect(findingNeedsEvidence(finding({ evidenceCount: 0, trustState: "needs_evidence" }))).toBe(true);
   });
 
+  it("only exposes plan approval after a finding has evidence-backed provenance", () => {
+    expect(findingStatusOptions(finding({ status: "under_review", trustState: "manual_note", evidenceCount: 0 })).map((item) => item.value))
+      .not.toContain("approved");
+    expect(findingStatusOptions(finding({ status: "under_review", trustState: "evidence_backed", evidenceCount: 1 })).map((item) => item.value))
+      .toContain("approved");
+  });
+
   it("only totals findings whose monetary claim can be shown to the customer", () => {
     const shown = finding({ id: "shown", estimatedAnnualValue: 1200 });
     const hidden = finding({ id: "hidden", monetaryClaimAllowed: false, estimatedAnnualValue: 900 });
@@ -87,7 +97,12 @@ describe("workflow workspace helpers", () => {
   });
 
   it("classifies verified and in-progress results", () => {
-    expect(resultIsVerified(result())).toBe(true);
+    expect(resultIsVerified(result({ calculationResult: { annualizedValue: "1200.00" } }))).toBe(true);
     expect(resultIsInProgress(result({ status: "awaiting_comparison", verifiedAt: null }))).toBe(true);
+    const incompleteVerified = result({ baselineAmount: null, comparisonAmount: null, baselineAcceptedAt: null, baselineExpenseId: null, comparisonExpenseId: null, methodVersion: null });
+    expect(resultIsVerified(incompleteVerified)).toBe(false);
+    expect(resultNeedsVerificationReview(incompleteVerified)).toBe(true);
+    expect(resultVerificationStatus(incompleteVerified)).toBe("needs_review");
+    expect(resultIsInProgress(incompleteVerified)).toBe(true);
   });
 });

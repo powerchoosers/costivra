@@ -50,8 +50,28 @@ export function findingNeedsReview(finding: PortalOpportunity): boolean {
   return ["open", "under_review", "approved"].includes(finding.status) && finding.trustState !== "evidence_backed";
 }
 
-export function findingHasEvidence(finding: PortalOpportunity): boolean {
+export function findingHasEvidence(finding: Pick<PortalOpportunity, "evidenceCount" | "trustState">): boolean {
   return finding.evidenceCount > 0 && finding.trustState === "evidence_backed";
+}
+
+export function findingStatusOptions(finding: Pick<PortalOpportunity, "status" | "trustState" | "evidenceCount">) {
+  if (finding.status === "open") {
+    return [
+      { value: "open", label: "Open" },
+      { value: "under_review", label: "Review" },
+      { value: "declined", label: "Decline" },
+    ];
+  }
+
+  if (finding.status === "under_review") {
+    return [
+      { value: "under_review", label: "Under review" },
+      ...(findingHasEvidence(finding) ? [{ value: "approved", label: "Approve plan" }] : []),
+      { value: "declined", label: "Decline" },
+    ];
+  }
+
+  return [{ value: finding.status, label: finding.status.replaceAll("_", " ") }];
 }
 
 export function findingNeedsEvidence(finding: PortalOpportunity): boolean {
@@ -89,10 +109,32 @@ export function actionIsCompleted(action: PortalAction): boolean {
   return ["complete", "completed", "cancelled", "declined"].includes(action.status);
 }
 
+export function resultHasVerificationEvidence(result: PortalSavingsOutcome): boolean {
+  return Boolean(
+    result.baselineExpenseId
+    && result.comparisonExpenseId
+    && result.baselineAmount != null
+    && result.comparisonAmount != null
+    && result.baselineAcceptedAt
+    && result.methodVersion
+    && Object.keys(result.calculationResult).length > 0
+    && result.amount > 0,
+  );
+}
+
 export function resultIsVerified(result: PortalSavingsOutcome): boolean {
-  return result.status === "verified" && result.verifiedAt != null;
+  return result.status === "verified" && result.verifiedAt != null && resultHasVerificationEvidence(result);
+}
+
+export function resultNeedsVerificationReview(result: PortalSavingsOutcome): boolean {
+  return result.status === "verified" && !resultIsVerified(result);
+}
+
+export function resultVerificationStatus(result: PortalSavingsOutcome): string {
+  return resultNeedsVerificationReview(result) ? "needs_review" : result.status;
 }
 
 export function resultIsInProgress(result: PortalSavingsOutcome): boolean {
-  return !resultIsVerified(result) && ["baseline_review", "awaiting_comparison", "ready_for_review", "pending", "in_progress"].includes(result.status);
+  return resultNeedsVerificationReview(result)
+    || (!resultIsVerified(result) && ["baseline_review", "awaiting_comparison", "ready_for_review", "pending", "in_progress"].includes(result.status));
 }

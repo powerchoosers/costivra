@@ -34,12 +34,11 @@ import { ClientAssistantSurface } from "@/components/client-assistant/client-ass
 import { WorkspaceNotificationCenter, WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 import { getNextVerticalScrollTop } from "@/lib/ui/workspace-scrollbar";
+import { APP_SIDEBAR_PREFERENCE_KEY, appSidebarPreferenceCookie, parseAppSidebarPreference } from "@/lib/ui/workspace-preferences";
 import { WorkspaceExperienceBanner } from "@/components/workspace-experience-banner";
 import { WorkspaceOnboardingTour } from "@/components/workspace-onboarding-tour";
 
 import type { ElementType } from "react";
-
-const APP_SIDEBAR_PREFERENCE_KEY = "costivra.app.sidebar-collapsed";
 
 export interface NavigationGroup {
   section?: string;
@@ -107,7 +106,7 @@ function websiteLabel(website: string) {
   }
 }
 
-import { useCallback, useEffect, useRef, useState, useMemo, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo, useSyncExternalStore, useTransition } from "react";
 
 export interface AppSearchResult {
   id: string;
@@ -260,7 +259,11 @@ function appSearchResults(data: PortalData, query: string) {
   return results;
 }
 
-function AppShellContent({ children, data }: { children: ReactNode; data: PortalData }) {
+function subscribeToAppSidebarPreference() {
+  return () => {};
+}
+
+function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSidebarPreference }: { children: ReactNode; data: PortalData; initialSidebarCollapsed: boolean; hasInitialSidebarPreference: boolean }) {
   const { state: assistantState } = useClientAssistant();
   const isDrawerOpen = assistantState.mode === "drawer";
   const pathname = usePathname();
@@ -274,15 +277,18 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const [profileOpen, setProfileOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
+  const [sidebarCollapsedOverride, setSidebarCollapsedOverride] = useState<boolean | null>(null);
+  const readBrowserSidebarPreference = useCallback(() => {
+    if (hasInitialSidebarPreference) return initialSidebarCollapsed;
     try {
-      return window.sessionStorage.getItem(APP_SIDEBAR_PREFERENCE_KEY) === "true";
+      return parseAppSidebarPreference(window.sessionStorage.getItem(APP_SIDEBAR_PREFERENCE_KEY) ?? undefined) ?? initialSidebarCollapsed;
     } catch {
-      return false;
+      return initialSidebarCollapsed;
     }
-  });
-  const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
+  }, [hasInitialSidebarPreference, initialSidebarCollapsed]);
+  const readServerSidebarPreference = useCallback(() => initialSidebarCollapsed, [initialSidebarCollapsed]);
+  const storedSidebarCollapsed = useSyncExternalStore(subscribeToAppSidebarPreference, readBrowserSidebarPreference, readServerSidebarPreference);
+  const sidebarCollapsed = sidebarCollapsedOverride ?? storedSidebarCollapsed;
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (prevPathname !== pathname) {
@@ -299,26 +305,13 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const initializationFrame = window.requestAnimationFrame(() => {
-      try {
-        setSidebarCollapsed(window.sessionStorage.getItem(APP_SIDEBAR_PREFERENCE_KEY) === "true");
-      } catch {
-        // Keep the expanded default when session storage is unavailable.
-      } finally {
-        setSidebarPreferenceLoaded(true);
-      }
-    });
-    return () => window.cancelAnimationFrame(initializationFrame);
-  }, []);
-
-  useEffect(() => {
-    if (!sidebarPreferenceLoaded) return;
     try {
       window.sessionStorage.setItem(APP_SIDEBAR_PREFERENCE_KEY, String(sidebarCollapsed));
     } catch {
-      // Sidebar state remains usable when session storage is unavailable.
+      // The cookie below keeps the preference available to the next server render.
     }
-  }, [sidebarCollapsed, sidebarPreferenceLoaded]);
+    document.cookie = appSidebarPreferenceCookie(sidebarCollapsed);
+  }, [sidebarCollapsed]);
 
   const appHeader = useMemo(() => {
     const segments = currentPathname.split("/").filter(Boolean);
@@ -693,7 +686,7 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
                 type="button"
                 aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 aria-pressed={sidebarCollapsed}
-                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+                onClick={() => setSidebarCollapsedOverride(!sidebarCollapsed)}
               >
                 <List aria-hidden="true" size={18} />
               </button>
@@ -883,12 +876,12 @@ function AppShellContent({ children, data }: { children: ReactNode; data: Portal
 import { BillInspectorProvider } from "@/components/bill-inspector-provider";
 import { NavigationHistoryProvider } from "@/components/navigation-history";
 
-export function AppShell({ children, data }: { children: ReactNode; data: PortalData }) {
+export function AppShell({ children, data, initialSidebarCollapsed = false, hasInitialSidebarPreference = false }: { children: ReactNode; data: PortalData; initialSidebarCollapsed?: boolean; hasInitialSidebarPreference?: boolean }) {
   return (
     <NavigationHistoryProvider scope="app">
       <ClientAssistantProvider>
         <BillInspectorProvider>
-          <AppShellContent data={data}>{children}</AppShellContent>
+          <AppShellContent data={data} initialSidebarCollapsed={initialSidebarCollapsed} hasInitialSidebarPreference={hasInitialSidebarPreference}>{children}</AppShellContent>
         </BillInspectorProvider>
       </ClientAssistantProvider>
     </NavigationHistoryProvider>

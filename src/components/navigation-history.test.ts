@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { floatingBackControlClassName, floatingBackControlTop, navigationStorageKey, nextFloatingBackVisibility, previousNavigationEntry, upsertNavigationEntry } from "@/components/navigation-history";
+import { floatingBackControlClassName, floatingBackControlTop, navigationStorageKey, nextFloatingBackControlState, nextFloatingBackVisibility, previousNavigationEntry, recordTabsAreVisibleInWorkspace, shouldShowFloatingBackControl, upsertNavigationEntry } from "@/components/navigation-history";
 
 describe("navigation history helpers", () => {
   it("keeps Customer App and Manage session storage separate", () => {
@@ -46,5 +46,35 @@ describe("navigation history helpers", () => {
     expect(nextFloatingBackVisibility({ wasFloating: false, hasUserScrolled: true, anchorTop: 20, anchorBottom: 56 })).toBe(true);
     expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: false, anchorTop: 210, anchorBottom: 246 })).toBe(false);
     expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: true, anchorTop: 100, anchorBottom: 136 })).toBe(false);
+  });
+
+  it("does not cover visible record tabs with the floating Back control", () => {
+    expect(shouldShowFloatingBackControl(true, true)).toBe(false);
+    expect(shouldShowFloatingBackControl(true, false)).toBe(true);
+    expect(shouldShowFloatingBackControl(false, false)).toBe(false);
+  });
+
+  it("keeps the logical floating state while record tabs temporarily suppress the control", () => {
+    const hiddenBehindTabs = nextFloatingBackControlState({
+      wasFloating: false,
+      hasUserScrolled: true,
+      anchorTop: 20,
+      anchorBottom: 56,
+      recordTabsAreVisible: true,
+    });
+    expect(hiddenBehindTabs).toEqual({ isFloating: true, visible: false });
+
+    expect(nextFloatingBackControlState({
+      wasFloating: hiddenBehindTabs.isFloating,
+      hasUserScrolled: true,
+      anchorTop: 20,
+      anchorBottom: 56,
+      recordTabsAreVisible: false,
+    })).toEqual({ isFloating: true, visible: true });
+  });
+
+  it("treats tabs hidden behind the workspace header as out of view", () => {
+    expect(recordTabsAreVisibleInWorkspace({ tabsTop: 195, tabsBottom: 238, workspaceHeaderBottom: 182, viewportBottom: 742 })).toBe(true);
+    expect(recordTabsAreVisibleInWorkspace({ tabsTop: -2, tabsBottom: 41, workspaceHeaderBottom: 182, viewportBottom: 742 })).toBe(false);
   });
 });

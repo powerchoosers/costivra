@@ -86,6 +86,49 @@ export function floatingBackControlTop(scope: NavigationScope, topbarBottom: num
   return Math.ceil(topbarBottom + 12);
 }
 
+export function shouldShowFloatingBackControl(isFloating: boolean, recordTabsAreVisible: boolean) {
+  // Detail tabs already keep the record's local navigation in view. Waiting
+  // until they clear prevents the global Back affordance from covering them.
+  return isFloating && !recordTabsAreVisible;
+}
+
+export function recordTabsAreVisibleInWorkspace({
+  tabsTop,
+  tabsBottom,
+  workspaceHeaderBottom,
+  viewportBottom,
+}: {
+  tabsTop: number;
+  tabsBottom: number;
+  workspaceHeaderBottom: number;
+  viewportBottom: number;
+}) {
+  // The shell header obscures any tabs above its lower edge. Treat those tabs
+  // as out of view so the compact Back control is available as soon as it has
+  // a clear, visible position below the header.
+  return tabsBottom > workspaceHeaderBottom && tabsTop < viewportBottom;
+}
+
+export function nextFloatingBackControlState({
+  wasFloating,
+  hasUserScrolled,
+  anchorTop,
+  anchorBottom,
+  recordTabsAreVisible,
+}: {
+  wasFloating: boolean;
+  hasUserScrolled: boolean;
+  anchorTop: number;
+  anchorBottom: number;
+  recordTabsAreVisible: boolean;
+}) {
+  const isFloating = nextFloatingBackVisibility({ wasFloating, hasUserScrolled, anchorTop, anchorBottom });
+  return {
+    isFloating,
+    visible: shouldShowFloatingBackControl(isFloating, recordTabsAreVisible),
+  };
+}
+
 function makeSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -362,6 +405,7 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
   const anchorRef = useRef<HTMLDivElement>(null);
   const hasUserScrolled = useRef(false);
   const routeSettled = useRef(false);
+  const floatingBackIsFloatingRef = useRef(false);
   const floatingBackControlId = useRef(Symbol("global-back-control"));
   const floatingActionsRef = useRef(floatingActions);
   const floatingBackVisibleRef = useRef(floatingBackVisible);
@@ -392,6 +436,7 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     routeSettled.current = false;
     // Hide before the new route paints. Without this reset, the persistent
     // control can briefly inherit the previous record's visible state.
+    floatingBackIsFloatingRef.current = false;
     floatingBackVisibleRef.current = false;
     setFloatingBackVisible(false);
     // Let the scroll observer evaluate after the route settles. Measuring in the
@@ -403,6 +448,8 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     const anchor = anchorRef.current;
     if (!anchor) return;
     const scrollContainer = anchor.closest<HTMLElement>("[data-workspace-scrollbar]");
+    const recordTabs = anchor.closest<HTMLElement>(".record-detail")?.querySelector<HTMLElement>(".record-tabs");
+    const workspaceHeader = document.querySelector<HTMLElement>(".app-work-canvas > .app-topbar, .manage-shell-v2 .manage-topbar");
 
     hasUserScrolled.current = false;
     routeSettled.current = false;
@@ -410,13 +457,23 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     const updateFloatingState = () => {
       if (!routeSettled.current) return;
       const { top, bottom } = anchor.getBoundingClientRect();
-      const nextIsFloating = nextFloatingBackVisibility({
-        wasFloating: floatingBackVisibleRef.current,
+      const tabsRect = recordTabs?.getBoundingClientRect();
+      const workspaceHeaderBottom = workspaceHeader?.getBoundingClientRect().bottom ?? 0;
+      const nextState = nextFloatingBackControlState({
+        wasFloating: floatingBackIsFloatingRef.current,
         hasUserScrolled: hasUserScrolled.current,
         anchorTop: top,
         anchorBottom: bottom,
+        recordTabsAreVisible: Boolean(tabsRect && recordTabsAreVisibleInWorkspace({
+          tabsTop: tabsRect.top,
+          tabsBottom: tabsRect.bottom,
+          workspaceHeaderBottom,
+          viewportBottom: window.innerHeight,
+        })),
       });
-      setFloatingBackVisible(nextIsFloating);
+      floatingBackIsFloatingRef.current = nextState.isFloating;
+      floatingBackVisibleRef.current = nextState.visible;
+      setFloatingBackVisible(nextState.visible);
     };
     const observer = new IntersectionObserver(updateFloatingState, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
     const onScroll = () => {

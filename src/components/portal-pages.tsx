@@ -81,6 +81,7 @@ import {
   findingIsDismissed,
   findingNeedsEvidence,
   findingNeedsReview,
+  findingStatusOptions,
   isExpiredContract,
   isUpcomingContract,
   resolveActionView,
@@ -89,6 +90,8 @@ import {
   resolveResultsView,
   resultIsInProgress,
   resultIsVerified,
+  resultNeedsVerificationReview,
+  resultVerificationStatus,
   totalCustomerVisibleFindingValue,
 } from "@/lib/portal/workflow-workspaces";
 
@@ -1332,15 +1335,6 @@ function FindingsWorkspace({
         }),
       "Finding updated.",
     );
-  const statusOptions = (finding: PortalData["opportunities"][number]) => {
-    if (finding.status === "open") return [{ value: "open", label: "Open" }, { value: "under_review", label: "Review" }, { value: "declined", label: "Decline" }];
-    if (finding.status === "under_review") return [
-      { value: "under_review", label: "Under review" },
-      ...(findingHasEvidence(finding) ? [{ value: "approved", label: "Approve plan" }] : []),
-      { value: "declined", label: "Decline" },
-    ];
-    return [{ value: finding.status, label: finding.status.replaceAll("_", " ") }];
-  };
   const filtered = data.opportunities.filter((finding) => {
     if (query && !`${finding.title} ${finding.vendorName} ${finding.summary} ${finding.category ?? ""}`.toLowerCase().includes(query.toLowerCase())) return false;
     if (activeView === "review") return findingNeedsReview(finding);
@@ -1411,7 +1405,7 @@ function FindingsWorkspace({
                     <td>{sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span className="workspace-secondary-text">Not linked</span>}</td>
                     <td><TrustBadge state={item.trustState} /></td><td>{item.evidenceCount} reference{item.evidenceCount === 1 ? "" : "s"}</td>
                     <td><strong>{item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? money(item.estimatedAnnualValue) : "Not shown"}</strong></td>
-                    <td><Status value={item.status} /></td><td><CostivraSelect aria-label={`Update ${item.title} status`} value={item.status} variant="badge" size="sm" onChange={(newStatus) => void update(item.id, newStatus)} options={statusOptions(item)} /></td>
+                    <td><Status value={item.status} /></td><td><CostivraSelect aria-label={`Update ${item.title} status`} value={item.status} variant="badge" size="sm" onChange={(newStatus) => void update(item.id, newStatus)} options={findingStatusOptions(item)} /></td>
                   </tr>;
                 })}
               </tbody>
@@ -1802,7 +1796,7 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
       </section>}
       {activeView === "in_progress" && <section className="portal-panel">
         <div className="portal-panel-heading"><div><h2>Results in progress</h2><p>These values are not verified yet. Each row shows what evidence is still missing.</p></div></div>
-        {inProgress.length ? <div className="portal-list">{inProgress.map((item) => <div className="portal-list-row savings-workflow-row" key={item.id}><CircleDollarSign /><div className="grow"><Link className="record-link" href={`/app/results/${item.id}`}><strong>{item.title}</strong></Link><span>{item.status === "baseline_review" ? "Baseline awaiting acceptance" : item.comparisonAmount == null ? "Awaiting comparison" : "Awaiting verification"}</span><small>Potential result only · Method: {item.method}</small></div><strong className="money-value">{money(item.amount)}</strong><Status value={item.status} /></div>)}</div> : <Empty title="No results in progress" copy="Accepted baselines and pending comparisons will appear here." />}
+        {inProgress.length ? <div className="portal-list">{inProgress.map((item) => <div className="portal-list-row savings-workflow-row" key={item.id}><CircleDollarSign /><div className="grow"><Link className="record-link" href={`/app/results/${item.id}`}><strong>{item.title}</strong></Link><span>{resultNeedsVerificationReview(item) ? "Verification evidence is incomplete" : item.status === "baseline_review" ? "Baseline awaiting acceptance" : item.comparisonAmount == null ? "Awaiting comparison" : "Awaiting verification"}</span><small>{resultNeedsVerificationReview(item) ? "Does not count as verified until baseline, comparison, method, and calculation evidence are recorded." : `Potential result only · Method: ${item.method}`}</small></div><strong className="money-value">{resultNeedsVerificationReview(item) ? "Not verified" : money(item.amount)}</strong><Status value={resultVerificationStatus(item)} /></div>)}</div> : <Empty title="No results in progress" copy="Accepted baselines and pending comparisons will appear here." />}
       </section>}
       {activeView === "reports" && <section className="portal-panel reports-surface">
         <div className="portal-panel-heading"><div><h2>Reports</h2><p>Send evidence-backed summaries to people already authorized in this workspace.</p></div></div>
