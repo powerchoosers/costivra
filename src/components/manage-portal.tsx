@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CSSProperties, FormEvent, ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { CSSProperties, FormEvent, ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import {
   Activity,
   Archive,
@@ -117,6 +117,7 @@ import { formatManageDate } from "@/lib/manage/date-format";
 import { sequenceTaskOriginLabel } from "@/lib/manage/task-origin";
 import { groupRecordedSpend, type SpendInterval } from "@/lib/manage/vendor-costs";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
+import { MANAGE_SIDEBAR_PREFERENCE_KEY, manageSidebarPreferenceCookie, parseSidebarPreference, resolveManageRailOpen, shouldPersistManageRailPreference, type ManageSidebarViewport } from "@/lib/ui/workspace-preferences";
 import {
   buildRecipientCandidates,
   isRecipientEmail,
@@ -151,12 +152,11 @@ const navGroups = [
   },
 ] as const;
 
-const MANAGE_SIDEBAR_PREFERENCE_KEY = "costivra.manage.sidebar-collapsed";
-let clientManageMobileNavPreference: boolean | null = null;
-
 const settingsNav = ["Settings", "/manage/settings", Settings] as const;
 
-type ManageSidebarViewport = "desktop" | "compact" | "mobile";
+function subscribeToManageSidebarPreference() {
+  return () => {};
+}
 
 function unreadBadge(count: number) {
   return count > 99 ? "99+" : String(count);
@@ -684,19 +684,23 @@ function OpportunityTrustReview({ data }: { data: ManageOpportunityTrustReviewDa
 export function ManagePortal({
   section,
   detailId,
+  routeRecordId,
   outreachSequenceId,
   data,
   invoiceReview,
   intakeOperations,
   trustReview,
+  initialSidebarCollapsed = null,
 }: {
   section: string;
   detailId?: string | null;
+  routeRecordId?: string | null;
   outreachSequenceId?: string | null;
   data: ManageData;
   invoiceReview?: ManageInvoiceReviewData | null;
   intakeOperations?: ManageIntakeOperationsData | null;
   trustReview?: ManageOpportunityTrustReviewData | null;
+  initialSidebarCollapsed?: boolean | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -707,15 +711,40 @@ export function ManagePortal({
   const { openComposer } = useManageComposer();
   const currentAccount = section === "accounts" && detailId ? data.accounts.find((item) => item.id === detailId) : null;
   const currentContact = section === "contacts" && detailId ? data.contacts.find((item) => item.id === detailId) : null;
+  const isMailThreadDetail = section === "mail" && Boolean(routeRecordId);
+  const isInvoiceReviewDetail = section === "invoice-review" && Boolean(routeRecordId);
+  const isIntakeEventDetail = section === "intake" && Boolean(routeRecordId);
+  const currentMailThread = isMailThreadDetail ? data.mail.selectedThread : null;
+  const currentInvoice = isInvoiceReviewDetail ? invoiceReview?.selectedInvoice ?? null : null;
+  const currentIntakeEvent = isIntakeEventDetail ? intakeOperations?.selectedEvent ?? null : null;
+  const manageRecordDetailRoute = Boolean(detailId || outreachSequenceId || isMailThreadDetail || isInvoiceReviewDetail || isIntakeEventDetail);
   const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", operations: "Pilot operations", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations", "trust-review": "Trust review" };
-  const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? (outreachSequenceId ? "Sequence" : sequenceOutreachTab ? "Sequences" : managePageLabels[section] ?? pretty(section));
-  const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : outreachSequenceId ? "/manage/outreach?tab=sequences" : "/manage";
-  const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : outreachSequenceId ? "Sequences" : "Client operations";
+  const mailFallbackHref = `/manage/mail?folder=${data.mail.folder}${data.mail.selectedMailboxId ? `&mailbox=${data.mail.selectedMailboxId}` : ""}`;
+  const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? currentMailThread?.subject ?? (currentInvoice ? `Invoice ${currentInvoice.invoiceNumber ?? currentInvoice.documentName}` : null) ?? currentIntakeEvent?.subject ?? (outreachSequenceId ? "Sequence" : isMailThreadDetail ? "Mail thread" : isInvoiceReviewDetail ? "Invoice review" : isIntakeEventDetail ? "Intake event" : sequenceOutreachTab ? "Sequences" : managePageLabels[section] ?? pretty(section));
+  const currentFallbackHref = currentAccount ? "/manage/accounts" : currentContact ? "/manage/contacts" : outreachSequenceId ? "/manage/outreach?tab=sequences" : isMailThreadDetail ? mailFallbackHref : isInvoiceReviewDetail ? "/manage/invoice-review" : isIntakeEventDetail ? "/manage/intake" : "/manage";
+  const currentFallbackLabel = currentAccount ? "Accounts" : currentContact ? "Contacts" : outreachSequenceId ? "Sequences" : isMailThreadDetail ? "Mail" : isInvoiceReviewDetail ? "Invoice review" : isIntakeEventDetail ? "Intake operations" : "Client operations";
   useNavigationLabel(currentLabel, currentFallbackHref, currentFallbackLabel);
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
-  // Keep the first client render deterministic; the viewport effect below
-  // restores the saved desktop/compact rail preference after hydration.
-  const [mobileNav, setMobileNav] = useState(() => clientManageMobileNavPreference ?? false);
+  const [sidebarViewport, setSidebarViewport] = useState<ManageSidebarViewport>("desktop");
+  const [mobileNavOverride, setMobileNavOverride] = useState<boolean | null>(null);
+  const readBrowserSidebarPreference = useCallback(() => {
+    if (initialSidebarCollapsed !== null) return initialSidebarCollapsed;
+    try {
+      return parseSidebarPreference(window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY) ?? undefined);
+    } catch {
+      return null;
+    }
+  }, [initialSidebarCollapsed]);
+  const readServerSidebarPreference = useCallback(() => initialSidebarCollapsed, [initialSidebarCollapsed]);
+  const storedSidebarCollapsed = useSyncExternalStore(subscribeToManageSidebarPreference, readBrowserSidebarPreference, readServerSidebarPreference);
+  const defaultMobileNav = resolveManageRailOpen(sidebarViewport, storedSidebarCollapsed);
+  const mobileNav = mobileNavOverride ?? defaultMobileNav;
+  const setMobileNav = useCallback((next: boolean | ((current: boolean) => boolean)) => {
+    setMobileNavOverride((current) => {
+      const currentValue = current ?? defaultMobileNav;
+      return typeof next === "function" ? next(currentValue) : next;
+    });
+  }, [defaultMobileNav]);
   const [manageMobileMenuOpen, setManageMobileMenuOpen] = useState(false);
   const [manageMobileMenuClosing, setManageMobileMenuClosing] = useState(false);
   const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
@@ -729,8 +758,6 @@ export function ManagePortal({
 
   const currentPathname = optimisticHref ?? pathname;
   const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; left: number; top: number; closing?: boolean } | null>(null);
-  const [sidebarViewport, setSidebarViewport] =
-    useState<ManageSidebarViewport>("desktop");
   const [search, setSearch] = useState(routeSearch);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchClosing, setSearchClosing] = useState(false);
@@ -775,25 +802,6 @@ export function ManagePortal({
       setSidebarViewport(nextViewport);
       setManageMobileMenuOpen(false);
       setManageMobileMenuClosing(false);
-      let storedCollapsed: boolean | null = null;
-      try {
-        const storedPreference = window.sessionStorage.getItem(MANAGE_SIDEBAR_PREFERENCE_KEY);
-        if (storedPreference !== null) storedCollapsed = storedPreference === "true";
-      } catch {
-        // Keep the appropriate layout default when session storage is unavailable.
-      }
-
-      if (nextViewport === "mobile") {
-        setMobileNav(false);
-      } else if (nextViewport === "compact" && storedCollapsed === null) {
-        // Keep the compact rail calm until someone intentionally expands it.
-        setMobileNav(false);
-        clientManageMobileNavPreference = false;
-      } else {
-        const nextMobileNav = storedCollapsed !== true;
-        clientManageMobileNavPreference = nextMobileNav;
-        setMobileNav(nextMobileNav);
-      }
       setSidebarPreferenceLoaded(true);
     }
 
@@ -805,7 +813,7 @@ export function ManagePortal({
       window.cancelAnimationFrame(initializationFrame);
       window.removeEventListener("resize", updateSidebarViewport);
     };
-  }, []);
+  }, [storedSidebarCollapsed]);
 
   useEffect(() => () => {
     if (dialogCloseTimerRef.current !== null) {
@@ -854,17 +862,17 @@ export function ManagePortal({
   }, [searchFocused]);
 
   useEffect(() => {
-    if (!sidebarPreferenceLoaded || sidebarViewport === "mobile") return;
-    clientManageMobileNavPreference = mobileNav;
+    if (!sidebarPreferenceLoaded || !shouldPersistManageRailPreference(sidebarViewport, storedSidebarCollapsed, mobileNavOverride !== null)) return;
     try {
       window.sessionStorage.setItem(
         MANAGE_SIDEBAR_PREFERENCE_KEY,
         String(!mobileNav),
       );
     } catch {
-      // Sidebar state remains usable when session storage is unavailable.
+      // The cookie below keeps the preference available to the next server render.
     }
-  }, [mobileNav, sidebarPreferenceLoaded, sidebarViewport]);
+    document.cookie = manageSidebarPreferenceCookie(!mobileNav);
+  }, [mobileNav, mobileNavOverride, sidebarPreferenceLoaded, sidebarViewport, storedSidebarCollapsed]);
 
   const closeManageMobileMenu = useCallback(() => {
     if (!manageMobileMenuOpen || manageMobileMenuClosing) return;
@@ -1418,10 +1426,10 @@ export function ManagePortal({
           </>
         )}
         <div
-          key={section}
+          key={pathname}
           data-workspace-scrollbar=""
-          className={`manage-page manage-page--${section}${detailId ? " manage-page--detail" : ""} motion-page`}
-          onWheelCapture={detailId ? undefined : (event) => {
+          className={`manage-page manage-page--${section}${manageRecordDetailRoute ? " manage-page--detail" : ""} motion-page`}
+          onWheelCapture={manageRecordDetailRoute ? undefined : (event) => {
             const node = event.currentTarget;
             const target = event.target as HTMLElement;
             if (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeFindingReadiness, presentFindingEvidence } from "@/lib/portal/finding-presentation";
+import { describeFindingReadiness, hasFindingCalculation, presentFindingEvidence } from "@/lib/portal/finding-presentation";
 
 describe("finding presentation", () => {
   it("does not present an inaccessible recorded reference as ready evidence", () => {
@@ -24,5 +24,10 @@ describe("finding presentation", () => {
 
     expect(describeFindingReadiness({ trustState: "evidence_backed", evidence, hasCalculation: true }).heading)
       .toBe("Ready for human review");
+  });
+
+  it("does not treat a calculation rule label as a completed calculation", () => {
+    expect(hasFindingCalculation("rate-increase-v1", {})).toBe(false);
+    expect(hasFindingCalculation("rate-increase-v1", { currentRate: 0.15 })).toBe(true);
   });
 });

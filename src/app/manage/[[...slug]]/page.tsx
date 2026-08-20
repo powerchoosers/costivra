@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { ManageAccessDenied } from "@/components/manage-access-denied";
 import { ManagePortal } from "@/components/manage-portal";
 import { getManageData } from "@/lib/manage/repository";
 import { getManageInvoiceReviewData } from "@/lib/manage/invoice-review";
 import { getManageIntakeOperationsData } from "@/lib/manage/intake-operations";
 import { getManageOpportunityTrustReviewData } from "@/lib/manage/opportunity-trust-review";
+import { MANAGE_SIDEBAR_PREFERENCE_COOKIE, parseSidebarPreference } from "@/lib/ui/workspace-preferences";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -41,6 +43,7 @@ export default async function Page({
   searchParams: Promise<{ folder?: string; mailbox?: string }>;
 }) {
   const { slug = [] } = await params;
+  const initialSidebarCollapsed = parseSidebarPreference((await cookies()).get(MANAGE_SIDEBAR_PREFERENCE_COOKIE)?.value);
   const { folder, mailbox } = await searchParams;
   const section = slug[0] || "overview";
   const outreachSequenceId =
@@ -67,10 +70,12 @@ export default async function Page({
   return <ManagePortal
     section={section}
     detailId={section === "accounts" || section === "contacts" ? slug[1] ?? null : null}
+    routeRecordId={slug[1] ?? null}
     outreachSequenceId={outreachSequenceId}
     data={result.data}
     invoiceReview={invoiceReview}
     intakeOperations={intakeOperations}
     trustReview={trustReview}
+    initialSidebarCollapsed={initialSidebarCollapsed}
   />;
 }

@@ -49,7 +49,7 @@ import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { formatFinancialDate } from "@/lib/ui/date-format";
-import { PortalRecordDetail } from "@/components/portal-record-detail";
+import { PortalRecordDetail, resolveRecordDetailCurrency } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 import { getActivationProgress } from "@/lib/portal/activation";
@@ -137,10 +137,10 @@ async function api(url: string, options: ApiOptions = {}) {
   return payload;
 }
 
-const money = (value: number, compact = false) =>
+const money = (value: number, compact = false, currency = "USD") =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: resolveRecordDetailCurrency(currency),
     maximumFractionDigits: compact ? 0 : 2,
     notation: compact ? "compact" : "standard",
   }).format(value);
@@ -2186,6 +2186,7 @@ export function VendorDetail({
   const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
   const [monitoring, setMonitoring] = useState<VendorMonitoringRecord | null>(null);
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
+  const workspaceCurrency = resolveRecordDetailCurrency(data.organization.currency);
 
   // Edit form state
   const [displayNameOverride, setDisplayNameOverride] = useState(vendor?.displayNameOverride ?? "");
@@ -2236,6 +2237,7 @@ export function VendorDetail({
       </div>
     );
 
+  const vendorMoney = (value: number, compact = false) => money(value, compact, workspaceCurrency);
   const canWrite = data.currentUser.role !== "viewer";
   const canManageLifecycle = data.currentUser.role === "owner" || data.currentUser.role === "admin";
   const vendorDraftDirty = recordDraftChanged(
@@ -2437,7 +2439,7 @@ export function VendorDetail({
       label: "Copy vendor information",
       icon: <Copy size={15} />,
       onSelect: async () => {
-        const info = `${vendor.name}\nCategory: ${vendor.category}\nWebsite: ${vendor.website || "N/A"}\nAnnualized Spend: $${vendor.annualizedSpend}`;
+        const info = `${vendor.name}\nCategory: ${vendor.category}\nWebsite: ${vendor.website || "N/A"}\nAnnualized Spend: ${vendorMoney(vendor.annualizedSpend)}`;
         await navigator.clipboard.writeText(info);
         toast.success("Vendor details copied to clipboard.");
       },
@@ -2548,12 +2550,12 @@ export function VendorDetail({
             <dl className="vendor-overview-summary__metrics">
               <div>
                 <dt>Annualized spend</dt>
-                <dd>{money(vendor.annualizedSpend)}</dd>
+                <dd>{vendorMoney(vendor.annualizedSpend)}</dd>
                 <small>Current relationship record</small>
               </div>
               <div>
                 <dt>Latest bill</dt>
-                <dd>{latest ? money(latest.amount) : "Not recorded"}</dd>
+                <dd>{latest ? vendorMoney(latest.amount) : "Not recorded"}</dd>
                 <small>{latest ? `Period ending ${date(latest.periodEnd)}` : "Add a bill or source document"}</small>
               </div>
             </dl>
@@ -2573,7 +2575,7 @@ export function VendorDetail({
             <div className="workspace-value-summary__grid">
               <div className="workspace-value-summary__metric" data-tone="potential">
                 <span>Potential Value</span>
-                <strong>{potentialFindings.length ? money(potentialValueTotal) : "Not established"}</strong>
+                <strong>{potentialFindings.length ? vendorMoney(potentialValueTotal) : "Not established"}</strong>
                 <small>{potentialFindings.length ? `${potentialFindings.length} evidence-backed finding${potentialFindings.length === 1 ? "" : "s"}` : "No evidence-backed finding yet"}</small>
               </div>
               <div className="workspace-value-summary__metric">
@@ -2583,7 +2585,7 @@ export function VendorDetail({
               </div>
               <div className="workspace-value-summary__metric" data-tone="verified">
                 <span>Verified Value</span>
-                <strong>{hasVerifiedValue ? money(verifiedValueTotal) : "Not verified yet"}</strong>
+                <strong>{hasVerifiedValue ? vendorMoney(verifiedValueTotal) : "Not verified yet"}</strong>
                 <small>{hasVerifiedValue ? "Proven by later evidence" : "Awaiting comparison evidence"}</small>
               </div>
             </div>
@@ -2611,19 +2613,19 @@ export function VendorDetail({
       )}
 
       {activeTab === "accounts" && (
-        <VendorAccountsTab vendorId={vendorId} data={data} selectedAccountId={requestedAccount} onAdd={onAdd} />
+        <VendorAccountsTab vendorId={vendorId} data={data} currency={workspaceCurrency} selectedAccountId={requestedAccount} onAdd={onAdd} />
       )}
 
       {activeTab === "bills" && (
-        <VendorBillsTab expenses={expenses} invoices={data.invoices.filter((item) => item.vendorId === vendorId)} documents={documents} vendorName={vendor.name} />
+        <VendorBillsTab expenses={expenses} invoices={data.invoices.filter((item) => item.vendorId === vendorId)} documents={documents} vendorName={vendor.name} currency={workspaceCurrency} />
       )}
 
       {activeTab === "contracts" && (
-        <VendorContractsTab contracts={contracts} />
+        <VendorContractsTab contracts={contracts} currency={workspaceCurrency} />
       )}
 
       {activeTab === "findings" && (
-        <VendorFindingsTab opportunities={opportunities} actions={actions} savings={vendorSavings} />
+        <VendorFindingsTab opportunities={opportunities} actions={actions} savings={vendorSavings} currency={workspaceCurrency} />
       )}
 
       {activeTab === "activity" && (
@@ -2778,11 +2780,13 @@ function maskAccountReference(ref: string | null | undefined): string {
 function VendorAccountsTab({
   vendorId,
   data,
+  currency,
   selectedAccountId,
   onAdd,
 }: {
   vendorId: string;
   data: PortalData;
+  currency: string;
   selectedAccountId?: string | null;
   onAdd: (kind: Exclude<ModalState, null>, relationshipId: string) => void;
 }) {
@@ -2851,7 +2855,7 @@ function VendorAccountsTab({
                       </span>
                       <span>Category: {account.category}</span>
                       {latestInv ? (
-                        <span>Latest bill: {money(latestInv.totalAmount ?? 0)} ({date(latestInv.invoiceDate)})</span>
+                        <span>Latest bill: {money(latestInv.totalAmount ?? 0, false, resolveRecordDetailCurrency(currency, latestInv.currency))} ({date(latestInv.invoiceDate)})</span>
                       ) : null}
                       {accountContracts.length ? (
                         <span>Contract active</span>
@@ -2934,7 +2938,7 @@ function VendorAccountsTab({
                 <div className="grow">
                   <strong>{inv.invoiceNumber ?? "Bill without invoice #"}</strong>
                   <div style={{ fontSize: "0.82rem", color: "var(--assistant-muted, #64748b)", marginTop: 2, display: "flex", gap: 12 }}>
-                    <span>Amount: {money(inv.totalAmount ?? 0)}</span>
+                    <span>Amount: {money(inv.totalAmount ?? 0, false, resolveRecordDetailCurrency(currency, inv.currency))}</span>
                     <span>Date: {date(inv.invoiceDate)}</span>
                     <span>Last 4: {inv.accountNumberLast4 ? `...${inv.accountNumberLast4}` : "None"}</span>
                   </div>
@@ -2963,6 +2967,7 @@ function VendorAccountsTab({
           accountId={selectedAccountId}
           relationshipId={relationshipId}
           data={data}
+          currency={currency}
           onClose={handleClosePanel}
           onAdd={onAdd}
         />
@@ -2975,12 +2980,14 @@ function AccountDetailSheet({
   accountId,
   relationshipId,
   data,
+  currency,
   onClose,
   onAdd,
 }: {
   accountId: string;
   relationshipId: string;
   data: PortalData;
+  currency: string;
   onClose: () => void;
   onAdd: (kind: Exclude<ModalState, null>, relationshipId: string) => void;
 }) {
@@ -3073,7 +3080,7 @@ function AccountDetailSheet({
                     <strong>{inv.invoiceNumber ?? "Bill"}</strong>
                     <span>Date: {date(inv.invoiceDate)}</span>
                   </div>
-                  <strong>{money(inv.totalAmount ?? 0)}</strong>
+                  <strong>{money(inv.totalAmount ?? 0, false, resolveRecordDetailCurrency(currency, inv.currency))}</strong>
                   <ChevronRight size={16} />
                 </Link>
               ))}
@@ -3191,11 +3198,13 @@ function VendorBillsTab({
   invoices,
   documents,
   vendorName,
+  currency,
 }: {
   expenses: PortalData["expenses"];
   invoices: PortalData["invoices"];
   documents: PortalData["documents"];
   vendorName: string;
+  currency: string;
 }) {
   const { openInspector } = useBillInspector();
   const [subview, setSubview] = useState<"bills" | "files">("bills");
@@ -3263,14 +3272,16 @@ function VendorBillsTab({
                   <strong>{date(expense.periodEnd)}</strong>
                   <span>{expense.category} · {expense.locationName ?? "Location not assigned"}</span>
                 </div>
-                <strong>{money(expense.amount)}</strong>
+                <strong>{money(expense.amount, false, currency)}</strong>
                 <ChevronRight size={16} />
               </Link>
             ))}
           </div>
           {invoices.length ? (
             <div className="portal-list" style={{ marginTop: 12 }}>
-              {invoices.map((invoice) => (
+              {invoices.map((invoice) => {
+                const invoiceCurrency = resolveRecordDetailCurrency(currency, invoice.currency);
+                return (
                 <Link key={invoice.id} className="portal-list-row" href={`/app/bills/${invoice.id}`}>
                   <div className="grow">
                     <strong>{invoice.invoiceNumber ?? "Invoice"}</strong>
@@ -3278,7 +3289,7 @@ function VendorBillsTab({
                       {displayPeriod(invoice.servicePeriodStart, invoice.servicePeriodEnd)} · Account {invoice.accountNumberLast4 ? `…${invoice.accountNumberLast4}` : "not assigned"} · {invoice.locationName ?? "Location not assigned"}
                     </span>
                     <small>
-                      Current charges {invoice.currentCharges == null ? "not recorded" : money(invoice.currentCharges)} · Amount due {invoice.amountDue == null ? "not recorded" : money(invoice.amountDue)} · Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor matched: {invoice.vendorMatchStatus === "exact" || invoice.vendorMatchStatus === "provided" ? "Yes" : "Needs review"}
+                      Current charges {invoice.currentCharges == null ? "not recorded" : money(invoice.currentCharges, false, invoiceCurrency)} · Amount due {invoice.amountDue == null ? "not recorded" : money(invoice.amountDue, false, invoiceCurrency)} · Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor matched: {invoice.vendorMatchStatus === "exact" || invoice.vendorMatchStatus === "provided" ? "Yes" : "Needs review"}
                     </small>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -3300,7 +3311,8 @@ function VendorBillsTab({
                     <ChevronRight size={16} />
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           ) : null}
         </section>
@@ -3332,19 +3344,21 @@ function VendorBillsTab({
   );
 }
 
-function VendorContractsTab({ contracts }: { contracts: PortalData["contracts"] }) {
+function VendorContractsTab({ contracts, currency }: { contracts: PortalData["contracts"]; currency: string }) {
   if (!contracts.length) return <Empty title="No contracts recorded" copy="Add a contract and its notice dates to make renewal risk visible." />;
-  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Contracts</h2><p>Dates and values come from the recorded agreement.</p></div></div><div className="portal-list">{contracts.map((contract) => <Link key={contract.id} className="portal-list-row" href={`/app/contracts/${contract.id}`}><div className="grow"><strong>{contract.title}</strong><span>{contract.endDate ? `Ends ${date(contract.endDate)}` : "End date not recorded"}{contract.autoRenews ? " · Auto-renews" : ""}</span></div><strong>{contract.annualValue == null ? "Value not recorded" : money(contract.annualValue)}</strong><ChevronRight size={16} /></Link>)}</div></section>;
+  return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Contracts</h2><p>Dates and values come from the recorded agreement.</p></div></div><div className="portal-list">{contracts.map((contract) => <Link key={contract.id} className="portal-list-row" href={`/app/contracts/${contract.id}`}><div className="grow"><strong>{contract.title}</strong><span>{contract.endDate ? `Ends ${date(contract.endDate)}` : "End date not recorded"}{contract.autoRenews ? " · Auto-renews" : ""}</span></div><strong>{contract.annualValue == null ? "Value not recorded" : money(contract.annualValue, false, currency)}</strong><ChevronRight size={16} /></Link>)}</div></section>;
 }
 
 function VendorFindingsTab({
   opportunities,
   actions,
   savings,
+  currency,
 }: {
   opportunities: PortalData["opportunities"];
   actions: PortalData["actions"];
   savings: PortalData["savings"];
+  currency: string;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -3431,7 +3445,7 @@ function VendorFindingsTab({
                   <strong>{item.title}</strong>
                   <span>{item.method} · {item.status === "verified" ? "Verified result" : "In progress"}</span>
                 </div>
-                <strong className="money-value">{money(item.amount)}</strong>
+                <strong className="money-value">{money(item.amount, false, currency)}</strong>
                 <Status value={item.status} />
                 <ChevronRight size={16} />
               </Link>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { floatingBackControlClassName, floatingBackControlTop, navigationStorageKey, nextFloatingBackControlState, nextFloatingBackVisibility, previousNavigationEntry, recordTabsAreVisibleInWorkspace, shouldShowFloatingBackControl, upsertNavigationEntry } from "@/components/navigation-history";
+import { floatingBackControlClassName, floatingBackControlTop, isFloatingBackScrollKey, isManageRecordDetailPath, navigationStorageKey, nextFloatingBackControlState, nextFloatingBackVisibility, previousNavigationEntry, recordTabsAreVisibleInWorkspace, shouldShowFloatingBackControl, upsertNavigationEntry } from "@/components/navigation-history";
 
 describe("navigation history helpers", () => {
   it("keeps Customer App and Manage session storage separate", () => {
@@ -23,6 +23,24 @@ describe("navigation history helpers", () => {
     expect(previousNavigationEntry(first)).toBeNull();
     const entries = upsertNavigationEntry(first, "/manage/accounts/123", "Acme Telecom", 1);
     expect(previousNavigationEntry(entries)).toMatchObject({ href: "/manage/accounts", label: "Accounts" });
+  });
+
+  it("treats every direct Manage record route as one detail destination", () => {
+    expect(isManageRecordDetailPath("/manage/accounts/account-1")).toBe(true);
+    expect(isManageRecordDetailPath("/manage/contacts/contact-1")).toBe(true);
+    expect(isManageRecordDetailPath("/manage/mail/thread-1")).toBe(true);
+    expect(isManageRecordDetailPath("/manage/invoice-review/invoice-1")).toBe(true);
+    expect(isManageRecordDetailPath("/manage/intake/event-1")).toBe(true);
+    expect(isManageRecordDetailPath("/manage/outreach/sequences/sequence-1")).toBe(true);
+    expect(isManageRecordDetailPath("/manage/mail")).toBe(false);
+  });
+
+  it("treats only deliberate keyboard scrolling as Back-control scroll intent", () => {
+    expect(isFloatingBackScrollKey("PageDown")).toBe(true);
+    expect(isFloatingBackScrollKey("ArrowDown")).toBe(true);
+    expect(isFloatingBackScrollKey(" ")).toBe(true);
+    expect(isFloatingBackScrollKey("Tab")).toBe(false);
+    expect(isFloatingBackScrollKey("Enter")).toBe(false);
   });
 
   it("keeps the floating Back control stable while its page-level control crosses the header boundary", () => {

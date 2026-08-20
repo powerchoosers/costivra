@@ -9,6 +9,13 @@ export type FindingEvidencePresentation = {
   status: "ready" | "review";
 };
 
+export function hasFindingCalculation(
+  ruleVersion: string | null | undefined,
+  calculationResult: Record<string, unknown> | null | undefined,
+) {
+  return Boolean(ruleVersion && calculationResult && Object.keys(calculationResult).length > 0);
+}
+
 export function presentFindingEvidence({
   recordedEvidenceCount,
   accessibleEvidenceCount,

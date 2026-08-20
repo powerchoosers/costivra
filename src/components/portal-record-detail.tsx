@@ -11,7 +11,7 @@ import { GlobalBackControl } from "@/components/navigation-history";
 import { PageBreadcrumbs, PageScopeIndicator } from "@/components/page-scope-indicator";
 import type { PortalData } from "@/lib/portal/types";
 import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
-import { describeFindingReadiness, presentFindingEvidence } from "@/lib/portal/finding-presentation";
+import { describeFindingReadiness, hasFindingCalculation, presentFindingEvidence } from "@/lib/portal/finding-presentation";
 import { invoiceIdentityMatchLabel, invoiceReconciliationLabel, invoiceVendorMatchLabel } from "@/lib/portal/invoice-presentation";
 import { resultIsVerified, resultNeedsVerificationReview, resultVerificationStatus } from "@/lib/portal/workflow-workspaces";
 import {
@@ -29,12 +29,13 @@ const labels: Record<Kind, { plural: string; noun: string }> = {
 };
 export const formatRecordMoney = (value: number | null | undefined, currency = "USD") => value == null ? "Not recorded" : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
 const money = formatRecordMoney;
+export const resolveRecordDetailCurrency = (workspaceCurrency: string | null | undefined, invoiceCurrency?: string | null) => invoiceCurrency || workspaceCurrency || "USD";
 const date = (value: string | null | undefined) => formatFinancialDate(value, "Not recorded");
 const text = (value: unknown) => value === null || value === undefined || value === "" ? "Not recorded" : String(value).replaceAll("_", " ").replaceAll(".", " ").replace(/([a-z])([A-Z])/g, "$1 $2");
 
 function build(data: PortalData, kind: Kind, id: string) {
   const editable = data.currentUser.role !== "viewer";
-  const workspaceCurrency = data.organization.currency || "USD";
+  const workspaceCurrency = resolveRecordDetailCurrency(data.organization.currency);
   if (kind === "vendor") {
     const record = data.vendors.find((x) => x.id === id);
     if (!record) return null;
@@ -71,7 +72,7 @@ function build(data: PortalData, kind: Kind, id: string) {
     { key: "pageCount", label: "Pages", value: record.pageCount }, { key: "confidence", label: "Extraction confidence", value: record.confidence, display: record.confidence == null ? "Unknown" : `${Math.round((record.confidence as number) * 100)}%` }, { key: "sha256", label: "SHA-256 provenance", value: record.sha256 },
   ] as Field[] };
   if (kind === "invoice") {
-    const invoiceCurrency = typeof record.currency === "string" && record.currency ? record.currency : workspaceCurrency;
+    const invoiceCurrency = resolveRecordDetailCurrency(workspaceCurrency, typeof record.currency === "string" ? record.currency : null);
     return { ...common, title: record.invoiceNumber ? `Invoice ${record.invoiceNumber}` : "Invoice awaiting number", subtitle: String(record.vendorName), status: String(record.reviewStatus), fields: [
     { key: "invoiceNumber", label: "Invoice number", value: record.invoiceNumber, editable, type: "text" }, { key: "invoiceDate", label: "Invoice date", value: record.invoiceDate, display: date(record.invoiceDate as string | null), editable, type: "date" }, { key: "dueDate", label: "Due date", value: record.dueDate, display: date(record.dueDate as string | null), editable, type: "date" },
     { key: "servicePeriodStart", label: "Service start", value: record.servicePeriodStart, display: date(record.servicePeriodStart as string | null), editable, type: "date" }, { key: "servicePeriodEnd", label: "Service end", value: record.servicePeriodEnd, display: date(record.servicePeriodEnd as string | null), editable, type: "date" },
@@ -305,10 +306,11 @@ function FindingDecisionBrief({
     recordedEvidenceCount: finding.evidenceCount,
     accessibleEvidenceCount,
   });
+  const hasCalculation = hasFindingCalculation(finding.ruleVersion, finding.calculationResult);
   const readiness = describeFindingReadiness({
     trustState: finding.trustState,
     evidence,
-    hasCalculation: Boolean(finding.ruleVersion && Object.keys(finding.calculationResult).length > 0),
+    hasCalculation,
   });
   const action = accessibleEvidenceCount > 0
     ? { href: "#evidence", label: "Review source evidence", anchor: true }
@@ -323,7 +325,7 @@ function FindingDecisionBrief({
     <dl className="record-decision-brief__facts">
       <div><dt>Trust state</dt><dd>{opportunityTrustLabel(finding.trustState)}</dd></div>
       <div><dt>Source evidence</dt><dd>{evidence.compactLabel}</dd></div>
-      <div><dt>Calculation</dt><dd>{finding.ruleVersion ? "Recorded" : "Needed"}</dd></div>
+      <div><dt>Calculation</dt><dd>{hasCalculation ? "Recorded" : "Needed"}</dd></div>
     </dl>
     <div className="record-decision-brief__actions">
       {action.anchor ? <a className="button button-primary" href={action.href}>{action.label}</a> : <Link className="button button-primary" href={action.href}>{action.label}</Link>}
@@ -332,8 +334,19 @@ function FindingDecisionBrief({
   </section>;
 }
 
-export function shouldShowRecordFiles(kind: Kind, recordFileCount: number, evidenceCount: number) {
-  return kind !== "opportunity" || recordFileCount > 0 || evidenceCount > 0;
+export function selectRecordFiles<T extends { id: string; vendorId: string | null }>(
+  kind: Kind,
+  documents: readonly T[],
+  relatedDocumentIds: ReadonlySet<string>,
+  vendorId: string | null,
+) {
+  return documents.filter((item) =>
+    relatedDocumentIds.has(item.id) || (kind !== "opportunity" && vendorId !== null && item.vendorId === vendorId),
+  );
+}
+
+export function shouldShowRecordFiles(kind: Kind, recordFileCount: number) {
+  return kind !== "opportunity" || recordFileCount > 0;
 }
 
 export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind: Kind; id: string }) {
@@ -347,9 +360,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     ...context.evidenceDocumentIds,
     ...evidence.map((item) => item.documentId),
   ].filter(Boolean));
-  const recordFiles = data.documents.filter((item) =>
-    relatedDocumentIds.has(item.id) || (vendorId ? item.vendorId === vendorId : false),
-  );
+  const recordFiles = selectRecordFiles(kind, data.documents, relatedDocumentIds, vendorId);
   const savingsOutcome = kind === "savings" ? data.savings.find((item) => item.id === id) ?? null : null;
   const vendor = vendorId ? data.vendors.find((item) => item.id === vendorId) : null;
   const finding = kind === "opportunity" ? data.opportunities.find((item) => item.id === id) ?? null : null;
@@ -363,13 +374,18 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
       : sourceExpense
         ? `/app/expenses/${sourceExpense.id}`
         : null;
-  const showRecordFiles = shouldShowRecordFiles(kind, recordFiles.length, evidence.length);
+  const showRecordFiles = shouldShowRecordFiles(kind, recordFiles.length);
+  const recordFilesTitle = finding ? "Finding evidence files" : `${meta.noun} files`;
+  const recordFilesDescription = finding
+    ? "Only source files directly linked to this finding are available here."
+    : "A protected workspace for original source files and evidence connected to this record.";
   const parent = kind === "vendor" ? { label: "Vendors", href: "/app/vendors" } : kind === "contract" ? { label: "Contracts & Renewals", href: "/app/contracts" } : kind === "opportunity" ? { label: "Findings", href: "/app/findings" } : kind === "action" ? { label: "Actions", href: "/app/actions" } : kind === "savings" ? { label: "Results", href: "/app/results" } : { label: "Bills & Spend", href: "/app/bills" };
   const breadcrumbs = [parent, ...(vendor && kind !== "vendor" ? [{ label: vendor.name, href: `/app/vendors/${vendor.id}` }] : []), { label: detail.title }];
   const isInvoiceReview = kind === "invoice";
-  const recordCurrency = isInvoiceReview
-    ? (detail.record as PortalData["invoices"][number]).currency || data.organization.currency
-    : data.organization.currency;
+  const recordCurrency = resolveRecordDetailCurrency(
+    data.organization.currency,
+    isInvoiceReview ? (detail.record as PortalData["invoices"][number]).currency : null,
+  );
   const invoiceScope = isInvoiceReview ? <PageScopeIndicator mode="invoice" detailLabel={detail.title.replace(/^Invoice\s*/, "")} /> : null;
   const recordStatus = <span className="record-status"><i />{text(detail.status)}</span>;
   const headerStatus = finding ? <div className="record-header-state">{recordStatus}<WorkspaceStatusBadge className={`portal-status trust-${finding.trustState}`}>{opportunityTrustLabel(finding.trustState)}</WorkspaceStatusBadge></div> : recordStatus;
@@ -394,7 +410,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
       {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} />}
       <section className="record-section" id="overview"><div className="record-section-heading"><div><h2>Record details</h2><p>Edit one field at a time. Every saved change is attributed and audited.</p></div></div><div className="record-fields">{detail.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}</div></section>
       {lineItems.length > 0 && <section className="record-section" id="line-items"><div className="record-section-heading"><div><h2>Invoice line items</h2><p>Normalized charges and credits retained from the reviewed invoice.</p></div><span className="record-section-count">{lineItems.length}</span></div><div className="record-line-items" data-workspace-scrollbar=""><div className="record-line-item record-line-item--heading"><span>Line</span><span>Description</span><span>Quantity</span><span>Unit price</span><span>Amount</span></div>{lineItems.map((item) => <div className="record-line-item" key={item.id}><span>{item.lineNumber}</span><span><strong>{item.description}</strong><small>{[item.category, item.servicePeriodStart && item.servicePeriodEnd ? `${date(item.servicePeriodStart)} – ${date(item.servicePeriodEnd)}` : null].filter(Boolean).join(" · ") || "No additional classification"}</small></span><span>{item.quantity ?? "—"}</span><span>{item.unitPrice == null ? "—" : money(item.unitPrice, recordCurrency)}</span><span>{money(item.amount, recordCurrency)}</span></div>)}</div></section>}
-      {showRecordFiles && <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={`${meta.noun} files`} description="A protected workspace for original source files and evidence connected to this record." /></div>}
+      {showRecordFiles && <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={recordFilesTitle} description={recordFilesDescription} /></div>}
       {evidence.length > 0 && <section className="record-section" id="evidence"><div className="record-section-heading"><div><h2>Source evidence</h2><p>Exact excerpts retained from the private source document.</p></div></div><div className="record-evidence-list">{evidence.map((item) => <article key={item.id}><span>Page {item.pageNumber}{item.fieldPath ? ` · ${item.fieldPath}` : ""}</span><blockquote>{item.textExcerpt}</blockquote><Link href={`/api/portal/documents/${item.documentId}/download`}>Open source <FileText /></Link></article>)}</div></section>}
     </main><aside>
       <section className="record-side-section" id="quality"><h2>Data quality</h2><div className="record-quality-list">{quality.map((item) => <div key={item.label} className={`record-quality record-quality--${item.status}`}><i /><span><strong>{item.label}</strong><small>{item.value}</small></span></div>)}</div></section>

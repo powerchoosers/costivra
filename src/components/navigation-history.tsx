@@ -54,6 +54,21 @@ const markerKey = "__costivraNavigation";
 const NAVIGATION_SETTLE_MS = 240;
 const FLOATING_BACK_SHOW_THRESHOLD = 80;
 const FLOATING_BACK_HIDE_THRESHOLD = 96;
+const FLOATING_BACK_SCROLL_KEYS = new Set([
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "End",
+  "Home",
+  "PageDown",
+  "PageUp",
+  " ",
+]);
+
+export function isFloatingBackScrollKey(key: string) {
+  return FLOATING_BACK_SCROLL_KEYS.has(key);
+}
 
 export function nextFloatingBackVisibility({
   wasFloating,
@@ -157,8 +172,8 @@ function currentHref(pathname: string, search: string) {
   return `${pathname}${search ? `?${search}` : ""}${window.location.hash}`;
 }
 
-function isManageRecordDetail(pathname: string) {
-  return /^\/manage\/(?:accounts|contacts)\/[^/]+$/.test(pathname)
+export function isManageRecordDetailPath(pathname: string) {
+  return /^\/manage\/(?:accounts|contacts|mail|invoice-review|intake)\/[^/]+$/.test(pathname)
     || /^\/manage\/outreach\/sequences\/[^/]+$/.test(pathname);
 }
 
@@ -214,7 +229,7 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
       !isHistoryTraversal.current &&
       activeEntry &&
       activeEntry.href.split("?")[0] === pathname &&
-      isManageRecordDetail(pathname),
+      isManageRecordDetailPath(pathname),
     );
 
     if (knownMarker && isHistoryTraversal.current) {
@@ -453,6 +468,15 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
 
     hasUserScrolled.current = false;
     routeSettled.current = false;
+    let updateFrameId: number | null = null;
+
+    const eventTargetsScrollContainer = (target: EventTarget | null, allowDocumentRoot = false) => {
+      if (!scrollContainer || !(target instanceof Node)) return true;
+      if (allowDocumentRoot && (target === document.body || target === document.documentElement)) return true;
+      return scrollContainer.contains(target);
+    };
+    const isEditableTarget = (target: EventTarget | null) => target instanceof HTMLElement
+      && (target.isContentEditable || ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName));
 
     const updateFloatingState = () => {
       if (!routeSettled.current) return;
@@ -472,33 +496,62 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
         })),
       });
       floatingBackIsFloatingRef.current = nextState.isFloating;
-      floatingBackVisibleRef.current = nextState.visible;
-      setFloatingBackVisible(nextState.visible);
+      if (floatingBackVisibleRef.current !== nextState.visible) {
+        floatingBackVisibleRef.current = nextState.visible;
+        setFloatingBackVisible(nextState.visible);
+      }
     };
-    const observer = new IntersectionObserver(updateFloatingState, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
+    const queueFloatingState = () => {
+      if (updateFrameId !== null) return;
+      updateFrameId = window.requestAnimationFrame(() => {
+        updateFrameId = null;
+        updateFloatingState();
+      });
+    };
+    const observer = new IntersectionObserver(queueFloatingState, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
     const onScroll = () => {
+      // Route restoration and layout changes can emit scroll events before a
+      // person has interacted with the new record. Do not let those events
+      // make the compact control appear on an otherwise fresh destination.
+      if (!routeSettled.current || !hasUserScrolled.current) return;
+      queueFloatingState();
+    };
+    const markUserScrolled = () => {
       hasUserScrolled.current = true;
-      if (!routeSettled.current) return;
-      window.requestAnimationFrame(updateFloatingState);
+      if (routeSettled.current) queueFloatingState();
     };
     const onWheel = (event: WheelEvent) => {
-      if (scrollContainer && event.target instanceof Node && !scrollContainer.contains(event.target)) return;
-      onScroll();
+      if (!eventTargetsScrollContainer(event.target)) return;
+      markUserScrolled();
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (!eventTargetsScrollContainer(event.target)) return;
+      markUserScrolled();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isFloatingBackScrollKey(event.key) || isEditableTarget(event.target)) return;
+      if (!eventTargetsScrollContainer(event.target, true)) return;
+      markUserScrolled();
     };
 
     const settleTimer = window.setTimeout(() => {
       routeSettled.current = true;
-      updateFloatingState();
+      queueFloatingState();
     }, NAVIGATION_SETTLE_MS);
     observer.observe(anchor);
     window.addEventListener("scroll", onScroll, { capture: true, passive: true });
     window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+    window.addEventListener("touchmove", onTouchMove, { capture: true, passive: true });
+    window.addEventListener("keydown", onKeyDown, { capture: true });
     scrollContainer?.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.clearTimeout(settleTimer);
       observer.disconnect();
+      if (updateFrameId !== null) window.cancelAnimationFrame(updateFrameId);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("wheel", onWheel, true);
+      window.removeEventListener("touchmove", onTouchMove, true);
+      window.removeEventListener("keydown", onKeyDown, true);
       scrollContainer?.removeEventListener("scroll", onScroll);
     };
   }, [navigationKey, setFloatingBackVisible]);
