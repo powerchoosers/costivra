@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { floatingBackControlClassName, navigationStorageKey, nextFloatingBackVisibility, previousNavigationEntry, upsertNavigationEntry } from "@/components/navigation-history";
+import { floatingBackControlClassName, floatingBackControlTop, navigationStorageKey, nextFloatingBackVisibility, previousNavigationEntry, upsertNavigationEntry } from "@/components/navigation-history";
 
 describe("navigation history helpers", () => {
   it("keeps Customer App and Manage session storage separate", () => {
@@ -33,6 +33,12 @@ describe("navigation history helpers", () => {
   it("marks the persistent floating control for its active workspace shell", () => {
     expect(floatingBackControlClassName("app", false)).toBe("global-back-control__floating global-back-control__floating--app");
     expect(floatingBackControlClassName("manage", true)).toBe("global-back-control__floating global-back-control__floating--manage is-visible");
+  });
+
+  it("places the App floating Back control below the measured workspace header", () => {
+    expect(floatingBackControlTop("app", 182.4)).toBe(195);
+    expect(floatingBackControlTop("manage", 182.4)).toBeNull();
+    expect(floatingBackControlTop("app", null)).toBeNull();
   });
 
   it("only shows the floating Back control after user scroll and hides it once the page control is clearly visible", () => {

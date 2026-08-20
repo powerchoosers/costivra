@@ -70,4 +70,45 @@ describe("portal record context", () => {
     expect(result.evidence).toHaveLength(1);
     expect(result.quality.find((item) => item.label === "Approval")?.status).toBe("review");
   });
+
+  it("uses plain language instead of raw invoice matching and reconciliation codes", () => {
+    const result = portalRecordContext(data({
+      invoices: [{
+        id: "invoice-1",
+        vendorMatchStatus: "enriched_candidate",
+        workspaceCustomerMatchStatus: "unknown",
+        expenseAccountMatchStatus: "unmatched",
+        serviceLocationMatchStatus: "ambiguous",
+        reconciliationStatus: "incomplete",
+        invoiceNumber: "INV-42",
+        invoiceDate: "2026-07-01",
+        totalAmount: 125,
+      } as PortalData["invoices"][number]],
+    }), "invoice", "invoice-1");
+
+    expect(Object.fromEntries(result.quality.map((item) => [item.label, item.value]))).toMatchObject({
+      "Vendor match": "Candidate found",
+      "Account match": "Mismatch",
+      "Location match": "Needs review",
+      "Customer identity": "Not assessed",
+      Reconciliation: "Needs more detail",
+    });
+  });
+
+  it("does not mark a recorded but unavailable finding reference as evidence-ready", () => {
+    const result = portalRecordContext(data({
+      opportunities: [{
+        id: "opportunity-1",
+        title: "Review rate increase",
+        status: "under_review",
+        trustState: "demo_example",
+        evidenceCount: 1,
+      } as PortalData["opportunities"][number]],
+    }), "opportunity", "opportunity-1");
+
+    expect(result.quality.find((item) => item.label === "Evidence")).toMatchObject({
+      value: "1 recorded reference; source unavailable in this workspace",
+      status: "review",
+    });
+  });
 });

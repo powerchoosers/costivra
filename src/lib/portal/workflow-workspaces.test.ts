@@ -4,6 +4,7 @@ import {
   actionIsCompleted,
   contractNeedsDetails,
   findingHasEvidence,
+  findingHasCustomerVisibleMonetaryClaim,
   findingNeedsEvidence,
   findingNeedsReview,
   isExpiredContract,
@@ -14,6 +15,7 @@ import {
   resolveResultsView,
   resultIsInProgress,
   resultIsVerified,
+  totalCustomerVisibleFindingValue,
 } from "@/lib/portal/workflow-workspaces";
 import type { PortalAction, PortalContract, PortalOpportunity, PortalSavingsOutcome } from "@/lib/portal/types";
 
@@ -67,6 +69,16 @@ describe("workflow workspace helpers", () => {
     expect(findingNeedsReview(finding({ trustState: "needs_evidence" }))).toBe(true);
     expect(findingHasEvidence(finding())).toBe(true);
     expect(findingNeedsEvidence(finding({ evidenceCount: 0, trustState: "needs_evidence" }))).toBe(true);
+  });
+
+  it("only totals findings whose monetary claim can be shown to the customer", () => {
+    const shown = finding({ id: "shown", estimatedAnnualValue: 1200 });
+    const hidden = finding({ id: "hidden", monetaryClaimAllowed: false, estimatedAnnualValue: 900 });
+    const uncalculated = finding({ id: "uncalculated", estimatedAnnualValue: null });
+
+    expect(findingHasCustomerVisibleMonetaryClaim(shown)).toBe(true);
+    expect(findingHasCustomerVisibleMonetaryClaim(hidden)).toBe(false);
+    expect(totalCustomerVisibleFindingValue([shown, hidden, uncalculated])).toBe(1200);
   });
 
   it("classifies action ownership and completion", () => {

@@ -1,0 +1,28 @@
+import { describe, expect, it } from "vitest";
+import { describeFindingReadiness, presentFindingEvidence } from "@/lib/portal/finding-presentation";
+
+describe("finding presentation", () => {
+  it("does not present an inaccessible recorded reference as ready evidence", () => {
+    expect(presentFindingEvidence({ recordedEvidenceCount: 1, accessibleEvidenceCount: 0 })).toEqual({
+      compactLabel: "Source unavailable",
+      label: "1 recorded reference; source unavailable in this workspace",
+      status: "review",
+    });
+  });
+
+  it("keeps sample and internal notes out of approval-ready language", () => {
+    const noEvidence = presentFindingEvidence({ recordedEvidenceCount: 0, accessibleEvidenceCount: 0 });
+
+    expect(describeFindingReadiness({ trustState: "demo_example", evidence: noEvidence, hasCalculation: false }).heading)
+      .toBe("Sample record — not a customer claim");
+    expect(describeFindingReadiness({ trustState: "manual_note", evidence: noEvidence, hasCalculation: false }).heading)
+      .toBe("Evidence required before approval");
+  });
+
+  it("only describes a finding as review-ready with usable evidence and a calculation", () => {
+    const evidence = presentFindingEvidence({ recordedEvidenceCount: 2, accessibleEvidenceCount: 2 });
+
+    expect(describeFindingReadiness({ trustState: "evidence_backed", evidence, hasCalculation: true }).heading)
+      .toBe("Ready for human review");
+  });
+});

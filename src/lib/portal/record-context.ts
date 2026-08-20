@@ -3,6 +3,14 @@ import type {
   PortalEvidenceReference,
   PortalInvoiceLineItem,
 } from "@/lib/portal/types";
+import {
+  invoiceIdentityMatchLabel,
+  invoiceReconciliationLabel,
+  invoiceVendorMatchIsReady,
+  invoiceVendorMatchLabel,
+} from "@/lib/portal/invoice-presentation";
+import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
+import { presentFindingEvidence } from "@/lib/portal/finding-presentation";
 
 export type PortalRecordKind =
   | "vendor"
@@ -133,11 +141,11 @@ export function portalRecordContext(
     addDocument(invoice?.documentId);
     lineItems = data.invoiceLineItems.filter((item) => item.invoiceId === id);
     quality.push(
-      { label: "Vendor match", value: invoice?.vendorMatchStatus ?? "Unknown", status: invoice != null && ["exact", "provided"].includes(invoice.vendorMatchStatus) ? "ready" : "review" },
-      { label: "Account match", value: invoice?.expenseAccountMatchStatus === "matched" ? "Matched" : "Needs review", status: invoice?.expenseAccountMatchStatus === "matched" ? "ready" : "review" },
-      { label: "Location match", value: invoice?.serviceLocationMatchStatus === "matched" ? "Matched" : "Needs review", status: invoice?.serviceLocationMatchStatus === "matched" ? "ready" : "review" },
-      { label: "Customer identity", value: invoice?.workspaceCustomerMatchStatus === "matched" ? "Matched" : invoice?.workspaceCustomerMatchStatus === "unmatched" ? "Mismatch" : "Needs review", status: invoice?.workspaceCustomerMatchStatus === "matched" ? "ready" : "review" },
-      { label: "Reconciliation", value: invoice?.reconciliationStatus ?? "Unknown", status: invoice?.reconciliationStatus === "reconciled" ? "ready" : "review" },
+      { label: "Vendor match", value: invoiceVendorMatchLabel(invoice?.vendorMatchStatus), status: invoiceVendorMatchIsReady(invoice?.vendorMatchStatus) ? "ready" : "review" },
+      { label: "Account match", value: invoiceIdentityMatchLabel(invoice?.expenseAccountMatchStatus), status: invoice?.expenseAccountMatchStatus === "matched" ? "ready" : "review" },
+      { label: "Location match", value: invoiceIdentityMatchLabel(invoice?.serviceLocationMatchStatus), status: invoice?.serviceLocationMatchStatus === "matched" ? "ready" : "review" },
+      { label: "Customer identity", value: invoiceIdentityMatchLabel(invoice?.workspaceCustomerMatchStatus), status: invoice?.workspaceCustomerMatchStatus === "matched" ? "ready" : "review" },
+      { label: "Reconciliation", value: invoiceReconciliationLabel(invoice?.reconciliationStatus), status: invoice?.reconciliationStatus === "reconciled" ? "ready" : "review" },
       { label: "Required fields", value: invoice && recorded(invoice.invoiceNumber) && recorded(invoice.invoiceDate) && invoice.totalAmount != null ? "Complete" : "Needs review", status: invoice && recorded(invoice.invoiceNumber) && recorded(invoice.invoiceDate) && invoice.totalAmount != null ? "ready" : "review" },
       { label: "Line items", value: lineItems.length ? `${lineItems.length} extracted` : "None extracted", status: lineItems.length ? "ready" : "review" },
     );
@@ -146,9 +154,13 @@ export function portalRecordContext(
     vendorId = opportunity?.vendorId ?? null;
     opportunityId = id;
     addDocument(opportunity?.sourceDocumentId);
+    const evidencePresentation = presentFindingEvidence({
+      recordedEvidenceCount: opportunity?.evidenceCount ?? 0,
+      accessibleEvidenceCount: data.evidenceReferences.filter((item) => item.opportunityId === id).length,
+    });
     quality.push(
-      { label: "Trust state", value: opportunity?.trustState === "evidence_backed" ? "Evidence backed" : opportunity?.trustState === "demo_example" ? "Sample record" : opportunity?.trustState === "manual_note" ? "Internal note" : opportunity?.trustState === "deprecated" ? "Deprecated" : "Needs evidence", status: opportunity?.trustState === "evidence_backed" ? "ready" : "review" },
-      { label: "Evidence", value: opportunity?.evidenceCount ? `${opportunity.evidenceCount} references` : "No evidence", status: opportunity?.evidenceCount ? "ready" : "review" },
+      { label: "Trust state", value: opportunity ? opportunityTrustLabel(opportunity.trustState) : "Needs evidence", status: opportunity?.trustState === "evidence_backed" ? "ready" : "review" },
+      { label: "Evidence", value: evidencePresentation.label, status: evidencePresentation.status },
       { label: "Calculation", value: opportunity?.ruleVersion ?? "Rule not recorded", status: opportunity?.ruleVersion ? "ready" : "review" },
       { label: "Source record", value: opportunity?.sourceExpenseId || opportunity?.sourceDocumentId ? "Linked" : "Not linked", status: opportunity?.sourceExpenseId || opportunity?.sourceDocumentId ? "ready" : "review" },
       { label: "Account or location", value: opportunity?.expenseAccountReference ?? opportunity?.locationName ?? "Not assigned", status: opportunity?.expenseAccountReference || opportunity?.locationName ? "ready" : "review" },

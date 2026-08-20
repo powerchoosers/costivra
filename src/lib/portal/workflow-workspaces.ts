@@ -62,6 +62,17 @@ export function findingIsDismissed(finding: PortalOpportunity): boolean {
   return ["declined", "dismissed", "closed"].includes(finding.status);
 }
 
+export function findingHasCustomerVisibleMonetaryClaim(finding: PortalOpportunity): boolean {
+  return finding.monetaryClaimAllowed && finding.estimatedAnnualValue != null;
+}
+
+export function totalCustomerVisibleFindingValue(findings: readonly PortalOpportunity[]): number {
+  return findings.reduce(
+    (total, finding) => total + (findingHasCustomerVisibleMonetaryClaim(finding) ? finding.estimatedAnnualValue ?? 0 : 0),
+    0,
+  );
+}
+
 export function actionNeedsApproval(action: PortalAction): boolean {
   return action.status === "pending_approval";
 }

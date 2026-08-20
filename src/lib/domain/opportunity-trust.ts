@@ -67,6 +67,10 @@ export function canShowCustomerMonetaryClaim(input: {
   );
 }
 
+export function canAdvanceOpportunityToApproval(input: OpportunityTrustInput): boolean {
+  return deriveOpportunityTrustState(input) === "evidence_backed";
+}
+
 export function opportunityTrustLabel(state: OpportunityTrustState): string {
   switch (state) {
     case "evidence_backed":
@@ -81,4 +85,3 @@ export function opportunityTrustLabel(state: OpportunityTrustState): string {
       return "Deprecated";
   }
 }
-

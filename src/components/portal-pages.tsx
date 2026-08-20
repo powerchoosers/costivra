@@ -53,7 +53,6 @@ import { PortalRecordDetail } from "@/components/portal-record-detail";
 import { CompanyLogo } from "@/components/company-logo";
 import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
 import { getActivationProgress } from "@/lib/portal/activation";
-import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
@@ -78,6 +77,7 @@ import {
   actionNeedsApproval,
   contractNeedsDetails,
   findingHasEvidence,
+  findingHasCustomerVisibleMonetaryClaim,
   findingIsDismissed,
   findingNeedsEvidence,
   findingNeedsReview,
@@ -89,6 +89,7 @@ import {
   resolveResultsView,
   resultIsInProgress,
   resultIsVerified,
+  totalCustomerVisibleFindingValue,
 } from "@/lib/portal/workflow-workspaces";
 
 type ModalState = null | "expense" | "contract" | "invite" | "upload" | "monitor";
@@ -547,19 +548,6 @@ export function PortalPage({
                 ? "app-content app-content-table-page motion-page"
               : "app-content motion-page"
         }
-        onWheelCapture={(event) => {
-          const node = event.currentTarget;
-          const target = event.target as HTMLElement;
-          if (
-            hasNestedNativeScrollRegion(event.target, node)
-            || target.closest(".table-wrap, .vendor-filter-menu, .app-global-results")
-          ) return;
-          const nextScrollTop = getNextVerticalScrollTop(node, event.deltaY);
-          if (nextScrollTop === null) return;
-          event.preventDefault();
-          event.stopPropagation();
-          node.scrollTop = nextScrollTop;
-        }}
       >
         {data.organization.isSampleWorkspace && <SampleWorkspaceBanner />}
         {page !== "home" && !detailId && <GlobalBackControl className="app-global-back" />}
@@ -1344,10 +1332,14 @@ function FindingsWorkspace({
         }),
       "Finding updated.",
     );
-  const statusOptions = (status: string) => {
-    if (status === "open") return [{ value: "open", label: "Open" }, { value: "under_review", label: "Review" }, { value: "declined", label: "Decline" }];
-    if (status === "under_review") return [{ value: "under_review", label: "Under review" }, { value: "approved", label: "Approve plan" }, { value: "declined", label: "Decline" }];
-    return [{ value: status, label: status.replaceAll("_", " ") }];
+  const statusOptions = (finding: PortalData["opportunities"][number]) => {
+    if (finding.status === "open") return [{ value: "open", label: "Open" }, { value: "under_review", label: "Review" }, { value: "declined", label: "Decline" }];
+    if (finding.status === "under_review") return [
+      { value: "under_review", label: "Under review" },
+      ...(findingHasEvidence(finding) ? [{ value: "approved", label: "Approve plan" }] : []),
+      { value: "declined", label: "Decline" },
+    ];
+    return [{ value: finding.status, label: finding.status.replaceAll("_", " ") }];
   };
   const filtered = data.opportunities.filter((finding) => {
     if (query && !`${finding.title} ${finding.vendorName} ${finding.summary} ${finding.category ?? ""}`.toLowerCase().includes(query.toLowerCase())) return false;
@@ -1419,7 +1411,7 @@ function FindingsWorkspace({
                     <td>{sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span className="workspace-secondary-text">Not linked</span>}</td>
                     <td><TrustBadge state={item.trustState} /></td><td>{item.evidenceCount} reference{item.evidenceCount === 1 ? "" : "s"}</td>
                     <td><strong>{item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? money(item.estimatedAnnualValue) : "Not shown"}</strong></td>
-                    <td><Status value={item.status} /></td><td><CostivraSelect aria-label={`Update ${item.title} status`} value={item.status} variant="badge" size="sm" onChange={(newStatus) => void update(item.id, newStatus)} options={statusOptions(item.status)} /></td>
+                    <td><Status value={item.status} /></td><td><CostivraSelect aria-label={`Update ${item.title} status`} value={item.status} variant="badge" size="sm" onChange={(newStatus) => void update(item.id, newStatus)} options={statusOptions(item)} /></td>
                   </tr>;
                 })}
               </tbody>
@@ -1728,7 +1720,7 @@ function ResultsWorkspace({ data, initialView = "verified" }: { data: PortalData
   };
   const verified = data.savings.filter(resultIsVerified).reduce((sum, item) => sum + item.amount, 0);
   const inProgress = data.savings.filter(resultIsInProgress);
-  const potentialValue = data.opportunities.filter((item) => item.monetaryClaimAllowed && item.estimatedAnnualValue != null).reduce((sum, item) => sum + (item.estimatedAnnualValue ?? 0), 0);
+  const potentialValue = totalCustomerVisibleFindingValue(data.opportunities);
   const actionsInProgress = data.actions.filter(actionIsInProgress).length;
   const renewalsApproaching = data.contracts.filter((contract) => isUpcomingContract(contract)).length;
   useEffect(() => {
@@ -2295,6 +2287,16 @@ export function VendorDetail({
     hasPendingAction,
   });
 
+  const handlePrimaryAction = () => {
+    if (primaryAction.actionKind === "upload") {
+      onAdd("upload", vendor.relationshipId);
+      return;
+    }
+    if (primaryAction.actionKind === "monitor" || primaryAction.actionKind === "test_forwarding") {
+      onAdd("monitor", vendor.relationshipId);
+    }
+  };
+
   const handleOpenEditSheet = () => {
     setDisplayNameOverride(vendor.displayNameOverride ?? "");
     setCategoryOverride(vendor.categoryOverride ?? "");
@@ -2400,15 +2402,6 @@ export function VendorDetail({
   };
 
   const menuItems = [
-    ...(primaryAction.href
-      ? [{
-          id: "primary-task",
-          label: primaryAction.label,
-          icon: <ArrowUpRight size={15} />,
-          href: primaryAction.href,
-          disabled: !canWrite,
-        }]
-      : []),
     ...(vendorDocumentIds.length > 0
       ? [{
           id: "bill-breakdown",
@@ -2489,10 +2482,13 @@ export function VendorDetail({
     { id: "activity", label: "Activity", count: auditHistory.length },
   ];
 
-  const potentialValueTotal = opportunities.reduce((sum, o) => sum + (o.estimatedAnnualValue ?? 0), 0);
-  const verifiedValueTotal = vendorSavings.filter((s) => s.status === "verified").reduce((sum, s) => sum + s.amount, 0);
-  const openFindingCount = opportunities.filter((item) => !["closed", "declined"].includes(item.status)).length;
-  const pendingActionCount = actions.filter((item) => !["complete", "cancelled"].includes(item.status)).length;
+  const potentialFindings = opportunities.filter(findingHasCustomerVisibleMonetaryClaim);
+  const potentialValueTotal = totalCustomerVisibleFindingValue(opportunities);
+  const verifiedValueTotal = vendorSavings.filter(resultIsVerified).reduce((sum, s) => sum + s.amount, 0);
+  const openFindingCount = opportunities.filter((item) => !findingIsDismissed(item)).length;
+  const pendingActionCount = actions.filter((item) => !actionIsCompleted(item)).length;
+  const actionsInProgress = actions.filter(actionIsInProgress).length;
+  const hasVerifiedValue = vendorSavings.some(resultIsVerified);
   const relationshipFacts = [
     { label: "Account", value: 1 },
     ...(contracts.length ? [{ label: contracts.length === 1 ? "Contract" : "Contracts", value: contracts.length }] : []),
@@ -2512,7 +2508,24 @@ export function VendorDetail({
       </div>
 
       <header className="vendor-detail-header">
+        <div className="vendor-detail-identity">
+          <CompanyLogo entity="vendor" id={vendor.id} name={vendor.name} className="vendor-detail-logo" />
+          <div>
+            <span className="record-eyebrow">Vendor relationship</span>
+            <div className="vendor-detail-identity-row"><h1>{vendor.name}</h1><Status value={vendor.relationshipStatus} /></div>
+            <p>{vendor.category || "Uncategorized"} · Relationship details, source records, and monitoring in one place.</p>
+          </div>
+        </div>
         <div className="vendor-detail-actions">
+          {primaryAction.href ? (
+            <Link className="button button-primary vendor-detail-primary-action" href={primaryAction.href}>
+              {primaryAction.label} <ArrowUpRight size={15} aria-hidden="true" />
+            </Link>
+          ) : (
+            <button type="button" className="button button-primary vendor-detail-primary-action" onClick={handlePrimaryAction} disabled={!canWrite}>
+              {primaryAction.actionKind === "upload" ? <Upload size={15} aria-hidden="true" /> : <Mail size={15} aria-hidden="true" />} {primaryAction.label}
+            </button>
+          )}
           {vendorDocumentIds.length > 0 ? (
             <button
               type="button"
@@ -2521,16 +2534,7 @@ export function VendorDetail({
             >
               <ReceiptText size={15} /> Bill Breakdown {vendorDocumentIds.length > 1 ? `(${vendorDocumentIds.length})` : ""}
             </button>
-          ) : (
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => onAdd("upload", vendor.relationshipId)}
-              title="Upload a bill to view breakdown"
-            >
-              <ReceiptText size={15} /> Bill Breakdown
-            </button>
-          )}
+          ) : null}
           <RecordOverflowMenu items={menuItems} ariaLabel="More vendor actions" />
         </div>
       </header>
@@ -2575,22 +2579,22 @@ export function VendorDetail({
             <div className="workspace-value-summary__grid">
               <div className="workspace-value-summary__metric" data-tone="potential">
                 <span>Potential Value</span>
-                <strong>{money(potentialValueTotal)}</strong>
-                <small>Rule-based estimate</small>
+                <strong>{potentialFindings.length ? money(potentialValueTotal) : "Not established"}</strong>
+                <small>{potentialFindings.length ? `${potentialFindings.length} evidence-backed finding${potentialFindings.length === 1 ? "" : "s"}` : "No evidence-backed finding yet"}</small>
               </div>
               <div className="workspace-value-summary__metric">
                 <span>Actions in Progress</span>
-                <strong>{actions.filter(a => a.status === "in_progress").length} work items</strong>
-                <small>Active execution</small>
+                <strong>{actionsInProgress ? `${actionsInProgress} work item${actionsInProgress === 1 ? "" : "s"}` : "No active work"}</strong>
+                <small>{actionsInProgress ? "Active execution" : "No approved work is underway"}</small>
               </div>
               <div className="workspace-value-summary__metric" data-tone="verified">
                 <span>Verified Value</span>
-                <strong>{money(verifiedValueTotal)}</strong>
-                <small>Proven by later evidence</small>
+                <strong>{hasVerifiedValue ? money(verifiedValueTotal) : "Not verified yet"}</strong>
+                <small>{hasVerifiedValue ? "Proven by later evidence" : "Awaiting comparison evidence"}</small>
               </div>
             </div>
             <p className="workspace-value-summary__note">
-              <ShieldCheck aria-hidden="true" size={14} /> Potential value is an estimate based on rules and baseline data. Verified value is proven by later invoice evidence.
+              <ShieldCheck aria-hidden="true" size={14} /> {potentialFindings.length ? "Potential value is an estimate based on linked evidence and a deterministic calculation. Verified value is proven by later invoice evidence." : "Costivra will show potential value only after a finding has linked evidence and a deterministic calculation."}
             </p>
           </section>
 

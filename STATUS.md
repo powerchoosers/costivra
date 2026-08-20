@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 20, 2026 — Unified record-detail refinement
+
+- Reworked the shared App record-detail pattern used by Findings, bills, documents, contracts, actions, and results. It now presents a short, factual decision context before editable fields and uses the shared tab control, so the selected section—not always Overview—is visibly active and linkable by hash.
+- Restored native App detail scrolling by removing the page-level wheel interception that doubled a normal gesture. The shared floating Back control now waits for a destination route to settle before it can reappear, and its App offset follows the measured workspace header beneath the review notice instead of relying on a guessed fixed top value.
+- Gave App vendor detail pages a real identity header with the vendor logo, status, category, and plain-language context; refined shared Manage account/contact highlight facts into an even four-column desktop grid with readable multi-line values. The same persistent Back control remains in the workspace column when the Manage rail is open.
+- Validation: Node `v24.19.0`; direct `tsc --noEmit --pretty false` passed; focused ESLint passed for all five changed TypeScript files; `src/components/navigation-history.test.ts` passed (8 tests) and `src/components/portal-record-detail.test.ts` passed (2 tests). Desktop browser QA verified `/app/findings/bc74e59c-6d29-4821-843d-f7fcdb408cfa`, `/app/vendors/0a020c22-ba19-469f-9d37-d87da9c17792`, `/manage/accounts/a1b2c3d4-e5f6-7890-abcd-1234567890ab`, and `/manage/contacts/51b2c3d4-e5f6-7890-abcd-123456789001`: Findings tab selection updates to `#quality`, a 700px scroll shows Back at the measured 195px header offset, the App detail uses native scroll, Manage Back clears the open rail/search area, and no browser errors were recorded. `git diff --check` passed with only Git line-ending notices.
+
 ## August 20, 2026 — Manage record-detail native scrolling
 
 - Restored native scrolling on desktop Manage account/contact detail pages. Their prior desktop workspace rule set `overflow: hidden`, while a wheel-capture handler manually assigned `scrollTop` on every input event; this made scrolling feel stepped and kept the shared scrollbar layer from detecting the detail page.

@@ -4,6 +4,7 @@ import { ArrowLeft } from "@/lib/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   createContext,
+  type CSSProperties,
   type ReactNode,
   useCallback,
   useContext,
@@ -75,6 +76,14 @@ export function nextFloatingBackVisibility({
 
 export function floatingBackControlClassName(scope: NavigationScope, visible: boolean) {
   return `global-back-control__floating global-back-control__floating--${scope}${visible ? " is-visible" : ""}`;
+}
+
+export function floatingBackControlTop(scope: NavigationScope, topbarBottom: number | null) {
+  if (scope !== "app" || topbarBottom === null) return null;
+  // The customer workspace canvas can move when the review notice is visible.
+  // Keep the persistent control below the actual top bar instead of guessing a
+  // fixed viewport offset that can land underneath the notice.
+  return Math.ceil(topbarBottom + 12);
 }
 
 function makeSessionId() {
@@ -291,9 +300,54 @@ function GlobalBackButton({ label, goBack, compact = false, isInteractive = true
 
 function PersistentFloatingBackControl({ scope, floatingActions }: { scope: NavigationScope; floatingActions: ReactNode }) {
   const { label, goBack, floatingBackVisible } = useNavigationHistory();
+  const [top, setTop] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (scope !== "app") {
+      return;
+    }
+
+    const topbar = document.querySelector<HTMLElement>(".app-work-canvas > .app-topbar");
+    if (!topbar) return;
+
+    const updateTop = () => {
+      const nextTop = floatingBackControlTop(scope, topbar.getBoundingClientRect().bottom);
+      setTop((currentTop) => currentTop === nextTop ? currentTop : nextTop);
+    };
+
+    const canvas = topbar.closest<HTMLElement>(".app-work-canvas");
+    const scrollRoot = canvas?.querySelector<HTMLElement>(".app-content");
+    let frameId: number | null = null;
+    const queueTopUpdate = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        updateTop();
+      });
+    };
+
+    const observer = new ResizeObserver(updateTop);
+    observer.observe(topbar);
+    const reviewNotice = document.querySelector<HTMLElement>(".workspace-experience-banner-shell");
+    if (canvas) observer.observe(canvas);
+    if (reviewNotice) observer.observe(reviewNotice);
+    window.addEventListener("resize", queueTopUpdate);
+    window.addEventListener("scroll", queueTopUpdate, { passive: true });
+    scrollRoot?.addEventListener("scroll", queueTopUpdate, { passive: true });
+    queueTopUpdate();
+    return () => {
+      observer.disconnect();
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", queueTopUpdate);
+      window.removeEventListener("scroll", queueTopUpdate);
+      scrollRoot?.removeEventListener("scroll", queueTopUpdate);
+    };
+  }, [scope]);
+
+  const style = scope !== "app" || top === null ? undefined : ({ "--global-back-top": `${top}px` } as CSSProperties);
 
   return (
-    <div className={floatingBackControlClassName(scope, floatingBackVisible)} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
+    <div className={floatingBackControlClassName(scope, floatingBackVisible)} style={style} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
       <GlobalBackButton label={label} goBack={goBack} compact isInteractive={floatingBackVisible} />
       {floatingActions ? <span className="global-back-control__actions">{floatingActions}</span> : null}
     </div>
@@ -336,13 +390,13 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
 
     hasUserScrolled.current = false;
     routeSettled.current = false;
-    const { top, bottom } = anchor.getBoundingClientRect();
-    setFloatingBackVisible(nextFloatingBackVisibility({
-      wasFloating: floatingBackVisibleRef.current,
-      hasUserScrolled: false,
-      anchorTop: top,
-      anchorBottom: bottom,
-    }));
+    // Hide before the new route paints. Without this reset, the persistent
+    // control can briefly inherit the previous record's visible state.
+    floatingBackVisibleRef.current = false;
+    setFloatingBackVisible(false);
+    // Let the scroll observer evaluate after the route settles. Measuring in the
+    // next animation frame can still see the outgoing page's scroll position,
+    // which makes the fixed control flash during a client-side route change.
   }, [navigationKey, setFloatingBackVisible]);
 
   useEffect(() => {

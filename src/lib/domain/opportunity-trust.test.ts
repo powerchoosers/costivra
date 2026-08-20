@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAdvanceOpportunityToApproval,
   canShowCustomerMonetaryClaim,
   deriveOpportunityTrustState,
 } from "./opportunity-trust";
@@ -42,5 +43,11 @@ describe("opportunity trust", () => {
     expect(deriveOpportunityTrustState({ ...deterministic, explicitTrustState: "demo_example" })).toBe("demo_example");
     expect(deriveOpportunityTrustState({ ...deterministic, explicitTrustState: "deprecated" })).toBe("deprecated");
   });
-});
 
+  it("only permits an approval plan for a provenance-complete finding", () => {
+    expect(canAdvanceOpportunityToApproval(deterministic)).toBe(true);
+    expect(canAdvanceOpportunityToApproval({ ...deterministic, generatedBy: "manual" })).toBe(false);
+    expect(canAdvanceOpportunityToApproval({ ...deterministic, evidenceCount: 0 })).toBe(false);
+    expect(canAdvanceOpportunityToApproval({ ...deterministic, explicitTrustState: "demo_example" })).toBe(false);
+  });
+});
