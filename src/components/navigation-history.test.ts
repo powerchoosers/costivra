@@ -33,6 +33,7 @@ describe("navigation history helpers", () => {
   it("only shows the floating Back control after user scroll and hides it once the page control is clearly visible", () => {
     expect(nextFloatingBackVisibility({ wasFloating: false, hasUserScrolled: false, anchorTop: 20, anchorBottom: 56 })).toBe(false);
     expect(nextFloatingBackVisibility({ wasFloating: false, hasUserScrolled: true, anchorTop: 20, anchorBottom: 56 })).toBe(true);
+    expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: false, anchorTop: 210, anchorBottom: 246 })).toBe(false);
     expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: true, anchorTop: 100, anchorBottom: 136 })).toBe(false);
   });
 });

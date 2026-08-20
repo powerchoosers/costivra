@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -38,6 +39,14 @@ type NavigationContextValue = {
 };
 
 const NavigationContext = createContext<NavigationContextValue | null>(null);
+
+type FloatingBackActionsController = {
+  register: (controlId: symbol, actions: ReactNode) => void;
+  update: (controlId: symbol, actions: ReactNode) => void;
+  unregister: (controlId: symbol) => void;
+};
+
+const FloatingBackActionsControllerContext = createContext<FloatingBackActionsController | null>(null);
 
 export const navigationStorageKey = (scope: NavigationScope) => `costivra.navigation-history.${scope}`;
 const markerKey = "__costivraNavigation";
@@ -119,9 +128,12 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
   const [state, setState] = useState<NavigationState | null>(null);
   const [current, setCurrent] = useState({ label: defaultLabel(scope), fallbackHref: scope === "app" ? "/app" : "/manage", fallbackLabel: defaultLabel(scope) });
   const [floatingBackVisible, setFloatingBackVisible] = useState(false);
+  const [floatingBackActions, setFloatingBackActions] = useState<ReactNode>(null);
   const stateRef = useRef<NavigationState | null>(null);
   const isHistoryTraversal = useRef(false);
   const knownIndex = useRef<number | null>(null);
+  const activeFloatingBackControl = useRef<symbol | null>(null);
+  const floatingBackCleanupTimer = useRef<number | null>(null);
   const search = searchParams.toString();
 
   const updateState = useCallback((next: NavigationState) => {
@@ -189,6 +201,45 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
     router.push(current.fallbackHref);
   }, [current.fallbackHref, previous, router]);
 
+  const clearFloatingBackCleanupTimer = useCallback(() => {
+    if (floatingBackCleanupTimer.current === null) return;
+    window.clearTimeout(floatingBackCleanupTimer.current);
+    floatingBackCleanupTimer.current = null;
+  }, []);
+
+  useEffect(() => clearFloatingBackCleanupTimer, [clearFloatingBackCleanupTimer]);
+
+  const registerFloatingBackControl = useCallback((controlId: symbol, actions: ReactNode) => {
+    clearFloatingBackCleanupTimer();
+    activeFloatingBackControl.current = controlId;
+    setFloatingBackActions(actions);
+  }, [clearFloatingBackCleanupTimer]);
+
+  const updateFloatingBackControl = useCallback((controlId: symbol, actions: ReactNode) => {
+    if (activeFloatingBackControl.current === controlId) setFloatingBackActions(actions);
+  }, []);
+
+  const unregisterFloatingBackControl = useCallback((controlId: symbol) => {
+    if (activeFloatingBackControl.current !== controlId) return;
+    clearFloatingBackCleanupTimer();
+    // Layout-effect cleanup for the old page runs before the replacement control
+    // registers. Deferring the clear by one task lets that registration take over
+    // without removing the fixed control between pages.
+    floatingBackCleanupTimer.current = window.setTimeout(() => {
+      if (activeFloatingBackControl.current !== controlId) return;
+      activeFloatingBackControl.current = null;
+      floatingBackCleanupTimer.current = null;
+      setFloatingBackVisible(false);
+      setFloatingBackActions(null);
+    }, 0);
+  }, [clearFloatingBackCleanupTimer]);
+
+  const floatingBackActionsController = useMemo<FloatingBackActionsController>(() => ({
+    register: registerFloatingBackControl,
+    update: updateFloatingBackControl,
+    unregister: unregisterFloatingBackControl,
+  }), [registerFloatingBackControl, unregisterFloatingBackControl, updateFloatingBackControl]);
+
   const value = useMemo<NavigationContextValue>(() => ({
     label: previous?.label ?? current.fallbackLabel,
     fallbackHref: current.fallbackHref,
@@ -200,7 +251,14 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
     setCurrentLabel,
   }), [current.fallbackHref, current.fallbackLabel, floatingBackVisible, goBack, previous, setCurrentLabel]);
 
-  return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
+  return (
+    <FloatingBackActionsControllerContext.Provider value={floatingBackActionsController}>
+      <NavigationContext.Provider value={value}>
+        {children}
+        <PersistentFloatingBackControl floatingActions={floatingBackActions} />
+      </NavigationContext.Provider>
+    </FloatingBackActionsControllerContext.Provider>
+  );
 }
 
 export function useNavigationLabel(label: string, fallbackHref: string, fallbackLabel: string) {
@@ -216,20 +274,72 @@ function useNavigationHistory() {
   return context;
 }
 
+function GlobalBackButton({ label, goBack, compact = false, isInteractive = true }: { label: string; goBack: () => void; compact?: boolean; isInteractive?: boolean }) {
+  return (
+    <button type="button" className={`global-back-control__button${compact ? " is-compact" : ""}`} onClick={goBack} aria-label={`Back to ${label}`} title={`Back to ${label}`} tabIndex={isInteractive ? undefined : -1}>
+      <span className="global-back-control__content">
+        <ArrowLeft size={compact ? 17 : 15} aria-hidden="true" />
+        <span className="global-back-control__label">{compact ? "Back" : `Back to ${label}`}</span>
+      </span>
+    </button>
+  );
+}
+
+function PersistentFloatingBackControl({ floatingActions }: { floatingActions: ReactNode }) {
+  const { label, goBack, floatingBackVisible } = useNavigationHistory();
+
+  return (
+    <div className={`global-back-control__floating${floatingBackVisible ? " is-visible" : ""}`} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
+      <GlobalBackButton label={label} goBack={goBack} compact isInteractive={floatingBackVisible} />
+      {floatingActions ? <span className="global-back-control__actions">{floatingActions}</span> : null}
+    </div>
+  );
+}
+
 export function GlobalBackControl({ className = "", floatingActions }: { className?: string; floatingActions?: ReactNode }) {
   const { label, goBack, floatingBackVisible, setFloatingBackVisible } = useNavigationHistory();
+  const floatingBackActionsController = useContext(FloatingBackActionsControllerContext);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const anchorRef = useRef<HTMLDivElement>(null);
   const hasUserScrolled = useRef(false);
   const routeSettled = useRef(false);
+  const floatingBackControlId = useRef(Symbol("global-back-control"));
   const floatingBackVisibleRef = useRef(floatingBackVisible);
   floatingBackVisibleRef.current = floatingBackVisible;
   const navigationKey = `${pathname}?${searchParams.toString()}`;
 
+  if (!floatingBackActionsController) throw new Error("Back navigation controls must be rendered inside NavigationHistoryProvider.");
+
+  useLayoutEffect(() => {
+    const controlId = floatingBackControlId.current;
+    floatingBackActionsController.register(controlId, floatingActions);
+    return () => floatingBackActionsController.unregister(controlId);
+  }, [floatingBackActionsController]);
+
+  useLayoutEffect(() => {
+    floatingBackActionsController.update(floatingBackControlId.current, floatingActions);
+  }, [floatingActions, floatingBackActionsController]);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+
+    hasUserScrolled.current = false;
+    routeSettled.current = false;
+    const { top, bottom } = anchor.getBoundingClientRect();
+    setFloatingBackVisible(nextFloatingBackVisibility({
+      wasFloating: floatingBackVisibleRef.current,
+      hasUserScrolled: false,
+      anchorTop: top,
+      anchorBottom: bottom,
+    }));
+  }, [navigationKey, setFloatingBackVisible]);
+
   useEffect(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
+    const scrollContainer = anchor.closest<HTMLElement>("[data-workspace-scrollbar]");
 
     hasUserScrolled.current = false;
     routeSettled.current = false;
@@ -251,6 +361,10 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
       if (!routeSettled.current) return;
       window.requestAnimationFrame(updateFloatingState);
     };
+    const onWheel = (event: WheelEvent) => {
+      if (scrollContainer && event.target instanceof Node && !scrollContainer.contains(event.target)) return;
+      onScroll();
+    };
 
     const settleTimer = window.setTimeout(() => {
       routeSettled.current = true;
@@ -258,27 +372,16 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     }, NAVIGATION_SETTLE_MS);
     observer.observe(anchor);
     window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+    scrollContainer?.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.clearTimeout(settleTimer);
       observer.disconnect();
       window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("wheel", onWheel, true);
+      scrollContainer?.removeEventListener("scroll", onScroll);
     };
   }, [navigationKey]);
 
-  const backButton = (compact = false, isInteractive = true) => (
-    <button type="button" className={`global-back-control__button${compact ? " is-compact" : ""}`} onClick={goBack} aria-label={`Back to ${label}`} title={`Back to ${label}`} tabIndex={isInteractive ? undefined : -1}>
-      <span className="global-back-control__content">
-        <ArrowLeft size={compact ? 17 : 15} aria-hidden="true" />
-        <span className="global-back-control__label">{compact ? "Back" : `Back to ${label}`}</span>
-      </span>
-    </button>
-  );
-
-  return <>
-    <div ref={anchorRef} className={`global-back-control ${className}`}>{backButton(false, !floatingBackVisible)}</div>
-    <div className={`global-back-control__floating${floatingBackVisible ? " is-visible" : ""}`} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
-      {backButton(true, floatingBackVisible)}
-      {floatingActions && <span className="global-back-control__actions">{floatingActions}</span>}
-    </div>
-  </>;
+  return <div ref={anchorRef} className={`global-back-control ${className}`}><GlobalBackButton label={label} goBack={goBack} isInteractive={!floatingBackVisible} /></div>;
 }
