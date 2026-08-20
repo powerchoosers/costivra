@@ -127,37 +127,124 @@ export function calculateNextExpectedInvoiceDate(
   return nextDate.toISOString().split("T")[0];
 }
 
-export function getDynamicPrimaryAction(vendor: {
+export type VendorPrimaryAction = {
+  label: string;
+  actionKind:
+    | "upload"
+    | "review_invoice"
+    | "monitor"
+    | "test_forwarding"
+    | "review_finding"
+    | "review_action"
+    | "view_bill";
+  href?: string;
+};
+
+export type VendorNextStep = {
+  action: VendorPrimaryAction;
+  description: string;
+  heading: string;
+  state: "attention" | "ready";
+};
+
+type VendorActionContext = {
   documentCount: number;
   hasPendingReviewInvoice: boolean;
   monitoringState: MonitoringState | DurableMonitoringState;
   hasOpenFinding: boolean;
   hasPendingAction: boolean;
-}): { label: string; actionKind: "upload" | "review_invoice" | "monitor" | "test_forwarding" | "review_finding" | "review_action" | "view_bill"; href?: string } {
+};
+
+/**
+ * Chooses one truthful next step for a vendor record. It deliberately ranks
+ * missing source material and human-review work ahead of automation so the UI
+ * never asks a customer to trust an incomplete relationship record.
+ */
+export function getVendorNextStep(vendor: VendorActionContext): VendorNextStep {
   const normState = mapDurableStateToUiState(vendor.monitoringState);
 
   if (vendor.documentCount === 0) {
-    return { label: "Add first bill", actionKind: "upload" };
+    return {
+      action: { label: "Add first bill", actionKind: "upload" },
+      heading: "Start with a source bill",
+      description: "No bill, invoice, or normalized expense is recorded for this relationship yet. Add a source bill before relying on monitoring or cost findings.",
+      state: "attention",
+    };
   }
   if (vendor.hasPendingReviewInvoice) {
-    return { label: "Review invoice", actionKind: "review_invoice", href: "/app/bills" };
+    return {
+      action: { label: "Review invoice", actionKind: "review_invoice", href: "/app/bills" },
+      heading: "A bill needs review",
+      description: "A recorded bill still needs a human check before Costivra can rely on it for monitoring or a customer-facing finding.",
+      state: "attention",
+    };
+  }
+  if (normState === "attention_needed") {
+    return {
+      action: { label: "Resolve monitoring alert", actionKind: "review_invoice", href: "/app/bills" },
+      heading: "Monitoring needs attention",
+      description: "Costivra expected a bill or encountered an intake issue. Review the bill queue and monitoring setup before assuming this relationship is current.",
+      state: "attention",
+    };
   }
   if (normState === "not_set_up") {
-    return { label: "Monitor this vendor", actionKind: "monitor" };
+    return {
+      action: { label: "Monitor this vendor", actionKind: "monitor" },
+      heading: "Set up continuous monitoring",
+      description: "New bills are not being monitored automatically. Configure an approved source so Costivra can watch this relationship over time.",
+      state: "attention",
+    };
   }
   if (normState === "test_needed") {
-    return { label: "Finish monitoring test", actionKind: "test_forwarding" };
+    return {
+      action: { label: "Finish monitoring test", actionKind: "test_forwarding" },
+      heading: "Complete the monitoring test",
+      description: "Forwarding is configured, but Costivra needs one test bill before it can confirm the monitoring path is working.",
+      state: "attention",
+    };
   }
   if (normState === "review_required") {
-    return { label: "Resolve monitoring review", actionKind: "review_invoice", href: "/app/bills" };
+    return {
+      action: { label: "Resolve monitoring review", actionKind: "review_invoice", href: "/app/bills" },
+      heading: "Monitoring intake needs review",
+      description: "A forwarded bill is waiting for vendor matching or human verification before it can contribute to the relationship record.",
+      state: "attention",
+    };
+  }
+  if (normState === "paused") {
+    return {
+      action: { label: "Review monitoring setup", actionKind: "monitor" },
+      heading: "Monitoring is paused",
+      description: "This relationship is not currently being checked for new bills. Review the setup before relying on its monitoring status.",
+      state: "attention",
+    };
   }
   if (vendor.hasOpenFinding) {
-    return { label: "Review finding", actionKind: "review_finding", href: "/app/findings" };
+    return {
+      action: { label: "Review finding", actionKind: "review_finding", href: "/app/findings" },
+      heading: "An open finding needs review",
+      description: "Costivra has recorded a finding for this relationship. Review its source evidence and calculation before deciding what to do next.",
+      state: "attention",
+    };
   }
   if (vendor.hasPendingAction) {
-    return { label: "Review action", actionKind: "review_action", href: "/app/actions" };
+    return {
+      action: { label: "Review action", actionKind: "review_action", href: "/app/actions" },
+      heading: "Work is waiting on this relationship",
+      description: "An action is still pending or in progress. Review its authorization and current status before starting another change.",
+      state: "attention",
+    };
   }
-  return { label: "View latest bill", actionKind: "view_bill", href: "/app/bills" };
+  return {
+    action: { label: "View latest bill", actionKind: "view_bill", href: "/app/bills" },
+    heading: "No priority issue is recorded",
+    description: "This relationship has no higher-priority review, monitoring, finding, or action currently recorded. Review the latest bill whenever you need the underlying detail.",
+    state: "ready",
+  };
+}
+
+export function getDynamicPrimaryAction(vendor: VendorActionContext): VendorPrimaryAction {
+  return getVendorNextStep(vendor).action;
 }
 
 /**

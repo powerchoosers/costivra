@@ -250,6 +250,62 @@ export function WorkspaceStatusBadge({
   );
 }
 
+export type WorkspaceDecisionFact = {
+  label: ReactNode;
+  value: ReactNode;
+};
+
+type WorkspaceDecisionSummaryProps = {
+  actions?: ReactNode;
+  ariaLabel?: string;
+  className?: string;
+  description: ReactNode;
+  eyebrow?: ReactNode;
+  facts?: WorkspaceDecisionFact[];
+  heading: ReactNode;
+};
+
+/**
+ * A concise, decision-first record summary shared by the customer workspace
+ * and the internal CRM. Callers retain their own domain data and actions; the
+ * primitive only supplies consistent hierarchy and geometry.
+ */
+export function WorkspaceDecisionSummary({
+  actions,
+  ariaLabel,
+  className,
+  description,
+  eyebrow = "Decision context",
+  facts = [],
+  heading,
+}: WorkspaceDecisionSummaryProps) {
+  return (
+    <section
+      aria-label={ariaLabel}
+      className={classNames("workspace-decision-summary", className)}
+    >
+      <div className="workspace-decision-summary__copy">
+        {eyebrow ? <span>{eyebrow}</span> : null}
+        <h2>{heading}</h2>
+        <p>{description}</p>
+      </div>
+      {facts.length ? (
+        <dl className="workspace-decision-summary__facts">
+          {facts.map((fact, index) => (
+            <div key={typeof fact.label === "string" ? fact.label : index}>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      {actions ? (
+        <div className="workspace-decision-summary__actions">{actions}</div>
+      ) : null}
+    </section>
+  );
+}
+
 export type WorkspaceViewTab = {
   count?: number;
   countTone?: "attention";

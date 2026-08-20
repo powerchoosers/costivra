@@ -15,11 +15,13 @@ import {
 } from "@/lib/icons";
 import { useToast } from "@/components/toast-provider";
 import { GlobalBackControl } from "@/components/navigation-history";
+import { WorkspaceDecisionSummary } from "@/components/ui/workspace-primitives";
 import {
   canRescanInboundEvent,
   canRetryInboundEvent,
   intakeStatusGroup,
 } from "@/lib/manage/intake-operations-policy";
+import { getIntakeEventDecision } from "@/lib/manage/record-detail-decision";
 import type {
   IntakeOperationEvent,
   ManageIntakeOperationsData,
@@ -131,6 +133,7 @@ function IntakeEventDetail({ event, scannerConfigured }: { event: IntakeOperatio
   const toast = useToast();
   const [busy, setBusy] = useState<"retry" | "rescan" | null>(null);
   const hasQuarantine = event.attachments.some((attachment) => attachment.processingStatus === "quarantined");
+  const intakeDecision = getIntakeEventDecision(event, scannerConfigured);
   async function act(action: "retry" | "rescan") {
     setBusy(action);
     try {
@@ -149,6 +152,15 @@ function IntakeEventDetail({ event, scannerConfigured }: { event: IntakeOperatio
         {event.status === "quarantined" && <button className="manage-button manage-button--primary" type="button" disabled={busy !== null || !canRescanInboundEvent(event.status, hasQuarantine, scannerConfigured)} onClick={() => void act("rescan")} title={!scannerConfigured ? "Connect the malware scanner first" : undefined}><ShieldCheck size={16} />{busy === "rescan" ? "Scanning…" : "Rescan files"}</button>}
       </div>
     </header>
+    <WorkspaceDecisionSummary
+      ariaLabel="Intake event readiness"
+      className="intake-event-decision-summary"
+      eyebrow="Intake readiness"
+      description={intakeDecision.description}
+      facts={intakeDecision.facts}
+      heading={intakeDecision.heading}
+      actions={event.attachments.length ? <a className="manage-button manage-button--quiet" href="#intake-source-files">Review source files</a> : undefined}
+    />
     <div className="intake-event-layout">
       <section className="manage-panel intake-event-overview">
         <div className="intake-event-title"><Status status={event.status} /><span>{event.attemptCount} of {event.maxAttempts} attempts</span></div>
@@ -163,7 +175,7 @@ function IntakeEventDetail({ event, scannerConfigured }: { event: IntakeOperatio
         {event.bodyPreview && <div className="intake-event-preview"><span>Message preview</span><p>{event.bodyPreview}</p></div>}
         {event.errorMessage && <div className="intake-event-error"><AlertTriangle size={17} /><div><strong>Latest processing error</strong><p>{event.errorMessage}</p></div></div>}
       </section>
-      <section className="manage-panel intake-event-files">
+      <section className="manage-panel intake-event-files" id="intake-source-files">
         <header><div><span>ATTACHMENTS</span><h3>Source files</h3></div><strong>{event.attachments.length}</strong></header>
         {event.attachments.length ? <div>{event.attachments.map((attachment) => <article key={attachment.id}>
           <FileCheck2 size={19} />

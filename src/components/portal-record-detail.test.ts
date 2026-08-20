@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRecordMoney, resolveRecordDetailCurrency, resolveRecordDetailSection, selectRecordFiles, shouldShowRecordFiles } from "@/components/portal-record-detail";
+import { formatRecordMoney, getRecordDecisionAction, groupRecordFields, resolveRecordDetailCurrency, resolveRecordDetailSection, selectRecordFiles, shouldShowRecordFiles } from "@/components/portal-record-detail";
 
 describe("record detail section navigation", () => {
   const sections = ["overview", "files", "quality", "history"];
@@ -17,6 +17,13 @@ describe("record detail section navigation", () => {
     expect(shouldShowRecordFiles("opportunity", 0)).toBe(false);
     expect(shouldShowRecordFiles("opportunity", 1)).toBe(true);
     expect(shouldShowRecordFiles("invoice", 0)).toBe(true);
+  });
+
+  it("offers only record-grounded next actions", () => {
+    expect(getRecordDecisionAction("invoice", true, 0)).toEqual({ href: "#files", label: "Review source documents" });
+    expect(getRecordDecisionAction("contract", true, 2)).toEqual({ href: "#files", label: "Review related files" });
+    expect(getRecordDecisionAction("contract", false, 2)).toEqual({ href: "#related", label: "View related records" });
+    expect(getRecordDecisionAction("expense", false, 0)).toBeNull();
   });
 
   it("limits a finding's files to its linked evidence instead of every vendor document", () => {
@@ -37,5 +44,21 @@ describe("record detail section navigation", () => {
     expect(resolveRecordDetailCurrency("CAD", null)).toBe("CAD");
     expect(formatRecordMoney(1250, "EUR")).toBe("€1,250.00");
     expect(formatRecordMoney(1250, "CAD")).toBe("CA$1,250.00");
+  });
+
+  it("keeps dense invoice fields in decision-oriented groups without losing new fields", () => {
+    const groups = groupRecordFields("invoice", [
+      { key: "invoiceNumber" },
+      { key: "totalAmount" },
+      { key: "reconciliationStatus" },
+      { key: "futureField" },
+    ]);
+
+    expect(groups.map((group) => [group.id, group.fields.map((field) => field.key)])).toEqual([
+      ["reference", ["invoiceNumber"]],
+      ["amounts", ["totalAmount"]],
+      ["quality", ["reconciliationStatus"]],
+      ["additional", ["futureField"]],
+    ]);
   });
 });

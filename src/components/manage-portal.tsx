@@ -87,6 +87,7 @@ import type {
 import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
 import { createClient } from "@/lib/supabase/client";
 import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
+import { getMotionSafeScrollBehavior } from "@/lib/ui/motion";
 import { useToast } from "@/components/toast-provider";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditableFieldRow } from "@/components/records/editable-field-row";
@@ -108,7 +109,7 @@ import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspa
 import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
-import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
+import { WorkspaceDecisionSummary, WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { GlobalBackControl, shouldRenderManagePageBack, useNavigationLabel } from "@/components/navigation-history";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
@@ -3323,7 +3324,7 @@ function AccountDetailPage({
   useEffect(() => {
     if (active !== "activity" || !activityId) return;
     const frame = window.requestAnimationFrame(() => {
-      document.getElementById(`activity-${activityId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById(`activity-${activityId}`)?.scrollIntoView({ behavior: getMotionSafeScrollBehavior(), block: "center" });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [active, activityId]);
@@ -3386,6 +3387,32 @@ function AccountDetailPage({
 
   const isOwner = data.operator.role === "owner";
   const accountDraftDirty = recordDraftChanged({ name: account.name, legalName: account.legalName ?? "", industry: account.industry ?? "", employeeCountRange: account.employeeCountRange ?? "", annualRevenueRange: account.annualRevenueRange ?? "", timezone: account.timezone ?? "", currency: account.currency ?? "USD", website: account.website ?? "", stage: account.stage ?? "onboarding", assignedTo: account.assignedTo ?? "", primaryContactId: account.primaryContactId ?? "", nextFollowUpAt: account.nextFollowUpAt ?? "", nextStep: account.nextStep ?? "", privateNotes: account.privateNotes ?? "" }, { name, legalName, industry, employeeCountRange, annualRevenueRange, timezone, currency, website, stage, assignedTo, primaryContactId, nextFollowUpAt, nextStep, privateNotes }, ["name", "legalName", "industry", "employeeCountRange", "annualRevenueRange", "timezone", "currency", "website", "stage", "assignedTo", "primaryContactId", "nextFollowUpAt", "nextStep", "privateNotes"]);
+  const openTaskCount = tasks.filter((task) => task.status !== "completed").length;
+  const accountDecision = account.nextStep
+    ? {
+        heading: "A clear next step is recorded",
+        description: account.nextFollowUpAt
+          ? `${account.nextStep} Follow up by ${date(account.nextFollowUpAt)}.`
+          : `${account.nextStep} Set a follow-up date when the timing is known.`,
+        action: <button type="button" className="button button-primary" onClick={() => setActive("work")}>Review follow-up work</button>,
+      }
+    : openTaskCount
+      ? {
+          heading: "Follow-up work needs a decision",
+          description: `${openTaskCount} open work item${openTaskCount === 1 ? " is" : "s are"} recorded for this account. Review the work queue and set one accountable next step.`,
+          action: <button type="button" className="button button-primary" onClick={() => setActive("work")}>Open follow-up work</button>,
+        }
+      : accountEmailContact
+        ? {
+            heading: "Choose the next client touch",
+            description: "No next step or scheduled follow-up is recorded. Start with the primary contact, then capture the outcome and the next accountable action.",
+            action: <button type="button" className="button button-primary" onClick={() => onCompose(accountEmailContact)}>Email primary contact</button>,
+          }
+        : {
+            heading: "Add an accountable contact",
+            description: "This account has no primary contact, next step, or scheduled follow-up. Add a contact before starting outreach so the record has a clear owner.",
+            action: <button type="button" className="button button-primary" onClick={() => onAddContact(account)}>Add contact</button>,
+          };
 
   const handleOpenEditSheet = () => {
     setName(account.name);
@@ -3577,7 +3604,7 @@ function AccountDetailPage({
           {companyPhone && companyPhoneHref && <a className="global-back-control__action global-back-control__action--phone" href={`tel:${companyPhoneHref}`} aria-label={`Call ${account.name}`} title={`Call ${companyPhone}`}><Phone size={16} /></a>}
         </>}
       />
-      <header className="manage-record-heading" style={{ position: "relative" }}>
+      <header className="manage-record-heading">
         <div className="manage-record-identity">
           <CompanyLogo entity="organization" id={account.id} name={account.name} className="manage-record-logo" />
           <div>
@@ -3593,7 +3620,7 @@ function AccountDetailPage({
             <AccountHeaderMeta account={account} profile={profile} />
           </div>
         </div>
-        <div className="manage-record-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="manage-record-actions">
           {accountEmailContact && (
             <button
               className="manage-record-action-icon manage-record-action-icon--email"
@@ -3656,23 +3683,38 @@ function AccountDetailPage({
       <RecordTabs tabs={accountTabs} active={active} onChange={setActive} />
 
       {active === "overview" && (
-        <AccountOverview
-          account={account}
-          profile={profile}
-          profileSummary={profileSummary}
-          vendors={vendors}
-          expenses={expenses}
-          documents={documents}
-          contacts={contacts}
-          allAccounts={data.accounts}
-          locations={data.locations}
-          setSelectedVendorId={setSelectedVendorId}
-          setActive={setActive}
-          onCompose={onCompose}
-          onAddContact={onAddContact}
-          onAddNote={onAddNote}
-          run={run}
-        />
+        <>
+          <WorkspaceDecisionSummary
+            ariaLabel="Account next step"
+            className="manage-record-decision-summary"
+            eyebrow="Client next step"
+            description={accountDecision.description}
+            facts={[
+              { label: "Lifecycle", value: <Status value={account.stage || "unclassified"} /> },
+              { label: "Follow-up", value: account.nextFollowUpAt ? date(account.nextFollowUpAt) : "Not scheduled" },
+              { label: "Open work", value: openTaskCount ? `${openTaskCount} item${openTaskCount === 1 ? "" : "s"}` : "None" },
+            ]}
+            heading={accountDecision.heading}
+            actions={accountDecision.action}
+          />
+          <AccountOverview
+            account={account}
+            profile={profile}
+            profileSummary={profileSummary}
+            vendors={vendors}
+            expenses={expenses}
+            documents={documents}
+            contacts={contacts}
+            allAccounts={data.accounts}
+            locations={data.locations}
+            setSelectedVendorId={setSelectedVendorId}
+            setActive={setActive}
+            onCompose={onCompose}
+            onAddContact={onAddContact}
+            onAddNote={onAddNote}
+            run={run}
+          />
+        </>
       )}
       {active === "vendors" && (
         <VendorWorkspace
@@ -4068,6 +4110,26 @@ function ContactDetailPage({
     .sort((left, right) => Date.parse(right.lastMessageAt) - Date.parse(left.lastMessageAt))[0] ?? null;
   const nextTask = [...tasks].filter((task) => task.status !== "completed").sort((left, right) => (left.dueAt ?? "").localeCompare(right.dueAt ?? ""))[0] ?? null;
   const documents = data.documents.filter((item) => item.organizationId === contact.organizationId);
+  const openTaskCount = tasks.filter((task) => task.status !== "completed").length;
+  const contactDecision = nextTask
+    ? {
+        heading: "A next client touch is scheduled",
+        description: nextTask.dueAt
+          ? `${nextTask.title} is due ${date(nextTask.dueAt)}. Keep the outcome and following action on this contact record.`
+          : `${nextTask.title} is the next open task. Add a due date when the timing is known.`,
+        action: <button type="button" className="button button-primary" onClick={() => setActive("work")}>Review follow-up work</button>,
+      }
+    : recentEmailThread
+      ? {
+          heading: "Review the latest client touch",
+          description: "No next task is scheduled for this contact. Review the latest email, then record the responsible follow-up if one is needed.",
+          action: <Link className="button button-primary" href={`/manage/mail/${recentEmailThread.id}`}>Open latest email</Link>,
+        }
+      : {
+          heading: "Set the next client touch",
+          description: "No contact-linked email or scheduled task is recorded. Start an accountable conversation, then capture the outcome and next action.",
+          action: <button type="button" className="button button-primary" onClick={() => onCompose(contact)}>Start an email</button>,
+        };
 
   const handleOpenEditSheet = () => {
     setFullName(contact.fullName);
@@ -4253,7 +4315,7 @@ function ContactDetailPage({
           {contact.phone && <a className="global-back-control__action global-back-control__action--phone" href={`tel:${contact.phone.replace(/[^+\d]/g, "")}`} aria-label={`Call ${contact.fullName}`} title={`Call ${contact.phone}`}><Phone size={16} /></a>}
         </>}
       />
-      <header className="manage-record-heading" style={{ position: "relative" }}>
+      <header className="manage-record-heading">
         <div className="manage-record-identity">
           <span className="manage-record-person-avatar">{initials(contact.fullName)}</span>
           <div>
@@ -4270,7 +4332,7 @@ function ContactDetailPage({
             </span>
           </div>
         </div>
-        <div className="manage-record-actions" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="manage-record-actions">
           <button
             className="manage-record-action-icon manage-record-action-icon--email"
             onClick={() => onCompose(contact)}
@@ -4329,9 +4391,23 @@ function ContactDetailPage({
       <RecordTabs tabs={tabs} active={active} onChange={setActive} />
 
       {active === "overview" && (
-        <div className="manage-record-layout manage-record-layout--right-rail">
-          <main className="manage-record-main">
-            <section className="manage-record-profile">
+        <>
+          <WorkspaceDecisionSummary
+            ariaLabel="Contact next step"
+            className="manage-record-decision-summary"
+            eyebrow="Client next step"
+            description={contactDecision.description}
+            facts={[
+              { label: "Last contacted", value: lastContactedAt ? date(lastContactedAt) : "Not recorded" },
+              { label: "Open work", value: openTaskCount ? `${openTaskCount} task${openTaskCount === 1 ? "" : "s"}` : "None" },
+              { label: "Contact status", value: <Status value={contact.status} /> },
+            ]}
+            heading={contactDecision.heading}
+            actions={contactDecision.action}
+          />
+          <div className="manage-record-layout manage-record-layout--right-rail">
+            <main className="manage-record-main">
+              <section className="manage-record-profile">
               <div>
                 <span>Relationship context</span>
                 <h3>Contact record</h3>
@@ -4342,7 +4418,7 @@ function ContactDetailPage({
               </div>
 
               {/* Editable Field Rows with zero layout shift */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+              <div className="manage-record-profile-fields">
                 <EditableFieldRow
                   label="Full Name"
                   value={contact.fullName}
@@ -4400,9 +4476,9 @@ function ContactDetailPage({
                   }}
                 />
               </div>
-            </section>
+              </section>
 
-            <section className="manage-panel manage-record-overview-panel">
+              <section className="manage-panel manage-record-overview-panel">
               <header>
                 <div>
                   <h3>Relationship readiness</h3>
@@ -4431,18 +4507,19 @@ function ContactDetailPage({
                   </dd>
                 </div>
               </dl>
-            </section>
-          </main>
-          <ContactContextRail
-            contact={contact}
-            account={contactAccount}
-            accounts={data.accounts}
-            contacts={data.contacts}
-            locations={data.locations}
-            onCompose={onCompose}
-            run={run}
-          />
-        </div>
+              </section>
+            </main>
+            <ContactContextRail
+              contact={contact}
+              account={contactAccount}
+              accounts={data.accounts}
+              contacts={data.contacts}
+              locations={data.locations}
+              onCompose={onCompose}
+              run={run}
+            />
+          </div>
+        </>
       )}
 
       {active === "files" && (
@@ -4477,7 +4554,7 @@ function ContactDetailPage({
       )}
 
       {active === "activity" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        <div className="manage-record-tab-stack">
           <section className="manage-panel manage-record-tab-panel">
             <header>
               <div>

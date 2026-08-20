@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -146,7 +146,7 @@ export function SequenceMachine({
     if (insertCloseTimer.current !== null) window.clearTimeout(insertCloseTimer.current);
   }, []);
 
-  const closeInsert = (immediate = false) => {
+  const closeInsert = useCallback((immediate = false) => {
     if (!insertTarget || insertTarget.closing) return;
     const triggerId = `sequence-insert-trigger-${insertTarget.afterStepId ?? "start"}`;
     if (immediate) {
@@ -161,7 +161,7 @@ export function SequenceMachine({
       insertCloseTimer.current = null;
       document.getElementById(triggerId)?.focus();
     }, 180);
-  };
+  }, [insertTarget]);
 
   useEffect(() => {
     if (!insertTarget) return;
@@ -173,7 +173,7 @@ export function SequenceMachine({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  });
+  }, [closeInsert, insertTarget]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);

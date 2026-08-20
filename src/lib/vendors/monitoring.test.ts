@@ -3,6 +3,7 @@ import {
   calculateNextExpectedInvoiceDate,
   getDynamicPrimaryAction,
   getMonitoringStateLabel,
+  getVendorNextStep,
   isValidMonitoringEmailAddress,
 } from "./monitoring";
 
@@ -71,6 +72,43 @@ describe("Vendor Monitoring Domain", () => {
         hasPendingAction: false,
       }).label,
     ).toBe("Review finding");
+
+    expect(
+      getDynamicPrimaryAction({
+        documentCount: 2,
+        hasPendingReviewInvoice: false,
+        monitoringState: "attention_needed",
+        hasOpenFinding: false,
+        hasPendingAction: false,
+      }).label,
+    ).toBe("Resolve monitoring alert");
+  });
+
+  it("explains the next step without presenting an unsupported financial claim", () => {
+    const attention = getVendorNextStep({
+      documentCount: 2,
+      hasPendingReviewInvoice: false,
+      monitoringState: "attention_needed",
+      hasOpenFinding: true,
+      hasPendingAction: true,
+    });
+    const ready = getVendorNextStep({
+      documentCount: 2,
+      hasPendingReviewInvoice: false,
+      monitoringState: "active",
+      hasOpenFinding: false,
+      hasPendingAction: false,
+    });
+
+    expect(attention).toMatchObject({
+      heading: "Monitoring needs attention",
+      state: "attention",
+    });
+    expect(attention.description).not.toMatch(/savings|\$/i);
+    expect(ready).toMatchObject({
+      heading: "No priority issue is recorded",
+      state: "ready",
+    });
   });
 });
 

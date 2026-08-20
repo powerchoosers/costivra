@@ -46,7 +46,7 @@ import { useToast } from "@/components/toast-provider";
 import { useBillInspector } from "@/components/bill-inspector-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
-import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
+import { WorkspaceDecisionSummary, WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { formatFinancialDate } from "@/lib/ui/date-format";
 import { PortalRecordDetail, resolveRecordDetailCurrency } from "@/components/portal-record-detail";
@@ -56,7 +56,8 @@ import { getActivationProgress } from "@/lib/portal/activation";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
-import { getMonitoringStateLabel, getDynamicPrimaryAction, type MonitoringState, type VendorMonitoringRecord } from "@/lib/vendors/monitoring";
+import { getMonitoringStateLabel, getVendorNextStep, mapDurableStateToUiState, type MonitoringState, type VendorMonitoringRecord } from "@/lib/vendors/monitoring";
+import { groupVendorInvoicesByAccount } from "@/lib/vendors/account-grouping";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { DocumentUploadExperience } from "@/components/document-upload-experience";
 import type { DocumentUploadCompletion } from "@/lib/documents/client-upload";
@@ -2248,12 +2249,18 @@ export function VendorDetail({
   const expenses = data.expenses
     .filter((item) => item.vendorId === vendorId)
     .sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
+  const invoices = data.invoices
+    .filter((item) => item.vendorId === vendorId)
+    .sort((a, b) => String(b.invoiceDate ?? "").localeCompare(String(a.invoiceDate ?? "")));
   const contracts = data.contracts
     .filter((item) => item.vendorId === vendorId)
     .sort((a, b) =>
       String(a.endDate ?? "9999").localeCompare(String(b.endDate ?? "9999")),
     );
   const documents = data.documents.filter((item) => item.vendorId === vendorId);
+  const vendorAccounts = data.expenseAccounts.filter(
+    (item) => item.vendorId === vendorId || item.relationshipId === vendor.relationshipId,
+  );
   const opportunities = data.opportunities.filter(
     (item) => item.vendorId === vendorId,
   );
@@ -2262,26 +2269,31 @@ export function VendorDetail({
   const contract = contracts[0];
   const latest = expenses[0];
   const rawMonitoringState = monitoring?.state ?? ((vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState | undefined) ?? "not_set_up";
-  const hasPendingReviewInvoice = data.invoices.some((i) => i.vendorId === vendorId && i.reviewStatus === "needs_review");
+  const monitoringState = getMonitoringStateLabel(rawMonitoringState);
+  const pendingReviewCount = invoices.filter((invoice) => invoice.reviewStatus === "needs_review").length;
+  const hasPendingReviewInvoice = pendingReviewCount > 0;
   const hasOpenFinding = opportunities.some((o) => !["closed", "declined"].includes(o.status));
   const hasPendingAction = actions.some((a) => !["complete", "cancelled"].includes(a.status));
+  const inferredVendorAccounts = groupVendorInvoicesByAccount(invoices);
+  const vendorAccountCount = vendorAccounts.length || inferredVendorAccounts.length || 1;
 
   const vendorDocumentIds = Array.from(
     new Set([
       ...documents.map((d) => d.id),
-      ...data.invoices
-        .filter((i) => i.vendorId === vendorId && i.documentId)
+      ...invoices
+        .filter((i) => i.documentId)
         .map((i) => i.documentId as string),
     ]),
   );
 
-  const primaryAction = getDynamicPrimaryAction({
-    documentCount: documents.length + expenses.length,
+  const vendorNextStep = getVendorNextStep({
+    documentCount: documents.length + expenses.length + invoices.length,
     hasPendingReviewInvoice,
     monitoringState: rawMonitoringState,
     hasOpenFinding,
     hasPendingAction,
   });
+  const primaryAction = vendorNextStep.action;
 
   const handlePrimaryAction = () => {
     if (primaryAction.actionKind === "upload") {
@@ -2471,8 +2483,8 @@ export function VendorDetail({
 
   const vendorTabs = [
     { id: "overview", label: "Overview" },
-    { id: "accounts", label: "Accounts", count: 1 },
-    { id: "bills", label: "Bills", count: expenses.length + documents.length },
+    { id: "accounts", label: "Accounts", count: vendorAccountCount },
+    { id: "bills", label: "Bills", count: expenses.length + invoices.length + documents.length },
     { id: "contracts", label: "Contracts", count: contracts.length },
     { id: "findings", label: "Findings", count: opportunities.length + actions.length },
     { id: "activity", label: "Activity", count: auditHistory.length },
@@ -2486,7 +2498,7 @@ export function VendorDetail({
   const actionsInProgress = actions.filter(actionIsInProgress).length;
   const hasVerifiedValue = vendorSavings.some(resultIsVerified);
   const relationshipFacts = [
-    { label: "Account", value: 1 },
+    { label: vendorAccountCount === 1 ? "Account" : "Accounts", value: vendorAccountCount },
     ...(contracts.length ? [{ label: contracts.length === 1 ? "Contract" : "Contracts", value: contracts.length }] : []),
     ...(openFindingCount
       ? [{ label: "Open finding", value: openFindingCount }]
@@ -2495,6 +2507,16 @@ export function VendorDetail({
       ? [{ label: "Pending action", value: pendingActionCount }]
       : []),
   ];
+  const openWorkCount = openFindingCount + pendingActionCount;
+  const primaryActionControl = primaryAction.href ? (
+    <Link className="button button-primary vendor-detail-primary-action" href={primaryAction.href}>
+      {primaryAction.label} <ArrowUpRight size={15} aria-hidden="true" />
+    </Link>
+  ) : (
+    <button type="button" className="button button-primary vendor-detail-primary-action" onClick={handlePrimaryAction} disabled={!canWrite}>
+      {primaryAction.actionKind === "upload" ? <Upload size={15} aria-hidden="true" /> : <Mail size={15} aria-hidden="true" />} {primaryAction.label}
+    </button>
+  );
 
   return (
     <div className="vendor-detail" data-record-detail-root="true">
@@ -2513,15 +2535,6 @@ export function VendorDetail({
           </div>
         </div>
         <div className="vendor-detail-actions">
-          {primaryAction.href ? (
-            <Link className="button button-primary vendor-detail-primary-action" href={primaryAction.href}>
-              {primaryAction.label} <ArrowUpRight size={15} aria-hidden="true" />
-            </Link>
-          ) : (
-            <button type="button" className="button button-primary vendor-detail-primary-action" onClick={handlePrimaryAction} disabled={!canWrite}>
-              {primaryAction.actionKind === "upload" ? <Upload size={15} aria-hidden="true" /> : <Mail size={15} aria-hidden="true" />} {primaryAction.label}
-            </button>
-          )}
           {vendorDocumentIds.length > 0 ? (
             <button
               type="button"
@@ -2543,6 +2556,20 @@ export function VendorDetail({
         onChange={handleTabChange}
         recordNavigation
         tabs={vendorTabs}
+      />
+
+      <WorkspaceDecisionSummary
+        ariaLabel="Vendor relationship next step"
+        className="vendor-decision-summary"
+        eyebrow="Relationship attention"
+        description={vendorNextStep.description}
+        facts={[
+          { label: "Monitoring", value: monitoringState.label },
+          { label: "Bills awaiting review", value: pendingReviewCount ? `${pendingReviewCount} ${pendingReviewCount === 1 ? "bill" : "bills"}` : "None" },
+          { label: "Open work", value: openWorkCount ? `${openWorkCount} item${openWorkCount === 1 ? "" : "s"}` : "None" },
+        ]}
+        heading={vendorNextStep.heading}
+        actions={primaryActionControl}
       />
 
       {activeTab === "overview" && (
@@ -2606,7 +2633,7 @@ export function VendorDetail({
           <DataCompletenessChecklist
             documents={documents}
             expenses={expenses}
-            invoices={data.invoices.filter((item) => item.vendorId === vendorId)}
+            invoices={invoices}
             contract={contract}
             monitoring={monitoring}
           />
@@ -2618,7 +2645,7 @@ export function VendorDetail({
       )}
 
       {activeTab === "bills" && (
-        <VendorBillsTab expenses={expenses} invoices={data.invoices.filter((item) => item.vendorId === vendorId)} documents={documents} vendorName={vendor.name} currency={workspaceCurrency} />
+        <VendorBillsTab expenses={expenses} invoices={invoices} documents={documents} vendorName={vendor.name} currency={workspaceCurrency} />
       )}
 
       {activeTab === "contracts" && (
@@ -2799,6 +2826,7 @@ function VendorAccountsTab({
     (a) => a.vendorId === vendorId || (relationshipId && a.relationshipId === relationshipId)
   );
   const invoices = data.invoices.filter((i) => i.vendorId === vendorId);
+  const invoiceAccountGroups = groupVendorInvoicesByAccount(invoices);
   const contracts = data.contracts.filter((c) => c.vendorId === vendorId);
   const opportunities = data.opportunities.filter((o) => o.vendorId === vendorId);
 
@@ -2816,8 +2844,8 @@ function VendorAccountsTab({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <section className="portal-panel">
+    <div className="vendor-accounts-workspace">
+      <section className="portal-panel vendor-accounts-panel">
         <div className="portal-panel-heading">
           <div>
             <h2>Vendor Accounts & Locations</h2>
@@ -2837,77 +2865,66 @@ function VendorAccountsTab({
               const accountOppCount = opportunities.filter((o) => o.expenseAccountId === account.id && !["closed", "declined"].includes(o.status)).length;
 
               return (
-                <div
+                <button
                   key={account.id}
-                  className="portal-list-row"
-                  style={{ cursor: "pointer" }}
+                  type="button"
+                  className="vendor-account-row"
                   onClick={() => handleSelectAccount(account.id)}
                 >
-                  <div className="grow">
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="vendor-account-row__copy">
+                    <span className="vendor-account-row__title">
                       <strong>{label}</strong>
-                      <span style={{ fontSize: "0.76rem", padding: "1px 8px", borderRadius: 10, background: "rgba(30, 41, 59, 0.06)", color: "var(--assistant-text-secondary, #475569)" }}>
-                        {maskedRef}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: "0.82rem", color: "var(--assistant-muted, #64748b)", marginTop: 4, display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        <MapPin size={13} /> {location?.name ?? account.locationName ?? "Unassigned location"}
-                      </span>
-                      <span>Category: {account.category}</span>
-                      {latestInv ? (
-                        <span>Latest bill: {money(latestInv.totalAmount ?? 0, false, resolveRecordDetailCurrency(currency, latestInv.currency))} ({date(latestInv.invoiceDate)})</span>
-                      ) : null}
-                      {accountContracts.length ? (
-                        <span>Contract active</span>
-                      ) : null}
-                      {accountOppCount > 0 && (
-                        <span style={{ color: "#002FA7", fontWeight: 600 }}>{accountOppCount} open finding{accountOppCount > 1 ? "s" : ""}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: "0.72rem", padding: "2px 8px", borderRadius: 10, background: "rgba(0, 47, 167, 0.06)", color: "#002FA7", fontWeight: 500 }}>
-                      Monitoring applies to vendor
+                      <span className="vendor-account-row__reference">{maskedRef}</span>
                     </span>
+                    <span className="vendor-account-row__meta">
+                      <span><MapPin size={13} /> {location?.name ?? account.locationName ?? "Unassigned location"}</span>
+                      <span>{account.category || "Category not recorded"}</span>
+                      {latestInv ? <span>Latest bill · {money(latestInv.totalAmount ?? 0, false, resolveRecordDetailCurrency(currency, latestInv.currency))} · {date(latestInv.invoiceDate)}</span> : <span>No linked bill</span>}
+                      {accountContracts.length ? <span>Recorded contract</span> : null}
+                      {accountOppCount > 0 ? <span className="is-attention">{accountOppCount} open finding{accountOppCount === 1 ? "" : "s"}</span> : null}
+                    </span>
+                  </span>
+                  <span className="vendor-account-row__status">
+                    <span className="vendor-account-row__monitoring">Vendor-level monitoring</span>
                     <Status value={account.status} />
-                    <ChevronRight size={16} />
-                  </div>
-                </div>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </span>
+                </button>
               );
             })}
           </div>
-        ) : invoices.length ? (
+        ) : invoiceAccountGroups.length ? (
           <div className="portal-list">
-            {invoices.map((inv) => {
+            {invoiceAccountGroups.map((group) => {
+              const inv = group.invoices[0];
               const label = formatVendorAccountLabel(
                 { accountName: null, category: inv.expenseCategory ?? "Vendor account", accountNumberLast4: inv.accountNumberLast4 },
                 inv.locationName
               );
               const maskedRef = maskAccountReference(inv.accountNumberLast4);
               return (
-                <div
+                <button
                   key={inv.id}
-                  className="portal-list-row"
-                  style={{ cursor: "pointer" }}
+                  type="button"
+                  className="vendor-account-row"
                   onClick={() => handleSelectAccount(inv.id)}
                 >
-                  <div className="grow">
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="vendor-account-row__copy">
+                    <span className="vendor-account-row__title">
                       <strong>{label}</strong>
-                      <span style={{ fontSize: "0.76rem", padding: "1px 8px", borderRadius: 10, background: "rgba(30, 41, 59, 0.06)" }}>
-                        {maskedRef}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: "0.82rem", color: "var(--assistant-muted, #64748b)" }}>
-                      Location: {inv.locationName ?? "Default location"} · {inv.energyService?.meterId ? `Meter ${inv.energyService.meterId}` : "Service account"}
+                      <span className="vendor-account-row__reference">{maskedRef}</span>
                     </span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className="vendor-account-row__meta">
+                      <span><MapPin size={13} /> {inv.locationName ?? "Default location"}</span>
+                      <span>{inv.energyService?.meterId ? `Meter ${inv.energyService.meterId}` : "Service account"}</span>
+                      <span>{group.invoices.length} linked bill{group.invoices.length === 1 ? "" : "s"}</span>
+                    </span>
+                  </span>
+                  <span className="vendor-account-row__status">
                     <Status value={inv.expenseAccountMatchStatus === "matched" ? "active" : "needs_review"} />
-                    <ChevronRight size={16} />
-                  </div>
-                </div>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -2926,7 +2943,7 @@ function VendorAccountsTab({
 
       {/* Unmatched Bills Section ("Bills needing account match") */}
       {unmatchedInvoices.length > 0 && (
-        <section className="portal-panel">
+        <section className="portal-panel vendor-account-review-panel">
           <div className="portal-panel-heading">
             <div>
               <h2>Bills needing account match</h2>
@@ -2935,26 +2952,24 @@ function VendorAccountsTab({
           </div>
           <div className="portal-list">
             {unmatchedInvoices.map((inv) => (
-              <Link key={inv.id} className="portal-list-row" href={`/app/bills/${inv.id}`}>
+              <Link key={inv.id} className="portal-list-row vendor-account-review-row" href={`/app/bills/${inv.id}`}>
                 <div className="grow">
                   <strong>{inv.invoiceNumber ?? "Bill without invoice #"}</strong>
-                  <div style={{ fontSize: "0.82rem", color: "var(--assistant-muted, #64748b)", marginTop: 2, display: "flex", gap: 12 }}>
+                  <div className="vendor-account-review-row__meta">
                     <span>Amount: {money(inv.totalAmount ?? 0, false, resolveRecordDetailCurrency(currency, inv.currency))}</span>
                     <span>Date: {date(inv.invoiceDate)}</span>
                     <span>Last 4: {inv.accountNumberLast4 ? `...${inv.accountNumberLast4}` : "None"}</span>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: "0.74rem", padding: "2px 8px", borderRadius: 10, background: "rgba(16, 185, 129, 0.1)", color: "#047857", fontWeight: 600 }}>
-                    Vendor matched
-                  </span>
-                  <span style={{ fontSize: "0.74rem", padding: "2px 8px", borderRadius: 10, background: "rgba(245, 158, 11, 0.1)", color: "#b45309", fontWeight: 600 }}>
+                <div className="vendor-account-review-row__status">
+                  <span className="vendor-account-match vendor-account-match--vendor">Vendor matched</span>
+                  <span className={`vendor-account-match ${inv.expenseAccountMatchStatus === "matched" ? "vendor-account-match--ready" : "vendor-account-match--review"}`}>
                     {inv.expenseAccountMatchStatus === "matched" ? "Account matched" : "Account needs review"}
                   </span>
-                  <span style={{ fontSize: "0.74rem", padding: "2px 8px", borderRadius: 10, background: "rgba(100, 116, 139, 0.1)", color: "#475569", fontWeight: 500 }}>
+                  <span className={`vendor-account-match ${inv.serviceLocationMatchStatus === "matched" ? "vendor-account-match--ready" : "vendor-account-match--muted"}`}>
                     {inv.serviceLocationMatchStatus === "matched" ? "Location matched" : "Location needs review"}
                   </span>
-                  <ChevronRight size={16} />
+                  <ChevronRight size={16} aria-hidden="true" />
                 </div>
               </Link>
             ))}
@@ -3005,74 +3020,71 @@ function AccountDetailSheet({
 
   const maskedRef = maskAccountReference(account?.accountNumberLast4 ?? account?.externalAccountReference ?? fallbackInvoice?.accountNumberLast4);
 
-  const accountInvoices = data.invoices.filter((i) => i.expenseAccountId === accountId || (fallbackInvoice && i.id === fallbackInvoice.id));
+  const accountInvoices = account
+    ? data.invoices.filter((invoice) => invoice.expenseAccountId === accountId)
+    : fallbackInvoice
+      ? groupVendorInvoicesByAccount(data.invoices.filter((invoice) => invoice.vendorId === fallbackInvoice.vendorId))
+        .find((group) => group.invoices.some((invoice) => invoice.id === fallbackInvoice.id))?.invoices ?? [fallbackInvoice]
+      : [];
   const accountContracts = data.contracts.filter((c) => c.expenseAccountId === accountId);
   const accountOpportunities = data.opportunities.filter((o) => o.expenseAccountId === accountId);
+  const canWrite = data.currentUser.role !== "viewer";
+  const accountCategory = account?.category ?? fallbackInvoice?.expenseCategory ?? "General";
+  const handleAddRecord = (kind: Exclude<ModalState, null>) => {
+    onClose();
+    onAdd(kind, relationshipId);
+  };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", justifyContent: "flex-end", background: "rgba(15, 23, 42, 0.4)", backdropFilter: "blur(4px)" }}>
-      <div style={{ width: "100%", maxWidth: 540, background: "var(--card-bg, #ffffff)", height: "100%", overflowY: "auto", padding: 24, boxShadow: "-4px 0 24px rgba(0, 0, 0, 0.15)", display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid rgba(30, 41, 59, 0.1)", paddingBottom: 16 }}>
-          <div>
-            <PageBreadcrumbs items={[{ label: "Vendors", href: "/app/vendors" }, ...(vendor ? [{ label: vendor.name, href: `/app/vendors/${vendor.id}` }] : []), { label }]} />
-            <PageScopeIndicator mode="account" vendorName={vendor?.name} vendorHref={vendor ? `/app/vendors/${vendor.id}` : undefined} accountLabel={label} />
-            <span style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "#002FA7", fontWeight: 700 }}>
-              Vendor Account Detail
-            </span>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, margin: "4px 0 0" }}>{label}</h2>
-            <p className="muted" style={{ margin: "2px 0 0", fontSize: "0.82rem" }}>
-              {maskedRef} · Category: {account?.category ?? fallbackInvoice?.expenseCategory ?? "General"}
-            </p>
-          </div>
-          <button type="button" className="button button-quiet" onClick={onClose} style={{ padding: "4px 8px" }}>
-            ✕
-          </button>
+    <PortalModal
+      className="portal-modal--account-detail"
+      description={`${maskedRef} · ${accountCategory}`}
+      onClose={onClose}
+      open
+      side
+      title={label}
+    >
+      <div className="account-detail-sheet">
+        <div className="account-detail-sheet__context">
+          <PageBreadcrumbs items={[{ label: "Vendors", href: "/app/vendors" }, ...(vendor ? [{ label: vendor.name, href: `/app/vendors/${vendor.id}` }] : []), { label }]} />
+          <PageScopeIndicator mode="account" vendorName={vendor?.name} vendorHref={vendor ? `/app/vendors/${vendor.id}` : undefined} accountLabel={label} />
+          <span>Vendor account</span>
         </div>
 
-        {/* Account Identity & Location */}
-        <section className="portal-panel" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 700, margin: "0 0 12px" }}>Account Identity & Location</h3>
-          <dl className="record-summary-list">
+        <section className="account-detail-sheet__section">
+          <header>
             <div>
-              <dt>Account label</dt>
-              <dd>{label}</dd>
+              <span>Account context</span>
+              <h3>Identity and service location</h3>
             </div>
-            <div>
-              <dt>Masked reference</dt>
-              <dd>{maskedRef}</dd>
-            </div>
-            <div>
-              <dt>Location</dt>
-              <dd>{location?.name ?? account?.locationName ?? fallbackInvoice?.locationName ?? "Unassigned"}</dd>
-            </div>
-            <div>
-              <dt>Service start date</dt>
-              <dd>{account?.serviceStartDate ? date(account.serviceStartDate) : "Not recorded"}</dd>
-            </div>
-            <div>
-              <dt>Service end date</dt>
-              <dd>{account?.serviceEndDate ? date(account.serviceEndDate) : "Active / Ongoing"}</dd>
-            </div>
-            <div>
-              <dt>Monitoring status</dt>
-              <dd>Monitoring applies to vendor relationship</dd>
-            </div>
+          </header>
+          <dl className="account-detail-sheet__facts">
+            <div><dt>Account label</dt><dd>{label}</dd></div>
+            <div><dt>Masked reference</dt><dd>{maskedRef}</dd></div>
+            <div><dt>Location</dt><dd>{location?.name ?? account?.locationName ?? fallbackInvoice?.locationName ?? "Unassigned"}</dd></div>
+            <div><dt>Service start</dt><dd>{account?.serviceStartDate ? date(account.serviceStartDate) : "Not recorded"}</dd></div>
+            <div><dt>Service end</dt><dd>{account?.serviceEndDate ? date(account.serviceEndDate) : "Active / ongoing"}</dd></div>
+            <div><dt>Monitoring scope</dt><dd>Managed at the vendor relationship</dd></div>
           </dl>
         </section>
 
-        {/* Primary Actions */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" className="button button-primary button-sm" onClick={() => onAdd("upload", relationshipId)}>
-            <Plus size={14} /> Upload bill for this account
+        <div className="account-detail-sheet__actions">
+          <button type="button" className="button button-primary" disabled={!canWrite} onClick={() => handleAddRecord("upload")}>
+            <Plus size={15} /> Add bill
           </button>
-          <button type="button" className="button button-quiet button-sm" onClick={() => onAdd("monitor", relationshipId)}>
-            <Mail size={14} /> Set monitoring
+          <button type="button" className="button button-secondary" disabled={!canWrite} onClick={() => handleAddRecord("monitor")}>
+            <Mail size={15} /> Review monitoring
           </button>
         </div>
 
-        {/* Bill History */}
-        <section className="portal-panel" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 700, margin: "0 0 12px" }}>Bills linked to account ({accountInvoices.length})</h3>
+        <section className="account-detail-sheet__section">
+          <header>
+            <div>
+              <span>Source records</span>
+              <h3>Bills linked to this account</h3>
+            </div>
+            <strong>{accountInvoices.length}</strong>
+          </header>
           {accountInvoices.length ? (
             <div className="portal-list">
               {accountInvoices.map((inv) => (
@@ -3087,13 +3099,18 @@ function AccountDetailSheet({
               ))}
             </div>
           ) : (
-            <Empty title="No bills linked" copy="Upload a bill to build this account's spend history." />
+            <Empty title="No bills linked" copy="Add a source bill to build this account’s spend history." />
           )}
         </section>
 
-        {/* Linked Contracts */}
-        <section className="portal-panel" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 700, margin: "0 0 12px" }}>Contracts ({accountContracts.length})</h3>
+        <section className="account-detail-sheet__section">
+          <header>
+            <div>
+              <span>Commitments</span>
+              <h3>Linked contracts</h3>
+            </div>
+            <strong>{accountContracts.length}</strong>
+          </header>
           {accountContracts.length ? (
             <div className="portal-list">
               {accountContracts.map((contract) => (
@@ -3107,13 +3124,18 @@ function AccountDetailSheet({
               ))}
             </div>
           ) : (
-            <Empty title="No contracts linked" copy="Add a contract agreement for this account." />
+            <Empty title="No contracts linked" copy="Add a recorded agreement to make timing and renewal risk visible." />
           )}
         </section>
 
-        {/* Linked Findings */}
-        <section className="portal-panel" style={{ padding: 16 }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 700, margin: "0 0 12px" }}>Findings ({accountOpportunities.length})</h3>
+        <section className="account-detail-sheet__section">
+          <header>
+            <div>
+              <span>Findings</span>
+              <h3>Evidence-backed review items</h3>
+            </div>
+            <strong>{accountOpportunities.length}</strong>
+          </header>
           {accountOpportunities.length ? (
             <div className="portal-list">
               {accountOpportunities.map((opp) => (
@@ -3128,11 +3150,11 @@ function AccountDetailSheet({
               ))}
             </div>
           ) : (
-            <Empty title="No findings" copy="Costivra has not detected a cost finding for this account." />
+            <Empty title="No findings recorded" copy="Costivra has not recorded a finding for this account yet." />
           )}
         </section>
       </div>
-    </div>
+    </PortalModal>
   );
 }
 
@@ -3142,53 +3164,70 @@ function VendorMonitoringCard({
   error,
   canWrite,
   onMonitor,
-  expanded = false,
 }: {
   vendor: PortalVendor;
   monitoring: VendorMonitoringRecord | null;
   error: string | null;
   canWrite: boolean;
   onMonitor: () => void;
-  expanded?: boolean;
 }) {
   const rawState = monitoring?.state ?? ((vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState | undefined) ?? "not_set_up";
+  const monitoringState = mapDurableStateToUiState(rawState);
   const { label, copy, badgeClass } = getMonitoringStateLabel(rawState);
+  const monitoringActionLabel = monitoringState === "not_set_up" ? "Set up monitoring" : "Review monitoring setup";
+  const activityFacts = [
+    monitoring?.testCompletedAt ? { label: "Last test", value: date(monitoring.testCompletedAt) } : null,
+    monitoring?.lastReceivedAt ? { label: "Last bill received", value: date(monitoring.lastReceivedAt) } : null,
+    monitoring?.nextExpectedAt ? { label: "Next expected bill", value: date(monitoring.nextExpectedAt) } : null,
+    monitoring?.lastFailureCode ? { label: "Latest monitoring issue", value: titleCase(monitoring.lastFailureCode) } : null,
+  ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
 
   return (
-    <section className="portal-panel vendor-monitoring-card" style={{ marginBottom: 24, padding: "20px 24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>Continuous Bill Monitoring</h2>
-            <span className={`portal-status ${badgeClass}`}>{label}</span>
+    <section className="vendor-monitoring-card" aria-labelledby={`vendor-monitoring-${vendor.id}`}>
+      <header className="vendor-monitoring-card__header">
+        <div className="vendor-monitoring-card__copy">
+          <span className="vendor-monitoring-card__eyebrow">Bill monitoring</span>
+          <div className="vendor-monitoring-card__title-row">
+            <h2 id={`vendor-monitoring-${vendor.id}`}>Continuous bill monitoring</h2>
+            <span className={`portal-status vendor-monitoring-card__status ${badgeClass}`}>{label}</span>
           </div>
-          <p className="muted" style={{ margin: "4px 0 0", fontSize: "0.85rem" }}>{copy}</p>
+          <p id={`vendor-monitoring-${vendor.id}-description`}>{copy}</p>
         </div>
         {canWrite && (
-          <button className="button button-primary button-sm" onClick={onMonitor}>
-            <Mail size={14} /> {rawState === "not_set_up" ? "Monitor this vendor" : "Configure rule"}
+          <button className="button button-primary vendor-monitoring-card__action" type="button" onClick={onMonitor}>
+            <Mail aria-hidden="true" size={15} /> {monitoringActionLabel}
           </button>
         )}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, background: "var(--bg-subtle, #f8fafc)", padding: "16px", borderRadius: 10, border: "1px solid var(--border-color, #e2e8f0)" }}>
+      </header>
+      <dl className="vendor-monitoring-card__facts" aria-describedby={`vendor-monitoring-${vendor.id}-description`}>
         <div>
-          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Approved forwarding sender</span>
-          <strong style={{ fontSize: "0.9rem" }}>{monitoring?.approvedSenderAddress ?? "Not configured"}</strong>
+          <dt>Approved forwarding sender</dt>
+          <dd>{monitoring?.approvedSenderAddress ?? "Not configured"}</dd>
         </div>
         <div>
-          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Private intake address</span>
-          <strong style={{ fontSize: "0.9rem" }}>{monitoring?.privateIntakeAddress ?? "Not available until an intake address is active"}</strong>
+          <dt>Private intake address</dt>
+          <dd>{monitoring?.privateIntakeAddress ?? "Not available until an intake address is active"}</dd>
         </div>
         <div>
-          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Expected cadence</span>
-          <strong style={{ fontSize: "0.9rem" }}>{monitoring?.expectedCadenceDays ? `${monitoring.expectedCadenceDays} days` : "Not configured"}</strong>
+          <dt>Expected bill cadence</dt>
+          <dd>{monitoring?.expectedCadenceDays ? `${monitoring.expectedCadenceDays} days` : "Not configured"}</dd>
         </div>
-        <div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Grace period</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.gracePeriodDays ? `${monitoring.gracePeriodDays} days` : "Not configured"}</strong></div>
-        {expanded && <><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Last test</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.testCompletedAt ? date(monitoring.testCompletedAt) : "Not completed"}</strong></div><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Last bill received</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.lastReceivedAt ? date(monitoring.lastReceivedAt) : "Not received"}</strong></div><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Next expected bill</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.nextExpectedAt ? date(monitoring.nextExpectedAt) : "Unknown"}</strong></div><div><span style={{ fontSize: "0.78rem", color: "var(--text-muted)", display: "block" }}>Latest failure</span><strong style={{ fontSize: "0.9rem" }}>{monitoring?.lastFailureCode ?? "None recorded"}</strong></div></>}
-      </div>
-      {error ? <p className="muted" role="status" style={{ margin: "12px 0 0" }}>{error}</p> : null}
-      <p className="muted" style={{ fontSize: "0.78rem", margin: "14px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
-        <ShieldCheck size={14} style={{ color: "#002FA7" }} /> Costivra receives only messages sent to your private workspace address. Costivra does not read the rest of your inbox.
+        <div>
+          <dt>Grace period</dt>
+          <dd>{monitoring?.gracePeriodDays ? `${monitoring.gracePeriodDays} days` : "Not configured"}</dd>
+        </div>
+      </dl>
+      {activityFacts.length ? (
+        <section className="vendor-monitoring-card__activity" aria-label="Recorded monitoring activity">
+          <span>Recorded monitoring activity</span>
+          <dl>
+            {activityFacts.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
+          </dl>
+        </section>
+      ) : null}
+      {error ? <p className="vendor-monitoring-card__error" role="alert">{error}</p> : null}
+      <p className="vendor-monitoring-card__privacy-note">
+        <ShieldCheck aria-hidden="true" size={14} /> Costivra receives only messages sent to your private workspace address. Costivra does not read the rest of your inbox.
       </p>
     </section>
   );
@@ -3256,29 +3295,30 @@ function VendorBillsTab({
             ))}
           </div>
           {invoices.length ? (
-            <div className="portal-list" style={{ marginTop: 12 }}>
+            <div className="portal-list vendor-bills-workspace__invoice-list">
               {invoices.map((invoice) => {
                 const invoiceCurrency = resolveRecordDetailCurrency(currency, invoice.currency);
                 return (
-                <Link key={invoice.id} className="portal-list-row" href={`/app/bills/${invoice.id}`}>
-                  <div className="grow">
-                    <strong>{invoice.invoiceNumber ?? "Invoice"}</strong>
-                    <span>
-                      {displayPeriod(invoice.servicePeriodStart, invoice.servicePeriodEnd)} · Account {invoice.accountNumberLast4 ? `…${invoice.accountNumberLast4}` : "not assigned"} · {invoice.locationName ?? "Location not assigned"}
-                    </span>
-                    <small>
-                      Current charges {invoice.currentCharges == null ? "not recorded" : money(invoice.currentCharges, false, invoiceCurrency)} · Amount due {invoice.amountDue == null ? "not recorded" : money(invoice.amountDue, false, invoiceCurrency)} · Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor matched: {invoice.vendorMatchStatus === "exact" || invoice.vendorMatchStatus === "provided" ? "Yes" : "Needs review"}
-                    </small>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <div key={invoice.id} className="portal-list-row vendor-bill-row">
+                  <Link className="vendor-bill-row__record" href={`/app/bills/${invoice.id}`}>
+                    <div className="grow">
+                      <strong>{invoice.invoiceNumber ?? "Invoice"}</strong>
+                      <span>
+                        {displayPeriod(invoice.servicePeriodStart, invoice.servicePeriodEnd)} · Account {invoice.accountNumberLast4 ? `…${invoice.accountNumberLast4}` : "not assigned"} · {invoice.locationName ?? "Location not assigned"}
+                      </span>
+                      <small>
+                        Current charges {invoice.currentCharges == null ? "not recorded" : money(invoice.currentCharges, false, invoiceCurrency)} · Amount due {invoice.amountDue == null ? "not recorded" : money(invoice.amountDue, false, invoiceCurrency)} · Reconciliation: {titleCase(invoice.reconciliationStatus || "unknown")} · Vendor matched: {invoice.vendorMatchStatus === "exact" || invoice.vendorMatchStatus === "provided" ? "Yes" : "Needs review"}
+                      </small>
+                    </div>
+                    <ChevronRight aria-hidden="true" size={16} />
+                  </Link>
+                  <div className="vendor-bill-row__actions">
                     {invoice.documentId && (
                       <button
+                        aria-label={`Open bill breakdown for ${invoice.invoiceNumber ?? "invoice"}`}
                         type="button"
-                        className="button button-secondary"
-                        style={{ fontSize: "0.72rem", padding: "4px 9px", minHeight: "auto", height: "28px" }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                        className="button button-secondary vendor-bill-row__breakdown"
+                        onClick={() => {
                           openInspector(invoice.documentId!, vendorDocIds);
                         }}
                       >
@@ -3286,9 +3326,8 @@ function VendorBillsTab({
                       </button>
                     )}
                     <Status value={invoice.reviewStatus} />
-                    <ChevronRight size={16} />
                   </div>
-                </Link>
+                </div>
                 );
               })}
             </div>
@@ -3327,6 +3366,14 @@ function VendorContractsTab({ contracts, currency }: { contracts: PortalData["co
   return <section className="portal-panel"><div className="portal-panel-heading"><div><h2>Contracts</h2><p>Dates and values come from the recorded agreement.</p></div></div><div className="portal-list">{contracts.map((contract) => <Link key={contract.id} className="portal-list-row" href={`/app/contracts/${contract.id}`}><div className="grow"><strong>{contract.title}</strong><span>{contract.endDate ? `Ends ${date(contract.endDate)}` : "End date not recorded"}{contract.autoRenews ? " · Auto-renews" : ""}</span></div><strong>{contract.annualValue == null ? "Value not recorded" : money(contract.annualValue, false, currency)}</strong><ChevronRight size={16} /></Link>)}</div></section>;
 }
 
+function VendorRecordCollectionFooter({ href, label }: { href: string; label: string }) {
+  return <footer className="vendor-record-collection__footer">
+    <Link href={href} className="button button-quiet button-compact">
+      {label} <ArrowUpRight aria-hidden="true" size={14} />
+    </Link>
+  </footer>;
+}
+
 function VendorFindingsTab({
   opportunities,
   actions,
@@ -3339,8 +3386,7 @@ function VendorFindingsTab({
   currency: string;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* 1. Findings */}
+    <div className="vendor-findings-workspace">
       <section className="portal-panel">
         <div className="portal-panel-heading">
           <div>
@@ -3369,14 +3415,9 @@ function VendorFindingsTab({
         ) : (
           <Empty title="No active findings" copy="Costivra has not detected a finding for this vendor relationship." />
         )}
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(30, 41, 59, 0.08)", display: "flex", justifyContent: "flex-end" }}>
-          <Link href="/app/findings" className="button button-quiet button-compact" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            View all findings across vendors <ArrowUpRight size={14} />
-          </Link>
-        </div>
+        <VendorRecordCollectionFooter href="/app/findings" label="View all findings across vendors" />
       </section>
 
-      {/* 2. Pending Actions */}
       <section className="portal-panel">
         <div className="portal-panel-heading">
           <div>
@@ -3400,14 +3441,9 @@ function VendorFindingsTab({
         ) : (
           <Empty title="No actions planned" copy="Approved findings will appear here as executable work." />
         )}
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(30, 41, 59, 0.08)", display: "flex", justifyContent: "flex-end" }}>
-          <Link href="/app/actions" className="button button-quiet button-compact" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            View all actions across vendors <ArrowUpRight size={14} />
-          </Link>
-        </div>
+        <VendorRecordCollectionFooter href="/app/actions" label="View all actions across vendors" />
       </section>
 
-      {/* 3. Results */}
       <section className="portal-panel">
         <div className="portal-panel-heading">
           <div>
@@ -3432,11 +3468,7 @@ function VendorFindingsTab({
         ) : (
           <Empty title="No verified results yet" copy="Proven value will appear here after evidence reconciliation." />
         )}
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(30, 41, 59, 0.08)", display: "flex", justifyContent: "flex-end" }}>
-          <Link href="/app/results" className="button button-quiet button-compact" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            View all results across vendors <ArrowUpRight size={14} />
-          </Link>
-        </div>
+        <VendorRecordCollectionFooter href="/app/results" label="View all results across vendors" />
       </section>
     </div>
   );

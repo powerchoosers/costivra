@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronRight, Copy, FileText, LockKeyhole, Pencil, X } from "@/lib/icons";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast-provider";
-import { WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
+import { WorkspaceDecisionSummary, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
+import { SkeletonBlock } from "@/components/ui/skeletons";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { GlobalBackControl } from "@/components/navigation-history";
 import { PageBreadcrumbs, PageScopeIndicator } from "@/components/page-scope-indicator";
@@ -19,10 +20,81 @@ import {
   type PortalRecordKind,
 } from "@/lib/portal/record-context";
 import { formatFinancialDate } from "@/lib/ui/date-format";
+import { getMotionSafeScrollBehavior } from "@/lib/ui/motion";
 
 type Kind = PortalRecordKind;
 type FieldOption = string | { value: string; label: string };
 type Field = { key: string; label: string; value: unknown; display?: string; editable?: boolean; type?: "text" | "textarea" | "date" | "datetime-local" | "number" | "checkbox" | "select"; options?: FieldOption[]; note?: string };
+
+type RecordFieldGroupDefinition = {
+  description: string;
+  id: string;
+  keys: readonly string[];
+  label: string;
+};
+
+export type RecordFieldGroup<T extends { key: string }> = Omit<RecordFieldGroupDefinition, "keys"> & {
+  fields: T[];
+};
+
+const recordFieldGroups: Record<Kind, readonly RecordFieldGroupDefinition[]> = {
+  vendor: [
+    { id: "relationship", label: "Relationship", description: "The workspace-specific identity and lifecycle for this vendor.", keys: ["name", "category", "website", "relationshipStatus"] },
+    { id: "spend", label: "Spend context", description: "The recurring-cost information used to understand this relationship.", keys: ["annualizedSpend", "spendCadence"] },
+  ],
+  expense: [
+    { id: "coverage", label: "Coverage & assignment", description: "Who this expense belongs to and the period it covers.", keys: ["vendorName", "category", "locationId", "periodStart", "periodEnd"] },
+    { id: "financial", label: "Financial record", description: "Protected amounts retained from the reviewed source record.", keys: ["amount", "priorPeriodAmount"] },
+    { id: "review", label: "Review status", description: "Where this expense is in the current review workflow.", keys: ["status"] },
+  ],
+  contract: [
+    { id: "agreement", label: "Agreement", description: "The contract identity, coverage, and renewal terms to confirm before acting.", keys: ["title", "category", "locationId", "startDate", "endDate", "noticePeriodDays", "autoRenews"] },
+    { id: "financial", label: "Financial & ownership", description: "The recorded value and internal owner responsible for this agreement.", keys: ["annualValue", "ownerName", "status"] },
+  ],
+  document: [
+    { id: "source", label: "Source & extraction", description: "The immutable source identity and the current extraction record for this file.", keys: ["originalFilename", "documentType", "summary", "mimeType", "byteSize", "pageCount", "confidence", "sha256"] },
+  ],
+  invoice: [
+    { id: "reference", label: "Invoice reference", description: "The supplier, timing, purchase, and internal-review details for this invoice.", keys: ["invoiceNumber", "invoiceDate", "dueDate", "servicePeriodStart", "servicePeriodEnd", "purchaseOrderNumber", "expenseCategory", "reviewPriority", "reviewNotes"] },
+    { id: "amounts", label: "Amounts", description: "Source-derived totals, balances, credits, and charges shown in the invoice currency.", keys: ["totalAmount", "subtotal", "currentCharges", "previousBalance", "paymentsAndCredits", "balanceForward", "currentPeriodCredits", "taxTotal", "amountDue"] },
+    { id: "quality", label: "Matching & quality", description: "Deterministic reconciliation and identity checks that determine whether a review is needed.", keys: ["reconciliationStatus", "vendorMatchStatus", "workspaceCustomerMatchStatus", "expenseAccountMatchStatus", "serviceLocationMatchStatus", "extractionConfidence"] },
+  ],
+  opportunity: [
+    { id: "finding", label: "Finding", description: "The operational issue, priority, and timing that need attention.", keys: ["title", "summary", "priority", "deadlineAt"] },
+    { id: "assessment", label: "Assessment", description: "The trust and calculation context behind the recorded opportunity.", keys: ["trustState", "estimatedAnnualValue", "confidence", "generatedBy", "ruleVersion"] },
+    { id: "source", label: "Evidence & source", description: "The records and location that anchor this finding to a real operating cost.", keys: ["evidenceCount", "sourceDocumentId", "expenseAccountReference", "locationName", "lastEvaluatedAt"] },
+  ],
+  action: [
+    { id: "plan", label: "Action plan", description: "What must happen, when it is due, and the intended operating outcome.", keys: ["title", "description", "actionType", "priority", "dueAt"] },
+    { id: "approval", label: "Approval & execution", description: "The guarded workflow state that controls whether this action can advance.", keys: ["status", "approvalDecision"] },
+  ],
+  savings: [
+    { id: "result", label: "Recorded result", description: "The outcome record and the value state currently supported by evidence.", keys: ["title", "valueType", "amount"] },
+    { id: "method", label: "Method", description: "The recorded verification method and version used for this result.", keys: ["method", "methodVersion"] },
+    { id: "comparison", label: "Baseline & comparison", description: "The accepted baseline and later comparison needed before value is verified.", keys: ["baselineAmount", "comparisonAmount", "baselineAcceptedAt", "verifiedAt"] },
+  ],
+};
+
+/**
+ * Keeps dense record fields in small, domain-specific groups without ever
+ * dropping a newly added field that is not yet mapped to a group.
+ */
+export function groupRecordFields<T extends { key: string }>(kind: Kind, fields: readonly T[]): RecordFieldGroup<T>[] {
+  const assigned = new Set<string>();
+  const groups = recordFieldGroups[kind]
+    .map((group) => {
+      const groupKeys = new Set(group.keys);
+      const groupedFields = fields.filter((field) => groupKeys.has(field.key));
+      groupedFields.forEach((field) => assigned.add(field.key));
+      return { id: group.id, label: group.label, description: group.description, fields: groupedFields };
+    })
+    .filter((group) => group.fields.length > 0);
+  const remainingFields = fields.filter((field) => !assigned.has(field.key));
+
+  return remainingFields.length
+    ? [...groups, { id: "additional", label: "Additional record details", description: "Other recorded fields available for this item.", fields: remainingFields }]
+    : groups;
+}
 
 const labels: Record<Kind, { plural: string; noun: string }> = {
   vendor: { plural: "vendors", noun: "Vendor" }, expense: { plural: "expenses", noun: "Expense" }, contract: { plural: "contracts", noun: "Contract" }, document: { plural: "documents", noun: "Document" }, invoice: { plural: "documents", noun: "Invoice" }, opportunity: { plural: "findings", noun: "Finding" }, action: { plural: "actions", noun: "Action" }, savings: { plural: "results", noun: "Result" },
@@ -128,16 +200,7 @@ function FieldRow({ kind, updateId, expectedUpdatedAt, field, canEdit }: { kind:
     <div className="record-field-label"><span>{field.label}</span>{field.note && <small>{field.note}</small>}</div>
     <div className="record-field-value">
       {busy ? (
-        <div
-          className="costivra-skeleton-shimmer"
-          style={{
-            width: "120px",
-            height: "1.25rem",
-            borderRadius: "4px",
-            backgroundColor: "var(--paper-deep, #eae6dc)",
-          }}
-          aria-hidden="true"
-        />
+        <SkeletonBlock height="1.25rem" width="120px" />
       ) : editing ? <>
         {field.type === "textarea" ? <textarea value={String(value)} onChange={(e) => setValue(e.target.value)} autoFocus /> : field.type === "select" ? <select value={String(value)} onChange={(e) => setValue(e.target.value)} autoFocus>{field.options?.map((option) => { const value = typeof option === "string" ? option : option.value; const label = typeof option === "string" ? text(option) : option.label; return <option key={value || "empty"} value={value}>{label}</option>; })}</select> : field.type === "checkbox" ? <label className="record-check"><input type="checkbox" checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} /> {value ? "Yes" : "No"}</label> : <input type={field.type ?? "text"} value={String(value)} onChange={(e) => setValue(e.target.value)} autoFocus />}
         <button className="record-icon-button confirm" aria-label={`Save ${field.label}`} disabled={busy} onClick={() => void save()}><Check /></button><button className="record-icon-button" aria-label={`Cancel editing ${field.label}`} onClick={() => { setValue(field.value ?? ""); setEditing(false); }}><X /></button>
@@ -238,7 +301,7 @@ function RecordSectionTabs({ label, tabs }: { label: string; tabs: RecordSection
       window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${nextHash}`);
     }
     document.getElementById(id)?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      behavior: getMotionSafeScrollBehavior(),
       block: "start",
     });
   };
@@ -274,7 +337,9 @@ function fieldDisplay(field: Field) {
   return text(field.value);
 }
 
-function RecordDecisionBrief({ kind, fields }: { kind: Kind; fields: Field[] }) {
+type RecordDecisionAction = { href: string; label: string };
+
+function RecordDecisionBrief({ kind, fields, action }: { kind: Kind; fields: Field[]; action: RecordDecisionAction | null }) {
   const copy = decisionBriefCopy[kind];
   const narrative = fields.find((field) => copy.narrativeKeys.includes(field.key));
   const narrativeValue = narrative ? fieldDisplay(narrative) : null;
@@ -285,10 +350,14 @@ function RecordDecisionBrief({ kind, fields }: { kind: Kind; fields: Field[] }) 
     .filter((fact) => fact.value !== "Not recorded");
   const description = narrativeValue && narrativeValue !== "Not recorded" ? narrativeValue : copy.fallback;
 
-  return <section className={`record-decision-brief record-decision-brief--${kind}`} aria-label={copy.heading}>
-    <div className="record-decision-brief__copy"><span>Decision context</span><h2>{copy.heading}</h2><p>{description}</p></div>
-    {facts.length > 0 && <dl className="record-decision-brief__facts">{facts.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>}
-  </section>;
+  return <WorkspaceDecisionSummary
+    ariaLabel={copy.heading}
+    className={`workspace-decision-summary--${kind}`}
+    description={description}
+    facts={facts}
+    heading={copy.heading}
+    actions={action ? <a className="button button-primary" href={action.href}>{action.label}</a> : undefined}
+  />;
 }
 
 function FindingDecisionBrief({
@@ -320,18 +389,22 @@ function FindingDecisionBrief({
         ? { href: vendorHref, label: "Review vendor records", anchor: false }
         : { href: "/app/bills?view=review", label: "Review source bills", anchor: false };
 
-  return <section className="record-decision-brief record-decision-brief--finding" aria-label={readiness.heading}>
-    <div className="record-decision-brief__copy"><span>Finding readiness</span><h2>{readiness.heading}</h2><p>{readiness.description}</p></div>
-    <dl className="record-decision-brief__facts">
-      <div><dt>Trust state</dt><dd>{opportunityTrustLabel(finding.trustState)}</dd></div>
-      <div><dt>Source evidence</dt><dd>{evidence.compactLabel}</dd></div>
-      <div><dt>Calculation</dt><dd>{hasCalculation ? "Recorded" : "Needed"}</dd></div>
-    </dl>
-    <div className="record-decision-brief__actions">
+  return <WorkspaceDecisionSummary
+    ariaLabel={readiness.heading}
+    className="workspace-decision-summary--finding"
+    eyebrow="Finding readiness"
+    description={readiness.description}
+    facts={[
+      { label: "Trust state", value: opportunityTrustLabel(finding.trustState) },
+      { label: "Source evidence", value: evidence.compactLabel },
+      { label: "Calculation", value: hasCalculation ? "Recorded" : "Needed" },
+    ]}
+    heading={readiness.heading}
+    actions={<>
       {action.anchor ? <a className="button button-primary" href={action.href}>{action.label}</a> : <Link className="button button-primary" href={action.href}>{action.label}</Link>}
       <a className="button button-secondary" href="#related">View related records</a>
-    </div>
-  </section>;
+    </>}
+  />;
 }
 
 function displayFindingCalculationValue(value: unknown) {
@@ -416,6 +489,17 @@ export function shouldShowRecordFiles(kind: Kind, recordFileCount: number) {
   return kind !== "opportunity" || recordFileCount > 0;
 }
 
+export function getRecordDecisionAction(kind: Kind, hasRecordFiles: boolean, relatedRecordCount: number): RecordDecisionAction | null {
+  if (hasRecordFiles) {
+    return {
+      href: "#files",
+      label: kind === "document" ? "Review source file" : kind === "invoice" ? "Review source documents" : "Review related files",
+    };
+  }
+
+  return relatedRecordCount > 0 ? { href: "#related", label: "View related records" } : null;
+}
+
 export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind: Kind; id: string }) {
   const detail = build(data, kind, id); const meta = labels[kind];
   if (!detail) return <div className="record-detail"><GlobalBackControl className="record-back" /><section className="record-empty"><h1>{meta.noun} not found</h1><p>This record is not part of your workspace, or it no longer exists.</p></section></div>;
@@ -442,6 +526,8 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
         ? `/app/expenses/${sourceExpense.id}`
         : null;
   const showRecordFiles = shouldShowRecordFiles(kind, recordFiles.length);
+  const recordDecisionAction = finding ? null : getRecordDecisionAction(kind, recordFiles.length > 0, related.length);
+  const fieldGroups = groupRecordFields(kind, detail.fields);
   const recordFilesTitle = finding ? "Finding evidence files" : `${meta.noun} files`;
   const recordFilesDescription = finding
     ? "Only source files directly linked to this finding are available here."
@@ -476,10 +562,27 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     <div className="record-detail-layout"><main>
       {savingsOutcome && <SavingsReviewPanel outcome={savingsOutcome} currency={recordCurrency} canDecide={["owner", "admin"].includes(data.currentUser.role)} />}
       <div className="record-overview-anchor" id="overview">
-        {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} />}
+        {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} action={recordDecisionAction} />}
       </div>
       {finding && <FindingCalculationRecord finding={finding} currency={recordCurrency} />}
-      <section className="record-section"><div className="record-section-heading"><div><h2>Record details</h2><p>Edit one field at a time. Every saved change is attributed and audited.</p></div></div><div className="record-fields">{detail.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}</div></section>
+      <section className="record-section">
+        <div className="record-section-heading"><div><h2>Record details</h2><p>Review related information in small groups. Every saved change is attributed and audited.</p></div></div>
+        <div className="record-field-groups">
+          {fieldGroups.map((group) => (
+            <section className="record-field-group" key={group.id} aria-label={group.label}>
+              <header className="record-field-group__heading">
+                <div>
+                  <h3>{group.label}</h3>
+                  <p>{group.description}</p>
+                </div>
+              </header>
+              <div className="record-fields">
+                {group.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}
+              </div>
+            </section>
+          ))}
+        </div>
+      </section>
       {lineItems.length > 0 && <section className="record-section" id="line-items"><div className="record-section-heading"><div><h2>Invoice line items</h2><p>Normalized charges and credits retained from the reviewed invoice.</p></div><span className="record-section-count">{lineItems.length}</span></div><div className="record-line-items" data-workspace-scrollbar=""><div className="record-line-item record-line-item--heading"><span>Line</span><span>Description</span><span>Quantity</span><span>Unit price</span><span>Amount</span></div>{lineItems.map((item) => <div className="record-line-item" key={item.id}><span>{item.lineNumber}</span><span><strong>{item.description}</strong><small>{[item.category, item.servicePeriodStart && item.servicePeriodEnd ? `${date(item.servicePeriodStart)} – ${date(item.servicePeriodEnd)}` : null].filter(Boolean).join(" · ") || "No additional classification"}</small></span><span>{item.quantity ?? "—"}</span><span>{item.unitPrice == null ? "—" : money(item.unitPrice, recordCurrency)}</span><span>{money(item.amount, recordCurrency)}</span></div>)}</div></section>}
       {showRecordFiles && <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={recordFilesTitle} description={recordFilesDescription} /></div>}
       {evidence.length > 0 && <section className="record-section" id="evidence"><div className="record-section-heading"><div><h2>Source evidence</h2><p>Exact excerpts retained from the private source document.</p></div></div><div className="record-evidence-list">{evidence.map((item) => <article key={item.id}><span>Page {item.pageNumber}{item.fieldPath ? ` · ${item.fieldPath}` : ""}</span><blockquote>{item.textExcerpt}</blockquote><Link href={`/api/portal/documents/${item.documentId}/download`}>Open source <FileText /></Link></article>)}</div></section>}

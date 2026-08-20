@@ -7,9 +7,11 @@ import { FormEvent, useRef, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Copy, FileSearch, Pencil, Search, UserRoundCheck } from "@/lib/icons";
 import type { InvoiceReviewDetail, InvoiceReviewQueueItem, ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import { CostivraSelect } from "@/components/ui/costivra-select";
+import { WorkspaceDecisionSummary } from "@/components/ui/workspace-primitives";
 import { useToast } from "@/components/toast-provider";
 import { GlobalBackControl } from "@/components/navigation-history";
 import { formatFinancialDate } from "@/lib/ui/date-format";
+import { getInvoiceReviewDecision } from "@/lib/manage/record-detail-decision";
 
 const InvoicePdfViewer = dynamic(() => import("@/components/invoice-pdf-viewer"), {
   ssr: false,
@@ -163,6 +165,7 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
   const previous = index > 0 ? queue[index - 1] : null;
   const next = index >= 0 && index < queue.length - 1 ? queue[index + 1] : null;
   const sourceUrl = `/api/manage/invoices/${invoice.id}/source`;
+  const reviewDecision = getInvoiceReviewDecision(invoice);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -208,8 +211,17 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
       <div><GlobalBackControl className="invoice-detail-back" /><h2>Verify invoice</h2><p>{invoice.organizationName} · {invoice.vendorName} · {invoice.invoiceNumber || "Number missing"}</p></div>
       <div className="invoice-detail-pagination">{previous ? <Link href={`/manage/invoice-review/${previous.id}`}><ArrowLeft size={15} />Previous</Link> : <span />} {next ? <Link href={`/manage/invoice-review/${next.id}`}>Next<ArrowRight size={15} /></Link> : null}</div>
     </header>
+    <WorkspaceDecisionSummary
+      ariaLabel="Invoice review readiness"
+      className="invoice-review-decision-summary"
+      eyebrow="Review readiness"
+      description={reviewDecision.description}
+      facts={reviewDecision.facts}
+      heading={reviewDecision.heading}
+      actions={<a className="manage-button manage-button--quiet" href="#invoice-source">Inspect source document</a>}
+    />
     <div className="invoice-detail-layout">
-      <div className="invoice-detail-source">
+      <div className="invoice-detail-source" id="invoice-source">
         {invoice.mimeType === "application/pdf" ? <InvoicePdfViewer sourceUrl={sourceUrl} filename={invoice.documentName} /> : <div className="invoice-source-fallback"><FileSearch size={34} /><strong>{invoice.documentName}</strong><p>This source is not a PDF, so it stays in its native format.</p><a className="manage-button manage-button--quiet" href={sourceUrl} target="_blank" rel="noreferrer">Open source document</a></div>}
       </div>
       <form className="invoice-inspector" onSubmit={submit}>
@@ -281,10 +293,10 @@ function Field({ name, label, value, type = "text", inputMode }: { name: string;
   }
 
   return (
-    <label>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
-        <span>{label}</span>
-        <span style={{ display: "inline-flex", gap: "6px" }}>
+    <label className="invoice-field">
+      <div className="invoice-field__heading">
+        <span className="invoice-field__label">{label}</span>
+        <span className="invoice-field__tools">
           <button className="manage-icon-button" type="button" aria-label={`Edit ${label}`} title={`Edit ${label}`} onClick={focusField}>
             <Pencil size={14} />
           </button>
