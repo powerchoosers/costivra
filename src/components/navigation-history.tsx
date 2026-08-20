@@ -39,6 +39,7 @@ const NavigationContext = createContext<NavigationContextValue | null>(null);
 
 export const navigationStorageKey = (scope: NavigationScope) => `costivra.navigation-history.${scope}`;
 const markerKey = "__costivraNavigation";
+const NAVIGATION_SETTLE_MS = 240;
 
 function makeSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -195,6 +196,7 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
   const searchParams = useSearchParams();
   const anchorRef = useRef<HTMLDivElement>(null);
   const hasUserScrolled = useRef(false);
+  const routeSettled = useRef(false);
   const [isFloating, setIsFloating] = useState(false);
   const navigationKey = `${pathname}?${searchParams.toString()}`;
 
@@ -203,21 +205,28 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     if (!anchor) return;
 
     hasUserScrolled.current = false;
-    setIsFloating(false);
+    routeSettled.current = false;
 
     const updateFloatingState = () => {
+      if (!routeSettled.current) return;
       const nextIsFloating = hasUserScrolled.current && anchor.getBoundingClientRect().bottom <= 80;
       setIsFloating((current) => current === nextIsFloating ? current : nextIsFloating);
     };
     const observer = new IntersectionObserver(updateFloatingState, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
     const onScroll = () => {
       hasUserScrolled.current = true;
+      if (!routeSettled.current) return;
       window.requestAnimationFrame(updateFloatingState);
     };
 
+    const settleTimer = window.setTimeout(() => {
+      routeSettled.current = true;
+      updateFloatingState();
+    }, NAVIGATION_SETTLE_MS);
     observer.observe(anchor);
     window.addEventListener("scroll", onScroll, { capture: true, passive: true });
     return () => {
+      window.clearTimeout(settleTimer);
       observer.disconnect();
       window.removeEventListener("scroll", onScroll, true);
     };

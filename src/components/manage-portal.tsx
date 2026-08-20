@@ -152,6 +152,7 @@ const navGroups = [
 ] as const;
 
 const MANAGE_SIDEBAR_PREFERENCE_KEY = "costivra.manage.sidebar-collapsed";
+let clientManageMobileNavPreference: boolean | null = null;
 
 const settingsNav = ["Settings", "/manage/settings", Settings] as const;
 
@@ -714,7 +715,7 @@ export function ManagePortal({
   const setCompose = useCallback((context: ComposeContext) => openComposer(data, context), [data, openComposer]);
   // Keep the first client render deterministic; the viewport effect below
   // restores the saved desktop/compact rail preference after hydration.
-  const [mobileNav, setMobileNav] = useState(false);
+  const [mobileNav, setMobileNav] = useState(() => clientManageMobileNavPreference ?? false);
   const [manageMobileMenuOpen, setManageMobileMenuOpen] = useState(false);
   const [manageMobileMenuClosing, setManageMobileMenuClosing] = useState(false);
   const [sidebarPreferenceLoaded, setSidebarPreferenceLoaded] = useState(false);
@@ -787,8 +788,11 @@ export function ManagePortal({
       } else if (nextViewport === "compact" && storedCollapsed === null) {
         // Keep the compact rail calm until someone intentionally expands it.
         setMobileNav(false);
+        clientManageMobileNavPreference = false;
       } else {
-        setMobileNav(storedCollapsed !== true);
+        const nextMobileNav = storedCollapsed !== true;
+        clientManageMobileNavPreference = nextMobileNav;
+        setMobileNav(nextMobileNav);
       }
       setSidebarPreferenceLoaded(true);
     }
@@ -851,6 +855,7 @@ export function ManagePortal({
 
   useEffect(() => {
     if (!sidebarPreferenceLoaded || sidebarViewport === "mobile") return;
+    clientManageMobileNavPreference = mobileNav;
     try {
       window.sessionStorage.setItem(
         MANAGE_SIDEBAR_PREFERENCE_KEY,

@@ -1,5 +1,21 @@
 # Costivra Status
 
+## August 19, 2026 — Floating Back control route-settle flicker
+
+- Stabilized the shared floating Back control during App page changes by deferring observer state changes until the new route layout settles. The control no longer performs a transient hide/show cycle from intermediate scroll geometry.
+- Validation: Node 24 local Next app at `http://localhost:3001/app/bills`. The floating control rendered with no browser warning/error logs during the navigation check, and `git diff --check` passed. The browser link interaction did not complete a route change in the current session, so the final transition was verified from the route-aware component behavior and live render rather than claimed as a full click-through pass.
+
+## August 19, 2026 — App free-review banner and workspace canvas height
+
+- Changed the customer App frame to allocate available height between the free-review banner and the work canvas instead of giving both independent viewport heights. The canvas bottom now remains in the same viewport position while the banner is visible and expands back when the banner is dismissed.
+- Validation: Node 24 local Next app at `http://localhost:3001/app`. Browser QA measured the banner-visible canvas bottom at 708px, dismissed the banner, measured the canvas bottom at the same 708px, and observed no browser warning/error logs. `git diff --check` passed.
+
+## August 19, 2026 — Manage rail persistence and account inspector header alignment
+
+- Preserved the current Manage rail open/collapsed state across route remounts while retaining the existing session preference for full reloads.
+- Corrected the account inspector header spacing and explicitly matched its account name and industry typography to the account table row treatment.
+- Validation: Node 24 local Next app at `http://localhost:3001`. Browser QA confirmed open rail → Contacts remains open, collapsed rail → Accounts remains collapsed, the corrected inspector spacing rendered at desktop width, and no browser warning/error logs were reported. `git diff --check` passed.
+
 ## August 19, 2026 — Floating Back control alignment and route-transition behavior
 
 - Corrected the shared floating Back control offsets for collapsed App and Manage rails so the control stays aligned with the work canvas when the left panel is closed.
