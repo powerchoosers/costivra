@@ -36,6 +36,8 @@ type NavigationContextValue = {
   goBack: () => void;
   floatingBackVisible: boolean;
   setFloatingBackVisible: (visible: boolean) => void;
+  floatingBackTabBottom: number | null;
+  setFloatingBackTabBottom: (bottom: number | null) => void;
   setCurrentLabel: (label: string, fallbackHref: string, fallbackLabel: string) => void;
 };
 
@@ -95,18 +97,28 @@ export function floatingBackControlClassName(scope: NavigationScope, visible: bo
   return `global-back-control__floating global-back-control__floating--${scope}${visible ? " is-visible" : ""}`;
 }
 
-export function floatingBackControlTop(scope: NavigationScope, topbarBottom: number | null) {
-  if (scope !== "app" || topbarBottom === null) return null;
+export function floatingBackControlTop(
+  scope: NavigationScope,
+  topbarBottom: number | null,
+  recordTabsBottom: number | null = null,
+) {
+  const shellTop = scope === "app" && topbarBottom !== null
+    ? Math.ceil(topbarBottom + 12)
+    : null;
+  if (recordTabsBottom === null) return shellTop;
+
   // The customer workspace canvas can move when the review notice is visible.
-  // Keep the persistent control below the actual top bar instead of guessing a
-  // fixed viewport offset that can land underneath the notice.
-  return Math.ceil(topbarBottom + 12);
+  // When record navigation is visible, its local sections do not replace the
+  // return action. Keep Back available just beneath that strip instead of
+  // guessing a fixed viewport offset that can land under it.
+  return Math.max(shellTop ?? 0, Math.ceil(recordTabsBottom + 10));
 }
 
-export function shouldShowFloatingBackControl(isFloating: boolean, recordTabsAreVisible: boolean) {
-  // Detail tabs already keep the record's local navigation in view. Waiting
-  // until they clear prevents the global Back affordance from covering them.
-  return isFloating && !recordTabsAreVisible;
+export function shouldShowFloatingBackControl(isFloating: boolean) {
+  // Local record tabs tell a person where they are, but they cannot take them
+  // back to the prior workspace. The compact control must remain available
+  // once the in-page Back anchor has left view.
+  return isFloating;
 }
 
 export function recordTabsAreVisibleInWorkspace({
@@ -140,18 +152,16 @@ export function nextFloatingBackControlState({
   hasUserScrolled,
   anchorTop,
   anchorBottom,
-  recordTabsAreVisible,
 }: {
   wasFloating: boolean;
   hasUserScrolled: boolean;
   anchorTop: number;
   anchorBottom: number;
-  recordTabsAreVisible: boolean;
 }) {
   const isFloating = nextFloatingBackVisibility({ wasFloating, hasUserScrolled, anchorTop, anchorBottom });
   return {
     isFloating,
-    visible: shouldShowFloatingBackControl(isFloating, recordTabsAreVisible),
+    visible: shouldShowFloatingBackControl(isFloating),
   };
 }
 
@@ -219,6 +229,7 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
   const [state, setState] = useState<NavigationState | null>(null);
   const [current, setCurrent] = useState({ label: defaultLabel(scope), fallbackHref: scope === "app" ? "/app" : "/manage", fallbackLabel: defaultLabel(scope) });
   const [floatingBackVisible, setFloatingBackVisible] = useState(false);
+  const [floatingBackTabBottom, setFloatingBackTabBottom] = useState<number | null>(null);
   const [floatingBackActions, setFloatingBackActions] = useState<ReactNode>(null);
   const stateRef = useRef<NavigationState | null>(null);
   const isHistoryTraversal = useRef(false);
@@ -321,6 +332,7 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
       activeFloatingBackControl.current = null;
       floatingBackCleanupTimer.current = null;
       setFloatingBackVisible(false);
+      setFloatingBackTabBottom(null);
       setFloatingBackActions(null);
     }, 0);
   }, [clearFloatingBackCleanupTimer]);
@@ -339,8 +351,10 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
     goBack,
     floatingBackVisible,
     setFloatingBackVisible,
+    floatingBackTabBottom,
+    setFloatingBackTabBottom,
     setCurrentLabel,
-  }), [current.fallbackHref, current.fallbackLabel, floatingBackVisible, goBack, previous, setCurrentLabel]);
+  }), [current.fallbackHref, current.fallbackLabel, floatingBackTabBottom, floatingBackVisible, goBack, previous, setCurrentLabel]);
 
   return (
     <FloatingBackActionsControllerContext.Provider value={floatingBackActionsController}>
@@ -377,8 +391,8 @@ function GlobalBackButton({ label, goBack, compact = false, isInteractive = true
 }
 
 function PersistentFloatingBackControl({ scope, floatingActions }: { scope: NavigationScope; floatingActions: ReactNode }) {
-  const { label, goBack, floatingBackVisible } = useNavigationHistory();
-  const [top, setTop] = useState<number | null>(null);
+  const { label, goBack, floatingBackTabBottom, floatingBackVisible } = useNavigationHistory();
+  const [topbarBottom, setTopbarBottom] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     if (scope !== "app") {
@@ -389,8 +403,8 @@ function PersistentFloatingBackControl({ scope, floatingActions }: { scope: Navi
     if (!topbar) return;
 
     const updateTop = () => {
-      const nextTop = floatingBackControlTop(scope, topbar.getBoundingClientRect().bottom);
-      setTop((currentTop) => currentTop === nextTop ? currentTop : nextTop);
+      const nextTopbarBottom = topbar.getBoundingClientRect().bottom;
+      setTopbarBottom((currentTopbarBottom) => currentTopbarBottom === nextTopbarBottom ? currentTopbarBottom : nextTopbarBottom);
     };
 
     const canvas = topbar.closest<HTMLElement>(".app-work-canvas");
@@ -422,7 +436,8 @@ function PersistentFloatingBackControl({ scope, floatingActions }: { scope: Navi
     };
   }, [scope]);
 
-  const style = scope !== "app" || top === null ? undefined : ({ "--global-back-top": `${top}px` } as CSSProperties);
+  const top = floatingBackControlTop(scope, topbarBottom, floatingBackTabBottom);
+  const style = top === null ? undefined : ({ "--global-back-top": `${top}px` } as CSSProperties);
 
   return (
     <div className={floatingBackControlClassName(scope, floatingBackVisible)} style={style} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
@@ -433,7 +448,7 @@ function PersistentFloatingBackControl({ scope, floatingActions }: { scope: Navi
 }
 
 export function GlobalBackControl({ className = "", floatingActions }: { className?: string; floatingActions?: ReactNode }) {
-  const { label, goBack, floatingBackVisible, setFloatingBackVisible } = useNavigationHistory();
+  const { label, goBack, floatingBackVisible, setFloatingBackTabBottom, setFloatingBackVisible } = useNavigationHistory();
   const floatingBackActionsController = useContext(FloatingBackActionsControllerContext);
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -474,10 +489,11 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     floatingBackIsFloatingRef.current = false;
     floatingBackVisibleRef.current = false;
     setFloatingBackVisible(false);
+    setFloatingBackTabBottom(null);
     // Let the scroll observer evaluate after the route settles. Measuring in the
     // next animation frame can still see the outgoing page's scroll position,
     // which makes the fixed control flash during a client-side route change.
-  }, [navigationKey, setFloatingBackVisible]);
+  }, [navigationKey, setFloatingBackTabBottom, setFloatingBackVisible]);
 
   useEffect(() => {
     const anchor = anchorRef.current;
@@ -503,19 +519,20 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
       const { top, bottom } = anchor.getBoundingClientRect();
       const tabsRect = recordTabs?.getBoundingClientRect();
       const workspaceHeaderBottom = workspaceHeader?.getBoundingClientRect().bottom ?? 0;
+      const recordTabsAreVisible = Boolean(tabsRect && recordTabsAreVisibleInWorkspace({
+        tabsTop: tabsRect.top,
+        tabsBottom: tabsRect.bottom,
+        workspaceHeaderBottom,
+        viewportBottom: window.innerHeight,
+      }));
       const nextState = nextFloatingBackControlState({
         wasFloating: floatingBackIsFloatingRef.current,
         hasUserScrolled: hasUserScrolled.current,
         anchorTop: top,
         anchorBottom: bottom,
-        recordTabsAreVisible: Boolean(tabsRect && recordTabsAreVisibleInWorkspace({
-          tabsTop: tabsRect.top,
-          tabsBottom: tabsRect.bottom,
-          workspaceHeaderBottom,
-          viewportBottom: window.innerHeight,
-        })),
       });
       floatingBackIsFloatingRef.current = nextState.isFloating;
+      setFloatingBackTabBottom(nextState.visible && recordTabsAreVisible && tabsRect ? tabsRect.bottom : null);
       if (floatingBackVisibleRef.current !== nextState.visible) {
         floatingBackVisibleRef.current = nextState.visible;
         setFloatingBackVisible(nextState.visible);
@@ -529,6 +546,9 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
       });
     };
     const observer = new IntersectionObserver(queueFloatingState, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
+    const tabResizeObserver = recordTabs && typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(queueFloatingState)
+      : null;
     const onScroll = () => {
       // Route restoration and layout changes can emit scroll events before a
       // person has interacted with the new record. Do not let those events
@@ -559,7 +579,9 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
       queueFloatingState();
     }, NAVIGATION_SETTLE_MS);
     observer.observe(anchor);
+    if (tabResizeObserver && recordTabs) tabResizeObserver.observe(recordTabs);
     window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    window.addEventListener("resize", queueFloatingState, { passive: true });
     window.addEventListener("wheel", onWheel, { capture: true, passive: true });
     window.addEventListener("touchmove", onTouchMove, { capture: true, passive: true });
     window.addEventListener("keydown", onKeyDown, { capture: true });
@@ -567,14 +589,17 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     return () => {
       window.clearTimeout(settleTimer);
       observer.disconnect();
+      tabResizeObserver?.disconnect();
       if (updateFrameId !== null) window.cancelAnimationFrame(updateFrameId);
       window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", queueFloatingState);
       window.removeEventListener("wheel", onWheel, true);
       window.removeEventListener("touchmove", onTouchMove, true);
       window.removeEventListener("keydown", onKeyDown, true);
       scrollContainer?.removeEventListener("scroll", onScroll);
+      setFloatingBackTabBottom(null);
     };
-  }, [navigationKey, setFloatingBackVisible]);
+  }, [navigationKey, setFloatingBackTabBottom, setFloatingBackVisible]);
 
   return <div ref={anchorRef} className={`global-back-control ${className}`}><GlobalBackButton label={label} goBack={goBack} isInteractive={!floatingBackVisible} /></div>;
 }

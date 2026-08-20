@@ -64,6 +64,8 @@ describe("navigation history helpers", () => {
     expect(floatingBackControlTop("app", 182.4)).toBe(195);
     expect(floatingBackControlTop("manage", 182.4)).toBeNull();
     expect(floatingBackControlTop("app", null)).toBeNull();
+    expect(floatingBackControlTop("app", 182.4, 238.1)).toBe(249);
+    expect(floatingBackControlTop("manage", null, 238.1)).toBe(249);
   });
 
   it("only shows the floating Back control after user scroll and hides it once the page control is clearly visible", () => {
@@ -73,28 +75,25 @@ describe("navigation history helpers", () => {
     expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: true, anchorTop: 100, anchorBottom: 136 })).toBe(false);
   });
 
-  it("does not cover visible record tabs with the floating Back control", () => {
-    expect(shouldShowFloatingBackControl(true, true)).toBe(false);
-    expect(shouldShowFloatingBackControl(true, false)).toBe(true);
-    expect(shouldShowFloatingBackControl(false, false)).toBe(false);
+  it("keeps the floating Back control available alongside visible record tabs", () => {
+    expect(shouldShowFloatingBackControl(true)).toBe(true);
+    expect(shouldShowFloatingBackControl(false)).toBe(false);
   });
 
-  it("keeps the logical floating state while record tabs temporarily suppress the control", () => {
-    const hiddenBehindTabs = nextFloatingBackControlState({
+  it("keeps Back visible after its in-page anchor clears the header", () => {
+    const visibleAlongsideTabs = nextFloatingBackControlState({
       wasFloating: false,
       hasUserScrolled: true,
       anchorTop: 20,
       anchorBottom: 56,
-      recordTabsAreVisible: true,
     });
-    expect(hiddenBehindTabs).toEqual({ isFloating: true, visible: false });
+    expect(visibleAlongsideTabs).toEqual({ isFloating: true, visible: true });
 
     expect(nextFloatingBackControlState({
-      wasFloating: hiddenBehindTabs.isFloating,
+      wasFloating: visibleAlongsideTabs.isFloating,
       hasUserScrolled: true,
       anchorTop: 20,
       anchorBottom: 56,
-      recordTabsAreVisible: false,
     })).toEqual({ isFloating: true, visible: true });
   });
 
