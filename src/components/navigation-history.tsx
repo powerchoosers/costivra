@@ -191,22 +191,40 @@ function useNavigationHistory() {
 
 export function GlobalBackControl({ className = "", floatingActions }: { className?: string; floatingActions?: ReactNode }) {
   const { label, goBack } = useNavigationHistory();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const anchorRef = useRef<HTMLDivElement>(null);
+  const hasUserScrolled = useRef(false);
   const [isFloating, setIsFloating] = useState(false);
+  const navigationKey = `${pathname}?${searchParams.toString()}`;
 
   useEffect(() => {
     const anchor = anchorRef.current;
     if (!anchor) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      const nextIsFloating = !entry.isIntersecting && entry.boundingClientRect.bottom <= 80;
-      setIsFloating((current) => current === nextIsFloating ? current : nextIsFloating);
-    }, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
-    observer.observe(anchor);
-    return () => observer.disconnect();
-  }, []);
 
-  const backButton = (compact = false) => (
-    <button type="button" className={`global-back-control__button${compact ? " is-compact" : ""}`} onClick={goBack} aria-label={`Back to ${label}`} title={`Back to ${label}`} tabIndex={compact && !isFloating ? -1 : undefined}>
+    hasUserScrolled.current = false;
+    setIsFloating(false);
+
+    const updateFloatingState = () => {
+      const nextIsFloating = hasUserScrolled.current && anchor.getBoundingClientRect().bottom <= 80;
+      setIsFloating((current) => current === nextIsFloating ? current : nextIsFloating);
+    };
+    const observer = new IntersectionObserver(updateFloatingState, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
+    const onScroll = () => {
+      hasUserScrolled.current = true;
+      window.requestAnimationFrame(updateFloatingState);
+    };
+
+    observer.observe(anchor);
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [navigationKey]);
+
+  const backButton = (compact = false, isInteractive = true) => (
+    <button type="button" className={`global-back-control__button${compact ? " is-compact" : ""}`} onClick={goBack} aria-label={`Back to ${label}`} title={`Back to ${label}`} tabIndex={isInteractive ? undefined : -1}>
       <span className="global-back-control__content">
         <ArrowLeft size={compact ? 17 : 15} aria-hidden="true" />
         <span className="global-back-control__label">{compact ? "Back" : `Back to ${label}`}</span>
@@ -215,9 +233,9 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
   );
 
   return <>
-    <div ref={anchorRef} className={`global-back-control ${className}`}>{backButton()}</div>
-    <div className={`global-back-control__floating${isFloating ? " is-visible" : ""}`} aria-hidden={!isFloating}>
-      {backButton(true)}
+    <div ref={anchorRef} className={`global-back-control ${className}`}>{backButton(false, !isFloating)}</div>
+    <div className={`global-back-control__floating${isFloating ? " is-visible" : ""}`} aria-hidden={!isFloating} inert={!isFloating}>
+      {backButton(true, isFloating)}
       {floatingActions && <span className="global-back-control__actions">{floatingActions}</span>}
     </div>
   </>;

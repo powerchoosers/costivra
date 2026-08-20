@@ -3972,7 +3972,7 @@ html { scroll-padding-top: 92px; }
   .manage-outreach-task-actions button { margin-left:0; }
 }
 @media (prefers-reduced-motion: reduce) { .manage-inspector-account-content { animation:none; } }
-.manage-app .global-back-control__floating { top:84px; left:calc(72px + 20px); }
+.manage-app .global-back-control__floating { top:84px; left:104px; }
 .manage-app:not(.is-assistant-open) .manage-sidebar:not(.is-collapsed) ~ .manage-main .global-back-control__floating { left:258px; }
 @media (max-width:780px) { .global-back-control__floating,.manage-app .global-back-control__floating { top:calc(72px + env(safe-area-inset-top)); left:12px; max-width:calc(100vw - 24px); } .global-back-control { margin-bottom:15px; } .manage-outreach-context-row { margin-bottom:15px; } .manage-outreach-board-toolbar { margin-bottom:14px; } .manage-outreach-priority-filter__menu { max-width:calc(100vw - 32px); } }
 @media (prefers-reduced-motion:reduce) { .global-back-control__floating,.global-back-control__button,.global-back-control__content,.global-back-control__action,.manage-outreach-priority-filter__trigger,.manage-outreach-priority-filter__menu,.manage-outreach-priority-filter__option { transition:none!important; } }
@@ -5086,6 +5086,7 @@ html { scroll-padding-top: 92px; }
 .app-work-canvas .invoice-detail-source { top: 96px; }
 .app-work-canvas .invoice-review-bulk { top: 96px; }
 .app-body .global-back-control__floating { top: 120px; left: 288px; }
+.app-shell.sidebar-collapsed .global-back-control__floating { left:108px; }
 .app-body .vendor-detail .global-back-control__floating { top: 96px; }
 .app-body .app-create-trigger {
   width: 40px;
