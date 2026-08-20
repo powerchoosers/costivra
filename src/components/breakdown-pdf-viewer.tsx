@@ -74,7 +74,8 @@ export default function BreakdownPdfViewer({
       const containerTop = containerRef.current.getBoundingClientRect().top;
       const pageTop = pageElement.getBoundingClientRect().top;
       const scrollOffset = pageTop - containerTop + containerRef.current.scrollTop - 12;
-      containerRef.current.scrollTo({ top: scrollOffset, behavior: "smooth" });
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      containerRef.current.scrollTo({ top: scrollOffset, behavior: reducedMotion ? "auto" : "smooth" });
       setActivePage(pageNumber);
     }
   }, []);
@@ -207,8 +208,8 @@ export default function BreakdownPdfViewer({
           onLoadError={handleDocumentLoadError}
           loading={
             <div className="breakdown-pdf-loading">
-              <span className="breakdown-pdf-spinner" />
-              <p>Preparing document preview…</p>
+              <div className="breakdown-pdf-loading-mark" aria-hidden="true"><span /><span /><span /></div>
+              <div><strong>Preparing source view</strong><p>Rendering the protected original.</p></div>
             </div>
           }
           error={
@@ -289,7 +290,7 @@ export default function BreakdownPdfViewer({
           background: rgba(255, 255, 255, 0.04);
           color: #cbd5e1;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
           text-decoration: none;
         }
         .breakdown-pdf-tool-btn:hover:not(:disabled) {
@@ -356,13 +357,30 @@ export default function BreakdownPdfViewer({
           color: #94a3b8;
           text-align: center;
         }
-        .breakdown-pdf-spinner {
-          width: 28px;
-          height: 28px;
-          border: 2.5px solid rgba(255, 255, 255, 0.1);
-          border-top-color: #60a5fa;
+        .breakdown-pdf-loading strong { display: block; color: #e2e8f0; font-size: 0.78rem; }
+        .breakdown-pdf-loading p { margin: 5px 0 0; font-size: 0.72rem; }
+        .breakdown-pdf-loading-mark {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          height: 30px;
+          padding: 0 11px;
+          border: 1px solid rgba(148, 163, 184, 0.18);
+          border-radius: 999px;
+          background: rgba(15, 23, 42, 0.48);
+        }
+        .breakdown-pdf-loading-mark span {
+          width: 5px;
+          height: 5px;
           border-radius: 50%;
-          animation: spin 0.8s linear infinite;
+          background: #94a3b8;
+          animation: breakdownLoadingPulse 1.2s ease-in-out infinite;
+        }
+        .breakdown-pdf-loading-mark span:nth-child(2) { animation-delay: 0.16s; }
+        .breakdown-pdf-loading-mark span:nth-child(3) { animation-delay: 0.32s; }
+        @keyframes breakdownLoadingPulse {
+          0%, 100% { opacity: 0.3; transform: translateY(0); }
+          50% { opacity: 1; transform: translateY(-2px); }
         }
         .breakdown-pdf-fallback-btn {
           display: inline-flex;
@@ -384,7 +402,8 @@ export default function BreakdownPdfViewer({
           border-radius: 6px;
           box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
           background: #fff;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          animation: breakdownPageEnter 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+          transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
         .breakdown-pdf-page-card:last-child {
           margin-bottom: 0;
@@ -422,6 +441,14 @@ export default function BreakdownPdfViewer({
           display: block;
           max-width: 100%;
           height: auto !important;
+        }
+        @keyframes breakdownPageEnter {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .breakdown-pdf-loading-mark span,
+          .breakdown-pdf-page-card { animation: none; }
         }
       `}</style>
     </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type AnimationEvent } from "react";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
@@ -256,6 +256,19 @@ function BillBreakdownContent({
     data.marketBenchmark.estimatedMarketRate != null &&
     data.marketBenchmark.variancePercentage != null;
   const currency = data?.invoice?.currency ?? "USD";
+  const marketPosition = !benchmarkAvailable
+    ? null
+    : data.marketBenchmark.variancePercentage! > 0
+      ? "Above comparable median"
+      : data.marketBenchmark.variancePercentage! < 0
+        ? "Below comparable median"
+        : "At comparable median";
+  const marketPositionClass =
+    data?.marketBenchmark.variancePercentage == null
+      ? ""
+      : data.marketBenchmark.variancePercentage > 0
+        ? "is-above"
+        : "is-below";
 
   return (
     <>
@@ -295,21 +308,21 @@ function BillBreakdownContent({
                 className="bill-breakdown-cycle-btn"
                 disabled={currentIndex <= 0}
                 onClick={() => onNavigateDocument?.(documentIds[currentIndex - 1])}
-                aria-label="Previous bill"
-                title="View previous bill for this vendor"
+                aria-label="View newer bill"
+                title="View newer bill"
               >
                 <ChevronLeft size={15} />
               </button>
               <span className="bill-breakdown-cycle-label">
-                Bill {currentIndex + 1} of {documentIds.length}
+                {currentIndex === 0 ? "Latest bill" : `Bill ${currentIndex + 1}`} <small>of {documentIds.length}</small>
               </span>
               <button
                 type="button"
                 className="bill-breakdown-cycle-btn"
                 disabled={currentIndex >= documentIds.length - 1}
                 onClick={() => onNavigateDocument?.(documentIds[currentIndex + 1])}
-                aria-label="Next bill"
-                title="View next bill for this vendor"
+                aria-label="View older bill"
+                title="View older bill"
               >
                 <ChevronRight size={15} />
               </button>
@@ -399,7 +412,71 @@ function BillBreakdownContent({
           </div>
 
           <div className="bill-breakdown-analysis" data-workspace-scrollbar="">
-            <article className="bill-breakdown-card">
+            <article className="bill-breakdown-overview">
+              <div className="bill-breakdown-overview__intro">
+                <div>
+                  <span className="bill-breakdown-label">Bill at a glance</span>
+                  <h3>{data.vendor?.name ?? "Vendor not matched"}</h3>
+                  <p>
+                    {data.invoice?.dueDate
+                      ? `Due ${formatFinancialDate(data.invoice.dueDate)}`
+                      : "Due date not extracted"}
+                    {data.invoice?.reconciliationStatus
+                      ? ` · ${titleCase(data.invoice.reconciliationStatus)} against recorded bill data`
+                      : ""}
+                  </p>
+                </div>
+                <span className={`bill-breakdown-confidence ${data.billQuality?.status === "review" ? "needs-review" : ""}`}>
+                  {data.billQuality?.status === "review" ? "Review needed" : "Record ready"}
+                </span>
+              </div>
+              <div className="bill-breakdown-overview__amount">
+                <span>Amount due</span>
+                <strong>{money(data.invoice?.totalAmount, currency)}</strong>
+              </div>
+              <div className="bill-breakdown-overview__facts">
+                <div><span>Invoice</span><strong>{data.invoice?.invoiceNumber ?? "Not extracted"}</strong></div>
+                <div><span>Bill date</span><strong>{formatFinancialDate(data.invoice?.invoiceDate, "Not extracted")}</strong></div>
+                <div><span>Evidence</span><strong>{data.evidence.length} references</strong></div>
+              </div>
+            </article>
+
+            <article className="bill-breakdown-card bill-breakdown-decision-card">
+              <div className="bill-breakdown-card-heading">
+                <div>
+                  <span className="bill-breakdown-label">Cost position</span>
+                  <h3>{marketPosition ?? "Market comparison not ready"}</h3>
+                </div>
+                <TrendingUp size={18} />
+              </div>
+              {benchmarkAvailable ? (
+                <div className="bill-breakdown-market-readout">
+                  <div className={`bill-breakdown-market-status ${marketPositionClass}`}>
+                    <span>{marketPosition}</span>
+                    <strong>{data.marketBenchmark.variancePercentage! > 0 ? "+" : ""}{data.marketBenchmark.variancePercentage}%</strong>
+                    <small>compared with the reviewed median</small>
+                  </div>
+                  <div className="bill-breakdown-market-facts">
+                    <div><span>This bill</span><strong>{money(data.marketBenchmark.billedAmount, currency)}</strong></div>
+                    <div><span>Comparable median</span><strong>{money(data.marketBenchmark.estimatedMarketRate, currency)}</strong></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bill-breakdown-unavailable">
+                  <CircleHelp size={20} />
+                  <div>
+                    <strong>{data.marketBenchmark.benchmarkStatus === "quote_required" ? "A live quote is required" : "More bill detail is needed"}</strong>
+                    <p>{data.marketBenchmark.benchmarkStatus === "quote_required" ? "Public benchmarks are not comparable enough for this service. Review current quotes with the same scope and commercial terms." : "Costivra will not estimate a market position from an invoice total alone. It needs service, location, usage, term, and comparable-offer details."}</p>
+                  </div>
+                </div>
+              )}
+              {data.marketBenchmark.potentialAnnualSavings != null && data.marketBenchmark.potentialAnnualSavings > 0 && (
+                <div className="bill-breakdown-savings"><span>Estimated annual opportunity</span><strong>{money(data.marketBenchmark.potentialAnnualSavings, currency)}</strong></div>
+              )}
+              <p className="bill-breakdown-source-note">{data.marketBenchmark.benchmarkSource}{data.marketBenchmark.asOf ? ` · As of ${formatFinancialDate(data.marketBenchmark.asOf)}` : ""}</p>
+            </article>
+
+            <article className="bill-breakdown-card bill-breakdown-record-card">
               <div className="bill-breakdown-card-heading">
                 <div>
                   <span className="bill-breakdown-label">Extracted record</span>
@@ -518,82 +595,6 @@ function BillBreakdownContent({
               </article>
             )}
 
-            <article className="bill-breakdown-card bill-breakdown-market-card">
-              <div className="bill-breakdown-card-heading">
-                <div>
-                  <span className="bill-breakdown-label">Market comparison</span>
-                  <h3>{data.marketBenchmark.category}</h3>
-                </div>
-                <TrendingUp size={18} />
-              </div>
-
-              {benchmarkAvailable ? (
-                <>
-                  <div className="bill-breakdown-metrics two-column">
-                    <div>
-                      <span>Comparable median</span>
-                      <strong>
-                        {money(data.marketBenchmark.estimatedMarketRate, currency)}
-                      </strong>
-                    </div>
-                    <div>
-                      <span>Variance</span>
-                      <strong>
-                        {data.marketBenchmark.variancePercentage! > 0 ? "+" : ""}
-                        {data.marketBenchmark.variancePercentage}%
-                      </strong>
-                    </div>
-                  </div>
-                  {data.marketBenchmark.potentialAnnualSavings != null &&
-                    data.marketBenchmark.potentialAnnualSavings > 0 && (
-                      <div className="bill-breakdown-savings">
-                        <span>Estimated annual opportunity</span>
-                        <strong>
-                          {money(
-                            data.marketBenchmark.potentialAnnualSavings,
-                            currency,
-                          )}
-                        </strong>
-                      </div>
-                    )}
-                </>
-              ) : (
-                <div className="bill-breakdown-unavailable">
-                  <CircleHelp size={20} />
-                  <div>
-                    <strong>
-                      {data.marketBenchmark.benchmarkStatus === "insufficient_data"
-                        ? "Market comparison needs more detail"
-                        : data.marketBenchmark.benchmarkStatus === "quote_required"
-                        ? "Live quote required"
-                        : titleCase(data.marketBenchmark.benchmarkStatus)}
-                    </strong>
-                    <p>
-                      {data.marketBenchmark.benchmarkStatus === "insufficient_data"
-                        ? "Costivra needs the service specification, location, usage, contract term, and current comparable offers before estimating a market range."
-                        : data.marketBenchmark.benchmarkStatus === "quote_required"
-                        ? "Public benchmarks are not comparable enough for this service. Obtain current quotes using the same scope and commercial terms."
-                        : "Costivra did not manufacture a market average or savings estimate from this invoice total."}
-                    </p>
-                    {data.marketBenchmark.missingDimensions.length > 0 && (
-                      <ul>
-                        {data.marketBenchmark.missingDimensions.map((dimension) => (
-                          <li key={dimension}>{titleCase(dimension)}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <p className="bill-breakdown-source-note">
-                {data.marketBenchmark.benchmarkSource}
-                {data.marketBenchmark.asOf
-                  ? ` · As of ${formatFinancialDate(data.marketBenchmark.asOf)}`
-                  : ""}
-              </p>
-            </article>
-
             <article className="bill-breakdown-card">
               <div className="bill-breakdown-card-heading">
                 <div>
@@ -666,17 +667,27 @@ export function BillBreakdownModal({
   onNavigateDocument?: (documentId: string) => void;
 }) {
   const [closingId, setClosingId] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    return () => triggerRef.current?.focus();
+  }, []);
 
   const requestClose = useCallback(() => {
     if (closingId) return;
     const currentId = documentId || closingId;
     if (!currentId) return;
     setClosingId(currentId);
-    window.setTimeout(() => {
-      setClosingId(null);
-      onClose();
-    }, 220);
-  }, [closingId, documentId, onClose]);
+  }, [closingId, documentId]);
+
+  const finishClose = useCallback((event: AnimationEvent<HTMLDivElement>) => {
+    if (!closingId || event.animationName !== "billModalFadeOut") return;
+    setClosingId(null);
+    onClose();
+  }, [closingId, onClose]);
 
   const activeId = documentId || closingId;
   const isClosing = Boolean(closingId);
@@ -687,6 +698,7 @@ export function BillBreakdownModal({
     <div
       className={`bill-breakdown-backdrop ${isClosing ? "is-closing" : ""}`}
       role="presentation"
+      onAnimationEnd={finishClose}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) requestClose();
       }}
@@ -696,6 +708,9 @@ export function BillBreakdownModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="bill-breakdown-title"
+        aria-busy={isClosing}
+        ref={dialogRef}
+        tabIndex={-1}
       >
         <BillBreakdownContent
           key={activeId}
@@ -725,21 +740,21 @@ export function BillBreakdownModal({
           pointer-events: none;
         }
         .bill-breakdown-dialog {
-          width: min(1560px, 95vw);
-          height: 92dvh;
-          max-height: 92dvh;
+          width: min(1680px, calc(100vw - 48px));
+          height: min(920px, calc(100dvh - 48px));
+          max-height: calc(100dvh - 48px);
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 20px;
+          border: 1px solid rgba(148, 163, 184, 0.2);
+          border-radius: 22px;
           color: #f8fafc;
           background: #0f172a;
-          box-shadow: 0 28px 70px rgba(0, 0, 0, 0.55);
-          animation: billModalSlideIn 0.22s cubic-bezier(0.23, 1, 0.32, 1) both;
+          box-shadow: 0 32px 92px rgba(0, 0, 0, 0.52);
+          animation: billModalSlideIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .bill-breakdown-dialog.is-closing {
-          animation: billModalSlideOut 0.22s cubic-bezier(0.23, 1, 0.32, 1) both;
+          animation: billModalSlideOut 0.22s cubic-bezier(0.4, 0, 1, 1) both;
           pointer-events: none;
         }
         @keyframes billModalFadeIn {
@@ -769,7 +784,7 @@ export function BillBreakdownModal({
         @keyframes billModalSlideIn {
           0% {
             opacity: 0;
-            transform: scale(0.96) translateY(16px);
+          transform: scale(0.985) translateY(12px);
           }
           100% {
             opacity: 1;
@@ -783,19 +798,19 @@ export function BillBreakdownModal({
           }
           100% {
             opacity: 0;
-            transform: scale(0.96) translateY(16px);
+          transform: scale(0.985) translateY(8px);
           }
         }
         .bill-breakdown-header {
-          flex: 0 0 64px;
-          height: 64px;
+          flex: 0 0 72px;
+          height: 72px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 18px;
-          padding: 0 22px;
+          padding: 0 24px;
           border-bottom: 1px solid rgba(255, 255, 255, 0.09);
-          background: rgba(30, 41, 59, 0.52);
+          background: rgba(15, 23, 42, 0.74);
         }
         .bill-breakdown-title-row,
         .bill-breakdown-title-line,
@@ -813,7 +828,7 @@ export function BillBreakdownModal({
           place-items: center;
           flex: 0 0 auto;
           border: 1px solid rgba(96, 165, 250, 0.32);
-          border-radius: 11px;
+          border-radius: 13px;
           color: #93c5fd;
           background: rgba(37, 99, 235, 0.16);
         }
@@ -822,8 +837,8 @@ export function BillBreakdownModal({
           overflow: hidden;
           margin: 0;
           color: #fff;
-          font-size: 1rem;
-          font-weight: 650;
+          font-size: 1.03rem;
+          font-weight: 680;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
@@ -849,12 +864,13 @@ export function BillBreakdownModal({
           justify-content: center;
           gap: 6px;
           padding: 0 12px;
-          border-radius: 9px;
+          border-radius: 10px;
           font: 600 0.76rem/1 inherit;
           text-decoration: none;
           cursor: pointer;
         }
-        .bill-breakdown-ask { border: 0; color: #fff; background: #1746c8; }
+        .bill-breakdown-ask { border: 0; color: #fff; background: #315bd6; transition: background-color 0.16s ease, transform 0.16s ease; }
+        .bill-breakdown-ask:hover { background: #3b67e2; transform: translateY(-1px); }
         .bill-breakdown-secondary-action,
         .bill-breakdown-close {
           border: 1px solid rgba(255, 255, 255, 0.12);
@@ -883,7 +899,7 @@ export function BillBreakdownModal({
           background: transparent;
           color: #cbd5e1;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: color 0.15s ease, background-color 0.15s ease;
         }
         .bill-breakdown-cycle-btn:hover:not(:disabled) {
           background: rgba(255, 255, 255, 0.12);
@@ -1000,23 +1016,42 @@ export function BillBreakdownModal({
         .bill-breakdown-analysis {
           flex: 1 1 46%;
           min-width: 380px;
-          max-width: 660px;
+          max-width: 700px;
           min-height: 0;
           overflow-y: auto !important;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
           touch-action: pan-y;
-          padding: 20px;
+          padding: 22px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
-          background: #0b1222;
+          gap: 16px;
+          background: #0c1424;
         }
+        .bill-breakdown-overview {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 18px;
+          padding: 18px;
+          border: 1px solid rgba(148, 163, 184, 0.18);
+          border-radius: 18px;
+          background: rgba(30, 41, 59, 0.62);
+        }
+        .bill-breakdown-overview__intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+        .bill-breakdown-overview h3 { margin: 4px 0 0; color: #f8fafc; font-size: 1.08rem; letter-spacing: -0.02em; }
+        .bill-breakdown-overview__intro p { margin: 5px 0 0; color: #94a3b8; font-size: 0.72rem; line-height: 1.45; }
+        .bill-breakdown-confidence { flex: 0 0 auto; padding: 4px 8px; border: 1px solid rgba(74, 222, 128, 0.24); border-radius: 999px; color: #86efac; font-size: 0.64rem; font-weight: 650; white-space: nowrap; }
+        .bill-breakdown-confidence.needs-review { border-color: rgba(251, 191, 36, 0.26); color: #fcd34d; }
+        .bill-breakdown-overview__amount { text-align: right; }
+        .bill-breakdown-overview__amount span, .bill-breakdown-overview__facts span, .bill-breakdown-market-facts span { display: block; color: #94a3b8; font-size: 0.64rem; }
+        .bill-breakdown-overview__amount strong { display: block; margin-top: 4px; color: #fff; font-size: 1.6rem; letter-spacing: -0.04em; }
+        .bill-breakdown-overview__facts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-top: 14px; border-top: 1px solid rgba(148, 163, 184, 0.14); }
+        .bill-breakdown-overview__facts strong, .bill-breakdown-market-facts strong { display: block; overflow: hidden; margin-top: 4px; color: #e2e8f0; font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
         .bill-breakdown-card {
           padding: 16px;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 14px;
-          background: rgba(30, 41, 59, 0.46);
+          border-radius: 16px;
+          background: rgba(30, 41, 59, 0.42);
         }
         .bill-breakdown-card-heading {
           justify-content: space-between;
@@ -1024,6 +1059,19 @@ export function BillBreakdownModal({
           margin-bottom: 13px;
         }
         .bill-breakdown-card-heading h3 { margin: 3px 0 0; color: #f8fafc; font-size: 0.92rem; }
+        .bill-breakdown-decision-card { background: rgba(30, 41, 59, 0.54); }
+        .bill-breakdown-decision-card .bill-breakdown-card-heading > svg { color: #94a3b8; }
+        .bill-breakdown-market-readout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+        .bill-breakdown-market-status { padding: 13px; border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; background: rgba(15, 23, 42, 0.5); }
+        .bill-breakdown-market-status span { display: block; color: #cbd5e1; font-size: 0.7rem; font-weight: 620; }
+        .bill-breakdown-market-status strong { display: block; margin-top: 6px; color: #f8fafc; font-size: 1.25rem; letter-spacing: -0.03em; }
+        .bill-breakdown-market-status small { display: block; margin-top: 3px; color: #94a3b8; font-size: 0.64rem; }
+        .bill-breakdown-market-status.is-above { border-color: rgba(251, 191, 36, 0.26); }
+        .bill-breakdown-market-status.is-above strong { color: #fcd34d; }
+        .bill-breakdown-market-status.is-below { border-color: rgba(74, 222, 128, 0.24); }
+        .bill-breakdown-market-status.is-below strong { color: #86efac; }
+        .bill-breakdown-market-facts { display: grid; gap: 8px; align-content: center; }
+        .bill-breakdown-market-facts > div { padding: 9px 10px; border-radius: 10px; background: rgba(15, 23, 42, 0.38); }
         .bill-breakdown-label {
           color: #94a3b8;
           font-size: 0.65rem;
@@ -1250,6 +1298,7 @@ export function BillBreakdownModal({
           .bill-breakdown-analysis { padding: 14px; max-width: 100%; min-width: 0; }
           .bill-breakdown-metrics { grid-template-columns: 1fr 1fr; }
           .bill-breakdown-metrics > div:first-child { grid-column: 1 / -1; }
+          .bill-breakdown-overview { border-radius: 0; border-inline: 0; }
         }
         @media (max-width: 620px) {
           .bill-breakdown-file-icon { display: none; }
@@ -1257,6 +1306,9 @@ export function BillBreakdownModal({
           .bill-breakdown-ask { font-size: 0 !important; width: 36px; padding: 0 !important; }
           .bill-breakdown-ask svg { width: 16px; }
           .bill-breakdown-category { max-width: 44%; }
+          .bill-breakdown-overview { grid-template-columns: 1fr; gap: 14px; padding: 16px 0; }
+          .bill-breakdown-overview__amount { text-align: left; }
+          .bill-breakdown-overview__facts, .bill-breakdown-market-readout { grid-template-columns: 1fr; }
         }
         @media (prefers-reduced-motion: reduce) {
           .bill-breakdown-backdrop,

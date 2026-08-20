@@ -363,11 +363,13 @@ function RecordDecisionBrief({ kind, fields, action }: { kind: Kind; fields: Fie
 function FindingDecisionBrief({
   finding,
   accessibleEvidenceCount,
+  hasRelatedRecords,
   sourceHref,
   vendorHref,
 }: {
   finding: PortalData["opportunities"][number];
   accessibleEvidenceCount: number;
+  hasRelatedRecords: boolean;
   sourceHref: string | null;
   vendorHref: string | null;
 }) {
@@ -402,7 +404,7 @@ function FindingDecisionBrief({
     heading={readiness.heading}
     actions={<>
       {action.anchor ? <a className="button button-primary" href={action.href}>{action.label}</a> : <Link className="button button-primary" href={action.href}>{action.label}</Link>}
-      <a className="button button-secondary" href="#related">View related records</a>
+      {hasRelatedRecords ? <a className="button button-secondary" href="#related">View related records</a> : null}
     </>}
   />;
 }
@@ -562,7 +564,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     <div className="record-detail-layout"><main>
       {savingsOutcome && <SavingsReviewPanel outcome={savingsOutcome} currency={recordCurrency} canDecide={["owner", "admin"].includes(data.currentUser.role)} />}
       <div className="record-overview-anchor" id="overview">
-        {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} action={recordDecisionAction} />}
+        {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} hasRelatedRecords={related.length > 0} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} action={recordDecisionAction} />}
       </div>
       {finding && <FindingCalculationRecord finding={finding} currency={recordCurrency} />}
       <section className="record-section">

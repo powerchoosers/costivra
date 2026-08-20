@@ -115,6 +115,7 @@ import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types"
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
 import type { SystemReadiness } from "@/lib/manage/system-readiness";
 import { formatManageDate } from "@/lib/manage/date-format";
+import { getMailThreadDecision } from "@/lib/manage/mail-thread-decision";
 import { sequenceTaskOriginLabel } from "@/lib/manage/task-origin";
 import { groupRecordedSpend, type SpendInterval } from "@/lib/manage/vendor-costs";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
@@ -5967,6 +5968,15 @@ function MailPage({
       mailboxId: current.mailboxId || undefined,
     });
   };
+  const latestMessage = data.mail.messages.at(-1) ?? null;
+  const mailThreadDecision = current
+    ? getMailThreadDecision(current, data.mail.messages)
+    : null;
+  const mailThreadActions = mailThreadDecision?.recommendsReply && latestMessage ? (
+    <button type="button" className="button button-primary" onClick={() => replyToMessage(latestMessage)}>
+      <Reply size={15} /> Reply to latest email
+    </button>
+  ) : undefined;
   return (
     <div className="manage-mail-page">
       <div className="manage-mail-tabs">
@@ -6118,6 +6128,17 @@ function MailPage({
               </div>
               <Status value={current.latestStatus} />
             </div>
+            {mailThreadDecision ? (
+              <WorkspaceDecisionSummary
+                ariaLabel="Conversation next step"
+                className="manage-mail-thread-decision"
+                eyebrow="Conversation context"
+                description={mailThreadDecision.description}
+                facts={mailThreadDecision.facts}
+                heading={mailThreadDecision.heading}
+                actions={mailThreadActions}
+              />
+            ) : null}
             <div className="manage-message-stack">
               {data.mail.messages.map((message, index) => (
                 <ThreadMessage
@@ -6221,7 +6242,7 @@ function MailPage({
             {current.organizationId && (
               <Link
                 className="manage-button manage-button--quiet manage-full"
-                href={`/manage/accounts?account=${current.organizationId}`}
+                href={`/manage/accounts/${current.organizationId}`}
               >
                 View account
               </Link>

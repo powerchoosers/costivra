@@ -219,9 +219,13 @@ export function portalRecordContext(
       if (!(kind === "opportunity" && opportunity.id === id)) add({ type: "Finding", title: opportunity.title, href: `/app/findings/${opportunity.id}`, detail: opportunity.status });
   }
 
-  const evidence = data.evidenceReferences.filter((item) =>
-    evidenceDocumentIds.has(item.documentId) || (opportunityId ? item.opportunityId === opportunityId : false),
-  );
+  // A shared source document can support several findings. Once a detail page
+  // is in a finding workflow, only the evidence explicitly attached to that
+  // finding may be presented as its evidence. The source document remains a
+  // related record, but its other excerpts must not bleed into this decision.
+  const evidence = opportunityId
+    ? data.evidenceReferences.filter((item) => item.opportunityId === opportunityId)
+    : data.evidenceReferences.filter((item) => evidenceDocumentIds.has(item.documentId));
 
   return {
     related: [...related.values()].slice(0, 12),

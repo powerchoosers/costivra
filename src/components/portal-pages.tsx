@@ -58,6 +58,7 @@ import { actionOperationConfirmation } from "@/lib/portal/workflow-copy";
 import { approvalActionLabel } from "@/lib/portal/approval-policies";
 import { getMonitoringStateLabel, getVendorNextStep, mapDurableStateToUiState, type MonitoringState, type VendorMonitoringRecord } from "@/lib/vendors/monitoring";
 import { groupVendorInvoicesByAccount } from "@/lib/vendors/account-grouping";
+import { getVendorDetailTabHref, resolveVendorDetailTab } from "@/lib/vendors/tab-routing";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 import { DocumentUploadExperience } from "@/components/document-upload-experience";
 import type { DocumentUploadCompletion } from "@/lib/documents/client-upload";
@@ -98,21 +99,29 @@ import {
 
 type ModalState = null | "expense" | "contract" | "invite" | "upload" | "monitor";
 
+/** Newest first so bill review moves predictably backward through a vendor's history. */
+function getChronologicalBillDocumentIds(
+  documents: PortalData["documents"],
+  invoices: PortalData["invoices"],
+) {
+  const invoiceDateByDocumentId = new Map(
+    invoices
+      .filter((invoice) => Boolean(invoice.documentId))
+      .map((invoice) => [invoice.documentId, invoice.invoiceDate ?? invoice.servicePeriodEnd ?? invoice.updatedAt]),
+  );
+  const createdAtByDocumentId = new Map(documents.map((document) => [document.id, document.createdAt]));
+  return Array.from(new Set([...documents.map((document) => document.id), ...invoiceDateByDocumentId.keys()]))
+    .sort((left, right) => {
+      const rightDate = invoiceDateByDocumentId.get(right) ?? createdAtByDocumentId.get(right) ?? "";
+      const leftDate = invoiceDateByDocumentId.get(left) ?? createdAtByDocumentId.get(left) ?? "";
+      return rightDate.localeCompare(leftDate);
+    });
+}
+
 type ApiOptions = {
   method?: string;
   body?: BodyInit | Record<string, unknown>;
 };
-const vendorTabIds = new Set(["overview", "accounts", "bills", "contracts", "findings", "activity"]);
-
-function resolveVendorTab(requestedTab: string | null): string {
-  if (!requestedTab) return "overview";
-  if (vendorTabIds.has(requestedTab)) return requestedTab;
-  if (requestedTab === "actions" || requestedTab === "results") return "findings";
-  if (requestedTab === "files") return "bills";
-  if (requestedTab === "monitoring") return "overview";
-  if (requestedTab === "history") return "activity";
-  return "overview";
-}
 
 async function api(url: string, options: ApiOptions = {}) {
   const body =
@@ -2176,7 +2185,8 @@ export function VendorDetail({
   const { openInspector } = useBillInspector();
   const vendor = data.vendors.find((item) => item.id === vendorId);
   const requestedAccount = searchParams?.get("account");
-  const [activeTab, setActiveTab] = useState(() => resolveVendorTab(searchParams?.get("tab")));
+  const requestedTab = resolveVendorDetailTab(searchParams?.get("tab"));
+  const activeTab = requestedTab;
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [dangerDialogOpen, setDangerDialogOpen] = useState(false);
   const [dangerMode, setDangerMode] = useState<"end" | "remove">("end");
@@ -2197,15 +2207,13 @@ export function VendorDetail({
   const [annualizedSpend, setAnnualizedSpend] = useState(vendor?.annualizedSpend?.toString() ?? "0");
   const [spendCadence, setSpendCadence] = useState(vendor?.spendCadence ?? "monthly");
 
-  const handleTabChange = (tab: string) => {
-    const nextTab = resolveVendorTab(tab);
-    setActiveTab(nextTab);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("tab", nextTab);
-      window.history.replaceState(null, "", url.pathname + url.search);
-    }
-  };
+  const handleTabChange = useCallback((tab: string) => {
+    const nextTab = resolveVendorDetailTab(tab);
+    router.replace(
+      getVendorDetailTabHref(vendorId, nextTab, searchParams?.toString() ?? ""),
+      { scroll: false },
+    );
+  }, [router, searchParams, vendorId]);
 
   useEffect(() => {
     if (!vendor) return;
@@ -2277,14 +2285,7 @@ export function VendorDetail({
   const inferredVendorAccounts = groupVendorInvoicesByAccount(invoices);
   const vendorAccountCount = vendorAccounts.length || inferredVendorAccounts.length || 1;
 
-  const vendorDocumentIds = Array.from(
-    new Set([
-      ...documents.map((d) => d.id),
-      ...invoices
-        .filter((i) => i.documentId)
-        .map((i) => i.documentId as string),
-    ]),
-  );
+  const vendorDocumentIds = getChronologicalBillDocumentIds(documents, invoices);
 
   const vendorNextStep = getVendorNextStep({
     documentCount: documents.length + expenses.length + invoices.length,
@@ -3248,13 +3249,10 @@ function VendorBillsTab({
 }) {
   const { openInspector } = useBillInspector();
   const [subview, setSubview] = useState<"bills" | "files">("bills");
-  const vendorDocIds = useMemo(() => {
-    const docIds = documents.map((d) => d.id);
-    const invoiceDocIds = invoices
-      .map((i) => i.documentId)
-      .filter((id): id is string => Boolean(id));
-    return Array.from(new Set([...docIds, ...invoiceDocIds]));
-  }, [documents, invoices]);
+  const vendorDocIds = useMemo(
+    () => getChronologicalBillDocumentIds(documents, invoices),
+    [documents, invoices],
+  );
 
   if (!expenses.length && !invoices.length && !documents.length) {
     return <Empty title="No bills recorded" copy="Upload a bill or add a normalized expense to build this vendor's history." />;

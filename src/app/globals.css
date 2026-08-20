@@ -9412,6 +9412,67 @@ button.workspace-notification-row:focus-visible {
   font-weight: 680;
 }
 
+/* A mail thread is its own operating record, but its context belongs in the
+   reader flow rather than in a separate dashboard card. */
+.manage-app .manage-mail-thread-decision {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 11px;
+  padding: 14px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--workspace-line-soft);
+  border-radius: 0;
+  background: var(--workspace-surface-soft);
+  box-shadow: none;
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__copy > span {
+  margin-bottom: 4px;
+  color: var(--workspace-table-heading);
+  font-size: .57rem;
+}
+
+.manage-app .manage-mail-thread-decision h2 {
+  font-size: .86rem;
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__copy p {
+  margin-top: 4px;
+  color: var(--workspace-muted);
+  font-size: .7rem;
+  line-height: 1.45;
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__facts {
+  gap: 8px;
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__facts > div {
+  border-color: var(--workspace-line-soft);
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__facts dt {
+  min-height: auto;
+  color: var(--workspace-table-heading);
+  font-size: .54rem;
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__facts dd {
+  color: var(--workspace-ink);
+  font-size: .68rem;
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__actions {
+  gap: 7px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.manage-app .manage-mail-thread-decision .workspace-decision-summary__actions .button {
+  min-height: 31px;
+  padding: 6px 10px;
+  font-size: .67rem;
+}
+
 /* Customer record fields and internal CRM record summaries are equivalent
    decision surfaces. They share calm panels and discoverable local actions
    instead of a blue gradient in one shell and near-invisible icons in the
@@ -9570,6 +9631,20 @@ button.workspace-notification-row:focus-visible {
 @media (max-width: 760px) {
   .app-body .app-work-canvas .record-field-group__heading {
     padding: 15px 18px 12px;
+  }
+
+  .manage-app .manage-mail-thread-decision {
+    padding: 14px 16px;
+  }
+
+  .manage-app .manage-mail-thread-decision .workspace-decision-summary__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .manage-app .manage-mail-thread-decision .workspace-decision-summary__facts > div {
+    padding: 8px 0 0;
+    border-top: 1px solid var(--workspace-line-soft);
+    border-left: 0;
   }
 }
 

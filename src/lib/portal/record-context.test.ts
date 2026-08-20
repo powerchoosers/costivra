@@ -112,6 +112,26 @@ describe("portal record context", () => {
     });
   });
 
+  it("keeps a finding's source evidence scoped to that finding", () => {
+    const result = portalRecordContext(data({
+      documents: [{ id: "doc-1", vendorId: "vendor-1", originalFilename: "shared-bill.pdf", status: "ready" } as PortalData["documents"][number]],
+      opportunities: [{
+        id: "opportunity-1",
+        vendorId: "vendor-1",
+        title: "Review rate increase",
+        status: "under_review",
+        trustState: "evidence_backed",
+        sourceDocumentId: "doc-1",
+      } as PortalData["opportunities"][number]],
+      evidenceReferences: [
+        { id: "evidence-1", documentId: "doc-1", opportunityId: "opportunity-1", pageNumber: 1, fieldPath: "rate", textExcerpt: "Current rate: $0.15" },
+        { id: "evidence-2", documentId: "doc-1", opportunityId: "opportunity-2", pageNumber: 2, fieldPath: "lateFee", textExcerpt: "Late fee: $25" },
+      ],
+    }), "opportunity", "opportunity-1");
+
+    expect(result.evidence.map((item) => item.id)).toEqual(["evidence-1"]);
+  });
+
   it("requires deterministic output as well as a rule before a finding calculation is ready", () => {
     const incomplete = portalRecordContext(data({
       opportunities: [{
