@@ -305,21 +305,26 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
   const hasUserScrolled = useRef(false);
   const routeSettled = useRef(false);
   const floatingBackControlId = useRef(Symbol("global-back-control"));
+  const floatingActionsRef = useRef(floatingActions);
   const floatingBackVisibleRef = useRef(floatingBackVisible);
-  floatingBackVisibleRef.current = floatingBackVisible;
   const navigationKey = `${pathname}?${searchParams.toString()}`;
 
   if (!floatingBackActionsController) throw new Error("Back navigation controls must be rendered inside NavigationHistoryProvider.");
 
   useLayoutEffect(() => {
-    const controlId = floatingBackControlId.current;
-    floatingBackActionsController.register(controlId, floatingActions);
-    return () => floatingBackActionsController.unregister(controlId);
-  }, [floatingBackActionsController]);
-
-  useLayoutEffect(() => {
+    floatingActionsRef.current = floatingActions;
     floatingBackActionsController.update(floatingBackControlId.current, floatingActions);
   }, [floatingActions, floatingBackActionsController]);
+
+  useLayoutEffect(() => {
+    floatingBackVisibleRef.current = floatingBackVisible;
+  }, [floatingBackVisible]);
+
+  useLayoutEffect(() => {
+    const controlId = floatingBackControlId.current;
+    floatingBackActionsController.register(controlId, floatingActionsRef.current);
+    return () => floatingBackActionsController.unregister(controlId);
+  }, [floatingBackActionsController]);
 
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
@@ -381,7 +386,7 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
       window.removeEventListener("wheel", onWheel, true);
       scrollContainer?.removeEventListener("scroll", onScroll);
     };
-  }, [navigationKey]);
+  }, [navigationKey, setFloatingBackVisible]);
 
   return <div ref={anchorRef} className={`global-back-control ${className}`}><GlobalBackButton label={label} goBack={goBack} isInteractive={!floatingBackVisible} /></div>;
 }
