@@ -112,6 +112,38 @@ describe("portal record context", () => {
     });
   });
 
+  it("requires deterministic output as well as a rule before a finding calculation is ready", () => {
+    const incomplete = portalRecordContext(data({
+      opportunities: [{
+        id: "opportunity-1",
+        title: "Review rate increase",
+        status: "under_review",
+        trustState: "evidence_backed",
+        ruleVersion: "rate-increase-v1",
+        calculationResult: {},
+      } as unknown as PortalData["opportunities"][number]],
+    }), "opportunity", "opportunity-1");
+    const complete = portalRecordContext(data({
+      opportunities: [{
+        id: "opportunity-1",
+        title: "Review rate increase",
+        status: "under_review",
+        trustState: "evidence_backed",
+        ruleVersion: "rate-increase-v1",
+        calculationResult: { annualizedRecurringSavings: "1200.00" },
+      } as unknown as PortalData["opportunities"][number]],
+    }), "opportunity", "opportunity-1");
+
+    expect(incomplete.quality.find((item) => item.label === "Calculation")).toMatchObject({
+      value: "Rule recorded; result needed",
+      status: "review",
+    });
+    expect(complete.quality.find((item) => item.label === "Calculation")).toMatchObject({
+      value: "Recorded · rate-increase-v1",
+      status: "ready",
+    });
+  });
+
   it("does not present a legacy verified result as evidence-complete", () => {
     const result = portalRecordContext(data({
       savings: [{

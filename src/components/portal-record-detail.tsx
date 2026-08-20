@@ -11,7 +11,7 @@ import { GlobalBackControl } from "@/components/navigation-history";
 import { PageBreadcrumbs, PageScopeIndicator } from "@/components/page-scope-indicator";
 import type { PortalData } from "@/lib/portal/types";
 import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
-import { describeFindingReadiness, hasFindingCalculation, presentFindingEvidence } from "@/lib/portal/finding-presentation";
+import { canShowFindingCalculationOutput, describeFindingReadiness, hasFindingCalculation, presentFindingEvidence } from "@/lib/portal/finding-presentation";
 import { invoiceIdentityMatchLabel, invoiceReconciliationLabel, invoiceVendorMatchLabel } from "@/lib/portal/invoice-presentation";
 import { resultIsVerified, resultNeedsVerificationReview, resultVerificationStatus } from "@/lib/portal/workflow-workspaces";
 import {
@@ -334,6 +334,73 @@ function FindingDecisionBrief({
   </section>;
 }
 
+function displayFindingCalculationValue(value: unknown) {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return text(value);
+  if (Array.isArray(value)) {
+    const values = value
+      .filter((item) => typeof item === "string" || typeof item === "number" || typeof item === "boolean")
+      .map((item) => text(item));
+    return values.length ? values.join(", ") : "Not recorded";
+  }
+  return value == null ? "Not recorded" : "Structured value recorded";
+}
+
+function FindingCalculationRecord({
+  finding,
+  currency,
+}: {
+  finding: PortalData["opportunities"][number];
+  currency: string;
+}) {
+  const calculationRecorded = hasFindingCalculation(finding.ruleVersion, finding.calculationResult);
+  const canShowOutput = canShowFindingCalculationOutput({
+    monetaryClaimAllowed: finding.monetaryClaimAllowed,
+    ruleVersion: finding.ruleVersion,
+    calculationResult: finding.calculationResult,
+  });
+  const calculationInputs = Object.entries(finding.calculationInputs)
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .slice(0, 8);
+  const calculationResults = Object.entries(finding.calculationResult).slice(0, 8);
+  const assumptions = finding.assumptions.slice(0, 8);
+  const calculationStatus = calculationRecorded
+    ? canShowOutput ? "Available for review" : "Recorded, still under review"
+    : finding.ruleVersion ? "Result needed" : "Method needed";
+  const visibleValue = canShowOutput && finding.estimatedAnnualValue != null
+    ? money(finding.estimatedAnnualValue, currency)
+    : "Not shown";
+
+  return <section className="record-section finding-calculation-record" id="calculation">
+    <div className="record-section-heading">
+      <div>
+        <h2>Method & assumptions</h2>
+        <p>See the deterministic record behind this finding. Inputs and output remain protected until this finding is customer-ready.</p>
+      </div>
+      <span className={`finding-calculation-record__status${canShowOutput ? " is-ready" : ""}`}>{calculationStatus}</span>
+    </div>
+    <dl className="finding-calculation-record__summary">
+      <div><dt>Calculation method</dt><dd>{finding.ruleVersion ?? "Not recorded"}</dd></div>
+      <div><dt>Potential annual value</dt><dd>{visibleValue}</dd></div>
+      <div><dt>Calculation inputs</dt><dd>{calculationInputs.length ? `${calculationInputs.length} recorded` : "None recorded"}</dd></div>
+      <div><dt>Assumptions</dt><dd>{assumptions.length ? `${assumptions.length} recorded` : "None recorded"}</dd></div>
+    </dl>
+    {canShowOutput ? <div className="finding-calculation-record__details">
+      <div className="finding-calculation-record__group">
+        <h3>Calculation inputs</h3>
+        {calculationInputs.length ? <dl>{calculationInputs.map(([key, value]) => <div key={key}><dt>{text(key)}</dt><dd>{displayFindingCalculationValue(value)}</dd></div>)}</dl> : <p>No calculation inputs were recorded.</p>}
+      </div>
+      <div className="finding-calculation-record__group">
+        <h3>Calculation output</h3>
+        {calculationResults.length ? <dl>{calculationResults.map(([key, value]) => <div key={key}><dt>{text(key)}</dt><dd>{displayFindingCalculationValue(value)}</dd></div>)}</dl> : <p>No calculation output was recorded.</p>}
+      </div>
+      <div className="finding-calculation-record__group finding-calculation-record__group--assumptions">
+        <h3>Recorded assumptions</h3>
+        {assumptions.length ? <ul>{assumptions.map((assumption, index) => <li key={`${index}-${assumption}`}>{assumption}</li>)}</ul> : <p>No assumptions were recorded with this finding.</p>}
+      </div>
+    </div> : <p className="finding-calculation-record__notice">Costivra has not made the calculation inputs or output customer-visible. Link usable source evidence and complete the deterministic calculation before relying on a financial amount.</p>}
+  </section>;
+}
+
 export function selectRecordFiles<T extends { id: string; vendorId: string | null }>(
   kind: Kind,
   documents: readonly T[],
@@ -392,6 +459,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
   const tabs: RecordSectionTab[] = [
     ...(savingsOutcome ? [{ id: "verification", label: "Verification" }] : []),
     { id: "overview", label: "Overview" },
+    ...(finding ? [{ id: "calculation", label: "Method & assumptions" }] : []),
     ...(lineItems.length > 0 ? [{ id: "line-items", label: "Line items" }] : []),
     ...(showRecordFiles ? [{ id: "files", label: "Files" }] : []),
     { id: "quality", label: "Data quality" },
@@ -408,6 +476,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     <div className="record-detail-layout"><main>
       {savingsOutcome && <SavingsReviewPanel outcome={savingsOutcome} currency={recordCurrency} canDecide={["owner", "admin"].includes(data.currentUser.role)} />}
       {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} />}
+      {finding && <FindingCalculationRecord finding={finding} currency={recordCurrency} />}
       <section className="record-section" id="overview"><div className="record-section-heading"><div><h2>Record details</h2><p>Edit one field at a time. Every saved change is attributed and audited.</p></div></div><div className="record-fields">{detail.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}</div></section>
       {lineItems.length > 0 && <section className="record-section" id="line-items"><div className="record-section-heading"><div><h2>Invoice line items</h2><p>Normalized charges and credits retained from the reviewed invoice.</p></div><span className="record-section-count">{lineItems.length}</span></div><div className="record-line-items" data-workspace-scrollbar=""><div className="record-line-item record-line-item--heading"><span>Line</span><span>Description</span><span>Quantity</span><span>Unit price</span><span>Amount</span></div>{lineItems.map((item) => <div className="record-line-item" key={item.id}><span>{item.lineNumber}</span><span><strong>{item.description}</strong><small>{[item.category, item.servicePeriodStart && item.servicePeriodEnd ? `${date(item.servicePeriodStart)} – ${date(item.servicePeriodEnd)}` : null].filter(Boolean).join(" · ") || "No additional classification"}</small></span><span>{item.quantity ?? "—"}</span><span>{item.unitPrice == null ? "—" : money(item.unitPrice, recordCurrency)}</span><span>{money(item.amount, recordCurrency)}</span></div>)}</div></section>}
       {showRecordFiles && <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={recordFilesTitle} description={recordFilesDescription} /></div>}

@@ -16,6 +16,18 @@ export function hasFindingCalculation(
   return Boolean(ruleVersion && calculationResult && Object.keys(calculationResult).length > 0);
 }
 
+export function canShowFindingCalculationOutput({
+  monetaryClaimAllowed,
+  ruleVersion,
+  calculationResult,
+}: {
+  monetaryClaimAllowed: boolean;
+  ruleVersion: string | null | undefined;
+  calculationResult: Record<string, unknown> | null | undefined;
+}) {
+  return monetaryClaimAllowed && hasFindingCalculation(ruleVersion, calculationResult);
+}
+
 export function presentFindingEvidence({
   recordedEvidenceCount,
   accessibleEvidenceCount,

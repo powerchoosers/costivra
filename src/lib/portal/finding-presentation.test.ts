@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeFindingReadiness, hasFindingCalculation, presentFindingEvidence } from "@/lib/portal/finding-presentation";
+import { canShowFindingCalculationOutput, describeFindingReadiness, hasFindingCalculation, presentFindingEvidence } from "@/lib/portal/finding-presentation";
 
 describe("finding presentation", () => {
   it("does not present an inaccessible recorded reference as ready evidence", () => {
@@ -29,5 +29,13 @@ describe("finding presentation", () => {
   it("does not treat a calculation rule label as a completed calculation", () => {
     expect(hasFindingCalculation("rate-increase-v1", {})).toBe(false);
     expect(hasFindingCalculation("rate-increase-v1", { currentRate: 0.15 })).toBe(true);
+  });
+
+  it("keeps calculation inputs and output private until the finding is customer-ready", () => {
+    const calculationResult = { annualizedRecurringSavings: "1200.00" };
+
+    expect(canShowFindingCalculationOutput({ monetaryClaimAllowed: false, ruleVersion: "rate-increase-v1", calculationResult })).toBe(false);
+    expect(canShowFindingCalculationOutput({ monetaryClaimAllowed: true, ruleVersion: "rate-increase-v1", calculationResult: {} })).toBe(false);
+    expect(canShowFindingCalculationOutput({ monetaryClaimAllowed: true, ruleVersion: "rate-increase-v1", calculationResult })).toBe(true);
   });
 });

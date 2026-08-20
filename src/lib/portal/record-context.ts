@@ -10,7 +10,7 @@ import {
   invoiceVendorMatchLabel,
 } from "@/lib/portal/invoice-presentation";
 import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
-import { presentFindingEvidence } from "@/lib/portal/finding-presentation";
+import { hasFindingCalculation, presentFindingEvidence } from "@/lib/portal/finding-presentation";
 import { resultIsVerified, resultNeedsVerificationReview, resultVerificationStatus } from "@/lib/portal/workflow-workspaces";
 
 export type PortalRecordKind =
@@ -159,10 +159,11 @@ export function portalRecordContext(
       recordedEvidenceCount: opportunity?.evidenceCount ?? 0,
       accessibleEvidenceCount: data.evidenceReferences.filter((item) => item.opportunityId === id).length,
     });
+    const calculationRecorded = hasFindingCalculation(opportunity?.ruleVersion, opportunity?.calculationResult);
     quality.push(
       { label: "Trust state", value: opportunity ? opportunityTrustLabel(opportunity.trustState) : "Needs evidence", status: opportunity?.trustState === "evidence_backed" ? "ready" : "review" },
       { label: "Evidence", value: evidencePresentation.label, status: evidencePresentation.status },
-      { label: "Calculation", value: opportunity?.ruleVersion ?? "Rule not recorded", status: opportunity?.ruleVersion ? "ready" : "review" },
+      { label: "Calculation", value: calculationRecorded ? `Recorded · ${opportunity?.ruleVersion ?? "method"}` : opportunity?.ruleVersion ? "Rule recorded; result needed" : "Rule not recorded", status: calculationRecorded ? "ready" : "review" },
       { label: "Source record", value: opportunity?.sourceExpenseId || opportunity?.sourceDocumentId ? "Linked" : "Not linked", status: opportunity?.sourceExpenseId || opportunity?.sourceDocumentId ? "ready" : "review" },
       { label: "Account or location", value: opportunity?.expenseAccountReference ?? opportunity?.locationName ?? "Not assigned", status: opportunity?.expenseAccountReference || opportunity?.locationName ? "ready" : "review" },
       { label: "Deadline", value: opportunity?.deadlineAt ? "Recorded" : "Not scheduled", status: opportunity?.deadlineAt ? "ready" : "review" },
