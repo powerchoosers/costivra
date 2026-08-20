@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 19, 2026 — Floating Back control alignment and route-transition behavior
+
+- Corrected the shared floating Back control offsets for collapsed App and Manage rails so the control stays aligned with the work canvas when the left panel is closed.
+- Prevented the floating control from appearing during a route/query transition before the user scrolls on the new page. The inactive duplicate controls are also removed from keyboard interaction with `tabIndex` and `inert` handling.
+- Validation: Node 24 was confirmed. `git diff --check` passed. The in-app browser runtime initially used an unavailable path, then connected successfully but could only verify the public Costivra landing page; authenticated App/Manage routes were not available in that session. Project-wide TypeScript validation was attempted twice but remained long-running without diagnostics and is not counted as passed.
+
 ## August 18, 2026 — Findings directory alignment
 
 - Rebuilt the customer Findings index around the same contained directory/table pattern as Vendors: header search placement, sticky table heading and first column, horizontal scrolling on compact screens, row hover treatment, and the shared directory footer. The existing Needs Review, Evidence Backed, Needs Evidence, and Dismissed views remain available because they are finding-specific workflow filters.
