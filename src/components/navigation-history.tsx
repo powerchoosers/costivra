@@ -65,6 +65,8 @@ const FLOATING_BACK_SCROLL_KEYS = new Set([
   "PageUp",
   " ",
 ]);
+const recordDetailRootSelector = "[data-record-detail-root=\"true\"]";
+const recordNavigationTabsSelector = "[data-record-navigation-tabs=\"true\"]";
 
 export function isFloatingBackScrollKey(key: string) {
   return FLOATING_BACK_SCROLL_KEYS.has(key);
@@ -124,6 +126,15 @@ export function recordTabsAreVisibleInWorkspace({
   return tabsBottom > workspaceHeaderBottom && tabsTop < viewportBottom;
 }
 
+/**
+ * Detail shells opt into the Back-control handoff with explicit markers. That
+ * keeps ordinary workspace view filters from suppressing the control while
+ * making generic records, vendor records, and Manage CRM records consistent.
+ */
+export function recordNavigationTabsWithin(root: Pick<ParentNode, "querySelector"> | null) {
+  return root?.querySelector<HTMLElement>(recordNavigationTabsSelector) ?? null;
+}
+
 export function nextFloatingBackControlState({
   wasFloating,
   hasUserScrolled,
@@ -175,6 +186,15 @@ function currentHref(pathname: string, search: string) {
 export function isManageRecordDetailPath(pathname: string) {
   return /^\/manage\/(?:accounts|contacts|mail|invoice-review|intake)\/[^/]+$/.test(pathname)
     || /^\/manage\/outreach\/sequences\/[^/]+$/.test(pathname);
+}
+
+/**
+ * The outer Manage page provides a contextual Back control for ordinary
+ * workspaces. Detail components that render their own in-page control must
+ * opt out so route changes never create duplicate anchors or floating state.
+ */
+export function shouldRenderManagePageBack(section: string, hasDedicatedRecordBack: boolean) {
+  return section !== "overview" && !hasDedicatedRecordBack;
 }
 
 function defaultLabel(scope: NavigationScope) {
@@ -463,7 +483,7 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     const anchor = anchorRef.current;
     if (!anchor) return;
     const scrollContainer = anchor.closest<HTMLElement>("[data-workspace-scrollbar]");
-    const recordTabs = anchor.closest<HTMLElement>(".record-detail")?.querySelector<HTMLElement>(".record-tabs");
+    const recordTabs = recordNavigationTabsWithin(anchor.closest<HTMLElement>(recordDetailRootSelector));
     const workspaceHeader = document.querySelector<HTMLElement>(".app-work-canvas > .app-topbar, .manage-shell-v2 .manage-topbar");
 
     hasUserScrolled.current = false;

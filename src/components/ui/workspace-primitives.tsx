@@ -263,6 +263,7 @@ type WorkspaceViewTabsProps = {
   ariaLabel: string;
   className?: string;
   onChange: (id: string) => void;
+  recordNavigation?: boolean;
   selectionMode?: "current" | "pressed";
   tabs: WorkspaceViewTab[];
 };
@@ -277,6 +278,7 @@ export function WorkspaceViewTabs({
   ariaLabel,
   className,
   onChange,
+  recordNavigation = false,
   selectionMode = "current",
   tabs,
 }: WorkspaceViewTabsProps) {
@@ -293,6 +295,7 @@ export function WorkspaceViewTabs({
     <nav
       aria-label={ariaLabel}
       className={classNames("workspace-tab-list", "workspace-view-tabs", className)}
+      data-record-navigation-tabs={recordNavigation ? "true" : undefined}
     >
       {tabs.map((tab) => {
         const active = tab.id === currentActiveId;

@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Copy, FileSear
 import type { InvoiceReviewDetail, InvoiceReviewQueueItem, ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { useToast } from "@/components/toast-provider";
+import { GlobalBackControl } from "@/components/navigation-history";
 import { formatFinancialDate } from "@/lib/ui/date-format";
 
 const InvoicePdfViewer = dynamic(() => import("@/components/invoice-pdf-viewer"), {
@@ -204,7 +205,7 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
 
   return <section className="invoice-review-detail">
     <header className="invoice-detail-heading">
-      <div><Link href="/manage/invoice-review"><ArrowLeft size={16} />Review queue</Link><h2>Verify invoice</h2><p>{invoice.organizationName} · {invoice.vendorName} · {invoice.invoiceNumber || "Number missing"}</p></div>
+      <div><GlobalBackControl className="invoice-detail-back" /><h2>Verify invoice</h2><p>{invoice.organizationName} · {invoice.vendorName} · {invoice.invoiceNumber || "Number missing"}</p></div>
       <div className="invoice-detail-pagination">{previous ? <Link href={`/manage/invoice-review/${previous.id}`}><ArrowLeft size={15} />Previous</Link> : <span />} {next ? <Link href={`/manage/invoice-review/${next.id}`}>Next<ArrowRight size={15} /></Link> : null}</div>
     </header>
     <div className="invoice-detail-layout">

@@ -109,7 +109,7 @@ import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
-import { GlobalBackControl, useNavigationLabel } from "@/components/navigation-history";
+import { GlobalBackControl, shouldRenderManagePageBack, useNavigationLabel } from "@/components/navigation-history";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
 import type { SystemReadiness } from "@/lib/manage/system-readiness";
@@ -718,6 +718,7 @@ export function ManagePortal({
   const currentInvoice = isInvoiceReviewDetail ? invoiceReview?.selectedInvoice ?? null : null;
   const currentIntakeEvent = isIntakeEventDetail ? intakeOperations?.selectedEvent ?? null : null;
   const manageRecordDetailRoute = Boolean(detailId || outreachSequenceId || isMailThreadDetail || isInvoiceReviewDetail || isIntakeEventDetail);
+  const hasDedicatedRecordBack = Boolean(detailId || outreachSequenceId || isInvoiceReviewDetail || isIntakeEventDetail);
   const managePageLabels: Record<string, string> = { overview: "Client operations", accounts: "Accounts", contacts: "Contacts", outreach: "Outreach", activity: "Activity", mail: "Mail", settings: "Settings", operations: "Pilot operations", "invoice-review": "Invoice review", intake: "Intake operations", "category-intelligence": "Category operations", "trust-review": "Trust review" };
   const mailFallbackHref = `/manage/mail?folder=${data.mail.folder}${data.mail.selectedMailboxId ? `&mailbox=${data.mail.selectedMailboxId}` : ""}`;
   const currentLabel = currentAccount?.name ?? currentContact?.fullName ?? currentMailThread?.subject ?? (currentInvoice ? `Invoice ${currentInvoice.invoiceNumber ?? currentInvoice.documentName}` : null) ?? currentIntakeEvent?.subject ?? (outreachSequenceId ? "Sequence" : isMailThreadDetail ? "Mail thread" : isInvoiceReviewDetail ? "Invoice review" : isIntakeEventDetail ? "Intake event" : sequenceOutreachTab ? "Sequences" : managePageLabels[section] ?? pretty(section));
@@ -1447,7 +1448,7 @@ export function ManagePortal({
             node.scrollTop = nextScrollTop;
           }}
         >
-          {section !== "overview" && !detailId && !outreachSequenceId && (
+          {shouldRenderManagePageBack(section, hasDedicatedRecordBack) && (
             section === "outreach" ? (
               sequenceOutreachTab ? null : <div className="manage-outreach-context-row">
                 <GlobalBackControl className="manage-global-back" />
@@ -3029,7 +3030,7 @@ function RecordTabs({
   active: string;
   onChange: (id: string) => void;
 }) {
-  return <nav className="manage-record-tabs workspace-tab-list" aria-label="Record sections">{tabs.map((tab) => <button type="button" key={tab.id} className={`workspace-tab${active === tab.id ? " is-active" : ""}`} aria-current={active === tab.id ? "page" : undefined} onClick={() => onChange(tab.id)}>{tab.label}{typeof tab.count === "number" && <span className="workspace-tab__count">{tab.count}</span>}</button>)}</nav>;
+  return <WorkspaceViewTabs activeId={active} ariaLabel="Record sections" className="manage-record-tabs" onChange={onChange} recordNavigation selectionMode="pressed" tabs={tabs} />;
 }
 
 function money(value: number | null, currency: string) {
@@ -3568,7 +3569,7 @@ function AccountDetailPage({
   ];
 
   return (
-    <div className="manage-detail-page manage-record-page motion-page">
+    <div className="manage-detail-page manage-record-page motion-page" data-record-detail-root="true">
       <GlobalBackControl
         className="manage-back-link"
         floatingActions={<>
@@ -4244,7 +4245,7 @@ function ContactDetailPage({
   ];
 
   return (
-    <div className="manage-detail-page manage-record-page motion-page">
+    <div className="manage-detail-page manage-record-page motion-page" data-record-detail-root="true">
       <GlobalBackControl
         className="manage-back-link"
         floatingActions={<>

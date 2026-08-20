@@ -1244,6 +1244,9 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
 
 .invoice-detail-heading { align-items:center; }
 .invoice-detail-heading a,.invoice-detail-pagination a { display:inline-flex; align-items:center; gap:6px; color:#475467; font-size:.75rem; font-weight:650; text-decoration:none; }
+.invoice-detail-back { margin:0 0 10px; }
+.invoice-detail-back .global-back-control__button { padding-left:0; }
+.invoice-detail-back .global-back-control__label { display:block; max-width:min(46vw,360px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .invoice-detail-heading h2 { margin-top:12px; }
 .invoice-detail-pagination { display:flex; gap:8px; }
 .invoice-detail-pagination a { min-height:38px; padding:0 13px; border:1px solid #e4e7ec; border-radius:11px; background:#fff; }
@@ -4013,6 +4016,7 @@ body:has(.manage-sidebar.is-collapsed) { --manage-floating-back-left:104px; }
 .record-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
 .record-detail-layout > main { display: grid; gap: 22px; min-width: 0; }
 .record-detail-layout > aside { position: sticky; top: 138px; display: grid; gap: 18px; }
+.record-overview-anchor { scroll-margin-top: 148px; }
 .record-decision-brief { display: grid; grid-template-columns: minmax(0,1fr) minmax(260px,.82fr); gap: 22px; align-items: center; padding: 22px 24px; border: 1px solid #e0e6ed; border-radius: 20px; background: #fbfcfe; box-shadow: var(--workspace-panel-shadow); }
 .record-decision-brief__copy { min-width: 0; }
 .record-decision-brief__copy > span { display: block; margin-bottom: 7px; color: #738298; font-size: .63rem; font-weight: 760; letter-spacing: .095em; text-transform: uppercase; }
@@ -9985,8 +9989,22 @@ button.workspace-notification-row:focus-visible {
   margin: 0 0 20px;
 }
 
+.manage-app .manage-record-tabs.workspace-view-tabs {
+  margin: 16px 0 22px;
+}
+
 .bills-tab-toolbar .workspace-view-tabs {
   margin: 0;
+}
+
+.vendor-bills-workspace__tabs {
+  margin: 0 0 16px;
+}
+
+@media (max-width: 700px) {
+  .manage-app .manage-record-tabs.workspace-view-tabs {
+    margin-bottom: 17px;
+  }
 }
 
 .workspace-tab__count[data-tone="attention"] {

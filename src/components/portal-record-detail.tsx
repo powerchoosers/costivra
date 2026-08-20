@@ -243,7 +243,7 @@ function RecordSectionTabs({ label, tabs }: { label: string; tabs: RecordSection
     });
   };
 
-  return <WorkspaceViewTabs activeId={activeId} ariaLabel={`${label} detail sections`} className="record-tabs" onChange={showSection} tabs={tabs} />;
+  return <WorkspaceViewTabs activeId={activeId} ariaLabel={`${label} detail sections`} className="record-tabs" onChange={showSection} recordNavigation tabs={tabs} />;
 }
 
 const decisionFactKeys: Record<Kind, readonly string[]> = {
@@ -467,7 +467,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     ...(evidence.length > 0 ? [{ id: "evidence", label: "Evidence" }] : []),
     { id: "history", label: "History" },
   ];
-  return <div className={`record-detail record-detail--${kind}`}>
+  return <div className={`record-detail record-detail--${kind}`} data-record-detail-root="true">
     <div className={`record-detail-topline${isInvoiceReview ? " record-detail-topline--invoice" : ""}`}><GlobalBackControl className="record-back" />{invoiceScope}</div>
     <div className={`record-detail-heading${isInvoiceReview ? " record-detail-heading--invoice" : ""}`}>
       <header className="record-detail-header"><div>{!isInvoiceReview && <PageBreadcrumbs items={breadcrumbs} />}{!isInvoiceReview && <div className="record-detail-context"><PageScopeIndicator mode={vendor ? "vendor" : "global"} vendorName={vendor?.name} vendorHref={vendor ? `/app/vendors/${vendor.id}` : undefined} /></div>}<span className="record-eyebrow">{meta.noun} record</span><div className="record-title-row"><h1>{detail.title}</h1>{isInvoiceReview && headerStatus}</div><p>{detail.subtitle}</p></div>{!isInvoiceReview && headerStatus}</header>
@@ -475,9 +475,11 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     </div>
     <div className="record-detail-layout"><main>
       {savingsOutcome && <SavingsReviewPanel outcome={savingsOutcome} currency={recordCurrency} canDecide={["owner", "admin"].includes(data.currentUser.role)} />}
-      {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} />}
+      <div className="record-overview-anchor" id="overview">
+        {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} />}
+      </div>
       {finding && <FindingCalculationRecord finding={finding} currency={recordCurrency} />}
-      <section className="record-section" id="overview"><div className="record-section-heading"><div><h2>Record details</h2><p>Edit one field at a time. Every saved change is attributed and audited.</p></div></div><div className="record-fields">{detail.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}</div></section>
+      <section className="record-section"><div className="record-section-heading"><div><h2>Record details</h2><p>Edit one field at a time. Every saved change is attributed and audited.</p></div></div><div className="record-fields">{detail.fields.map((field) => <FieldRow key={field.key} kind={kind} updateId={detail.updateId} expectedUpdatedAt={detail.updatedAt} field={field} canEdit={data.currentUser.role !== "viewer"} />)}</div></section>
       {lineItems.length > 0 && <section className="record-section" id="line-items"><div className="record-section-heading"><div><h2>Invoice line items</h2><p>Normalized charges and credits retained from the reviewed invoice.</p></div><span className="record-section-count">{lineItems.length}</span></div><div className="record-line-items" data-workspace-scrollbar=""><div className="record-line-item record-line-item--heading"><span>Line</span><span>Description</span><span>Quantity</span><span>Unit price</span><span>Amount</span></div>{lineItems.map((item) => <div className="record-line-item" key={item.id}><span>{item.lineNumber}</span><span><strong>{item.description}</strong><small>{[item.category, item.servicePeriodStart && item.servicePeriodEnd ? `${date(item.servicePeriodStart)} – ${date(item.servicePeriodEnd)}` : null].filter(Boolean).join(" · ") || "No additional classification"}</small></span><span>{item.quantity ?? "—"}</span><span>{item.unitPrice == null ? "—" : money(item.unitPrice, recordCurrency)}</span><span>{money(item.amount, recordCurrency)}</span></div>)}</div></section>}
       {showRecordFiles && <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={recordFilesTitle} description={recordFilesDescription} /></div>}
       {evidence.length > 0 && <section className="record-section" id="evidence"><div className="record-section-heading"><div><h2>Source evidence</h2><p>Exact excerpts retained from the private source document.</p></div></div><div className="record-evidence-list">{evidence.map((item) => <article key={item.id}><span>Page {item.pageNumber}{item.fieldPath ? ` · ${item.fieldPath}` : ""}</span><blockquote>{item.textExcerpt}</blockquote><Link href={`/api/portal/documents/${item.documentId}/download`}>Open source <FileText /></Link></article>)}</div></section>}

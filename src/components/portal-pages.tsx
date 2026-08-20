@@ -2497,7 +2497,7 @@ export function VendorDetail({
   ];
 
   return (
-    <div className="vendor-detail">
+    <div className="vendor-detail" data-record-detail-root="true">
       <div className="vendor-scope-context">
         <GlobalBackControl className="vendor-back" />
         <PageScopeIndicator mode="vendor" vendorName={vendor.name} vendorHref={`/app/vendors/${vendor.id}`} />
@@ -2541,6 +2541,7 @@ export function VendorDetail({
         ariaLabel="Vendor sections"
         className="workspace-tab-list--record"
         onChange={handleTabChange}
+        recordNavigation
         tabs={vendorTabs}
       />
 
@@ -3221,41 +3222,18 @@ function VendorBillsTab({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button
-          type="button"
-          onClick={() => setSubview("bills")}
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            fontSize: "0.82rem",
-            fontWeight: subview === "bills" ? 600 : 500,
-            background: subview === "bills" ? "#002FA7" : "transparent",
-            color: subview === "bills" ? "#fff" : "var(--assistant-text-secondary, #475569)",
-            border: subview === "bills" ? "1px solid #002FA7" : "1px solid rgba(30, 41, 59, 0.15)",
-            cursor: "pointer",
-          }}
-        >
-          Bills & Spend ({expenses.length + invoices.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubview("files")}
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            fontSize: "0.82rem",
-            fontWeight: subview === "files" ? 600 : 500,
-            background: subview === "files" ? "#002FA7" : "transparent",
-            color: subview === "files" ? "#fff" : "var(--assistant-text-secondary, #475569)",
-            border: subview === "files" ? "1px solid #002FA7" : "1px solid rgba(30, 41, 59, 0.15)",
-            cursor: "pointer",
-          }}
-        >
-          Source Files ({documents.length})
-        </button>
-      </div>
+    <div className="vendor-bills-workspace">
+      <WorkspaceViewTabs
+        activeId={subview}
+        ariaLabel="Vendor bill records"
+        className="vendor-bills-workspace__tabs"
+        onChange={(id) => setSubview(id as "bills" | "files")}
+        selectionMode="pressed"
+        tabs={[
+          { id: "bills", label: "Bills & spend", count: expenses.length + invoices.length },
+          { id: "files", label: "Source files", count: documents.length },
+        ]}
+      />
 
       {subview === "bills" ? (
         <section className="portal-panel">

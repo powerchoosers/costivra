@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   Clock3,
   FileCheck2,
@@ -15,6 +14,7 @@ import {
   ShieldCheck,
 } from "@/lib/icons";
 import { useToast } from "@/components/toast-provider";
+import { GlobalBackControl } from "@/components/navigation-history";
 import {
   canRescanInboundEvent,
   canRetryInboundEvent,
@@ -143,7 +143,7 @@ function IntakeEventDetail({ event, scannerConfigured }: { event: IntakeOperatio
   }
   return <section className="intake-event-detail">
     <header className="invoice-detail-heading">
-      <div><Link href="/manage/intake"><ArrowLeft size={16} />Intake operations</Link><h2>Intake event</h2><p>{event.organizationName} · {event.subject}</p></div>
+      <div><GlobalBackControl className="invoice-detail-back" /><h2>Intake event</h2><p>{event.organizationName} · {event.subject}</p></div>
       <div className="intake-event-actions">
         {canRetryInboundEvent(event.status) && <button className="manage-button manage-button--primary" type="button" disabled={busy !== null} onClick={() => void act("retry")}><RefreshCw size={16} />{busy === "retry" ? "Queueing…" : "Retry event"}</button>}
         {event.status === "quarantined" && <button className="manage-button manage-button--primary" type="button" disabled={busy !== null || !canRescanInboundEvent(event.status, hasQuarantine, scannerConfigured)} onClick={() => void act("rescan")} title={!scannerConfigured ? "Connect the malware scanner first" : undefined}><ShieldCheck size={16} />{busy === "rescan" ? "Scanning…" : "Rescan files"}</button>}

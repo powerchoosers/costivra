@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { floatingBackControlClassName, floatingBackControlTop, isFloatingBackScrollKey, isManageRecordDetailPath, navigationStorageKey, nextFloatingBackControlState, nextFloatingBackVisibility, previousNavigationEntry, recordTabsAreVisibleInWorkspace, shouldShowFloatingBackControl, upsertNavigationEntry } from "@/components/navigation-history";
+import { floatingBackControlClassName, floatingBackControlTop, isFloatingBackScrollKey, isManageRecordDetailPath, navigationStorageKey, nextFloatingBackControlState, nextFloatingBackVisibility, previousNavigationEntry, recordNavigationTabsWithin, recordTabsAreVisibleInWorkspace, shouldRenderManagePageBack, shouldShowFloatingBackControl, upsertNavigationEntry } from "@/components/navigation-history";
 
 describe("navigation history helpers", () => {
   it("keeps Customer App and Manage session storage separate", () => {
@@ -33,6 +33,13 @@ describe("navigation history helpers", () => {
     expect(isManageRecordDetailPath("/manage/intake/event-1")).toBe(true);
     expect(isManageRecordDetailPath("/manage/outreach/sequences/sequence-1")).toBe(true);
     expect(isManageRecordDetailPath("/manage/mail")).toBe(false);
+  });
+
+  it("does not render a second Manage Back control inside a detail route", () => {
+    expect(shouldRenderManagePageBack("invoice-review", true)).toBe(false);
+    expect(shouldRenderManagePageBack("intake", true)).toBe(false);
+    expect(shouldRenderManagePageBack("mail", false)).toBe(true);
+    expect(shouldRenderManagePageBack("overview", false)).toBe(false);
   });
 
   it("treats only deliberate keyboard scrolling as Back-control scroll intent", () => {
@@ -94,5 +101,20 @@ describe("navigation history helpers", () => {
   it("treats tabs hidden behind the workspace header as out of view", () => {
     expect(recordTabsAreVisibleInWorkspace({ tabsTop: 195, tabsBottom: 238, workspaceHeaderBottom: 182, viewportBottom: 742 })).toBe(true);
     expect(recordTabsAreVisibleInWorkspace({ tabsTop: -2, tabsBottom: 41, workspaceHeaderBottom: 182, viewportBottom: 742 })).toBe(false);
+  });
+
+  it("uses the explicit record-tab marker for every detail-shell handoff", () => {
+    const tabs = {} as HTMLElement;
+    const selectors: string[] = [];
+    const root = {
+      querySelector: (selector: string) => {
+        selectors.push(selector);
+        return tabs;
+      },
+    } as Pick<ParentNode, "querySelector">;
+
+    expect(recordNavigationTabsWithin(root)).toBe(tabs);
+    expect(selectors).toEqual(["[data-record-navigation-tabs=\"true\"]"]);
+    expect(recordNavigationTabsWithin(null)).toBeNull();
   });
 });
