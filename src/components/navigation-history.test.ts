@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { navigationStorageKey, previousNavigationEntry, upsertNavigationEntry } from "@/components/navigation-history";
+import { navigationStorageKey, nextFloatingBackVisibility, previousNavigationEntry, upsertNavigationEntry } from "@/components/navigation-history";
 
 describe("navigation history helpers", () => {
   it("keeps Customer App and Manage session storage separate", () => {
@@ -23,5 +23,16 @@ describe("navigation history helpers", () => {
     expect(previousNavigationEntry(first)).toBeNull();
     const entries = upsertNavigationEntry(first, "/manage/accounts/123", "Acme Telecom", 1);
     expect(previousNavigationEntry(entries)).toMatchObject({ href: "/manage/accounts", label: "Accounts" });
+  });
+
+  it("keeps the floating Back control stable while its page-level control crosses the header boundary", () => {
+    expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: false, anchorTop: 70, anchorBottom: 106 })).toBe(true);
+    expect(nextFloatingBackVisibility({ wasFloating: false, hasUserScrolled: false, anchorTop: 70, anchorBottom: 106 })).toBe(false);
+  });
+
+  it("only shows the floating Back control after user scroll and hides it once the page control is clearly visible", () => {
+    expect(nextFloatingBackVisibility({ wasFloating: false, hasUserScrolled: false, anchorTop: 20, anchorBottom: 56 })).toBe(false);
+    expect(nextFloatingBackVisibility({ wasFloating: false, hasUserScrolled: true, anchorTop: 20, anchorBottom: 56 })).toBe(true);
+    expect(nextFloatingBackVisibility({ wasFloating: true, hasUserScrolled: true, anchorTop: 100, anchorBottom: 136 })).toBe(false);
   });
 });

@@ -32,6 +32,8 @@ type NavigationContextValue = {
   fallbackLabel: string;
   canGoBack: boolean;
   goBack: () => void;
+  floatingBackVisible: boolean;
+  setFloatingBackVisible: (visible: boolean) => void;
   setCurrentLabel: (label: string, fallbackHref: string, fallbackLabel: string) => void;
 };
 
@@ -40,6 +42,27 @@ const NavigationContext = createContext<NavigationContextValue | null>(null);
 export const navigationStorageKey = (scope: NavigationScope) => `costivra.navigation-history.${scope}`;
 const markerKey = "__costivraNavigation";
 const NAVIGATION_SETTLE_MS = 240;
+const FLOATING_BACK_SHOW_THRESHOLD = 80;
+const FLOATING_BACK_HIDE_THRESHOLD = 96;
+
+export function nextFloatingBackVisibility({
+  wasFloating,
+  hasUserScrolled,
+  anchorTop,
+  anchorBottom,
+}: {
+  wasFloating: boolean;
+  hasUserScrolled: boolean;
+  anchorTop: number;
+  anchorBottom: number;
+}) {
+  // Keep the current state while the page-level control overlaps the fixed
+  // shell bar. The gap between these thresholds prevents layout/scroll jitter
+  // around a single pixel boundary from repeatedly toggling the fixed control.
+  if (anchorBottom <= FLOATING_BACK_SHOW_THRESHOLD) return hasUserScrolled || wasFloating;
+  if (anchorTop >= FLOATING_BACK_HIDE_THRESHOLD) return false;
+  return wasFloating;
+}
 
 function makeSessionId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -95,6 +118,7 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
   const router = useRouter();
   const [state, setState] = useState<NavigationState | null>(null);
   const [current, setCurrent] = useState({ label: defaultLabel(scope), fallbackHref: scope === "app" ? "/app" : "/manage", fallbackLabel: defaultLabel(scope) });
+  const [floatingBackVisible, setFloatingBackVisible] = useState(false);
   const stateRef = useRef<NavigationState | null>(null);
   const isHistoryTraversal = useRef(false);
   const knownIndex = useRef<number | null>(null);
@@ -171,8 +195,10 @@ export function NavigationHistoryProvider({ scope, children }: { scope: Navigati
     fallbackLabel: current.fallbackLabel,
     canGoBack: Boolean(previous),
     goBack,
+    floatingBackVisible,
+    setFloatingBackVisible,
     setCurrentLabel,
-  }), [current.fallbackHref, current.fallbackLabel, goBack, previous, setCurrentLabel]);
+  }), [current.fallbackHref, current.fallbackLabel, floatingBackVisible, goBack, previous, setCurrentLabel]);
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
 }
@@ -191,13 +217,14 @@ function useNavigationHistory() {
 }
 
 export function GlobalBackControl({ className = "", floatingActions }: { className?: string; floatingActions?: ReactNode }) {
-  const { label, goBack } = useNavigationHistory();
+  const { label, goBack, floatingBackVisible, setFloatingBackVisible } = useNavigationHistory();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const anchorRef = useRef<HTMLDivElement>(null);
   const hasUserScrolled = useRef(false);
   const routeSettled = useRef(false);
-  const [isFloating, setIsFloating] = useState(false);
+  const floatingBackVisibleRef = useRef(floatingBackVisible);
+  floatingBackVisibleRef.current = floatingBackVisible;
   const navigationKey = `${pathname}?${searchParams.toString()}`;
 
   useEffect(() => {
@@ -209,8 +236,14 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
 
     const updateFloatingState = () => {
       if (!routeSettled.current) return;
-      const nextIsFloating = hasUserScrolled.current && anchor.getBoundingClientRect().bottom <= 80;
-      setIsFloating((current) => current === nextIsFloating ? current : nextIsFloating);
+      const { top, bottom } = anchor.getBoundingClientRect();
+      const nextIsFloating = nextFloatingBackVisibility({
+        wasFloating: floatingBackVisibleRef.current,
+        hasUserScrolled: hasUserScrolled.current,
+        anchorTop: top,
+        anchorBottom: bottom,
+      });
+      setFloatingBackVisible(nextIsFloating);
     };
     const observer = new IntersectionObserver(updateFloatingState, { rootMargin: "-80px 0px 0px 0px", threshold: 0 });
     const onScroll = () => {
@@ -242,9 +275,9 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
   );
 
   return <>
-    <div ref={anchorRef} className={`global-back-control ${className}`}>{backButton(false, !isFloating)}</div>
-    <div className={`global-back-control__floating${isFloating ? " is-visible" : ""}`} aria-hidden={!isFloating} inert={!isFloating}>
-      {backButton(true, isFloating)}
+    <div ref={anchorRef} className={`global-back-control ${className}`}>{backButton(false, !floatingBackVisible)}</div>
+    <div className={`global-back-control__floating${floatingBackVisible ? " is-visible" : ""}`} aria-hidden={!floatingBackVisible} inert={!floatingBackVisible}>
+      {backButton(true, floatingBackVisible)}
       {floatingActions && <span className="global-back-control__actions">{floatingActions}</span>}
     </div>
   </>;
