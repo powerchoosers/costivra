@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 20, 2026 — Persistent floating Back-control handoff
+
+- Moved the compact, fixed Back control out of individual page components and into the persistent navigation provider. Page components now provide only their in-page Back anchor, so changing pages no longer removes and recreates the fixed control during the handoff.
+- Added pre-paint destination measurement: if the new page’s normal Back control is already in view, the floating control is hidden before that page paints; if it remains above the viewport, the floating control stays present. The existing boundary hysteresis remains in place, and visibility now listens to the App’s internal scroll surface as well as browser-level scroll input.
+- Validation: Node `v24.19.0`; direct `tsc --noEmit`, focused ESLint for the changed files, and `src/components/navigation-history.test.ts` (6 tests) all passed. Browser QA at `http://localhost:3001/app/findings` → `/app/bills` confirmed exactly one fixed Back-control element and one in-page anchor before and after the client page change, with the destination layout visually inspected. `pnpm typecheck` remains wrapper-blocked by `ERR_PNPM_IGNORED_BUILDS` before TypeScript starts; the direct compiler was used instead. `git diff --check` passed.
+
 ## August 19, 2026 — Floating Back control route-settle flicker
 
 - Stabilized the shared floating Back control during App page changes by deferring observer state changes until the new route layout settles. The control no longer performs a transient hide/show cycle from intermediate scroll geometry.
