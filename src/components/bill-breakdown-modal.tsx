@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type AnimationEvent 
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
+  ChartLine,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -9,7 +10,9 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Link2,
   MessageCircle,
+  ScanSearch,
   ShieldCheck,
   TrendingUp,
   X,
@@ -24,26 +27,38 @@ function BillBreakdownLoadingState({ compact = false }: { compact?: boolean }) {
       role="status"
       aria-live="polite"
     >
-      <div className="bill-breakdown-loading-mark" aria-hidden="true">
-        <FileText size={compact ? 19 : 24} strokeWidth={1.7} />
-        <span className="bill-breakdown-loading-scan" />
+      <div className={`bill-breakdown-loading-visual${compact ? " is-compact" : ""}`} aria-hidden="true">
+        <div className="bill-breakdown-loading-mark">
+          <FileText size={compact ? 19 : 24} strokeWidth={1.7} />
+          <span className="bill-breakdown-loading-scan" />
+        </div>
+        {!compact ? (
+          <>
+            <span className="bill-breakdown-loading-connection bill-breakdown-loading-connection--source" />
+            <span className="bill-breakdown-loading-connection bill-breakdown-loading-connection--charges" />
+            <span className="bill-breakdown-loading-connection bill-breakdown-loading-connection--evidence" />
+            <span className="bill-breakdown-loading-node bill-breakdown-loading-node--source"><ShieldCheck size={15} /></span>
+            <span className="bill-breakdown-loading-node bill-breakdown-loading-node--charges"><ScanSearch size={15} /></span>
+            <span className="bill-breakdown-loading-node bill-breakdown-loading-node--evidence"><Link2 size={15} /></span>
+          </>
+        ) : null}
       </div>
       <div className="bill-breakdown-loading-copy">
         <p className="bill-breakdown-loading-eyebrow">Preparing bill review</p>
         <p className="bill-breakdown-loading-title">
-          {compact ? "Loading document preview" : "Opening source and evidence"}
+          {compact ? "Loading document preview" : "Building the evidence map"}
         </p>
         {!compact ? (
           <p className="bill-breakdown-loading-description">
-            Organizing the protected source, bill structure, and supporting evidence.
+            Reading the protected source, mapping charges, and linking review signals to evidence.
           </p>
         ) : null}
       </div>
       {!compact ? (
         <div className="bill-breakdown-loading-steps" aria-hidden="true">
-          <span><ShieldCheck size={13} /> Protected source</span>
-          <span><i /> Bill structure</span>
-          <span><i /> Evidence links</span>
+          <span><ShieldCheck size={13} /> Source secured</span>
+          <span><ChartLine size={13} /> Charges mapped</span>
+          <span><Link2 size={13} /> Evidence linked</span>
         </div>
       ) : null}
     </div>
@@ -1043,6 +1058,18 @@ export function BillBreakdownModal({
           0%, 100% { opacity: 0.45; transform: scale(0.82); }
           50% { opacity: 1; transform: scale(1); }
         }
+        @keyframes billLoadingNode {
+          0%, 100% { opacity: 0.46; transform: scale(0.9); }
+          38%, 64% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes billLoadingConnection {
+          0%, 100% { opacity: 0.18; }
+          42%, 62% { opacity: 0.68; }
+        }
+        @keyframes billLoadingCore {
+          0%, 100% { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.22), 0 0 0 0 rgba(125, 211, 252, 0); }
+          50% { box-shadow: 0 12px 34px rgba(2, 6, 23, 0.3), 0 0 0 8px rgba(125, 211, 252, 0.035); }
+        }
         .bill-breakdown-header {
           flex: 0 0 72px;
           height: 72px;
@@ -1174,6 +1201,11 @@ export function BillBreakdownModal({
           color: #cbd5e1;
           animation: billLoadingEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
+        .bill-breakdown-loading-visual {
+          width: 244px;
+          height: 104px;
+          position: relative;
+        }
         .bill-breakdown-loading-mark {
           width: 56px;
           height: 66px;
@@ -1186,6 +1218,68 @@ export function BillBreakdownModal({
           background: linear-gradient(145deg, rgba(30, 64, 175, 0.18), rgba(15, 23, 42, 0.15));
           color: #bae6fd;
           box-shadow: 0 10px 30px rgba(2, 6, 23, 0.22);
+          animation: billLoadingCore 2.8s ease-in-out infinite;
+        }
+        .bill-breakdown-loading-visual:not(.is-compact) .bill-breakdown-loading-mark {
+          position: absolute;
+          z-index: 2;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+        .bill-breakdown-loading-connection {
+          position: absolute;
+          z-index: 1;
+          display: block;
+          height: 1px;
+          transform-origin: left center;
+          background: linear-gradient(90deg, rgba(125, 211, 252, 0.62), rgba(125, 211, 252, 0.08));
+          animation: billLoadingConnection 2.8s ease-in-out infinite;
+        }
+        .bill-breakdown-loading-connection--source {
+          top: 40px;
+          left: 38px;
+          width: 64px;
+          transform: rotate(23deg);
+        }
+        .bill-breakdown-loading-connection--charges {
+          top: 40px;
+          right: 38px;
+          width: 64px;
+          transform: rotate(157deg);
+          transform-origin: right center;
+          animation-delay: 0.24s;
+        }
+        .bill-breakdown-loading-connection--evidence {
+          top: 67px;
+          left: 50%;
+          width: 1px;
+          height: 29px;
+          transform-origin: center top;
+          background: linear-gradient(180deg, rgba(125, 211, 252, 0.62), rgba(125, 211, 252, 0.08));
+          animation-delay: 0.48s;
+        }
+        .bill-breakdown-loading-node {
+          position: absolute;
+          z-index: 3;
+          display: grid;
+          width: 34px;
+          height: 34px;
+          place-items: center;
+          border: 1px solid rgba(125, 211, 252, 0.2);
+          border-radius: 11px;
+          color: #a5f3fc;
+          background: rgba(15, 23, 42, 0.82);
+          box-shadow: 0 8px 20px rgba(2, 6, 23, 0.2);
+          animation: billLoadingNode 2.8s ease-in-out infinite;
+        }
+        .bill-breakdown-loading-node--source { top: 2px; left: 5px; }
+        .bill-breakdown-loading-node--charges { top: 2px; right: 5px; animation-delay: 0.24s; }
+        .bill-breakdown-loading-node--evidence { bottom: 0; left: calc(50% - 17px); animation-delay: 0.48s; }
+        .bill-breakdown-loading-node svg { opacity: 0.9; }
+        .bill-breakdown-loading-visual.is-compact {
+          width: auto;
+          height: auto;
         }
         .bill-breakdown-loading-scan {
           position: absolute;
@@ -1236,17 +1330,11 @@ export function BillBreakdownModal({
           color: #94a3b8;
           font-size: 0.65rem;
           white-space: nowrap;
+          animation: billLoadingPulse 2.8s ease-in-out infinite;
         }
         .bill-breakdown-loading-steps svg { color: #5eead4; }
-        .bill-breakdown-loading-steps i {
-          width: 5px;
-          height: 5px;
-          flex: 0 0 auto;
-          border-radius: 999px;
-          background: #64748b;
-          animation: billLoadingPulse 1.8s ease-in-out infinite;
-        }
-        .bill-breakdown-loading-steps span:nth-child(3) i { animation-delay: 0.28s; }
+        .bill-breakdown-loading-steps span:nth-child(2) { animation-delay: 0.24s; }
+        .bill-breakdown-loading-steps span:nth-child(3) { animation-delay: 0.48s; }
         .bill-breakdown-loading-state.is-compact {
           width: auto;
           padding: 22px;
@@ -1766,7 +1854,10 @@ export function BillBreakdownModal({
           .bill-breakdown-dialog.is-closing,
           .bill-breakdown-loading-state,
           .bill-breakdown-loading-scan,
-          .bill-breakdown-loading-steps i {
+          .bill-breakdown-loading-mark,
+          .bill-breakdown-loading-connection,
+          .bill-breakdown-loading-node,
+          .bill-breakdown-loading-steps span {
             animation: none !important;
           }
         }
