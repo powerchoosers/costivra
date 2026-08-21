@@ -5956,9 +5956,9 @@ body.modal-open .app-topbar { filter: blur(7px); }
   background: #fff !important;
 }
 
-/* Keep the brand aligned with the shared work header. */
+/* Keep the brand centered in the shared 72px rail header. */
 .app-sidebar .sidebar-brand-row {
-  transform: translateY(12px);
+  transform: none;
 }
 
 /* The navigation is the only scrolling region in the persistent rail. The
