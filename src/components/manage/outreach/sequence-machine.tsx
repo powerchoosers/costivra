@@ -349,7 +349,7 @@ function SequenceInsertPopover({ afterStepId, first, closing, onClose, onAdd }: 
   };
 
   return <div className={`sequence-machine__insert-popover${closing ? " is-closing" : ""}`} role="dialog" aria-label="Add sequence step">
-      <div className="sequence-machine__insert-heading"><div><strong>Add next step</strong><span>Choose what happens next and when it starts.</span></div><button type="button" onClick={() => onClose()} aria-label="Close add step"><X size={16} /></button></div>
+      <div className="sequence-machine__insert-heading"><div><strong>Add next step</strong><span>Choose what happens next and when it starts.</span></div><button type="button" className="workspace-close-button" onClick={() => onClose()} aria-label="Close add step"><X size={16} /></button></div>
       <div className="sequence-machine__type-grid">
         {STEP_OPTIONS.map((option) => {
           const Icon = option.icon;

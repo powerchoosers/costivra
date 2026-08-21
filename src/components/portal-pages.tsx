@@ -324,7 +324,7 @@ function PortalModal({
             {description && <p id={descriptionId}>{description}</p>}
           </div>
           <button
-            className="icon-button"
+            className="icon-button workspace-close-button"
             type="button"
             onClick={() => closeRef.current()}
             aria-label="Close dialog"
@@ -2546,15 +2546,15 @@ export function VendorDetail({
         <PageScopeIndicator mode="vendor" vendorName={vendor.name} vendorHref={`/app/vendors/${vendor.id}`} />
       </div>
 
-      <header className="vendor-detail-header">
-        <div className="vendor-detail-identity">
-          <CompanyLogo entity="vendor" id={vendor.id} name={vendor.name} className="vendor-detail-logo" />
-          <div>
-            <span className="record-eyebrow">Vendor relationship</span>
-            <div className="vendor-detail-identity-row"><h1>{vendor.name}</h1><Status value={vendor.relationshipStatus} /></div>
-            <p>{vendor.category || "Uncategorized"} · Relationship details, source records, and monitoring in one place.</p>
-          </div>
-        </div>
+      <div className="vendor-detail-navigation-row">
+        <WorkspaceViewTabs
+          activeId={activeTab}
+          ariaLabel="Vendor sections"
+          className="workspace-tab-list--record"
+          onChange={handleTabChange}
+          recordNavigation
+          tabs={vendorTabs}
+        />
         <div className="vendor-detail-actions">
           {vendorDocumentIds.length > 0 ? (
             <button
@@ -2567,17 +2567,7 @@ export function VendorDetail({
           ) : null}
           <RecordOverflowMenu items={menuItems} ariaLabel="More vendor actions" />
         </div>
-      </header>
-
-      {/* Record sections use the same tab system as the internal CRM. */}
-      <WorkspaceViewTabs
-        activeId={activeTab}
-        ariaLabel="Vendor sections"
-        className="workspace-tab-list--record"
-        onChange={handleTabChange}
-        recordNavigation
-        tabs={vendorTabs}
-      />
+      </div>
 
       <WorkspaceDecisionSummary
         ariaLabel="Vendor relationship next step"
@@ -4757,7 +4747,7 @@ function VendorSidePanel({
           <p>Your draft stays open while you move around the workspace.</p>
         </div>
         <button
-          className="icon-button"
+          className="icon-button workspace-close-button"
           type="button"
           onClick={onClose}
           aria-label="Close add vendor panel"

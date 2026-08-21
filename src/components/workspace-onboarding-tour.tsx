@@ -153,7 +153,7 @@ export function WorkspaceOnboardingTour() {
     <div className="workspace-tour__backdrop" style={rect ? undefined : { background: "rgba(8,16,29,.52)" }} aria-hidden="true" />
     {rect && <div className="workspace-tour__spotlight" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} aria-hidden="true" />}
     <div className="workspace-tour__panel" role="dialog" aria-modal="true" aria-labelledby="workspace-tour-title" tabIndex={-1} ref={panelRef}>
-      <div className="workspace-tour__topline"><span>Costivra workspace tour</span><button type="button" onClick={() => void close("skipped")} aria-label="Skip workspace tour"><X size={17} /></button></div>
+    <div className="workspace-tour__topline"><span>Costivra workspace tour</span><button type="button" className="workspace-close-button" onClick={() => void close("skipped")} aria-label="Skip workspace tour"><X size={17} /></button></div>
       {planState && <div className={`workspace-tour__plan workspace-tour__plan--${planState.mode}`}>
         <span className="workspace-tour__plan-dot" aria-hidden="true" />
         <strong>{planState.mode === "paid" ? "Paid workspace" : "Free review"}</strong>

@@ -572,7 +572,7 @@ function Modal({
             <h2>{title}</h2>
             {copy && <p>{copy}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close">
+          <button type="button" className="workspace-close-button" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </header>
@@ -1029,7 +1029,7 @@ export function ManagePortal({
         : section === "category-intelligence" ? "Category operations"
         : pretty(section);
   const globalSearchControl = (
-    <div className="manage-global-search-wrap" ref={searchContainerRef}>
+    <div className={`manage-global-search-wrap${searchFocused || searchClosing ? " is-active" : ""}`} ref={searchContainerRef}>
       <label className="manage-search" title="Search all Costivra records">
         <Search size={16} />
         <input
@@ -1038,9 +1038,6 @@ export function ManagePortal({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           onFocus={() => {
-            if (sidebarIsCollapsed) {
-              setMobileNav(true);
-            }
             setSearchFocused(true);
             setSearchClosing(false);
           }}
@@ -1105,7 +1102,7 @@ export function ManagePortal({
       data-workspace-shell="operations"
     >
       {(isNavPending || optimisticHref !== null) && (
-        <div className="fixed top-0 left-0 right-0 h-0.5 bg-blue-500 z-[9999] animate-pulse" />
+        <div className="manage-navigation-progress" aria-hidden="true" />
       )}
       <aside
         id="manage-owner-sidebar"
@@ -1124,15 +1121,16 @@ export function ManagePortal({
               <small>OWNER OPERATIONS</small>
             </div>
           </Link>
-          <button
-            className="manage-mobile-close"
-            onClick={() => setMobileNav(false)}
-            aria-label="Close menu"
-          >
-            <X size={18} />
-          </button>
+          {sidebarViewport === "mobile" ? (
+            <button
+              className="workspace-close-button manage-mobile-close"
+              onClick={() => setMobileNav(false)}
+              aria-label="Close menu"
+            >
+              <X size={18} />
+            </button>
+          ) : null}
         </div>
-        <div className="manage-sidebar-search">{globalSearchControl}</div>
         <nav
           className="manage-primary-nav"
           aria-label="Owner portal"
@@ -1314,7 +1312,29 @@ export function ManagePortal({
           </div>
         </div>
       </aside>
-      <main className={`manage-main${sidebarIsCollapsed ? " is-collapsed" : ""}`} data-workspace-slot="canvas">
+      <main
+        className={`manage-main${sidebarIsCollapsed ? " is-collapsed" : ""}`}
+        data-workspace-slot="canvas"
+        onWheelCapture={(event) => {
+          const node = event.currentTarget;
+          const target = event.target as HTMLElement;
+          if (
+            hasNestedNativeScrollRegion(event.target, node) ||
+            target.closest(".manage-global-results, .manage-create-menu, .manage-profile-menu, .manage-assistant")
+          ) {
+            return;
+          }
+
+          const scrollport = node.querySelector<HTMLElement>(".manage-page");
+          if (!scrollport) return;
+
+          const nextScrollTop = getNextVerticalScrollTop(scrollport, event.deltaY);
+          if (nextScrollTop === null) return;
+          event.preventDefault();
+          event.stopPropagation();
+          scrollport.scrollTop = nextScrollTop;
+        }}
+      >
         <header className="manage-topbar" data-workspace-slot="topbar">
           <div className="manage-topbar-leading">
             <button
@@ -1335,10 +1355,11 @@ export function ManagePortal({
               <Menu size={20} />
             </button>
           <div>
-            <small>COSTIVRA INTERNAL</small>
+            <small>MANAGE</small>
             <h1>{pageTitle}</h1>
           </div>
           </div>
+          <div className="manage-topbar-center">{globalSearchControl}</div>
           <div className="workspace-header-action-group manage-header-action-group">
             <button className={`workspace-mobile-search-trigger manage-mobile-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="manage-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
               <Search aria-hidden="true" size={17} />
@@ -1422,7 +1443,7 @@ export function ManagePortal({
                   <Search aria-hidden="true" size={16} />
                   <input ref={mobileSearchInputRef} autoFocus aria-label="Search all Costivra records" type="text" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search all Costivra records" />
                 </label>
-                <button className="workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
+                <button className="workspace-close-button workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
               </div>
               {search.trim() && <div className={`manage-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Global search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="manage-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}{category === currentSearchOrder(section)[0] && <span>Current page</span>}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="manage-global-no-results">No records match “{search.trim()}”.</p>}</div>}
             </div>
@@ -1580,7 +1601,7 @@ export function ManagePortal({
                 <strong>Owner operations</strong>
                 <span>Navigate the internal workspace</span>
               </div>
-              <button type="button" aria-label="Close menu" onClick={closeManageMobileMenu}>
+              <button type="button" className="workspace-close-button" aria-label="Close menu" onClick={closeManageMobileMenu}>
                 <X aria-hidden="true" size={18} />
               </button>
             </header>
@@ -1794,7 +1815,7 @@ function Overview({ data }: { data: ManageData }) {
     <>
       <section className="manage-intro">
         <div className="manage-intro-copy">
-          <h2>Every client relationship, in view.</h2>
+          <h2>Client operations, clearly in view.</h2>
           <p>One place to manage customers, outreach, and email.</p>
         </div>
       </section>
@@ -1816,7 +1837,7 @@ function Overview({ data }: { data: ManageData }) {
           </div>
           <div className="manage-summary-value">
             <strong>{active}</strong>
-            <span>active relationship</span>
+            <span>active accounts</span>
           </div>
         </div>
         <div className="manage-summary-card">
@@ -1826,7 +1847,7 @@ function Overview({ data }: { data: ManageData }) {
           </div>
           <div className="manage-summary-value">
             <strong>{followUps}</strong>
-            <span>accounts need attention</span>
+            <span>open follow-ups</span>
           </div>
         </div>
         <div className="manage-summary-card">
@@ -2118,6 +2139,12 @@ function AccountRows({
                 key={account.id}
                 className={`${isSelected ? "is-selected" : ""}${isBulkSelected ? " is-bulk-selected" : ""}`}
                 onClick={() => onSelectAccount?.(account)}
+                onKeyDown={(event) => {
+                  if (!onSelectAccount || (event.key !== "Enter" && event.key !== " ")) return;
+                  event.preventDefault();
+                  onSelectAccount(account);
+                }}
+                tabIndex={onSelectAccount ? 0 : undefined}
                 style={{ cursor: onSelectAccount ? "pointer" : "default" }}
               >
                 {(onToggle || showRowNumbers) && (
@@ -2249,6 +2276,22 @@ function AccountInspector({
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const router = useRouter();
   const toast = useToast();
+  const inspectorTabs = ["overview", "timeline", "contacts"] as const;
+
+  function handleInspectorTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const currentIndex = inspectorTabs.indexOf(tab);
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % inspectorTabs.length;
+    else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + inspectorTabs.length) % inspectorTabs.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = inspectorTabs.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextTab = inspectorTabs[nextIndex];
+    setTab(nextTab);
+    window.requestAnimationFrame(() => document.getElementById(`manage-inspector-tab-${nextTab}`)?.focus());
+  }
 
   async function submitComposer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2295,28 +2338,46 @@ function AccountInspector({
             </div>
           </Link>
         </header>
-        <div className="manage-inspector-tabs" style={{ "--active-tab": tab === "overview" ? 0 : tab === "timeline" ? 1 : 2 } as CSSProperties}>
+        <div className="manage-inspector-tabs" role="tablist" aria-label="Account context" style={{ "--active-tab": tab === "overview" ? 0 : tab === "timeline" ? 1 : 2 } as CSSProperties}>
         <button
+          id="manage-inspector-tab-overview"
+          role="tab"
           className={tab === "overview" ? "active" : ""}
+          aria-selected={tab === "overview"}
+          aria-controls="manage-inspector-tab-panel"
+          tabIndex={tab === "overview" ? 0 : -1}
           onClick={() => setTab("overview")}
+          onKeyDown={handleInspectorTabKeyDown}
         >
           Overview
         </button>
         <button
+          id="manage-inspector-tab-timeline"
+          role="tab"
           className={tab === "timeline" ? "active" : ""}
+          aria-selected={tab === "timeline"}
+          aria-controls="manage-inspector-tab-panel"
+          tabIndex={tab === "timeline" ? 0 : -1}
           onClick={() => setTab("timeline")}
+          onKeyDown={handleInspectorTabKeyDown}
         >
           Timeline ({activities.length})
         </button>
         <button
+          id="manage-inspector-tab-contacts"
+          role="tab"
           className={tab === "contacts" ? "active" : ""}
+          aria-selected={tab === "contacts"}
+          aria-controls="manage-inspector-tab-panel"
+          tabIndex={tab === "contacts" ? 0 : -1}
           onClick={() => setTab("contacts")}
+          onKeyDown={handleInspectorTabKeyDown}
         >
           Contacts ({contacts.length})
         </button>
         </div>
 
-        <div key={tab} className="manage-inspector-tab-panel">
+        <div key={tab} id="manage-inspector-tab-panel" role="tabpanel" aria-labelledby={`manage-inspector-tab-${tab}`} tabIndex={0} className="manage-inspector-tab-panel">
       {tab === "overview" && (
         <>
           <dl>
@@ -3011,7 +3072,7 @@ function Contacts({
             </tr></thead>
             <tbody>{pageRows.map((contact, index) => {
               const bulkSelected = selectedIds.has(contact.id);
-              return <tr key={contact.id} className={`${selectedContact?.id === contact.id ? "is-selected" : ""}${bulkSelected ? " is-bulk-selected" : ""}`} onClick={() => setSelectedContactId(contact.id)}>
+              return <tr key={contact.id} className={`${selectedContact?.id === contact.id ? "is-selected" : ""}${bulkSelected ? " is-bulk-selected" : ""}`} onClick={() => setSelectedContactId(contact.id)} onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== " ") return; event.preventDefault(); setSelectedContactId(contact.id); }} tabIndex={0}>
                 <td className="manage-row-number-cell"><BulkRowSelector checked={bulkSelected} index={(currentPage - 1) * pageSize + index + 1} label={contact.fullName} onChange={() => setSelectedIds((current) => { const next = new Set(current); if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id); return next; })} /></td>
                 <td className="manage-sticky-column"><div className="manage-table-record-card"><span className="manage-person-avatar">{initials(contact.fullName)}</span><span className="manage-table-record-meta"><Link href={`/manage/contacts/${contact.id}`} onClick={(event) => event.stopPropagation()}><strong>{contact.fullName}</strong></Link><button type="button" className="manage-contact-email" onClick={(event) => { event.stopPropagation(); onCompose(contact); }} title={`Compose an email to ${contact.fullName}`}>{contact.email}</button></span></div></td>
                 <td><Link href={`/manage/accounts/${contact.organizationId}`} className="manage-table-record-card" onClick={(event) => event.stopPropagation()}><span className="manage-table-record-meta"><strong>{contact.organizationName}</strong><small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small></span></Link></td>
@@ -3875,18 +3936,15 @@ function AccountDetailPage({
               <label className="workspace-record-form__label">
                 Lifecycle Stage
               </label>
-              <select
+              <CostivraSelect
+                aria-label="Lifecycle stage"
                 value={stage}
-                onChange={(e) => setStage(e.target.value)}
-                className="workspace-record-form__control"
-              >
-                <option value="lead">Lead</option>
-                <option value="onboarding">Onboarding</option>
-                <option value="active">Active</option>
-                <option value="at_risk">At Risk</option>
-                <option value="inactive">Inactive</option>
-                <option value="closed">Closed</option>
-              </select>
+                onChange={setStage}
+                options={stages.map((value) => ({
+                  value,
+                  label: pretty(value),
+                }))}
+              />
             </div>
           </div>
 

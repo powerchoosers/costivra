@@ -261,7 +261,7 @@ export function RecordDangerDialog({
 
           <button
             type="button"
-            className="workspace-record-icon-button workspace-record-dialog__close"
+            className="workspace-close-button workspace-record-icon-button workspace-record-dialog__close"
             onClick={onClose}
             disabled={executing}
             aria-label={`Cancel ${modeTitles[mode]}`}

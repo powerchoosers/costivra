@@ -496,6 +496,7 @@ export async function GET(
       return {
         lineItemId: item.lineItemId ?? "",
         canonicalCode: stringValue(classification?.canonical_code) || item.canonicalCode,
+        label: item.label,
         originalDescription: item.originalDescription,
         explanation: item.explanation,
         chargeClass: item.chargeClass,

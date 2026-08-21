@@ -60,11 +60,12 @@ describe("navigation history helpers", () => {
     expect(floatingBackControlClassName("manage", true)).toBe("global-back-control__floating global-back-control__floating--manage is-visible");
   });
 
-  it("places the App floating Back control below the measured workspace header", () => {
+  it("places the floating Back control below the measured workspace header in both shells", () => {
     expect(floatingBackControlTop("app", 182.4)).toBe(195);
-    expect(floatingBackControlTop("manage", 182.4)).toBeNull();
+    expect(floatingBackControlTop("manage", 182.4)).toBe(195);
     expect(floatingBackControlTop("app", null)).toBeNull();
-    expect(floatingBackControlTop("app", 182.4, 238.1)).toBe(249);
+    expect(floatingBackControlTop("app", 182.4, 238.1)).toBe(195);
+    expect(floatingBackControlTop("manage", 182.4, 238.1)).toBe(195);
     expect(floatingBackControlTop("manage", null, 238.1)).toBe(249);
   });
 

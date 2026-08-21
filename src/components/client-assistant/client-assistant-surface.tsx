@@ -44,7 +44,7 @@ export function ClientAssistantSurface() {
               <strong>Record Inspector</strong>
               <button
                 type="button"
-                className="assistant-icon-btn"
+                className="assistant-icon-btn workspace-close-button"
                 onClick={closeInspector}
                 title="Close inspector"
               >

@@ -102,16 +102,17 @@ export function floatingBackControlTop(
   topbarBottom: number | null,
   recordTabsBottom: number | null = null,
 ) {
-  const shellTop = scope === "app" && topbarBottom !== null
+  const shellTop = topbarBottom !== null
     ? Math.ceil(topbarBottom + 12)
     : null;
-  if (recordTabsBottom === null) return shellTop;
+  if (shellTop !== null) return shellTop;
+  if (recordTabsBottom === null) return null;
 
-  // The customer workspace canvas can move when the review notice is visible.
-  // When record navigation is visible, its local sections do not replace the
-  // return action. Keep Back available just beneath that strip instead of
-  // guessing a fixed viewport offset that can land under it.
-  return Math.max(shellTop ?? 0, Math.ceil(recordTabsBottom + 10));
+  // Keep a measured record-tab fallback for unusual shell states where the
+  // workspace header has not mounted yet. Once a shell header is available,
+  // the floating control must stay in the shared chrome instead of dropping
+  // into the record content below the tabs.
+  return Math.ceil(recordTabsBottom + 10);
 }
 
 export function shouldShowFloatingBackControl(isFloating: boolean) {
@@ -395,11 +396,10 @@ function PersistentFloatingBackControl({ scope, floatingActions }: { scope: Navi
   const [topbarBottom, setTopbarBottom] = useState<number | null>(null);
 
   useLayoutEffect(() => {
-    if (scope !== "app") {
-      return;
-    }
-
-    const topbar = document.querySelector<HTMLElement>(".app-work-canvas > .app-topbar");
+    const topbarSelector = scope === "app"
+      ? ".app-work-canvas > .app-topbar"
+      : ".manage-shell-v2 .manage-topbar";
+    const topbar = document.querySelector<HTMLElement>(topbarSelector);
     if (!topbar) return;
 
     const updateTop = () => {
@@ -407,8 +407,10 @@ function PersistentFloatingBackControl({ scope, floatingActions }: { scope: Navi
       setTopbarBottom((currentTopbarBottom) => currentTopbarBottom === nextTopbarBottom ? currentTopbarBottom : nextTopbarBottom);
     };
 
-    const canvas = topbar.closest<HTMLElement>(".app-work-canvas");
-    const scrollRoot = canvas?.querySelector<HTMLElement>(".app-content");
+    const shellRoot = scope === "app"
+      ? topbar.closest<HTMLElement>(".app-work-canvas")
+      : topbar.closest<HTMLElement>(".manage-main");
+    const scrollRoot = shellRoot?.querySelector<HTMLElement>(scope === "app" ? ".app-content" : ".manage-page");
     let frameId: number | null = null;
     const queueTopUpdate = () => {
       if (frameId !== null) return;
@@ -420,8 +422,10 @@ function PersistentFloatingBackControl({ scope, floatingActions }: { scope: Navi
 
     const observer = new ResizeObserver(updateTop);
     observer.observe(topbar);
-    const reviewNotice = document.querySelector<HTMLElement>(".workspace-experience-banner-shell");
-    if (canvas) observer.observe(canvas);
+    const reviewNotice = scope === "app"
+      ? document.querySelector<HTMLElement>(".workspace-experience-banner-shell")
+      : null;
+    if (shellRoot) observer.observe(shellRoot);
     if (reviewNotice) observer.observe(reviewNotice);
     window.addEventListener("resize", queueTopUpdate);
     window.addEventListener("scroll", queueTopUpdate, { passive: true });

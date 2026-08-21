@@ -33,7 +33,7 @@ import { ClientAssistantTrigger } from "@/components/client-assistant/client-ass
 import { ClientAssistantSurface } from "@/components/client-assistant/client-assistant-surface";
 import { WorkspaceNotificationCenter, WorkspaceStatusBadge, WorkspaceUtilityButton } from "@/components/ui/workspace-primitives";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
-import { getNextVerticalScrollTop } from "@/lib/ui/workspace-scrollbar";
+import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
 import { APP_SIDEBAR_PREFERENCE_KEY, appSidebarPreferenceCookie, parseAppSidebarPreference } from "@/lib/ui/workspace-preferences";
 import { WorkspaceExperienceBanner } from "@/components/workspace-experience-banner";
 import { WorkspaceOnboardingTour } from "@/components/workspace-onboarding-tour";
@@ -672,7 +672,22 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
           </div>
         </aside>
 
-        <main className="app-main">
+        <main
+          className="app-main"
+          onWheelCapture={(event) => {
+            const node = event.currentTarget;
+            if (hasNestedNativeScrollRegion(event.target, node)) return;
+
+            const scrollport = node.querySelector<HTMLElement>(".app-work-canvas > .app-content");
+            if (!scrollport) return;
+
+            const nextScrollTop = getNextVerticalScrollTop(scrollport, event.deltaY);
+            if (nextScrollTop === null) return;
+            event.preventDefault();
+            event.stopPropagation();
+            scrollport.scrollTop = nextScrollTop;
+          }}
+        >
           <WorkspaceExperienceBanner
             initialDocumentCount={data.documents.filter((document) => document.status !== "rejected").length}
             organizationId={data.organization.id}
@@ -777,7 +792,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                     <MagnifyingGlass aria-hidden="true" size={16} />
                     <input ref={mobileSearchInputRef} autoFocus aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search Costivra records" />
                   </label>
-                  <button className="workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
+                  <button className="workspace-close-button workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
                 </div>
                 {searchQuery.trim() && <div className={`app-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}</div>}
               </div>
@@ -828,6 +843,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                 <div className="mobile-drawer-header">
                   <strong>Navigation</strong>
                   <button
+                    className="workspace-close-button"
                     type="button"
                     onClick={() => setMobileMenuOpen(false)}
                     aria-label="Close menu"

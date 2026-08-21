@@ -230,6 +230,7 @@ describe("GET /api/portal/documents/[id]/breakdown", () => {
     expect(payload.lineItemExplanations[0]).toEqual(
       expect.objectContaining({
         canonicalCode: "energy_charge",
+        label: "Energy Supply / Generation Charge",
         chargeClass: "usage",
         reviewRequired: false,
         evidenceIds: ["77777777-7777-4777-8777-777777777777"],

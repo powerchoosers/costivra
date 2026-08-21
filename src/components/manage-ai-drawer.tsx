@@ -320,7 +320,7 @@ export function ManageAiDrawer({
               >
                 {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </AssistantIconButton>
-              <AssistantIconButton label="Close assistant" onClick={closeAssistant}>
+              <AssistantIconButton className="workspace-close-button" label="Close assistant" onClick={closeAssistant}>
                 <X size={16} />
               </AssistantIconButton>
             </>

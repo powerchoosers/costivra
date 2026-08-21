@@ -108,6 +108,7 @@ export type BreakdownData = {
   lineItemExplanations?: Array<{
     lineItemId: string;
     canonicalCode: string | null;
+    label: string;
     originalDescription: string;
     explanation: string;
     chargeClass: string;
@@ -303,6 +304,13 @@ function BillBreakdownContent({
     [data?.lineItemExplanations],
   );
 
+  const classificationSummary = useMemo(() => {
+    const explanations = data?.lineItemExplanations ?? [];
+    const classified = explanations.filter((item) => item.canonicalCode).length;
+    const reviewRequired = explanations.filter((item) => item.reviewRequired).length;
+    return { classified, reviewRequired, total: data?.lineItems.length ?? 0 };
+  }, [data?.lineItemExplanations, data?.lineItems]);
+
   const currentIndex = useMemo(() => {
     if (!documentId || !documentIds.length) return -1;
     return documentIds.indexOf(documentId);
@@ -442,7 +450,7 @@ function BillBreakdownContent({
           )}
           <button
             type="button"
-            className="bill-breakdown-close"
+            className="workspace-close-button bill-breakdown-close"
             onClick={onRequestClose}
             aria-label="Close bill breakdown"
           >
@@ -706,7 +714,13 @@ function BillBreakdownContent({
                 <div className="bill-breakdown-card-heading">
                   <div>
                     <span className="bill-breakdown-label">Line-item interpretation</span>
-                    <h3>{data.lineItems.length} extracted items</h3>
+                    <h3>{data.lineItems.length} categorized line items</h3>
+                    <p className="bill-breakdown-card-subtitle">
+                      {classificationSummary.classified} of {classificationSummary.total} mapped to the commercial electricity ontology
+                      {classificationSummary.reviewRequired > 0
+                        ? ` · ${classificationSummary.reviewRequired} flagged for confirmation`
+                        : " · no classification exceptions"}
+                    </p>
                   </div>
                 </div>
                 <div className="bill-breakdown-line-items">
@@ -722,7 +736,7 @@ function BillBreakdownContent({
                           <strong>{item.description}</strong>
                           <span>
                             {explanation?.canonicalCode
-                              ? `${explanation.chargeClass} · ${explanation.canonicalCode}`
+                              ? `${explanation.label} · ${explanation.reviewRequired ? "Confirm classification" : chargeClassLabel(explanation.chargeClass)}`
                               : "Unclassified · review required"}
                           </span>
                           {explanation?.explanation && (

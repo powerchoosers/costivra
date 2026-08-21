@@ -360,6 +360,7 @@ textarea:focus-visible {
     background: var(--mint);
   }
 }
+
 .app-mobile-organization .org-switcher span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width:760px) {
   .vendor-list-controls { width: 100%; justify-content: stretch; }
@@ -5240,13 +5241,12 @@ body:has(.manage-sidebar.is-collapsed) { --manage-floating-back-left:104px; }
 @media (prefers-reduced-motion: reduce) { .app-create-menu { transition: none; } }
 @media (max-width: 760px) { .app-sidebar { display: none; } .app-main { margin-left: 0; padding: 0; } .app-work-canvas { min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; } .app-work-canvas > .app-topbar { top: 0; border-radius: 0; } .app-work-canvas > .app-content { padding: 24px 16px 96px; } .app-work-canvas > .app-content-table-page { height: auto; min-height: calc(100dvh - 64px); padding-bottom: 96px; } .app-work-canvas .portal-page-header { margin-bottom: 22px; } .app-work-canvas .portal-metric,.app-work-canvas .portal-panel,.app-work-canvas .portal-card { border-radius: 16px; } .app-work-canvas .record-tabs { top: 64px; } .app-work-canvas .record-detail-layout > aside { position: static; } .app-body .global-back-control__floating { top: calc(64px + 24px + env(safe-area-inset-top)); left: 16px; } .app-mobile-utilities { display: flex; min-width: 0; flex: 1; align-items: center; gap: 7px; } .app-mobile-organization { position: relative; min-width: 0; flex: 0 1 auto; } .app-mobile-organization .org-switcher { display: flex; min-width: 0; max-width: 132px; align-items: center; gap: 7px; border: 1px solid #dce3eb; border-radius: 10px; color: #263244; background: #fff; padding: 6px 8px; font: 650 .72rem/1.2 Inter,ui-sans-serif,system-ui,sans-serif; cursor: pointer; } .app-mobile-organization .app-organization span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .app-mobile-organization .app-organization-logo { width: 22px; height: 22px; border-radius: 7px; } .app-mobile-organization .app-organization-menu { position: fixed; z-index: 150; top: 70px; left: 10px; width: min(292px,calc(100vw - 20px)); } .app-mobile-utility-search { position: relative; min-width: 0; flex: 1; } .app-mobile-utility-search .global-search { display: flex; width: 100%; height: 36px; padding: 0 9px; border: 1px solid #dce3eb; border-radius: 10px; background: #fff; } .app-mobile-utility-search .global-search input { display: block; min-width: 0; font-size: .72rem; } .app-mobile-utility-search .manage-kbd { display: none; } .app-mobile-utility-search .app-global-results { position: fixed; z-index: 160; top: 68px; right: 10px; left: 10px; width: auto; max-height: calc(100dvh - 84px); } }
 
-/* Keep the product texture on the shared app background. The sidebar and work
-   canvas provide structure, but they should not mask the texture between the
-   real white controls and content surfaces. */
+/* Keep the app frame quiet between the real white controls and content
+   surfaces. The canvas and rail provide the visual structure. */
 .app-body {
   background-color: #f7f8fa;
-  background-image: radial-gradient(rgba(16,24,40,.025) 0.65px, transparent 0.65px), linear-gradient(180deg, rgba(255,255,255,.5), transparent 40%);
-  background-size: 6px 6px, 100% 100%;
+  background-image: none;
+  background-size: auto;
 }
 .app-sidebar {
   background: transparent;
@@ -5999,8 +5999,9 @@ body.modal-open .app-topbar { filter: blur(7px); }
   border-color: rgba(126,143,166,.24) !important;
 }
 
-/* Give the collapsed rail a wider, invisible hover stage while keeping the
-   actual icon column narrow. This lets the label and glow clear the rail edge. */
+/* Keep the collapsed rail's scrollport inside the rail. Tooltips can extend
+   beyond it through their non-interactive pseudo-elements, but the scrollport
+   itself must never sit over the work canvas and steal clicks. */
 .app-sidebar .app-nav-scroll {
   min-height: 0;
   flex: 1 1 auto;
@@ -6013,7 +6014,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
   overflow: visible;
 }
 .app-shell.sidebar-collapsed .app-nav-scroll {
-  width: 230px;
+  width: 76px;
   margin-left: -12px;
 }
 .app-shell.sidebar-collapsed .app-nav {
@@ -6226,7 +6227,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
   flex: 0 0 72px;
   height: 72px;
   min-height: 72px;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 430px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 480px) minmax(0, 1fr);
   gap: 16px;
   padding: 0 28px;
   border: 0;
@@ -8217,7 +8218,43 @@ body.modal-open .app-topbar { filter: blur(7px); }
   background: transparent !important;
 }
 
+.app-body .app-main {
+  background-color: var(--workspace-ground);
+  background-image: none;
+}
+
+.manage-navigation-progress {
+  position: fixed;
+  z-index: 9999;
+  inset: 0 0 auto;
+  height: 2px;
+  pointer-events: none;
+  background: var(--workspace-accent);
+  opacity: .82;
+}
+
+.manage-shell-v2 .manage-topbar-center {
+  min-width: 0;
+  justify-content: center;
+}
+
+.manage-shell-v2 .manage-topbar-center .manage-global-search-wrap {
+  width: min(100%, 410px);
+  transition: width 160ms cubic-bezier(.23, 1, .32, 1);
+}
+
+.manage-shell-v2 .manage-topbar-center .manage-global-search-wrap:hover,
+.manage-shell-v2 .manage-topbar-center .manage-global-search-wrap:focus-within,
+.manage-shell-v2 .manage-topbar-center .manage-global-search-wrap.is-active {
+  width: min(100%, 460px);
+}
+
+.manage-shell-v2 .manage-topbar-center .manage-global-results {
+  top: calc(100% + 8px);
+}
+
 .manage-shell-v2 .manage-sidebar-search .manage-search,
+.manage-shell-v2 .manage-topbar-center .manage-search,
 .app-body .app-sidebar .global-search.manage-search,
 .app-body .app-sidebar .org-switcher {
   border-color: var(--workspace-line);
@@ -8687,6 +8724,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 }
 
 .manage-shell-v2 .manage-sidebar-search .manage-search,
+.manage-shell-v2 .manage-topbar-center .manage-search,
 .app-body .app-sidebar .global-search.manage-search {
   border-color: var(--workspace-control-line);
   border-radius: var(--workspace-control-radius);
@@ -8695,13 +8733,21 @@ body.modal-open .app-topbar { filter: blur(7px); }
   transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .manage-shell-v2 .manage-topbar-center .manage-global-search-wrap {
+    transition: none;
+  }
+}
+
 .manage-shell-v2 .manage-sidebar-search .manage-search:hover,
+.manage-shell-v2 .manage-topbar-center .manage-search:hover,
 .app-body .app-sidebar .global-search.manage-search:hover {
   border-color: var(--workspace-subtle-line-hover);
   background: var(--workspace-surface-soft);
 }
 
 .manage-shell-v2 .manage-sidebar-search .manage-search:focus-within,
+.manage-shell-v2 .manage-topbar-center .manage-search:focus-within,
 .app-body .app-sidebar .global-search.manage-search:focus-within {
   border-color: var(--workspace-accent);
   box-shadow: var(--workspace-focus-ring);
@@ -9609,6 +9655,66 @@ button.workspace-notification-row:focus-visible {
 .manage-app .manage-summary > div {
   background: var(--workspace-surface);
   border-color: var(--workspace-line-soft);
+}
+
+.manage-app .manage-summary small {
+  font-size: .66rem;
+}
+
+.manage-app .manage-summary-marker {
+  font-size: .62rem;
+}
+
+.manage-app .manage-summary-value span {
+  font-size: .7rem;
+}
+
+.manage-app .manage-table-wrap th {
+  font-size: .67rem;
+}
+
+.manage-app .manage-table-wrap td {
+  font-size: .74rem;
+}
+
+.manage-app .manage-table-wrap td small,
+.manage-app .manage-table-record-meta small {
+  font-size: .69rem;
+}
+
+.manage-app .manage-inspector-tabs button:focus-visible {
+  outline: 0;
+  border-radius: 8px;
+  box-shadow: var(--workspace-focus-ring);
+}
+
+.manage-app .manage-inspector-record-card h3 {
+  font-size: .78rem;
+}
+
+.manage-app .manage-inspector-record-card p {
+  font-size: .69rem;
+}
+
+.manage-app .manage-inspector-tab-panel dt {
+  font-size: .71rem;
+}
+
+.manage-app .manage-inspector-tab-panel dd > span {
+  font-size: .68rem;
+}
+
+.manage-app .manage-table-wrap tbody tr[tabindex="0"]:focus-visible {
+  outline: 2px solid rgba(33, 85, 199, .5);
+  outline-offset: -2px;
+}
+
+.manage-app .manage-account-cards dt {
+  font-size: .61rem;
+}
+
+.manage-app .manage-account-cards dd {
+  font-size: .69rem;
 }
 
 .manage-app .manage-summary strong,
@@ -12442,7 +12548,6 @@ button.workspace-notification-row:focus-visible {
     gap:6px;
     min-width:0;
   }
-  .manage-shell-v2 .manage-topbar-center,
   .manage-shell-v2 .manage-top-actions,
   .manage-shell-v2 .manage-topbar-utilities {
     display:flex;
@@ -12454,7 +12559,7 @@ button.workspace-notification-row:focus-visible {
     border:0;
     box-shadow:none;
   }
-  .manage-shell-v2 .manage-topbar-center { position:static; }
+  .manage-shell-v2 .manage-topbar-center { display:none; }
   .manage-shell-v2 .manage-menu,
   .manage-shell-v2 .manage-topbar-icon,
   .manage-shell-v2 .manage-create-trigger,
@@ -12475,4 +12580,221 @@ button.workspace-notification-row:focus-visible {
   .app-mobile-utility-search { display:contents; }
   .manage-shell-v2 .manage-topbar { grid-template-areas:"leading actions"; height:auto !important; min-height:0 !important; }
   .manage-mobile-search-trigger { flex:0 0 38px; }
+}
+
+/* Close controls are intentionally quiet until interaction. One shared
+   treatment keeps dialogs, sheets, drawers, and workspace chrome from each
+   inventing a different visible X button. */
+:is(
+  .workspace-close-button,
+  .manage-modal > header > button,
+  .manage-sidepanel > header > button,
+  .manage-inspector-composer > header > button,
+  .manage-file-preview > header > button,
+  .manage-brand > .manage-mobile-close,
+  .manage-mobile-drawer header > button,
+  .portal-modal > header > .icon-button,
+  .portal-sheet-header > .icon-button,
+  .portal-sheet-header > .manage-icon-button,
+  .vendor-side-panel > header > .icon-button,
+  .bill-breakdown-close,
+  .workspace-tour__topline > button,
+  .workspace-experience-banner__dismiss
+) {
+  display: inline-grid;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--workspace-muted);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast), transform var(--workspace-motion-fast);
+}
+
+:is(
+  .workspace-close-button,
+  .manage-modal > header > button,
+  .manage-sidepanel > header > button,
+  .manage-inspector-composer > header > button,
+  .manage-file-preview > header > button,
+  .manage-brand > .manage-mobile-close,
+  .manage-mobile-drawer header > button,
+  .portal-modal > header > .icon-button,
+  .portal-sheet-header > .icon-button,
+  .portal-sheet-header > .manage-icon-button,
+  .vendor-side-panel > header > .icon-button,
+  .bill-breakdown-close,
+  .workspace-tour__topline > button,
+  .workspace-experience-banner__dismiss
+):hover:not(:disabled) {
+  border-color: var(--workspace-line);
+  color: var(--workspace-ink);
+  background: var(--workspace-subtle-hover);
+  box-shadow: none;
+  transform: none;
+}
+
+:is(
+  .workspace-close-button,
+  .manage-modal > header > button,
+  .manage-sidepanel > header > button,
+  .manage-inspector-composer > header > button,
+  .manage-file-preview > header > button,
+  .manage-brand > .manage-mobile-close,
+  .manage-mobile-drawer header > button,
+  .portal-modal > header > .icon-button,
+  .portal-sheet-header > .icon-button,
+  .portal-sheet-header > .manage-icon-button,
+  .vendor-side-panel > header > .icon-button,
+  .bill-breakdown-close,
+  .workspace-tour__topline > button,
+  .workspace-experience-banner__dismiss
+):focus-visible {
+  border-color: var(--workspace-accent);
+  color: var(--workspace-control-ink-active);
+  background: var(--workspace-accent-soft);
+  box-shadow: var(--workspace-focus-ring);
+  outline: 0;
+}
+
+:is(
+  .workspace-close-button,
+  .manage-modal > header > button,
+  .manage-sidepanel > header > button,
+  .manage-inspector-composer > header > button,
+  .manage-file-preview > header > button,
+  .manage-brand > .manage-mobile-close,
+  .manage-mobile-drawer header > button,
+  .portal-modal > header > .icon-button,
+  .portal-sheet-header > .icon-button,
+  .portal-sheet-header > .manage-icon-button,
+  .vendor-side-panel > header > .icon-button,
+  .bill-breakdown-close,
+  .workspace-tour__topline > button,
+  .workspace-experience-banner__dismiss
+):active:not(:disabled) {
+  transform: scale(.96);
+}
+
+:is(
+  .workspace-close-button,
+  .manage-modal > header > button,
+  .manage-sidepanel > header > button,
+  .manage-inspector-composer > header > button,
+  .manage-file-preview > header > button,
+  .manage-brand > .manage-mobile-close,
+  .manage-mobile-drawer header > button,
+  .portal-modal > header > .icon-button,
+  .portal-sheet-header > .icon-button,
+  .portal-sheet-header > .manage-icon-button,
+  .vendor-side-panel > header > .icon-button,
+  .bill-breakdown-close,
+  .workspace-tour__topline > button,
+  .workspace-experience-banner__dismiss
+):disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+@media (min-width:781px) {
+  .manage-brand > .manage-mobile-close { display: none; }
+}
+
+@media (max-width:780px) {
+  :is(.app-body, .manage-app) .workspace-mobile-search-sheet__close {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    min-height: 42px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .workspace-close-button,
+    .manage-modal > header > button,
+    .manage-sidepanel > header > button,
+    .manage-inspector-composer > header > button,
+    .manage-file-preview > header > button,
+    .manage-brand > .manage-mobile-close,
+    .manage-mobile-drawer header > button,
+    .portal-modal > header > .icon-button,
+    .portal-sheet-header > .icon-button,
+    .portal-sheet-header > .manage-icon-button,
+    .vendor-side-panel > header > .icon-button,
+    .bill-breakdown-close,
+    .workspace-tour__topline > button,
+    .workspace-experience-banner__dismiss
+  ) {
+    transition: none;
+  }
+}
+
+/* Keep table actions easy to hit. The vendor identity link owns the full first
+   cell so users do not have to land precisely on the logo or text. */
+.app-body .app-work-canvas .vendor-table td:first-child .vendor-name-cell,
+.manage-app .vendor-table td:first-child .vendor-name-cell {
+  width: calc(100% + 32px);
+  min-height: 46px;
+  margin: -10px -16px;
+  padding: 10px 16px;
+}
+
+.app-body .app-work-canvas .vendor-table td:first-child .vendor-name-cell:focus-visible,
+.manage-app .vendor-table td:first-child .vendor-name-cell:focus-visible {
+  outline: 2px solid #4f77c8;
+  outline-offset: -2px;
+  border-radius: 9px;
+}
+
+/* The table-page header is intentionally overlaid for alignment with the
+   search/filter controls. Keep the page-level Back control above that layer. */
+.app-content-table-page > .app-global-back {
+  position: relative;
+  z-index: 6;
+}
+
+/* Vendor and finding records share the same full-width work canvas. The shell
+   already owns record identity, so the vendor body begins with navigation and
+   contextual actions rather than repeating a second identity card. */
+.app-body .app-work-canvas :is(.vendor-detail, .record-detail) {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+.app-body .app-work-canvas .vendor-detail-navigation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.app-body .app-work-canvas .vendor-detail-navigation-row .workspace-view-tabs {
+  min-width: 0;
+  margin: 0;
+}
+
+.app-body .app-work-canvas .vendor-detail-navigation-row .vendor-detail-actions {
+  align-self: center;
+  padding-bottom: 8px;
+}
+
+@media (max-width: 760px) {
+  .app-body .app-work-canvas .vendor-detail-navigation-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .app-body .app-work-canvas .vendor-detail-navigation-row .vendor-detail-actions {
+    align-self: stretch;
+    padding-bottom: 0;
+  }
 }
