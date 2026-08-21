@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 21, 2026 — Command Center assistant entry
+
+- Added a first-class **Ask Costivra** entry surface directly below the Command Center heading. It reuses the existing customer assistant provider, session history, scoped chat route, and protected document-attachment intake rather than introducing a second chat implementation. A question or uploaded bill/contract now opens the existing conversation drawer so the response, citations, and subsequent work remain in one governed workspace.
+- The dashboard surface is deliberately concise: a factual invitation, the existing attachment-capable composer, and a few operational starting prompts appear before the metrics. It is an initiation surface, not a faux AI dashboard card, and it does not alter the assistant's evidence, authorization, or document-processing boundaries.
+- Refined the entry surface after visual review: it now follows a true centered assistant starting state with generous whitespace and no enclosing card, prompt chips, decorative icon, or secondary feature treatment. The existing document-aware composer is the only interactive focal point.
+- Validation: Node `v24.19.0`; the assistant regression tests passed (2 files, 6 tests) and `git diff --check` passed. Authenticated in-app browser QA verified the App Command Center entry, App assistant drawer, Manage dashboard entry, and Manage assistant drawer at 1280px; the initial Manage render exposed a missing `ArrowUpRight` import, which was fixed and re-verified on a fresh render. The live Next server is listening on port 3000 and `/app` returns HTTP 200. Focused ESLint and the direct TypeScript compiler did not emit a result in the existing OneDrive workspace after bounded waits and are not counted as passing.
+
 ## August 20, 2026 — Unified record-detail refinement
 
 - Completed a cross-route record-detail audit for the customer App and Owner portal. App Findings, bills/documents, expenses, contracts, actions, and results use the shared decision-context detail surface; Vendor keeps its specialized relationship workspace; Manage account/contact, outreach-sequence, mail-thread, invoice-review, and intake-event routes keep their purpose-built detail screens. Manage now keys the page canvas by the full pathname, so selecting a different internal record remounts its detail state instead of retaining a prior record’s form, audit, or scroll state.

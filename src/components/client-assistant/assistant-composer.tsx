@@ -6,7 +6,13 @@ import { AssistantComposerShell, AssistantIconButton } from "@/components/assist
 import { resizeAssistantComposer } from "@/lib/ui/assistant-composer";
 import { useClientAssistant } from "./client-assistant-provider";
 
-export function AssistantComposer() {
+export function AssistantComposer({
+  className,
+  onMessageSubmitted,
+}: {
+  className?: string;
+  onMessageSubmitted?: () => void;
+}) {
   const { state, sendMessage, uploadAttachment, removeAttachment } = useClientAssistant();
   const [text, setText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,7 +35,8 @@ export function AssistantComposer() {
     if ((!text.trim() && state.pendingAttachments.length === 0) || state.sending) return;
     const msg = text;
     setText("");
-    sendMessage(msg);
+    onMessageSubmitted?.();
+    void sendMessage(msg);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,7 +49,7 @@ export function AssistantComposer() {
   };
 
   return (
-    <div className="assistant-composer-wrap">
+    <div className={["assistant-composer-wrap", className].filter(Boolean).join(" ")}>
       {/* Pending Attachments Tray */}
       {state.pendingAttachments.length > 0 && (
         <div className="assistant-attachment-tray">

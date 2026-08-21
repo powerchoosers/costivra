@@ -74,11 +74,13 @@ export function ManageAiDrawer({
   onClose,
   section,
   detailId,
+  initialQuestion,
 }: {
   open: boolean;
   onClose: () => void;
   section: string;
   detailId?: string | null;
+  initialQuestion?: string | null;
 }) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [suggestions, setSuggestions] = useState<ManageAssistantSuggestion[]>([]);
@@ -147,6 +149,7 @@ export function ManageAiDrawer({
 
   useEffect(() => {
     if (!open) return;
+    if (initialQuestion?.trim()) setInput(initialQuestion.trim());
     const loadTimer = window.setTimeout(() => {
       void loadSuggestions();
       void loadSessions();
@@ -158,7 +161,7 @@ export function ManageAiDrawer({
     };
     // Suggestions refresh whenever the operator opens the drawer or changes CRM sections.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, section]);
+  }, [initialQuestion, open, section]);
 
   useEffect(() => {
     if (!open) return;

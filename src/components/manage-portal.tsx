@@ -7,6 +7,7 @@ import {
   Activity,
   Archive,
   ArrowLeft,
+  ArrowUpRight,
   BarChart3,
   AlignCenter,
   AlignLeft,
@@ -102,6 +103,7 @@ import { ManageIntakeOperations } from "@/components/manage-intake-operations";
 import { ManageCategoryIntelligence } from "@/components/manage-category-intelligence";
 import { CompanyLogo } from "@/components/company-logo";
 import { ManageAiDrawer } from "@/components/manage-ai-drawer";
+import { AssistantComposerShell, AssistantIconButton } from "@/components/assistant-workspace";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { ManageNotificationCenter } from "@/components/manage-live-notifications";
 import { ManagePilotOperations } from "@/components/manage-pilot-operations";
@@ -793,6 +795,12 @@ export function ManagePortal({
   const [contextAccount, setContextAccount] = useState<ManageAccount | null>(null);
   const [busy, setBusy] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantInitialQuestion, setAssistantInitialQuestion] = useState<string | null>(null);
+
+  const openManageAssistant = useCallback((question?: string) => {
+    setAssistantInitialQuestion(question?.trim() || null);
+    setAssistantOpen(true);
+  }, []);
 
   useEffect(() => {
     function updateSidebarViewport() {
@@ -1400,7 +1408,7 @@ export function ManagePortal({
               )}
               </div>
             )}
-              <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => setAssistantOpen((current) => !current)}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
+              <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => assistantOpen ? setAssistantOpen(false) : openManageAssistant()}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
               <ManageNotificationCenter soundEnabled={data.operator.notificationSoundEnabled} />
               </div>
             {section === "mail" ? null : section === "settings" || section === "operations" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (
@@ -1482,7 +1490,7 @@ export function ManagePortal({
             ) : <GlobalBackControl className="manage-global-back" />
           )}
           {section === "overview" && (
-            <Overview data={data} />
+            <Overview data={data} onOpenAssistant={openManageAssistant} />
           )}
           {section === "accounts" && (
               detailId ? <AccountDetailPage data={data} accountId={detailId} run={run} onCompose={(contact) => setCompose(contactComposeContext(contact))} onAddContact={(account) => { setContextAccount(account); openDialog("contact"); }} onAddNote={(account) => { setContextAccount(account); openDialog("note"); }} /> : <Accounts
@@ -1666,9 +1674,10 @@ export function ManagePortal({
       <div id="manage-ai-drawer">
         <ManageAiDrawer
           open={assistantOpen}
-          onClose={() => setAssistantOpen(false)}
+          onClose={() => { setAssistantOpen(false); setAssistantInitialQuestion(null); }}
           section={section}
           detailId={detailId}
+          initialQuestion={assistantInitialQuestion}
         />
       </div>
       {dialog === "account" && (
@@ -1767,7 +1776,7 @@ export function ManagePortal({
   );
 }
 
-function Overview({ data }: { data: ManageData }) {
+function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant: (question?: string) => void }) {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     data.accounts[0]?.id ?? null,
   );
@@ -1819,6 +1828,7 @@ function Overview({ data }: { data: ManageData }) {
           <p>One place to manage customers, outreach, and email.</p>
         </div>
       </section>
+      <ManageOverviewAssistant onOpenAssistant={onOpenAssistant} />
       <section className="manage-summary" aria-label="CRM summary">
         <div className="manage-summary-card">
           <div className="manage-summary-meta">
@@ -2025,6 +2035,48 @@ function TableFooter({
         </button>
       </div>
     </footer>
+  );
+}
+
+function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (question?: string) => void }) {
+  const [question, setQuestion] = useState("");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onOpenAssistant(question.trim() || undefined);
+  }
+
+  return (
+    <section className="manage-dashboard-assistant" aria-labelledby="manage-dashboard-assistant-title">
+      <div className="manage-dashboard-assistant__copy">
+        <h2 id="manage-dashboard-assistant-title">What would you like to find?</h2>
+        <p>Ask about an account, contact, follow-up, or the next action in your client work.</p>
+      </div>
+      <form className="manage-dashboard-assistant__form" onSubmit={submit}>
+        <AssistantComposerShell>
+          <AssistantIconButton label="Open Ask Costivra" onClick={() => onOpenAssistant(question.trim() || undefined)}>
+            <CostivraAssistantIcon size={18} />
+          </AssistantIconButton>
+          <textarea
+            className="assistant-composer-textarea"
+            value={question}
+            onChange={(event) => setQuestion(event.target.value.slice(0, 2_000))}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+            placeholder="Ask about the client workspace..."
+            rows={1}
+            aria-label="Ask Costivra about client operations"
+          />
+          <button type="submit" className="manage-dashboard-assistant__send" aria-label="Open Ask Costivra">
+            <ArrowUpRight size={17} aria-hidden="true" />
+          </button>
+        </AssistantComposerShell>
+      </form>
+    </section>
   );
 }
 

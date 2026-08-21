@@ -60,6 +60,7 @@ import { getMonitoringStateLabel, getVendorNextStep, mapDurableStateToUiState, t
 import { groupVendorInvoicesByAccount } from "@/lib/vendors/account-grouping";
 import { getVendorDetailTabHref, resolveVendorDetailTab } from "@/lib/vendors/tab-routing";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
+import { DashboardAssistant } from "@/components/client-assistant/dashboard-assistant";
 import { DocumentUploadExperience } from "@/components/document-upload-experience";
 import type { DocumentUploadCompletion } from "@/lib/documents/client-upload";
 import { getUploadToastNotice } from "@/lib/documents/upload-notifications";
@@ -589,6 +590,7 @@ function CommandCenter({ data }: { data: PortalData }) {
         title="Command Center"
         description={`A live operating view of ${data.organization.name}'s recurring costs.`}
       />
+      <DashboardAssistant />
       <div className="portal-metrics">
         <Metric
           label="Monitored spend"
