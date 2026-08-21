@@ -5956,9 +5956,13 @@ body.modal-open .app-topbar { filter: blur(7px); }
   background: #fff !important;
 }
 
-/* Keep the brand centered in the shared 72px rail header. */
+/* Keep the collapsed brand level with the shared App top-bar control. */
 .app-sidebar .sidebar-brand-row {
-  transform: none;
+  transform: translateY(12px);
+}
+
+.app-shell.sidebar-collapsed .app-sidebar .sidebar-brand-row .logo {
+  gap: 0;
 }
 
 /* The navigation is the only scrolling region in the persistent rail. The
@@ -6052,6 +6056,13 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-shell.sidebar-collapsed .app-nav a:focus-visible::after {
   opacity: 1;
   transform: translate(0,-50%);
+}
+
+/* App uses the same fixed tooltip treatment as Manage. Keeping it outside the
+   nav scrollport prevents the work canvas from clipping or painting over it. */
+.app-shell.sidebar-collapsed .app-nav a::after,
+.app-shell.sidebar-collapsed .app-sidebar-utility a::after {
+  display: none !important;
 }
 
 /* Collapsed navigation tiles are intentionally true squares, not stretched
@@ -6499,7 +6510,8 @@ body.modal-open .app-topbar { filter: blur(7px); }
   display: none;
 }
 
-.manage-shell-v2 .manage-sidebar-tooltip {
+.manage-shell-v2 .manage-sidebar-tooltip,
+.app-body .app-sidebar-tooltip {
   position: fixed;
   z-index: 220;
   max-width: 240px;
@@ -6518,7 +6530,8 @@ body.modal-open .app-topbar { filter: blur(7px); }
   animation: manage-sidebar-tooltip-in 150ms ease both;
 }
 
-.manage-shell-v2 .manage-sidebar-tooltip.is-closing {
+.manage-shell-v2 .manage-sidebar-tooltip.is-closing,
+.app-body .app-sidebar-tooltip.is-closing {
   animation: manage-sidebar-tooltip-out 190ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
@@ -12770,10 +12783,7 @@ button.workspace-notification-row:focus-visible {
 }
 
 .app-body .app-work-canvas .vendor-detail-navigation-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: end;
+  display: block;
 }
 
 .app-body .app-work-canvas .vendor-detail-navigation-row .workspace-view-tabs {
@@ -12781,20 +12791,9 @@ button.workspace-notification-row:focus-visible {
   margin: 0;
 }
 
-.app-body .app-work-canvas .vendor-detail-navigation-row .vendor-detail-actions {
-  align-self: center;
-  padding-bottom: 8px;
-}
-
 @media (max-width: 760px) {
-  .app-body .app-work-canvas .vendor-detail-navigation-row {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    align-items: stretch;
-  }
-
-  .app-body .app-work-canvas .vendor-detail-navigation-row .vendor-detail-actions {
-    align-self: stretch;
-    padding-bottom: 0;
+  .app-body .app-work-canvas .vendor-scope-context .vendor-detail-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }

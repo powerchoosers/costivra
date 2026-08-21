@@ -298,11 +298,43 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
   const [isNavPending, startNavTransition] = useTransition();
 
   const currentPathname = optimisticHref ?? pathname;
+  const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; left: number; top: number; closing?: boolean } | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchSheetRef = useRef<HTMLDivElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const sidebarTooltipCloseTimerRef = useRef<number | null>(null);
+
+  const showSidebarTooltip = useCallback((label: string, element: HTMLElement) => {
+    if (!sidebarCollapsed) return;
+    if (sidebarTooltipCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
+      sidebarTooltipCloseTimerRef.current = null;
+    }
+    const rect = element.getBoundingClientRect();
+    setSidebarTooltip({ label, left: rect.right + 2, top: rect.top + rect.height / 2 });
+  }, [sidebarCollapsed]);
+
+  const clearSidebarTooltip = useCallback(() => {
+    setSidebarTooltip((current) => {
+      if (!current || current.closing) return current;
+      return { ...current, closing: true };
+    });
+    if (sidebarTooltipCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
+    }
+    sidebarTooltipCloseTimerRef.current = window.setTimeout(() => {
+      setSidebarTooltip(null);
+      sidebarTooltipCloseTimerRef.current = null;
+    }, 190);
+  }, []);
+
+  useEffect(() => () => {
+    if (sidebarTooltipCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -599,7 +631,12 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                         aria-label={`Open ${label}`}
                         data-nav-label={label}
                         data-tour={label === "Findings" ? "findings" : label === "Actions" ? "actions" : undefined}
+                        onMouseEnter={(event) => showSidebarTooltip(label, event.currentTarget)}
+                        onMouseLeave={clearSidebarTooltip}
+                        onFocus={(event) => showSidebarTooltip(label, event.currentTarget)}
+                        onBlur={clearSidebarTooltip}
                         onClick={() => {
+                          clearSidebarTooltip();
                           if (href !== pathname) {
                             setOptimisticHref(href);
                             startNavTransition(() => {});
@@ -616,6 +653,15 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
               ))}
             </nav>
           </div>
+          {sidebarTooltip && sidebarCollapsed && (
+            <div
+              className={`app-sidebar-tooltip${sidebarTooltip.closing ? " is-closing" : ""}`}
+              aria-hidden="true"
+              style={{ left: sidebarTooltip.left, top: sidebarTooltip.top }}
+            >
+              {sidebarTooltip.label}
+            </div>
+          )}
           <div className="app-sidebar-foot">
             <nav className="app-sidebar-utility" aria-label="Workspace settings" data-workspace-scrollbar="">
               <Link
@@ -624,7 +670,12 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                 prefetch={true}
                 aria-label="Settings"
                 data-tour="settings"
+                onMouseEnter={(event) => showSidebarTooltip("Settings", event.currentTarget)}
+                onMouseLeave={clearSidebarTooltip}
+                onFocus={(event) => showSidebarTooltip("Settings", event.currentTarget)}
+                onBlur={clearSidebarTooltip}
                 onClick={() => {
+                  clearSidebarTooltip();
                   if (pathname !== "/app/settings") {
                     setOptimisticHref("/app/settings");
                     startNavTransition(() => {});
@@ -701,7 +752,10 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                 type="button"
                 aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 aria-pressed={sidebarCollapsed}
-                onClick={() => setSidebarCollapsedOverride(!sidebarCollapsed)}
+                onClick={() => {
+                  clearSidebarTooltip();
+                  setSidebarCollapsedOverride(!sidebarCollapsed);
+                }}
               >
                 <List aria-hidden="true" size={18} />
               </button>

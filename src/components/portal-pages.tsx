@@ -2543,18 +2543,6 @@ export function VendorDetail({
     <div className="vendor-detail" data-record-detail-root="true">
       <div className="vendor-scope-context">
         <GlobalBackControl className="vendor-back" />
-        <PageScopeIndicator mode="vendor" vendorName={vendor.name} vendorHref={`/app/vendors/${vendor.id}`} />
-      </div>
-
-      <div className="vendor-detail-navigation-row">
-        <WorkspaceViewTabs
-          activeId={activeTab}
-          ariaLabel="Vendor sections"
-          className="workspace-tab-list--record"
-          onChange={handleTabChange}
-          recordNavigation
-          tabs={vendorTabs}
-        />
         <div className="vendor-detail-actions">
           {vendorDocumentIds.length > 0 ? (
             <button
@@ -2567,6 +2555,17 @@ export function VendorDetail({
           ) : null}
           <RecordOverflowMenu items={menuItems} ariaLabel="More vendor actions" />
         </div>
+      </div>
+
+      <div className="vendor-detail-navigation-row">
+        <WorkspaceViewTabs
+          activeId={activeTab}
+          ariaLabel="Vendor sections"
+          className="workspace-tab-list--record"
+          onChange={handleTabChange}
+          recordNavigation
+          tabs={vendorTabs}
+        />
       </div>
 
       <WorkspaceDecisionSummary
