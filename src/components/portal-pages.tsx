@@ -72,6 +72,7 @@ import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { getPlainLanguageReviewReasons, resolveBillsView } from "@/lib/portal/bills-workspace";
 import { PageBreadcrumbs, PageScopeIndicator } from "@/components/page-scope-indicator";
 import { getLegacyWorkspaceRedirect } from "@/lib/portal/scope-routing";
+import { getChronologicalBillDocumentIds } from "@/lib/portal/bill-chronology";
 import {
   actionAssignedToUser,
   actionIsCompleted,
@@ -98,25 +99,6 @@ import {
 } from "@/lib/portal/workflow-workspaces";
 
 type ModalState = null | "expense" | "contract" | "invite" | "upload" | "monitor";
-
-/** Newest first so bill review moves predictably backward through a vendor's history. */
-function getChronologicalBillDocumentIds(
-  documents: PortalData["documents"],
-  invoices: PortalData["invoices"],
-) {
-  const invoiceDateByDocumentId = new Map(
-    invoices
-      .filter((invoice) => Boolean(invoice.documentId))
-      .map((invoice) => [invoice.documentId, invoice.invoiceDate ?? invoice.servicePeriodEnd ?? invoice.updatedAt]),
-  );
-  const createdAtByDocumentId = new Map(documents.map((document) => [document.id, document.createdAt]));
-  return Array.from(new Set([...documents.map((document) => document.id), ...invoiceDateByDocumentId.keys()]))
-    .sort((left, right) => {
-      const rightDate = invoiceDateByDocumentId.get(right) ?? createdAtByDocumentId.get(right) ?? "";
-      const leftDate = invoiceDateByDocumentId.get(left) ?? createdAtByDocumentId.get(left) ?? "";
-      return rightDate.localeCompare(leftDate);
-    });
-}
 
 type ApiOptions = {
   method?: string;
@@ -2184,6 +2166,7 @@ export function VendorDetail({
   const toast = useToast();
   const { openInspector } = useBillInspector();
   const vendor = data.vendors.find((item) => item.id === vendorId);
+  const vendorRelationshipId = vendor?.relationshipId ?? null;
   const requestedAccount = searchParams?.get("account");
   const requestedTab = resolveVendorDetailTab(searchParams?.get("tab"));
   const activeTab = requestedTab;
@@ -2194,7 +2177,12 @@ export function VendorDetail({
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [auditHistory, setAuditHistory] = useState<AuditHistoryItem[]>([]);
+  const [auditHistoryResult, setAuditHistoryResult] = useState<{
+    error: string | null;
+    history: AuditHistoryItem[];
+    key: string;
+  }>({ error: null, history: [], key: "" });
+  const [historyReloadToken, setHistoryReloadToken] = useState(0);
   const [monitoring, setMonitoring] = useState<VendorMonitoringRecord | null>(null);
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
   const workspaceCurrency = resolveRecordDetailCurrency(data.organization.currency);
@@ -2215,6 +2203,17 @@ export function VendorDetail({
     );
   }, [router, searchParams, vendorId]);
 
+  const historyRequestKey = vendorRelationshipId
+    ? `${vendorRelationshipId}:${activeTab}:${historyReloadToken}`
+    : "";
+  const auditHistory = auditHistoryResult.key === historyRequestKey
+    ? auditHistoryResult.history
+    : [];
+  const auditHistoryLoading = activeTab === "activity" && auditHistoryResult.key !== historyRequestKey;
+  const auditHistoryError = auditHistoryResult.key === historyRequestKey
+    ? auditHistoryResult.error
+    : null;
+
   useEffect(() => {
     if (!vendor) return;
     void fetch(`/api/portal/vendors/${vendor.relationshipId}/monitoring`, { cache: "no-store" })
@@ -2228,12 +2227,33 @@ export function VendorDetail({
   }, [vendor]);
 
   useEffect(() => {
-    if (!vendor || activeTab !== "activity") return;
-    void fetch(`/api/portal/vendors/${vendor.relationshipId}/history`, { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() : { history: [] })
-      .then((payload) => setAuditHistory(Array.isArray(payload.history) ? payload.history : []))
-      .catch(() => setAuditHistory([]));
-  }, [activeTab, vendor]);
+    if (!vendorRelationshipId || activeTab !== "activity") return;
+    const requestKey = `${vendorRelationshipId}:${activeTab}:${historyReloadToken}`;
+    let cancelled = false;
+    void fetch(`/api/portal/vendors/${vendorRelationshipId}/history`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Vendor history is unavailable.");
+        return response.json();
+      })
+      .then((payload) => {
+        if (cancelled) return;
+        setAuditHistoryResult({
+          error: null,
+          history: Array.isArray(payload.history) ? payload.history : [],
+          key: requestKey,
+        });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setAuditHistoryResult({
+            error: error instanceof Error ? error.message : "Vendor history is unavailable.",
+            history: [],
+            key: requestKey,
+          });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [activeTab, historyReloadToken, vendorRelationshipId]);
 
   if (!vendor)
     return (
@@ -2488,7 +2508,7 @@ export function VendorDetail({
     { id: "bills", label: "Bills", count: expenses.length + invoices.length + documents.length },
     { id: "contracts", label: "Contracts", count: contracts.length },
     { id: "findings", label: "Findings", count: opportunities.length + actions.length },
-    { id: "activity", label: "Activity", count: auditHistory.length },
+    { id: "activity", label: "Activity", count: Math.max(auditHistory.length, data.auditEvents.filter((event) => event.resourceId === vendor.relationshipId).length) },
   ];
 
   const potentialFindings = opportunities.filter(findingHasCustomerVisibleMonetaryClaim);
@@ -2665,7 +2685,13 @@ export function VendorDetail({
               <p>Combined audit log of uploads, reviews, approvals, and status changes for this vendor.</p>
             </div>
           </div>
-          <RecordChangeHistory history={auditHistory} emptyMessage="No relationship activity has been recorded yet." />
+          <RecordChangeHistory
+            error={auditHistoryError}
+            history={auditHistory}
+            loading={auditHistoryLoading}
+            onRetry={() => setHistoryReloadToken((current) => current + 1)}
+            emptyMessage="No relationship activity has been recorded yet."
+          />
         </section>
       )}
 

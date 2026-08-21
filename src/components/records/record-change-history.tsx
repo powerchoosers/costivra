@@ -1,6 +1,11 @@
 "use client";
 
-import { Clock, User } from "@/lib/icons";
+import { AlertCircle, Clock, User } from "@/lib/icons";
+import { SkeletonBlock } from "@/components/ui/skeletons";
+import {
+  formatRecordHistoryTimestamp,
+  getRecordHistoryDisplayState,
+} from "@/lib/records/record-history-presentation";
 
 export type AuditHistoryItem = {
   id: string;
@@ -12,112 +17,88 @@ export type AuditHistoryItem = {
 };
 
 export type RecordChangeHistoryProps = {
+  error?: string | null;
   history: AuditHistoryItem[];
   emptyMessage?: string;
+  loading?: boolean;
+  onRetry?: () => void;
 };
 
 export function RecordChangeHistory({
+  error = null,
   history,
   emptyMessage = "No change history recorded yet for this item.",
+  loading = false,
+  onRetry,
 }: RecordChangeHistoryProps) {
-  if (!history || history.length === 0) {
+  const state = getRecordHistoryDisplayState(loading, history.length, error);
+
+  if (state === "loading") {
     return (
       <div
-        style={{
-          padding: "32px 20px",
-          textAlign: "center",
-          background: "var(--assistant-bg, #f8fafc)",
-          borderRadius: 12,
-          border: "1px solid rgba(30, 41, 59, 0.08)",
-          color: "var(--assistant-muted, #64748b)",
-          fontSize: "0.86rem",
-        }}
+        aria-busy="true"
+        aria-label="Loading record history"
+        className="record-change-history record-change-history--loading"
+        role="status"
       >
-        <Clock size={28} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
-        <p style={{ margin: 0 }}>{emptyMessage}</p>
+        {["first", "second", "third"].map((key) => (
+          <div className="record-change-history__loading-row" key={key}>
+            <SkeletonBlock borderRadius="10px" height={34} width={34} />
+            <div>
+              <SkeletonBlock height=".75rem" width="42%" />
+              <SkeletonBlock height=".65rem" width="78%" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <div className="record-change-history record-change-history--error" role="alert">
+        <AlertCircle aria-hidden="true" size={20} />
+        <p>{error}</p>
+        {onRetry ? <button className="button button-secondary" type="button" onClick={onRetry}>Try again</button> : null}
+      </div>
+    );
+  }
+
+  if (state === "empty") {
+    return (
+      <div
+        className="record-change-history record-change-history--empty"
+      >
+        <Clock aria-hidden="true" size={24} />
+        <p>{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <ol className="record-change-history">
       {history.map((item) => {
-        const formattedDate = new Date(item.timestamp).toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        });
-
         return (
-          <div
+          <li
             key={item.id}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 12,
-              padding: "12px 14px",
-              borderRadius: 10,
-              background: "#ffffff",
-              border: "1px solid rgba(30, 41, 59, 0.10)",
-              fontSize: "0.85rem",
-            }}
           >
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: "rgba(0, 47, 167, 0.06)",
-                color: "var(--assistant-accent, #002FA7)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
+            <span className="record-change-history__icon" aria-hidden="true">
               <User size={16} />
-            </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <strong style={{ color: "var(--assistant-text, #0f172a)", fontWeight: 650 }}>
-                  {item.actorName}
-                </strong>
-                <span style={{ fontSize: "0.76rem", color: "var(--assistant-muted, #64748b)", flexShrink: 0 }}>
-                  {formattedDate}
-                </span>
+            </span>
+            <div className="record-change-history__body">
+              <div className="record-change-history__heading">
+                <strong>{item.actorName}</strong>
+                <time dateTime={item.timestamp}>{formatRecordHistoryTimestamp(item.timestamp)}</time>
               </div>
-
-              <div style={{ color: "var(--assistant-text-secondary, #475569)", marginTop: 2, lineHeight: 1.4 }}>
-                {item.summary}
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                <span
-                  style={{
-                    fontSize: "0.7rem",
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    padding: "1px 6px",
-                    borderRadius: 4,
-                    background: "rgba(30, 41, 59, 0.06)",
-                    color: "var(--assistant-muted, #64748b)",
-                  }}
-                >
-                  {item.action}
-                </span>
-                {item.source && (
-                  <span style={{ fontSize: "0.72rem", color: "var(--assistant-muted, #64748b)" }}>
-                    • {item.source}
-                  </span>
-                )}
+              <p>{item.summary}</p>
+              <div className="record-change-history__meta">
+                <span>{item.action}</span>
+                {item.source ? <span>{item.source}</span> : null}
               </div>
             </div>
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }

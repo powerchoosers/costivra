@@ -30,6 +30,7 @@ export default function BreakdownPdfViewer({
   const [activePage, setActivePage] = useState<number>(1);
   const [scale, setScale] = useState<number>(1);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [firstPageRendered, setFirstPageRendered] = useState(false);
 
   // Dynamically observe container width to adapt PDF page width to the split-pane
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function BreakdownPdfViewer({
     ({ numPages: count }: { numPages: number }) => {
       setNumPages(count);
       setLoadError(null);
+      setFirstPageRendered(false);
       if (initialPage && initialPage >= 1 && initialPage <= count) {
         setActivePage(initialPage);
       }
@@ -63,7 +65,12 @@ export default function BreakdownPdfViewer({
   );
 
   const handleDocumentLoadError = useCallback((error: Error) => {
+    setFirstPageRendered(false);
     setLoadError(error.message || "Failed to load PDF preview.");
+  }, []);
+
+  const handleFirstPageRender = useCallback(() => {
+    setFirstPageRendered(true);
   }, []);
 
   // Scroll to a specific page when requested
@@ -202,46 +209,50 @@ export default function BreakdownPdfViewer({
         ref={containerRef}
         onScroll={handleScroll}
       >
-        <Document
-          file={sourceUrl}
-          onLoadSuccess={handleDocumentLoadSuccess}
-          onLoadError={handleDocumentLoadError}
-          loading={
-            <div className="breakdown-pdf-loading">
+        <div className={`breakdown-pdf-stage ${firstPageRendered ? "is-ready" : "is-loading"}`} aria-busy={!firstPageRendered}>
+          <Document
+            file={sourceUrl}
+            onLoadSuccess={handleDocumentLoadSuccess}
+            onLoadError={handleDocumentLoadError}
+            loading={null}
+            error={
+              <div className="breakdown-pdf-error">
+                <p>Could not render PDF preview canvas.</p>
+                {loadError && <small>{loadError}</small>}
+                <a href={sourceUrl} target="_blank" rel="noreferrer" className="breakdown-pdf-fallback-btn">
+                  <Download size={13} /> Download source file
+                </a>
+              </div>
+            }
+          >
+            {numPages > 0 &&
+              Array.from(new Array(numPages), (_, index) => {
+                const pageNum = index + 1;
+                return (
+                  <div
+                    key={`page_${pageNum}`}
+                    id={`breakdown-page-${pageNum}`}
+                    className={`breakdown-pdf-page-card ${activePage === pageNum ? "is-active" : ""}`}
+                  >
+                    <div className="breakdown-pdf-page-tag">Page {pageNum}</div>
+                    <Page
+                      pageNumber={pageNum}
+                      width={containerWidth * scale}
+                      renderTextLayer
+                      renderAnnotationLayer
+                      onRenderSuccess={pageNum === 1 ? handleFirstPageRender : undefined}
+                    />
+                  </div>
+                );
+              })}
+          </Document>
+          {!loadError ? (
+            <div className="breakdown-pdf-loading" role="status">
               <div className="breakdown-pdf-loading-mark" aria-hidden="true"><span /><span /><span /></div>
               <div><strong>Preparing source view</strong><p>Rendering the protected original.</p></div>
             </div>
-          }
-          error={
-            <div className="breakdown-pdf-error">
-              <p>Could not render PDF preview canvas.</p>
-              {loadError && <small>{loadError}</small>}
-              <a href={sourceUrl} target="_blank" rel="noreferrer" className="breakdown-pdf-fallback-btn">
-                <Download size={13} /> Download source file
-              </a>
-            </div>
-          }
-        >
-          {numPages > 0 &&
-            Array.from(new Array(numPages), (_, index) => {
-              const pageNum = index + 1;
-              return (
-                <div
-                  key={`page_${pageNum}`}
-                  id={`breakdown-page-${pageNum}`}
-                  className={`breakdown-pdf-page-card ${activePage === pageNum ? "is-active" : ""}`}
-                >
-                  <div className="breakdown-pdf-page-tag">Page {pageNum}</div>
-                  <Page
-                    pageNumber={pageNum}
-                    width={containerWidth * scale}
-                    renderTextLayer
-                    renderAnnotationLayer
-                  />
-                </div>
-              );
-            })}
-        </Document>
+          ) : null}
+        </div>
       </div>
 
       <style>{`
@@ -332,6 +343,29 @@ export default function BreakdownPdfViewer({
           scrollbar-width: thin;
           scrollbar-color: rgba(148, 163, 184, 0.4) rgba(15, 23, 42, 0.6);
         }
+        .breakdown-pdf-stage {
+          position: relative;
+          width: 100%;
+          min-height: 100%;
+        }
+        .breakdown-pdf-stage > .react-pdf__Document {
+          display: flex;
+          width: 100%;
+          min-height: 100%;
+          flex-direction: column;
+          align-items: center;
+          transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .breakdown-pdf-stage.is-loading > .react-pdf__Document {
+          opacity: 0;
+          transform: translateY(6px);
+          pointer-events: none;
+        }
+        .breakdown-pdf-stage.is-ready > .react-pdf__Document {
+          opacity: 1;
+          transform: translateY(0);
+          transition-delay: 0.52s;
+        }
         .breakdown-pdf-scroll-container::-webkit-scrollbar {
           width: 8px;
           height: 8px;
@@ -353,9 +387,23 @@ export default function BreakdownPdfViewer({
           align-items: center;
           justify-content: center;
           gap: 12px;
+          box-sizing: border-box;
+          min-height: 100%;
+          width: 100%;
           padding: 40px 20px;
           color: #94a3b8;
           text-align: center;
+        }
+        .breakdown-pdf-loading {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          transition: opacity 0.2s ease 0.52s, visibility 0s linear 0.72s;
+        }
+        .breakdown-pdf-stage.is-ready .breakdown-pdf-loading {
+          visibility: hidden;
+          opacity: 0;
+          pointer-events: none;
         }
         .breakdown-pdf-loading strong { display: block; color: #e2e8f0; font-size: 0.78rem; }
         .breakdown-pdf-loading p { margin: 5px 0 0; font-size: 0.72rem; }
@@ -449,6 +497,8 @@ export default function BreakdownPdfViewer({
         @media (prefers-reduced-motion: reduce) {
           .breakdown-pdf-loading-mark span,
           .breakdown-pdf-page-card { animation: none; }
+          .breakdown-pdf-stage > .react-pdf__Document,
+          .breakdown-pdf-loading { transition: none; }
         }
       `}</style>
     </div>

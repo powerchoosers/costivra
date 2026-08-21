@@ -17,14 +17,42 @@ import {
 import { formatFinancialDate } from "@/lib/ui/date-format";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 
+function BillBreakdownLoadingState({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={`bill-breakdown-loading-state${compact ? " is-compact" : ""}`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="bill-breakdown-loading-mark" aria-hidden="true">
+        <FileText size={compact ? 19 : 24} strokeWidth={1.7} />
+        <span className="bill-breakdown-loading-scan" />
+      </div>
+      <div className="bill-breakdown-loading-copy">
+        <p className="bill-breakdown-loading-eyebrow">Preparing bill review</p>
+        <p className="bill-breakdown-loading-title">
+          {compact ? "Loading document preview" : "Opening source and evidence"}
+        </p>
+        {!compact ? (
+          <p className="bill-breakdown-loading-description">
+            Organizing the protected source, bill structure, and supporting evidence.
+          </p>
+        ) : null}
+      </div>
+      {!compact ? (
+        <div className="bill-breakdown-loading-steps" aria-hidden="true">
+          <span><ShieldCheck size={13} /> Protected source</span>
+          <span><i /> Bill structure</span>
+          <span><i /> Evidence links</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const BreakdownPdfViewer = dynamic(() => import("@/components/breakdown-pdf-viewer"), {
   ssr: false,
-  loading: () => (
-    <div className="bill-breakdown-preview-loading">
-      <span className="bill-breakdown-spinner" />
-      <p>Loading document preview…</p>
-    </div>
-  ),
+  loading: () => <BillBreakdownLoadingState compact />,
 });
 
 export type BreakdownData = {
@@ -87,6 +115,33 @@ export type BreakdownData = {
     reviewRequired: boolean;
     matchedAlias: string | null;
     evidenceIds: string[];
+  }>;
+  billComposition?: Array<{
+    chargeClass: string;
+    total: number;
+    itemCount: number;
+  }>;
+  invoiceSummary?: {
+    currentCharges: number | null;
+    previousBalance: number | null;
+    paymentsAndCredits: number | null;
+    amountDue: number | null;
+  };
+  priorRecordedBill?: {
+    invoiceNumber: string | null;
+    invoiceDate: string | null;
+    totalAmount: number;
+    changeAmount: number;
+    changePercentage: number | null;
+  } | null;
+  serviceFacts?: Array<{
+    label: string;
+    value: number;
+    unit: string;
+  }>;
+  categoryReviewLens?: Array<{
+    label: string;
+    fields: string[];
   }>;
   evidence: Array<{
     id: string;
@@ -152,6 +207,20 @@ const money = (value: number | null | undefined, currency = "USD") =>
 const titleCase = (value: string) =>
   value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
+const chargeClassLabel = (value: string) => {
+  if (value === "unknown") return "Needs classification";
+  if (value === "pass_through") return "Pass-through delivery";
+  if (value === "one_time") return "One-time charges";
+  return titleCase(value);
+};
+
+const formatServiceFact = (fact: NonNullable<BreakdownData["serviceFacts"]>[number]) => {
+  if (fact.unit === "USD/kWh") {
+    return `${fact.value.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 6 })} / kWh`;
+  }
+  return `${fact.value.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${fact.unit}`;
+};
+
 interface BillBreakdownContentProps {
   documentId: string;
   documentIds: string[];
@@ -170,6 +239,7 @@ function BillBreakdownContent({
   const [error, setError] = useState<string | null>(null);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [targetPdfPage, setTargetPdfPage] = useState<number | null>(null);
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
   const { openDrawer, setContext } = useClientAssistant();
 
   useEffect(() => {
@@ -256,6 +326,22 @@ function BillBreakdownContent({
     data.marketBenchmark.estimatedMarketRate != null &&
     data.marketBenchmark.variancePercentage != null;
   const currency = data?.invoice?.currency ?? "USD";
+  const balanceRows = [
+    { label: "Previous balance", value: data?.invoiceSummary?.previousBalance },
+    { label: "Payments & credits", value: data?.invoiceSummary?.paymentsAndCredits },
+    { label: "Current charges", value: data?.invoiceSummary?.currentCharges },
+    { label: "Amount due", value: data?.invoiceSummary?.amountDue ?? data?.invoice?.totalAmount },
+  ].filter((row) => row.value != null);
+  const reviewAgenda = [...(data?.guidance ?? [])]
+    .sort((left, right) => {
+      const priority = { high: 0, medium: 1, low: 2 } as const;
+      return (priority[left.priority as keyof typeof priority] ?? 3) - (priority[right.priority as keyof typeof priority] ?? 3);
+    })
+    .slice(0, 3);
+  const visibleEvidence = showAllEvidence ? data?.evidence ?? [] : (data?.evidence ?? []).slice(0, 8);
+  const marketRequirements = data?.marketBenchmark.missingDimensions
+    .map((dimension) => titleCase(dimension))
+    .slice(0, 4) ?? [];
   const marketPosition = !benchmarkAvailable
     ? null
     : data.marketBenchmark.variancePercentage! > 0
@@ -268,7 +354,8 @@ function BillBreakdownContent({
       ? ""
       : data.marketBenchmark.variancePercentage > 0
         ? "is-above"
-        : "is-below";
+      : "is-below";
+  const priorBillIncreased = (data?.priorRecordedBill?.changeAmount ?? 0) > 0;
 
   return (
     <>
@@ -341,6 +428,18 @@ function BillBreakdownContent({
               <Download size={15} /> Download
             </a>
           )}
+          {data?.document.downloadUrl && (
+            <a
+              className="bill-breakdown-mobile-source"
+              href={data.document.downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open source file"
+              title="Open source file"
+            >
+              <FileText size={16} />
+            </a>
+          )}
           <button
             type="button"
             className="bill-breakdown-close"
@@ -353,10 +452,7 @@ function BillBreakdownContent({
       </header>
 
       {loading ? (
-        <div className="bill-breakdown-state">
-          <span className="bill-breakdown-spinner" />
-          <p>Loading source evidence and bill analysis…</p>
-        </div>
+        <div className="bill-breakdown-state"><BillBreakdownLoadingState /></div>
       ) : processingMessage ? (
         <div className="bill-breakdown-state">
           <CircleHelp size={36} />
@@ -432,7 +528,7 @@ function BillBreakdownContent({
               </div>
               <div className="bill-breakdown-overview__amount">
                 <span>Amount due</span>
-                <strong>{money(data.invoice?.totalAmount, currency)}</strong>
+                <strong>{money(data.invoiceSummary?.amountDue ?? data.invoice?.totalAmount, currency)}</strong>
               </div>
               <div className="bill-breakdown-overview__facts">
                 <div><span>Invoice</span><strong>{data.invoice?.invoiceNumber ?? "Not extracted"}</strong></div>
@@ -440,6 +536,35 @@ function BillBreakdownContent({
                 <div><span>Evidence</span><strong>{data.evidence.length} references</strong></div>
               </div>
             </article>
+
+            {data.priorRecordedBill ? (
+              <article className="bill-breakdown-card bill-breakdown-movement-card">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Bill movement</span>
+                    <h3>Compared with the prior recorded bill</h3>
+                  </div>
+                </div>
+                <div className="bill-breakdown-movement-grid">
+                  <div>
+                    <span>Prior bill</span>
+                    <strong>{money(data.priorRecordedBill.totalAmount, currency)}</strong>
+                    <small>{formatFinancialDate(data.priorRecordedBill.invoiceDate, "Date not recorded")}</small>
+                  </div>
+                  <div>
+                    <span>This bill</span>
+                    <strong>{money(data.invoice?.totalAmount, currency)}</strong>
+                    <small>Recorded bill total</small>
+                  </div>
+                  <div className={priorBillIncreased ? "is-increase" : "is-decrease"}>
+                    <span>Change</span>
+                    <strong>{priorBillIncreased ? "+" : ""}{money(data.priorRecordedBill.changeAmount, currency)}</strong>
+                    <small>{data.priorRecordedBill.changePercentage == null ? "Prior total was zero" : `${priorBillIncreased ? "+" : ""}${data.priorRecordedBill.changePercentage}% vs. prior bill`}</small>
+                  </div>
+                </div>
+                <p className="bill-breakdown-movement-note">This is a historical bill-to-bill comparison, not a market-price or savings conclusion.</p>
+              </article>
+            ) : null}
 
             <article className="bill-breakdown-card bill-breakdown-decision-card">
               <div className="bill-breakdown-card-heading">
@@ -467,6 +592,11 @@ function BillBreakdownContent({
                   <div>
                     <strong>{data.marketBenchmark.benchmarkStatus === "quote_required" ? "A live quote is required" : "More bill detail is needed"}</strong>
                     <p>{data.marketBenchmark.benchmarkStatus === "quote_required" ? "Public benchmarks are not comparable enough for this service. Review current quotes with the same scope and commercial terms." : "Costivra will not estimate a market position from an invoice total alone. It needs service, location, usage, term, and comparable-offer details."}</p>
+                    {marketRequirements.length > 0 ? (
+                      <p className="bill-breakdown-market-requirements">
+                        Missing comparison inputs: {marketRequirements.join(" · ")}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -476,31 +606,100 @@ function BillBreakdownContent({
               <p className="bill-breakdown-source-note">{data.marketBenchmark.benchmarkSource}{data.marketBenchmark.asOf ? ` · As of ${formatFinancialDate(data.marketBenchmark.asOf)}` : ""}</p>
             </article>
 
-            <article className="bill-breakdown-card bill-breakdown-record-card">
+            {reviewAgenda.length > 0 ? (
+            <article className="bill-breakdown-card bill-breakdown-agenda-card">
               <div className="bill-breakdown-card-heading">
                 <div>
-                  <span className="bill-breakdown-label">Extracted record</span>
-                  <h3>{data.vendor?.name ?? "Vendor not matched"}</h3>
+                  <span className="bill-breakdown-label">Review agenda</span>
+                  <h3>Start with the decisions that change the record</h3>
                 </div>
-                <span className="bill-breakdown-category">
-                  {data.category?.displayName ?? data.vendor?.category ?? "Unclassified"}
-                </span>
               </div>
-              <div className="bill-breakdown-metrics">
-                <div>
-                  <span>Total</span>
-                  <strong>{money(data.invoice?.totalAmount, currency)}</strong>
-                </div>
-                <div>
-                  <span>Invoice</span>
-                  <strong>{data.invoice?.invoiceNumber ?? "Not extracted"}</strong>
-                </div>
-                <div>
-                  <span>Date</span>
-                  <strong>{formatFinancialDate(data.invoice?.invoiceDate, "Not extracted")}</strong>
-                </div>
+              <div className="bill-breakdown-agenda">
+                {reviewAgenda.map((item, index) => (
+                  <div key={`${item.title}-${index}`}>
+                    <span className={`bill-breakdown-agenda-priority is-${item.priority}`}>{item.priority}</span>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.action}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </article>
+            ) : null}
+
+            {balanceRows.length > 1 ? (
+              <article className="bill-breakdown-card bill-breakdown-balance-card">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Balance reconciliation</span>
+                    <h3>How the amount due is formed</h3>
+                  </div>
+                </div>
+                <dl className="bill-breakdown-balance-list">
+                  {balanceRows.map((row) => (
+                    <div key={row.label} className={row.label === "Amount due" ? "is-total" : ""}>
+                      <dt>{row.label}</dt>
+                      <dd>{money(row.value, currency)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </article>
+            ) : null}
+
+            {(data.serviceFacts?.length || data.billComposition?.length) ? (
+              <article className="bill-breakdown-card bill-breakdown-anatomy-card">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Bill anatomy</span>
+                    <h3>What makes up this charge</h3>
+                  </div>
+                </div>
+                {data.serviceFacts?.length ? (
+                  <dl className="bill-breakdown-service-facts">
+                    {data.serviceFacts.map((fact) => (
+                      <div key={fact.label}>
+                        <dt>{fact.label}</dt>
+                        <dd>{formatServiceFact(fact)}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {data.billComposition?.length ? (
+                  <div className="bill-breakdown-composition" aria-label="Charge composition">
+                    {data.billComposition.map((group) => (
+                      <div key={group.chargeClass}>
+                        <span>{chargeClassLabel(group.chargeClass)}</span>
+                        <strong>{money(group.total, currency)}</strong>
+                        <small>{group.itemCount} {group.itemCount === 1 ? "line" : "lines"}</small>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {data.invoiceSummary?.currentCharges != null && data.invoiceSummary.amountDue != null && data.invoiceSummary.currentCharges !== data.invoiceSummary.amountDue ? (
+                  <p className="bill-breakdown-reconciliation-note">Current charges are {money(data.invoiceSummary.currentCharges, currency)}; the amount due includes the bill’s recorded balance and payment activity.</p>
+                ) : null}
+              </article>
+            ) : null}
+
+            {data.categoryReviewLens?.length ? (
+              <article className="bill-breakdown-card bill-breakdown-category-lens">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Category lens</span>
+                    <h3>What this {data.category?.displayName ?? "bill"} review checks</h3>
+                  </div>
+                </div>
+                <div className="bill-breakdown-category-lens-grid">
+                  {data.categoryReviewLens.map((group) => (
+                    <div key={group.label}>
+                      <strong>{group.label}</strong>
+                      <span>{group.fields.join(" · ")}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ) : null}
 
             {data.lineItems.length > 0 && (
               <article className="bill-breakdown-card">
@@ -538,13 +737,23 @@ function BillBreakdownContent({
                               </span>
                               <p>“{primaryEvidence.textExcerpt}”</p>
                               {isPdf && primaryEvidence.pageNumber != null ? (
-                                <button
-                                  type="button"
-                                  className="bill-breakdown-page-jump-btn"
-                                  onClick={() => setTargetPdfPage(primaryEvidence.pageNumber)}
-                                >
-                                  Jump to page {primaryEvidence.pageNumber} <ExternalLink size={11} />
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    className="bill-breakdown-page-jump-btn"
+                                    onClick={() => setTargetPdfPage(primaryEvidence.pageNumber)}
+                                  >
+                                    Jump to page {primaryEvidence.pageNumber} <ExternalLink size={11} />
+                                  </button>
+                                  <a
+                                    className="bill-breakdown-mobile-page-link"
+                                    href={`${data.document.downloadUrl}#page=${primaryEvidence.pageNumber}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Open source page <ExternalLink size={11} />
+                                  </a>
+                                </>
                               ) : data.document.downloadUrl && primaryEvidence.pageNumber != null ? (
                                 <a
                                   href={`${data.document.downloadUrl}#page=${primaryEvidence.pageNumber}`}
@@ -595,26 +804,6 @@ function BillBreakdownContent({
               </article>
             )}
 
-            <article className="bill-breakdown-card">
-              <div className="bill-breakdown-card-heading">
-                <div>
-                  <span className="bill-breakdown-label">Recommended next steps</span>
-                  <h3>Evidence-led actions</h3>
-                </div>
-              </div>
-              <div className="bill-breakdown-guidance">
-                {data.guidance.map((item, index) => (
-                  <div key={`${item.title}-${index}`}>
-                    <span>{index + 1}</span>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{item.action}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-
             {data.evidence.length > 0 && (
               <article className="bill-breakdown-card">
                 <div className="bill-breakdown-card-heading">
@@ -627,7 +816,7 @@ function BillBreakdownContent({
                   </div>
                 </div>
                 <div className="bill-breakdown-evidence">
-                  {data.evidence.map((item) => (
+                  {visibleEvidence.map((item) => (
                     <blockquote key={item.id}>
                       <span>
                         {item.pageNumber == null ? "Source page unknown" : `Page ${item.pageNumber}`}
@@ -635,17 +824,44 @@ function BillBreakdownContent({
                       </span>
                       <p>“{item.textExcerpt}”</p>
                       {isPdf && item.pageNumber != null && (
-                        <button
-                          type="button"
-                          className="bill-breakdown-page-jump-btn"
-                          onClick={() => setTargetPdfPage(item.pageNumber)}
-                        >
-                          Jump to page {item.pageNumber} <ExternalLink size={11} />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="bill-breakdown-page-jump-btn"
+                            onClick={() => setTargetPdfPage(item.pageNumber)}
+                          >
+                            Jump to page {item.pageNumber} <ExternalLink size={11} />
+                          </button>
+                          <a
+                            className="bill-breakdown-mobile-page-link"
+                            href={`${data.document.downloadUrl}#page=${item.pageNumber}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open source page <ExternalLink size={11} />
+                          </a>
+                        </>
                       )}
                     </blockquote>
                   ))}
                 </div>
+                {data.evidence.length > visibleEvidence.length ? (
+                  <button
+                    type="button"
+                    className="bill-breakdown-evidence-toggle"
+                    onClick={() => setShowAllEvidence(true)}
+                  >
+                    Show all {data.evidence.length} references
+                  </button>
+                ) : showAllEvidence && data.evidence.length > 8 ? (
+                  <button
+                    type="button"
+                    className="bill-breakdown-evidence-toggle"
+                    onClick={() => setShowAllEvidence(false)}
+                  >
+                    Show fewer references
+                  </button>
+                ) : null}
               </article>
             )}
           </div>
@@ -684,7 +900,7 @@ export function BillBreakdownModal({
   }, [closingId, documentId]);
 
   const finishClose = useCallback((event: AnimationEvent<HTMLDivElement>) => {
-    if (!closingId || event.animationName !== "billModalFadeOut") return;
+    if (event.target !== event.currentTarget || !closingId || event.animationName !== "billModalFadeOut") return;
     setClosingId(null);
     onClose();
   }, [closingId, onClose]);
@@ -798,8 +1014,20 @@ export function BillBreakdownModal({
           }
           100% {
             opacity: 0;
-          transform: scale(0.985) translateY(8px);
+            transform: scale(0.985) translateY(8px);
           }
+        }
+        @keyframes billLoadingEnter {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes billLoadingScan {
+          0%, 100% { transform: translateY(0); opacity: 0.36; }
+          48% { transform: translateY(-42px); opacity: 1; }
+        }
+        @keyframes billLoadingPulse {
+          0%, 100% { opacity: 0.45; transform: scale(0.82); }
+          50% { opacity: 1; transform: scale(1); }
         }
         .bill-breakdown-header {
           flex: 0 0 72px;
@@ -923,13 +1151,99 @@ export function BillBreakdownModal({
           gap: 14px;
           color: #94a3b8;
         }
-        .bill-breakdown-spinner {
-          width: 36px;
-          height: 36px;
-          border: 3px solid rgba(255, 255, 255, 0.1);
-          border-top-color: #60a5fa;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
+        .bill-breakdown-loading-state {
+          width: min(100%, 390px);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          color: #cbd5e1;
+          animation: billLoadingEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .bill-breakdown-loading-mark {
+          width: 56px;
+          height: 66px;
+          display: grid;
+          place-items: center;
+          position: relative;
+          overflow: hidden;
+          border: 1px solid rgba(125, 211, 252, 0.24);
+          border-radius: 16px;
+          background: linear-gradient(145deg, rgba(30, 64, 175, 0.18), rgba(15, 23, 42, 0.15));
+          color: #bae6fd;
+          box-shadow: 0 10px 30px rgba(2, 6, 23, 0.22);
+        }
+        .bill-breakdown-loading-scan {
+          position: absolute;
+          inset: auto 8px 8px;
+          height: 1px;
+          background: rgba(186, 230, 253, 0.92);
+          box-shadow: 0 0 12px rgba(125, 211, 252, 0.84);
+          animation: billLoadingScan 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+        }
+        .bill-breakdown-loading-copy { margin-top: 18px; }
+        .bill-breakdown-loading-eyebrow {
+          margin: 0;
+          color: #7dd3fc;
+          font-size: 0.66rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .bill-breakdown-loading-title {
+          margin: 7px 0 0;
+          color: #f8fafc;
+          font-size: 1rem;
+          font-weight: 650;
+          letter-spacing: -0.012em;
+        }
+        .bill-breakdown-loading-description {
+          max-width: 330px;
+          margin: 7px 0 0;
+          color: #94a3b8;
+          font-size: 0.8rem;
+          line-height: 1.55;
+        }
+        .bill-breakdown-loading-steps {
+          width: 100%;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 6px;
+          margin-top: 20px;
+          padding-top: 14px;
+          border-top: 1px solid rgba(148, 163, 184, 0.13);
+        }
+        .bill-breakdown-loading-steps span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          min-width: 0;
+          color: #94a3b8;
+          font-size: 0.65rem;
+          white-space: nowrap;
+        }
+        .bill-breakdown-loading-steps svg { color: #5eead4; }
+        .bill-breakdown-loading-steps i {
+          width: 5px;
+          height: 5px;
+          flex: 0 0 auto;
+          border-radius: 999px;
+          background: #64748b;
+          animation: billLoadingPulse 1.8s ease-in-out infinite;
+        }
+        .bill-breakdown-loading-steps span:nth-child(3) i { animation-delay: 0.28s; }
+        .bill-breakdown-loading-state.is-compact {
+          width: auto;
+          padding: 22px;
+        }
+        .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-mark {
+          width: 42px;
+          height: 49px;
+          border-radius: 12px;
+        }
+        .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-copy { margin-top: 12px; }
+        .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-title { font-size: 0.8rem; }
         }
         .bill-breakdown-error { color: #fca5a5; }
         .bill-breakdown-error button {
@@ -1072,6 +1386,77 @@ export function BillBreakdownModal({
         .bill-breakdown-market-status.is-below strong { color: #86efac; }
         .bill-breakdown-market-facts { display: grid; gap: 8px; align-content: center; }
         .bill-breakdown-market-facts > div { padding: 9px 10px; border-radius: 10px; background: rgba(15, 23, 42, 0.38); }
+        .bill-breakdown-anatomy-card { padding-bottom: 14px; }
+        .bill-breakdown-balance-list { display: grid; gap: 0; margin: 0; }
+        .bill-breakdown-balance-list > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
+        .bill-breakdown-balance-list > div:last-child { border-bottom: 0; }
+        .bill-breakdown-balance-list dt { color: #94a3b8; font-size: 0.72rem; }
+        .bill-breakdown-balance-list dd { margin: 0; color: #e2e8f0; font-size: 0.76rem; font-weight: 620; }
+        .bill-breakdown-balance-list .is-total { margin-top: 3px; padding-top: 12px; }
+        .bill-breakdown-balance-list .is-total dt, .bill-breakdown-balance-list .is-total dd { color: #fff; font-size: 0.84rem; font-weight: 700; }
+        .bill-breakdown-movement-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .bill-breakdown-movement-grid > div {
+          min-width: 0;
+          padding: 10px;
+          border: 1px solid rgba(148, 163, 184, 0.12);
+          border-radius: 11px;
+          background: rgba(15, 23, 42, 0.3);
+        }
+        .bill-breakdown-movement-grid span,
+        .bill-breakdown-movement-grid small { display: block; color: #94a3b8; font-size: 0.64rem; }
+        .bill-breakdown-movement-grid strong { display: block; margin: 4px 0; overflow: hidden; color: #f8fafc; font-size: 0.82rem; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+        .bill-breakdown-movement-grid .is-increase strong { color: #fbbf24; }
+        .bill-breakdown-movement-grid .is-decrease strong { color: #6ee7b7; }
+        .bill-breakdown-movement-note { margin: 10px 0 0; color: #748196; font-size: 0.65rem; line-height: 1.45; }
+        .bill-breakdown-service-facts {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+          gap: 8px;
+          margin: 0 0 12px;
+        }
+        .bill-breakdown-service-facts > div,
+        .bill-breakdown-composition > div {
+          min-width: 0;
+          padding: 10px;
+          border: 1px solid rgba(148, 163, 184, 0.12);
+          border-radius: 11px;
+          background: rgba(15, 23, 42, 0.34);
+        }
+        .bill-breakdown-service-facts dt,
+        .bill-breakdown-composition span {
+          color: #94a3b8;
+          font-size: 0.64rem;
+        }
+        .bill-breakdown-service-facts dd,
+        .bill-breakdown-composition strong {
+          display: block;
+          overflow: hidden;
+          margin: 4px 0 0;
+          color: #e2e8f0;
+          font-size: 0.76rem;
+          font-weight: 650;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .bill-breakdown-composition { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .bill-breakdown-composition small { display: block; margin-top: 3px; color: #64748b; font-size: 0.62rem; }
+        .bill-breakdown-reconciliation-note { margin: 11px 0 0; color: #94a3b8; font-size: 0.68rem; line-height: 1.45; }
+        .bill-breakdown-category-lens-grid { display: grid; gap: 0; }
+        .bill-breakdown-category-lens-grid > div {
+          display: grid;
+          grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.6fr);
+          gap: 12px;
+          padding: 10px 0;
+          border-top: 1px solid rgba(148, 163, 184, 0.12);
+        }
+        .bill-breakdown-category-lens-grid > div:first-child { padding-top: 0; border-top: 0; }
+        .bill-breakdown-category-lens-grid > div:last-child { padding-bottom: 0; }
+        .bill-breakdown-category-lens-grid strong { color: #cbd5e1; font-size: 0.72rem; }
+        .bill-breakdown-category-lens-grid span { color: #94a3b8; font-size: 0.69rem; line-height: 1.45; }
         .bill-breakdown-label {
           color: #94a3b8;
           font-size: 0.65rem;
@@ -1119,7 +1504,7 @@ export function BillBreakdownModal({
         }
         .bill-breakdown-line-items,
         .bill-breakdown-findings,
-        .bill-breakdown-guidance,
+        .bill-breakdown-agenda,
         .bill-breakdown-evidence {
           display: grid;
           gap: 8px;
@@ -1197,6 +1582,8 @@ export function BillBreakdownModal({
           text-underline-offset: 2px;
         }
         .bill-breakdown-page-jump-btn:hover { color: #bfdbfe; }
+        .bill-breakdown-mobile-source,
+        .bill-breakdown-mobile-page-link { display: none; }
         .bill-breakdown-warning-card {
           border-color: rgba(245, 158, 11, 0.22);
           background: rgba(120, 76, 10, 0.14);
@@ -1209,7 +1596,7 @@ export function BillBreakdownModal({
         }
         .bill-breakdown-findings strong { color: #f8fafc; font-size: 0.76rem; }
         .bill-breakdown-findings p,
-        .bill-breakdown-guidance p {
+        .bill-breakdown-agenda p {
           margin: 4px 0 0;
           color: #cbd5e1;
           font-size: 0.72rem;
@@ -1236,6 +1623,7 @@ export function BillBreakdownModal({
         .bill-breakdown-unavailable > svg { flex: 0 0 auto; color: #93c5fd; }
         .bill-breakdown-unavailable strong { color: #f8fafc; font-size: 0.78rem; }
         .bill-breakdown-unavailable p { margin: 4px 0; color: #aebbd0; font-size: 0.72rem; line-height: 1.45; }
+        .bill-breakdown-unavailable .bill-breakdown-market-requirements { margin-top: 9px; color: #93c5fd; font-size: 0.65rem; font-weight: 600; }
         .bill-breakdown-unavailable ul {
           margin: 8px 0 0;
           padding-left: 18px;
@@ -1256,36 +1644,56 @@ export function BillBreakdownModal({
           font-size: 0.72rem;
         }
         .bill-breakdown-savings strong { color: #6ee7b7; font-size: 0.9rem; }
-        .bill-breakdown-guidance > div {
+        .bill-breakdown-agenda > div {
           display: flex;
           gap: 10px;
-          padding: 10px;
-          border-radius: 9px;
-          background: rgba(15, 23, 42, 0.46);
+          align-items: flex-start;
+          padding: 11px 0;
+          border-top: 1px solid rgba(148, 163, 184, 0.12);
         }
-        .bill-breakdown-guidance > div > span {
-          width: 24px;
-          height: 24px;
-          display: grid;
-          place-items: center;
+        .bill-breakdown-agenda > div:first-child { padding-top: 0; border-top: 0; }
+        .bill-breakdown-agenda-priority {
+          min-width: 44px;
+          padding: 4px 6px;
+          border: 1px solid rgba(148, 163, 184, 0.18);
           flex: 0 0 auto;
-          border-radius: 8px;
-          color: #bfdbfe;
-          background: rgba(59, 130, 246, 0.15);
-          font-size: 0.68rem;
+          border-radius: 999px;
+          color: #cbd5e1;
+          background: rgba(148, 163, 184, 0.08);
+          font-size: 0.59rem;
           font-weight: 700;
+          letter-spacing: 0.04em;
+          line-height: 1;
+          text-align: center;
+          text-transform: uppercase;
         }
-        .bill-breakdown-guidance strong { color: #f8fafc; font-size: 0.77rem; }
+        .bill-breakdown-agenda-priority.is-high { color: #fecaca; border-color: rgba(248, 113, 113, 0.24); background: rgba(248, 113, 113, 0.08); }
+        .bill-breakdown-agenda-priority.is-medium { color: #fde68a; border-color: rgba(251, 191, 36, 0.22); background: rgba(251, 191, 36, 0.07); }
+        .bill-breakdown-agenda strong { color: #f8fafc; font-size: 0.77rem; }
         .bill-breakdown-evidence blockquote {
           margin: 0;
           padding: 10px;
-          border-left: 2px solid rgba(96, 165, 250, 0.55);
-          border-radius: 0 8px 8px 0;
-          background: rgba(15, 23, 42, 0.42);
+          border: 1px solid rgba(148, 163, 184, 0.13);
+          border-radius: 10px;
+          background: rgba(15, 23, 42, 0.3);
         }
         .bill-breakdown-evidence blockquote span { color: #93c5fd; font-size: 0.64rem; }
         .bill-breakdown-evidence blockquote p { margin: 5px 0 0; color: #cbd5e1; font-size: 0.7rem; line-height: 1.45; }
         .bill-breakdown-source-counts { margin: 4px 0 0; color: #748196; font-size: 0.62rem; }
+        .bill-breakdown-evidence-toggle {
+          align-self: flex-start;
+          margin-top: 4px;
+          padding: 7px 10px;
+          border: 1px solid rgba(148, 163, 184, 0.18);
+          border-radius: 8px;
+          color: #cbd5e1;
+          background: transparent;
+          font-size: 0.7rem;
+          font-weight: 650;
+          cursor: pointer;
+          transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+        }
+        .bill-breakdown-evidence-toggle:hover { color: #f8fafc; border-color: rgba(148, 163, 184, 0.34); background: rgba(148, 163, 184, 0.08); }
         @media (max-width: 980px) {
           .bill-breakdown-backdrop { padding: 0; }
           .bill-breakdown-dialog { width: 100vw; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
@@ -1294,6 +1702,30 @@ export function BillBreakdownModal({
           .bill-breakdown-header { align-items: flex-start; padding: 12px 14px; }
           .bill-breakdown-header-actions { gap: 6px; }
           .bill-breakdown-secondary-action { display: none !important; }
+          .bill-breakdown-mobile-source {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 9px;
+            color: #cbd5e1;
+            background: rgba(255, 255, 255, 0.04);
+            text-decoration: none;
+          }
+          .bill-breakdown-mobile-page-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 6px;
+            color: #93c5fd;
+            font-size: 0.64rem;
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+          }
+          .bill-breakdown-page-jump-btn { display: none; }
           .bill-breakdown-title-line { align-items: flex-start; flex-direction: column; gap: 4px; }
           .bill-breakdown-analysis { padding: 14px; max-width: 100%; min-width: 0; }
           .bill-breakdown-metrics { grid-template-columns: 1fr 1fr; }
@@ -1309,12 +1741,18 @@ export function BillBreakdownModal({
           .bill-breakdown-overview { grid-template-columns: 1fr; gap: 14px; padding: 16px 0; }
           .bill-breakdown-overview__amount { text-align: left; }
           .bill-breakdown-overview__facts, .bill-breakdown-market-readout { grid-template-columns: 1fr; }
+          .bill-breakdown-composition { grid-template-columns: 1fr; }
+          .bill-breakdown-movement-grid { grid-template-columns: 1fr; }
+          .bill-breakdown-category-lens-grid > div { grid-template-columns: 1fr; gap: 3px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .bill-breakdown-backdrop,
           .bill-breakdown-backdrop.is-closing,
           .bill-breakdown-dialog,
-          .bill-breakdown-dialog.is-closing {
+          .bill-breakdown-dialog.is-closing,
+          .bill-breakdown-loading-state,
+          .bill-breakdown-loading-scan,
+          .bill-breakdown-loading-steps i {
             animation: none !important;
           }
         }

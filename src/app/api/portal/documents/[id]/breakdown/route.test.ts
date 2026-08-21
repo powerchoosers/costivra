@@ -51,23 +51,8 @@ function request() {
 }
 
 function successfulDb() {
-  const queries = {
-    documents: maybeSingleQuery({
-      data: {
-        id: documentId,
-        original_filename: "txu-invoice.pdf",
-        mime_type: "application/pdf",
-        byte_size: 2_048,
-        status: "needs_review",
-        extraction_summary: "Commercial electricity invoice",
-        created_at: "2026-08-06T03:52:12.000Z",
-        sha256: "a".repeat(64),
-        security_scan_status: "clean",
-        security_scanned_at: "2026-08-06T03:52:12.000Z",
-      },
-      error: null,
-    }),
-    invoices: maybeSingleQuery({
+  const invoiceQueries = [
+    maybeSingleQuery({
       data: {
         id: "33333333-3333-4333-8333-333333333333",
         invoice_number: "TXU-2026-06",
@@ -76,6 +61,17 @@ function successfulDb() {
         total_amount: "2472.37",
         subtotal: "2472.37",
         tax_total: "0",
+        current_charges: "2472.37",
+        previous_balance: "112.40",
+        payments_and_credits: "-112.40",
+        amount_due: "2472.37",
+        energy_service: {
+          usageKwh: "15900",
+          averagePricePerKwh: "0.081",
+          billedDemandKw: "72",
+          actualDemandKw: "66",
+          billingDays: "31",
+        },
         currency: "USD",
         review_status: "needs_review",
         vendor_match_status: "exact",
@@ -92,6 +88,37 @@ function successfulDb() {
         },
         expense_category: "Commercial Electricity Supply",
         category_confidence: "0.98",
+      },
+      error: null,
+    }),
+    limitedRowsQuery([
+      {
+        id: "prior-invoice",
+        invoice_number: "TXU-2026-05",
+        invoice_date: "2026-05-02",
+        total_amount: "2300.00",
+      },
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        invoice_number: "TXU-2026-06",
+        invoice_date: "2026-06-02",
+        total_amount: "2472.37",
+      },
+    ]),
+  ];
+  const queries = {
+    documents: maybeSingleQuery({
+      data: {
+        id: documentId,
+        original_filename: "txu-invoice.pdf",
+        mime_type: "application/pdf",
+        byte_size: 2_048,
+        status: "needs_review",
+        extraction_summary: "Commercial electricity invoice",
+        created_at: "2026-08-06T03:52:12.000Z",
+        sha256: "a".repeat(64),
+        security_scan_status: "clean",
+        security_scanned_at: "2026-08-06T03:52:12.000Z",
       },
       error: null,
     }),
@@ -159,7 +186,9 @@ function successfulDb() {
   };
 
   return {
-    from: vi.fn((table: keyof typeof queries) => queries[table]),
+    from: vi.fn((table: keyof typeof queries | "invoices") =>
+      table === "invoices" ? invoiceQueries.shift() : queries[table],
+    ),
   };
 }
 
@@ -201,9 +230,55 @@ describe("GET /api/portal/documents/[id]/breakdown", () => {
     expect(payload.lineItemExplanations[0]).toEqual(
       expect.objectContaining({
         canonicalCode: "energy_charge",
+        chargeClass: "usage",
+        reviewRequired: false,
         evidenceIds: ["77777777-7777-4777-8777-777777777777"],
       }),
     );
+    expect(payload.billComposition).toEqual([
+      { chargeClass: "usage", total: 1287.9, itemCount: 1 },
+    ]);
+    expect(payload.invoiceSummary).toEqual({
+      currentCharges: 2472.37,
+      previousBalance: 112.4,
+      paymentsAndCredits: -112.4,
+      amountDue: 2472.37,
+    });
+    expect(payload.priorRecordedBill).toEqual({
+      invoiceNumber: "TXU-2026-05",
+      invoiceDate: "2026-05-02",
+      totalAmount: 2300,
+      changeAmount: 172.37,
+      changePercentage: 7.49,
+    });
+    expect(payload.serviceFacts).toEqual([
+      { label: "Usage", value: 15900, unit: "kWh" },
+      { label: "Average energy price", value: 0.081, unit: "USD/kWh" },
+      { label: "Billed demand", value: 72, unit: "kW" },
+      { label: "Actual demand", value: 66, unit: "kW" },
+      { label: "Billing days", value: 31, unit: "days" },
+    ]);
+    expect(payload.marketBenchmark).toEqual(
+      expect.objectContaining({
+        benchmarkStatus: "insufficient_data",
+        missingDimensions: ["utility_territory", "load_factor"],
+        estimatedMarketRate: null,
+      }),
+    );
+    expect(payload.categoryReviewLens).toEqual([
+      {
+        label: "Service and usage",
+        fields: ["ESI ID", "Meter Number", "Account Number", "Service Address"],
+      },
+      {
+        label: "Pricing and fees",
+        fields: ["Generation Rate Per kWh", "Demand Rate Per kW", "Meter Charge", "Gross Receipts Tax"],
+      },
+      {
+        label: "Period and terms",
+        fields: ["Read Date Start", "Read Date End", "Billing Days", "Supplier Name"],
+      },
+    ]);
     expect(payload.anomalies).toEqual([]);
     expect(payload.guidance).toEqual(
       expect.arrayContaining([

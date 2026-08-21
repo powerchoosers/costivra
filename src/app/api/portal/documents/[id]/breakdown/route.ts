@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
+import { normalizeLineItems } from "@/lib/category-intelligence/line-item-normalizer";
+import { getExpertPack } from "@/lib/category-intelligence/packs";
 
 const PROCESSING_STATUSES = new Set([
   "pending_upload",
@@ -34,6 +36,17 @@ function stringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function moneyCents(value: unknown): bigint | null {
+  const source = typeof value === "string" || typeof value === "number"
+    ? String(value).trim()
+    : "";
+  const match = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(source);
+  if (!match) return null;
+  const fraction = (match[3] ?? "").padEnd(2, "0");
+  const cents = (BigInt(match[2]) * BigInt(100)) + BigInt(fraction || "0");
+  return match[1] === "-" ? -cents : cents;
 }
 
 function response<T>(payload: T, status = 200) {
@@ -188,6 +201,56 @@ function normalizeFinding(value: unknown) {
   };
 }
 
+function buildServiceFacts(value: unknown) {
+  const service = asRecord(value);
+  const candidates = [
+    ["Usage", service.usageKwh, "kWh"],
+    ["Average energy price", service.averagePricePerKwh, "USD/kWh"],
+    ["Billed demand", service.billedDemandKw, "kW"],
+    ["Actual demand", service.actualDemandKw, "kW"],
+    ["Billing days", service.billingDays, "days"],
+  ] as const;
+  return candidates.flatMap(([label, value, unit]) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) && numericValue >= 0
+      ? [{ label, value: numericValue, unit }]
+      : [];
+  });
+}
+
+function fieldLabel(value: string) {
+  const acronyms: Record<string, string> = {
+    api: "API",
+    esi: "ESI",
+    id: "ID",
+    kwh: "kWh",
+    kw: "kW",
+    pci: "PCI",
+    usf: "USF",
+    vat: "VAT",
+  };
+  return value
+    .split("_")
+    .map((part) => acronyms[part.toLowerCase()] ?? `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function buildCategoryReviewLens(categoryKey: string) {
+  const anatomy = getExpertPack(categoryKey).billAnatomy;
+  const groups = [
+    ["Service and usage", anatomy.identityFields, anatomy.quantityFields],
+    ["Pricing and fees", anatomy.pricingFields, anatomy.taxFeeFields],
+    ["Period and terms", anatomy.periodFields, anatomy.contractFields],
+  ] as const;
+
+  return groups.flatMap(([label, primary, secondary]) => {
+    const fields = Array.from(new Set([...primary, ...secondary])).slice(0, 4);
+    return fields.length > 0
+      ? [{ label, fields: fields.map(fieldLabel) }]
+      : [];
+  });
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -241,7 +304,7 @@ export async function GET(
     const { data: invoice, error: invoiceError } = await db
       .from("invoices")
       .select(
-        "id, invoice_number, invoice_date, due_date, total_amount, subtotal, tax_total, currency, review_status, vendor_match_status, vendor_match_confidence, reconciliation_status, organization_vendor_id, review_issue_codes, metadata, expense_category, category_confidence",
+        "id, invoice_number, invoice_date, due_date, total_amount, subtotal, tax_total, current_charges, amount_due, previous_balance, payments_and_credits, currency, review_status, vendor_match_status, vendor_match_confidence, reconciliation_status, organization_vendor_id, review_issue_codes, metadata, expense_category, category_confidence, energy_service",
       )
       .eq("document_id", id)
       .eq("organization_id", organizationId)
@@ -263,6 +326,49 @@ export async function GET(
           ? 409
           : 202,
       );
+    }
+
+    let priorRecordedBill: {
+      invoiceNumber: string | null;
+      invoiceDate: string | null;
+      totalAmount: number;
+      changeAmount: number;
+      changePercentage: number | null;
+    } | null = null;
+    if (invoice.organization_vendor_id && invoice.total_amount != null) {
+      const { data: historicalInvoices, error: historicalInvoicesError } = await db
+        .from("invoices")
+        .select("id, invoice_number, invoice_date, total_amount")
+        .eq("organization_id", organizationId)
+        .eq("organization_vendor_id", invoice.organization_vendor_id)
+        .order("invoice_date", { ascending: false, nullsFirst: false })
+        .limit(24);
+      if (historicalInvoicesError) {
+        return logDatabaseFailure({ traceId, documentId: id, organizationId, error: historicalInvoicesError });
+      }
+
+      const currentInvoiceDate = stringValue(invoice.invoice_date);
+      const precedingInvoice = (historicalInvoices ?? []).find((candidate) => {
+        if (candidate.id === invoice.id || candidate.total_amount == null) return false;
+        const candidateDate = stringValue(candidate.invoice_date);
+        return currentInvoiceDate ? candidateDate < currentInvoiceDate : Boolean(candidateDate);
+      });
+      if (precedingInvoice) {
+        const priorAmountCents = moneyCents(precedingInvoice.total_amount);
+        const currentAmountCents = moneyCents(invoice.total_amount);
+        if (priorAmountCents != null && currentAmountCents != null) {
+          const changeAmountCents = currentAmountCents - priorAmountCents;
+          priorRecordedBill = {
+            invoiceNumber: stringValue(precedingInvoice.invoice_number) || null,
+            invoiceDate: stringValue(precedingInvoice.invoice_date) || null,
+            totalAmount: Number(priorAmountCents) / 100,
+            changeAmount: Number(changeAmountCents) / 100,
+            changePercentage: priorAmountCents === BigInt(0)
+              ? null
+              : Math.round((Number(changeAmountCents) * 10_000) / Number(priorAmountCents)) / 100,
+          };
+        }
+      }
     }
 
     const { data: analysisRun, error: analysisError } = await db
@@ -334,6 +440,14 @@ export async function GET(
       }
     }
 
+    const metadata = asRecord(invoice.metadata);
+    const storedCategory = asRecord(metadata.categoryIntelligence);
+    const categoryName = stringValue(
+      invoice.expense_category,
+      vendor?.category ?? "Uncategorized",
+    );
+    const categoryKey = stringValue(storedCategory.categoryKey, "stored-invoice-category");
+
     const { data: lineItemRows, error: lineItemsError } = await db
       .from("invoice_line_items")
       .select("id, line_number, description, amount, quantity, unit_price")
@@ -370,22 +484,29 @@ export async function GET(
     const classificationByLine = new Map(
       (classifications.data ?? []).map((item) => [item.invoice_line_item_id, item]),
     );
-    const lineItemExplanations = lineItems.map((item) => {
-      const classification = classificationByLine.get(item.id);
-      const canonicalCode = stringValue(classification?.canonical_code) || null;
+    const normalizedLineItems = normalizeLineItems(
+      lineItems.map((item) => ({
+        ...item,
+        evidenceIds: stringArray(classificationByLine.get(item.id)?.evidence_reference_ids),
+      })),
+      categoryKey,
+    );
+    const lineItemExplanations = normalizedLineItems.map((item) => {
+      const classification = classificationByLine.get(item.lineItemId);
       return {
-        lineItemId: item.id,
-        canonicalCode,
-        originalDescription: item.description,
-        explanation: canonicalCode
-          ? "Stored category classification from the invoice analysis."
-          : "No stored category classification is available for this line item.",
-        chargeClass: "unknown",
-        confidence: Number(classification?.confidence ?? 0),
-        reviewRequired: classification?.review_status !== "auto_approved",
-        matchedAlias: null,
-        evidenceIds: stringArray(classification?.evidence_reference_ids),
-        expertPackVersion: stringValue(classification?.expert_pack_version) || null,
+        lineItemId: item.lineItemId ?? "",
+        canonicalCode: stringValue(classification?.canonical_code) || item.canonicalCode,
+        originalDescription: item.originalDescription,
+        explanation: item.explanation,
+        chargeClass: item.chargeClass,
+        confidence: item.confidence,
+        reviewRequired: classification
+          ? classification.review_status !== "auto_approved"
+          : item.reviewRequired,
+        matchedAlias: item.matchedAlias,
+        evidenceIds: item.evidenceIds,
+        expertPackVersion:
+          stringValue(classification?.expert_pack_version) || item.packVersion || null,
       };
     });
 
@@ -445,13 +566,6 @@ export async function GET(
       calculations.benchmarkStatus,
       "insufficient_data",
     ) as "comparable" | "directional" | "quote_required" | "insufficient_data" | "unsupported";
-    const metadata = asRecord(invoice.metadata);
-    const storedCategory = asRecord(metadata.categoryIntelligence);
-    const categoryName = stringValue(
-      invoice.expense_category,
-      vendor?.category ?? "Uncategorized",
-    );
-    const categoryKey = stringValue(storedCategory.categoryKey, "stored-invoice-category");
     const totalAmount = invoice.total_amount == null ? null : Number(invoice.total_amount);
     const tariffReview = asRecord(calculations.tariffReview);
 
@@ -519,6 +633,29 @@ export async function GET(
       },
       lineItems,
       lineItemExplanations,
+      billComposition: normalizedLineItems.reduce<Array<{
+        chargeClass: string;
+        total: number;
+        itemCount: number;
+      }>>((groups, item) => {
+        const current = groups.find((group) => group.chargeClass === item.chargeClass);
+        if (current) {
+          current.total += item.amount;
+          current.itemCount += 1;
+        } else {
+          groups.push({ chargeClass: item.chargeClass, total: item.amount, itemCount: 1 });
+        }
+        return groups;
+      }, []).sort((left, right) => Math.abs(right.total) - Math.abs(left.total)),
+      invoiceSummary: {
+        currentCharges: invoice.current_charges == null ? null : Number(invoice.current_charges),
+        previousBalance: invoice.previous_balance == null ? null : Number(invoice.previous_balance),
+        paymentsAndCredits: invoice.payments_and_credits == null ? null : Number(invoice.payments_and_credits),
+        amountDue: invoice.amount_due == null ? null : Number(invoice.amount_due),
+      },
+      priorRecordedBill,
+      serviceFacts: buildServiceFacts(invoice.energy_service),
+      categoryReviewLens: buildCategoryReviewLens(categoryKey),
       evidence,
       evidenceCounts: {
         invoiceField: evidence.length - lineItemEvidenceIds.size,

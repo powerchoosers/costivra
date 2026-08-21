@@ -275,7 +275,7 @@ function SavingsReviewPanel({ outcome, currency, canDecide }: { outcome: PortalD
   </section>;
 }
 
-type RecordSectionTab = { id: string; label: string };
+type RecordSectionTab = { count?: number; id: string; label: string };
 
 export function resolveRecordDetailSection(tabIds: string[], hash: string) {
   const requested = hash.replace(/^#/, "");
@@ -476,6 +476,36 @@ function FindingCalculationRecord({
   </section>;
 }
 
+function FindingEvidenceGate({
+  finding,
+  sourceHref,
+  vendorHref,
+}: {
+  finding: PortalData["opportunities"][number];
+  sourceHref: string | null;
+  vendorHref: string | null;
+}) {
+  const hasRecordedEvidence = finding.evidenceCount > 0;
+  const actionHref = sourceHref ?? vendorHref ?? "/app/bills?view=review";
+  const actionLabel = sourceHref
+    ? "Open source record"
+    : vendorHref
+      ? "Review vendor records"
+      : "Review source bills";
+
+  return <section className="record-section finding-evidence-gate" id="evidence">
+    <div className="finding-evidence-gate__icon" aria-hidden="true"><LockKeyhole size={18} /></div>
+    <div className="finding-evidence-gate__copy">
+      <span className="finding-evidence-gate__eyebrow">{hasRecordedEvidence ? "Evidence access" : "Evidence gate"}</span>
+      <h2>{hasRecordedEvidence ? "Recorded evidence needs attention" : "No source evidence linked yet"}</h2>
+      <p>{hasRecordedEvidence
+        ? `This finding references ${finding.evidenceCount} recorded source ${finding.evidenceCount === 1 ? "reference" : "references"}, but the usable excerpt is not available in this workspace. Restore or relink the source before relying on it.`
+        : "A finding is not ready for a financial decision until a usable source excerpt is linked. Review the source bills to find or attach the supporting document."}</p>
+      <Link className="button button-secondary" href={actionHref}>{actionLabel}</Link>
+    </div>
+  </section>;
+}
+
 export function selectRecordFiles<T extends { id: string; vendorId: string | null }>(
   kind: Kind,
   documents: readonly T[],
@@ -530,6 +560,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
   const showRecordFiles = shouldShowRecordFiles(kind, recordFiles.length);
   const recordDecisionAction = finding ? null : getRecordDecisionAction(kind, recordFiles.length > 0, related.length);
   const fieldGroups = groupRecordFields(kind, detail.fields);
+  const editableFieldCount = detail.fields.filter((field) => field.editable).length;
   const recordFilesTitle = finding ? "Finding evidence files" : `${meta.noun} files`;
   const recordFilesDescription = finding
     ? "Only source files directly linked to this finding are available here."
@@ -548,12 +579,12 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     ...(savingsOutcome ? [{ id: "verification", label: "Verification" }] : []),
     { id: "overview", label: "Overview" },
     ...(finding ? [{ id: "calculation", label: "Method & assumptions" }] : []),
-    ...(lineItems.length > 0 ? [{ id: "line-items", label: "Line items" }] : []),
-    ...(showRecordFiles ? [{ id: "files", label: "Files" }] : []),
+    ...(lineItems.length > 0 ? [{ id: "line-items", label: "Line items", count: lineItems.length }] : []),
+    ...(showRecordFiles ? [{ id: "files", label: "Files", count: recordFiles.length }] : []),
     { id: "quality", label: "Data quality" },
-    { id: "related", label: "Related records" },
-    ...(evidence.length > 0 ? [{ id: "evidence", label: "Evidence" }] : []),
-    { id: "history", label: "History" },
+    { id: "related", label: "Related records", count: related.length },
+    ...(finding || evidence.length > 0 ? [{ id: "evidence", label: "Evidence", count: evidence.length }] : []),
+    { id: "history", label: "History", count: audits.length },
   ];
   return <div className={`record-detail record-detail--${kind}`} data-record-detail-root="true">
     <div className={`record-detail-topline${isInvoiceReview ? " record-detail-topline--invoice" : ""}`}><GlobalBackControl className="record-back" />{invoiceScope}</div>
@@ -568,7 +599,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
       </div>
       {finding && <FindingCalculationRecord finding={finding} currency={recordCurrency} />}
       <section className="record-section">
-        <div className="record-section-heading"><div><h2>Record details</h2><p>Review related information in small groups. Every saved change is attributed and audited.</p></div></div>
+        <div className="record-section-heading"><div><h2>Record details</h2><p>Review related information in small groups. Every saved change is attributed and audited.</p></div>{editableFieldCount > 0 && data.currentUser.role !== "viewer" ? <span className="record-section-heading__hint"><Pencil aria-hidden="true" size={13} /> Select a field to edit</span> : null}</div>
         <div className="record-field-groups">
           {fieldGroups.map((group) => (
             <section className="record-field-group" key={group.id} aria-label={group.label}>
@@ -587,7 +618,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
       </section>
       {lineItems.length > 0 && <section className="record-section" id="line-items"><div className="record-section-heading"><div><h2>Invoice line items</h2><p>Normalized charges and credits retained from the reviewed invoice.</p></div><span className="record-section-count">{lineItems.length}</span></div><div className="record-line-items" data-workspace-scrollbar=""><div className="record-line-item record-line-item--heading"><span>Line</span><span>Description</span><span>Quantity</span><span>Unit price</span><span>Amount</span></div>{lineItems.map((item) => <div className="record-line-item" key={item.id}><span>{item.lineNumber}</span><span><strong>{item.description}</strong><small>{[item.category, item.servicePeriodStart && item.servicePeriodEnd ? `${date(item.servicePeriodStart)} – ${date(item.servicePeriodEnd)}` : null].filter(Boolean).join(" · ") || "No additional classification"}</small></span><span>{item.quantity ?? "—"}</span><span>{item.unitPrice == null ? "—" : money(item.unitPrice, recordCurrency)}</span><span>{money(item.amount, recordCurrency)}</span></div>)}</div></section>}
       {showRecordFiles && <div id="files" className="record-files-anchor"><RecordFilesWorkspace files={recordFiles.map((item) => ({ id: item.id, name: item.originalFilename, documentType: item.documentType, mimeType: item.mimeType, status: item.status, createdAt: item.createdAt, updatedAt: item.updatedAt, byteSize: item.byteSize, pageCount: item.pageCount, summary: item.summary, confidence: item.confidence, evidenceCount: data.evidenceReferences.filter((reference) => reference.documentId === item.id).length, contextLabel: item.vendorName, href: `/api/portal/documents/${item.id}/download`, sourceAvailable: !item.sourcePurgedAt }))} title={recordFilesTitle} description={recordFilesDescription} /></div>}
-      {evidence.length > 0 && <section className="record-section" id="evidence"><div className="record-section-heading"><div><h2>Source evidence</h2><p>Exact excerpts retained from the private source document.</p></div></div><div className="record-evidence-list">{evidence.map((item) => <article key={item.id}><span>Page {item.pageNumber}{item.fieldPath ? ` · ${item.fieldPath}` : ""}</span><blockquote>{item.textExcerpt}</blockquote><Link href={`/api/portal/documents/${item.documentId}/download`}>Open source <FileText /></Link></article>)}</div></section>}
+      {finding && evidence.length === 0 ? <FindingEvidenceGate finding={finding} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : evidence.length > 0 ? <section className="record-section" id="evidence"><div className="record-section-heading"><div><h2>Source evidence</h2><p>Exact excerpts retained from the private source document.</p></div></div><div className="record-evidence-list">{evidence.map((item) => <article key={item.id}><span>Page {item.pageNumber}{item.fieldPath ? ` · ${item.fieldPath}` : ""}</span><blockquote>{item.textExcerpt}</blockquote><Link href={`/api/portal/documents/${item.documentId}/download`}>Open source <FileText /></Link></article>)}</div></section> : null}
     </main><aside>
       <section className="record-side-section" id="quality"><h2>Data quality</h2><div className="record-quality-list">{quality.map((item) => <div key={item.label} className={`record-quality record-quality--${item.status}`}><i /><span><strong>{item.label}</strong><small>{item.value}</small></span></div>)}</div></section>
       <section className="record-side-section" id="related"><h2>Related records</h2>{related.length ? related.map((item) => <Link className="record-related" href={item.href} key={`${item.type}-${item.href}`}><span><small>{item.type}</small><strong>{item.title}</strong>{item.detail && <em>{text(item.detail)}</em>}</span><ChevronRight /></Link>) : <p>No related records yet.</p>}</section>

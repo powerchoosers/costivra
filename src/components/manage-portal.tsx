@@ -2852,16 +2852,37 @@ function ContactInspector({
 }
 
 function useRecordAuditHistory(endpoint: string) {
-  const [history, setHistory] = useState<AuditHistoryItem[]>([]);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [result, setResult] = useState<{ endpoint: string; error: string | null; history: AuditHistoryItem[]; loading: boolean; reloadToken: number }>({
+    endpoint,
+    error: null,
+    history: [],
+    loading: true,
+    reloadToken: 0,
+  });
   useEffect(() => {
     let cancelled = false;
     void fetch(endpoint, { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() : { history: [] })
-      .then((payload) => { if (!cancelled && Array.isArray(payload.history)) setHistory(payload.history); })
-      .catch(() => { if (!cancelled) setHistory([]); });
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Record history is unavailable.");
+        return response.json();
+      })
+      .then((payload) => {
+        if (cancelled) return;
+        setResult({ endpoint, error: null, history: Array.isArray(payload.history) ? payload.history : [], loading: false, reloadToken });
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ endpoint, error: "Record history is unavailable.", history: [], loading: false, reloadToken });
+      });
     return () => { cancelled = true; };
-  }, [endpoint]);
-  return history;
+  }, [endpoint, reloadToken]);
+  const current = result.endpoint === endpoint && result.reloadToken === reloadToken;
+  return {
+    error: current ? result.error : null,
+    history: current ? result.history : [],
+    loading: !current || result.loading,
+    retry: () => setReloadToken((currentToken) => currentToken + 1),
+  };
 }
 
 function Contacts({
@@ -3593,7 +3614,7 @@ function AccountDetailPage({
     { id: "files", label: "Files", count: documents.length },
     { id: "activity", label: "Activity", count: activities.length },
     { id: "work", label: "Work", count: tasks.length },
-    { id: "history", label: "History", count: auditHistory.length },
+    { id: "history", label: "History", count: auditHistory.history.length },
   ];
 
   return (
@@ -3795,7 +3816,7 @@ function AccountDetailPage({
               <p>Internal audit events and lifecycle activity logs.</p>
             </div>
           </header>
-          <RecordChangeHistory history={auditHistory} />
+          <RecordChangeHistory error={auditHistory.error} history={auditHistory.history} loading={auditHistory.loading} onRetry={auditHistory.retry} />
         </section>
       )}
 
@@ -4304,7 +4325,7 @@ function ContactDetailPage({
     { id: "files", label: "Account files", count: documents.length },
     { id: "activity", label: "Activity", count: allAccountActivities.length },
     { id: "work", label: "Tasks", count: tasks.length },
-    { id: "history", label: "History", count: auditHistory.length },
+    { id: "history", label: "History", count: auditHistory.history.length },
   ];
 
   return (
@@ -4610,7 +4631,7 @@ function ContactDetailPage({
               <p>Internal audit log of changes made to this CRM contact record.</p>
             </div>
           </header>
-          <RecordChangeHistory history={auditHistory} />
+          <RecordChangeHistory error={auditHistory.error} history={auditHistory.history} loading={auditHistory.loading} onRetry={auditHistory.retry} />
         </section>
       )}
 

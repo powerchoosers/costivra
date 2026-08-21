@@ -160,6 +160,8 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpNotes, setFollowUpNotes] = useState(invoice.reviewNotes || "");
   const queue = data.invoices.filter((item) => item.reviewStatus === "needs_review");
   const index = queue.findIndex((item) => item.id === invoice.id);
   const previous = index > 0 ? queue[index - 1] : null;
@@ -202,8 +204,15 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
         toast.success("Follow-up recorded.", "The invoice remains in the review queue.");
       }
       router.refresh();
+      return true;
     } catch (error) { toast.error(action === "approve" ? "Approval blocked" : "Could not record follow-up", error instanceof Error ? error.message : "Please try again."); }
     finally { setBusy(null); }
+    return false;
+  }
+  async function submitFollowUp() {
+    if (followUpNotes.trim().length < 3) return;
+    const recorded = await runAction("follow_up", followUpNotes.trim());
+    if (recorded) setFollowUpOpen(false);
   }
 
   return <section className="invoice-review-detail">
@@ -249,7 +258,19 @@ function InvoiceReviewDetailPage({ data, invoice }: { data: ManageInvoiceReviewD
         {invoice.evidence.length > 0 && <section className="invoice-inspector-section"><header><div><span>Field-level proof</span><h3>Evidence</h3></div></header><div className="invoice-evidence">{invoice.evidence.map((item) => <blockquote key={item.id}><span>{item.fieldPath.replaceAll('_',' ')}{item.pageNumber ? ` · page ${item.pageNumber}` : ""}</span><p>“{item.excerpt}”</p></blockquote>)}</div></section>}
         <section className="invoice-inspector-section"><label className="invoice-notes"><span>Internal review note</span><textarea name="review_notes" defaultValue={invoice.reviewNotes || ""} placeholder="What should the next reviewer know?" rows={3} /></label><label className="invoice-notes"><span>Reason for correction</span><textarea name="reason" required placeholder="Example: Confirmed against page 2 of the source invoice." rows={2} /></label></section>
         {invoice.corrections.length > 0 && <section className="invoice-inspector-section"><header><div><span>Append-only history</span><h3>Corrections</h3></div></header><div className="invoice-corrections">{invoice.corrections.slice(0,8).map((item) => <div key={item.id}><strong>{item.fieldPath.replaceAll('_',' ')}</strong><p>{item.reason}</p><small>{item.correctedByName} · {formatDate(item.createdAt.slice(0,10))}</small></div>)}</div></section>}
-        <footer className="invoice-inspector-actions"><button className="manage-button manage-button--quiet" type="submit" disabled={Boolean(busy)}>{busy === "save" ? "Saving…" : "Save corrections"}</button><button className="manage-button manage-button--quiet" type="button" disabled={Boolean(busy)} onClick={() => { const notes = window.prompt("What needs follow-up?", invoice.reviewNotes || ""); if (notes) void runAction("follow_up", notes); }}>Needs follow-up</button><button className="manage-button manage-button--primary" type="button" disabled={Boolean(busy) || invoice.reviewStatus === "approved"} onClick={() => void runAction("approve")}><Check size={16} />{busy === "approve" ? "Approving…" : invoice.reviewStatus === "approved" ? "Approved" : "Approve invoice"}</button></footer>
+        {followUpOpen && <section className="invoice-follow-up-panel" aria-label="Record invoice follow-up">
+          <div>
+            <span>Follow-up note</span>
+            <h3>What should happen next?</h3>
+            <p>Record the question or owner context that keeps this invoice in the review queue.</p>
+          </div>
+          <textarea autoFocus value={followUpNotes} onChange={(event) => setFollowUpNotes(event.target.value)} placeholder="Example: Confirm the service location with the client before approval." rows={3} />
+          <div>
+            <button className="manage-button manage-button--quiet" type="button" disabled={Boolean(busy)} onClick={() => setFollowUpOpen(false)}>Cancel</button>
+            <button className="manage-button manage-button--primary" type="button" disabled={Boolean(busy) || followUpNotes.trim().length < 3} onClick={() => void submitFollowUp()}>{busy === "follow_up" ? "Recording…" : "Record follow-up"}</button>
+          </div>
+        </section>}
+        <footer className="invoice-inspector-actions"><button className="manage-button manage-button--quiet" type="submit" disabled={Boolean(busy)}>{busy === "save" ? "Saving…" : "Save corrections"}</button><button className="manage-button manage-button--quiet" type="button" disabled={Boolean(busy)} onClick={() => { setFollowUpNotes(invoice.reviewNotes || ""); setFollowUpOpen(true); }}>Needs follow-up</button><button className="manage-button manage-button--primary" type="button" disabled={Boolean(busy) || invoice.reviewStatus === "approved"} onClick={() => void runAction("approve")}><Check size={16} />{busy === "approve" ? "Approving…" : invoice.reviewStatus === "approved" ? "Approved" : "Approve invoice"}</button></footer>
       </form>
     </div>
   </section>;
