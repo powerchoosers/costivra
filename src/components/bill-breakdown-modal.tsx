@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
-  Download,
   ExternalLink,
   FileText,
   MessageCircle,
@@ -35,7 +34,6 @@ function BillBreakdownLoadingState({ compact = false }: { compact?: boolean }) {
           </div>
           <span className="bill-breakdown-loading-cursor" />
         </div>
-        {!compact ? <span className="bill-breakdown-loading-trace"><i /></span> : null}
       </div>
       <div className="bill-breakdown-loading-copy">
         <p className="bill-breakdown-loading-eyebrow">Preparing review</p>
@@ -50,9 +48,10 @@ function BillBreakdownLoadingState({ compact = false }: { compact?: boolean }) {
       </div>
       {!compact ? (
         <ol className="bill-breakdown-loading-steps" aria-hidden="true">
-          <li><span>01</span><div><strong>Source</strong><small>Reading the protected bill</small></div></li>
+          <span className="bill-breakdown-loading-step-line"><i /></span>
+          <li><span>01</span><div><strong>Source</strong><small>Reading the bill</small></div></li>
           <li><span>02</span><div><strong>Charges</strong><small>Structuring bill activity</small></div></li>
-          <li><span>03</span><div><strong>Evidence</strong><small>Connecting source references</small></div></li>
+          <li><span>03</span><div><strong>Evidence</strong><small>Connecting source</small></div></li>
         </ol>
       ) : null}
     </div>
@@ -575,28 +574,6 @@ function BillBreakdownContent({
           <button type="button" className="bill-breakdown-ask" onClick={askAssistant}>
             <MessageCircle size={15} /> Ask Costivra
           </button>
-          {data?.document.downloadUrl && (
-            <a
-              className="bill-breakdown-secondary-action"
-              href={data.document.downloadUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Download size={15} /> Download
-            </a>
-          )}
-          {data?.document.downloadUrl && (
-            <a
-              className="bill-breakdown-mobile-source"
-              href={data.document.downloadUrl}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Open source file"
-              title="Open source file"
-            >
-              <FileText size={16} />
-            </a>
-          )}
           <button
             type="button"
             className="workspace-close-button bill-breakdown-close"
@@ -1347,7 +1324,6 @@ export function BillBreakdownModal({
         }
         .bill-breakdown-ask { border: 0; color: #fff; background: #315bd6; transition: background-color 0.16s ease, transform 0.16s ease; }
         .bill-breakdown-ask:hover { background: #3b67e2; transform: translateY(-1px); }
-        .bill-breakdown-secondary-action,
         .bill-breakdown-close {
           border: 1px solid rgba(255, 255, 255, 0.12);
           color: #cbd5e1;
@@ -1464,17 +1440,16 @@ export function BillBreakdownModal({
           box-shadow: 0 0 10px rgba(56, 189, 248, 0.28);
           animation: billLoadingCursor 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
         }
-        .bill-breakdown-loading-trace {
+        .bill-breakdown-loading-step-line {
           position: absolute;
-          z-index: 1;
+          top: 0;
           right: 0;
-          bottom: 8px;
           left: 0;
           height: 1px;
           overflow: hidden;
           background: rgba(148, 163, 184, 0.12);
         }
-        .bill-breakdown-loading-trace i {
+        .bill-breakdown-loading-step-line i {
           display: block;
           width: 42%;
           height: 1px;
@@ -1509,13 +1484,13 @@ export function BillBreakdownModal({
           line-height: 1.55;
         }
         .bill-breakdown-loading-steps {
+          position: relative;
           width: 100%;
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
           margin: 22px 0 0;
           padding: 16px 0 0;
-          border-top: 1px solid rgba(148, 163, 184, 0.13);
           list-style: none;
           text-align: left;
         }
@@ -1539,8 +1514,8 @@ export function BillBreakdownModal({
           font-variant-numeric: tabular-nums;
           animation: billLoadingStage 4.2s linear infinite;
         }
-        .bill-breakdown-loading-steps li:nth-child(2) > span { animation-delay: 1.4s; }
-        .bill-breakdown-loading-steps li:nth-child(3) > span { animation-delay: 2.8s; }
+        .bill-breakdown-loading-steps li:nth-of-type(2) > span { animation-delay: 1.4s; }
+        .bill-breakdown-loading-steps li:nth-of-type(3) > span { animation-delay: 2.8s; }
         .bill-breakdown-loading-steps div { min-width: 0; }
         .bill-breakdown-loading-steps strong,
         .bill-breakdown-loading-steps small { display: block; }
@@ -1917,7 +1892,6 @@ export function BillBreakdownModal({
           text-underline-offset: 2px;
         }
         .bill-breakdown-page-jump-btn:hover { color: #bfdbfe; }
-        .bill-breakdown-mobile-source,
         .bill-breakdown-mobile-page-link { display: none; }
         .bill-breakdown-warning-card {
           border-color: rgba(245, 158, 11, 0.22);
@@ -2036,19 +2010,6 @@ export function BillBreakdownModal({
           .bill-breakdown-preview { display: none; }
           .bill-breakdown-header { align-items: flex-start; padding: 12px 14px; }
           .bill-breakdown-header-actions { gap: 6px; }
-          .bill-breakdown-secondary-action { display: none !important; }
-          .bill-breakdown-mobile-source {
-            width: 36px;
-            height: 36px;
-            display: grid;
-            place-items: center;
-            flex: 0 0 auto;
-            border: 1px solid rgba(148, 163, 184, 0.22);
-            border-radius: 9px;
-            color: #cbd5e1;
-            background: rgba(255, 255, 255, 0.04);
-            text-decoration: none;
-          }
           .bill-breakdown-mobile-page-link {
             display: inline-flex;
             align-items: center;
@@ -2091,7 +2052,7 @@ export function BillBreakdownModal({
           .bill-breakdown-dialog.is-closing,
           .bill-breakdown-loading-state,
           .bill-breakdown-loading-cursor,
-          .bill-breakdown-loading-trace i,
+          .bill-breakdown-loading-step-line i,
           .bill-breakdown-loading-steps li > span {
             animation: none !important;
           }

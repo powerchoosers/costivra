@@ -5,6 +5,8 @@
 - Replaced the bill breakdown's disconnected pulsing icons and text with one restrained document-analysis sequence: a moving source cursor, a quiet transfer trace, and ordered Source, Charges, and Evidence stages.
 - Loading copy now stays stable and explains the actual review work without implying that unverified analysis is complete. The compact document-preview state uses the same visual language.
 - Added responsive single-column stages for narrow screens and a non-animated reduced-motion fallback. Also removed a stray stylesheet brace that could invalidate later modal rules.
+- Simplified the loaded breakdown header to Ask Costivra and Close; the duplicate source-file and header download actions are gone while the existing viewer download control remains. Ask Costivra preserves the active document as assistant context.
+- Moved the animated activity trace into the divider above the Source, Charges, and Evidence steps, replacing the static rule and tightening the step copy to “Reading the bill,” “Structuring bill activity,” and “Connecting source.”
 - Validation: Node `v24.19.0`; the focused bill-breakdown test passed 4/4; direct TypeScript and changed-file ESLint passed; authenticated browser QA at desktop and 390px mobile widths confirmed the loading state appears and the real bill breakdown completes without console warnings; `git diff --check` passed.
 
 ## August 22, 2026 — Location assignment and vendor-removal safety
