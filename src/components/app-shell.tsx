@@ -742,6 +742,12 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
           <WorkspaceExperienceBanner
             initialDocumentCount={data.documents.filter((document) => document.status !== "rejected").length}
             organizationId={data.organization.id}
+            activity={{
+              vendorCount: data.vendors?.length ?? 0,
+              invoiceCount: data.invoices?.length ?? 0,
+              contractCount: data.contracts?.length ?? 0,
+              findingCount: data.findings?.length ?? 0,
+            }}
           />
           <div className="app-work-canvas" data-workspace-slot="canvas">
             <div className="app-topbar" data-workspace-slot="topbar">

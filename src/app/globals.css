@@ -12338,7 +12338,8 @@ button.workspace-notification-row:focus-visible {
 .workspace-experience-banner--free.is-complete .workspace-experience-banner__icon { color:#8a5f17; background:#fff0d4; }
 .workspace-experience-banner__progress { height:5px; overflow:hidden; border-radius:99px; background:#e4ecd3; }
 .workspace-experience-banner__progress span { display:block; height:100%; border-radius:inherit; background:#a8d927; transition:width 220ms ease-out; }
-.workspace-experience-banner--paid { background:#fbfdff; }
+.workspace-experience-banner--paid { grid-template-columns:auto minmax(0,1fr) auto auto; background:#fbfdff; }
+.workspace-experience-banner--paid .workspace-experience-banner__dismiss:hover,.workspace-experience-banner--paid .workspace-experience-banner__dismiss:focus-visible { border-color:#cbd8e8; color:#38558d; background:#eef3fb; }
 .workspace-experience-banner a { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
 .workspace-experience-banner__lock { color:#8a9bb4; }
 .workspace-experience-banner__dismiss { display:grid; width:28px; height:28px; place-items:center; padding:0; border:1px solid transparent; border-radius:9px; color:#7b879b; background:transparent; cursor:pointer; }
@@ -12380,6 +12381,9 @@ button.workspace-notification-row:focus-visible {
 @media (max-width:760px) {
   .workspace-experience-banner { grid-template-columns:auto minmax(0,1fr) auto; margin:0 12px 12px; padding:10px 11px; border-radius:14px; }
   .workspace-experience-banner--free { grid-template-columns:auto minmax(0,1fr) auto; }
+  .workspace-experience-banner--paid { grid-template-columns:auto minmax(0,1fr) auto; }
+  .workspace-experience-banner--paid > a { grid-column:2 / 3; grid-row:2; justify-self:start; }
+  .workspace-experience-banner--paid .workspace-experience-banner__dismiss { grid-column:3; grid-row:1; }
   .workspace-experience-banner--free .workspace-experience-banner__progress { grid-column:2 / 3; grid-row:2; width:100%; }
   .workspace-experience-banner--free .button { grid-column:2 / 3; grid-row:3; justify-self:stretch; }
   .workspace-experience-banner--free .workspace-experience-banner__dismiss { grid-column:3; grid-row:1; }

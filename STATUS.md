@@ -1,5 +1,23 @@
 # Costivra Status
 
+## August 22, 2026 — Banner activity fallback
+
+- Fixed the App shell regression where routes without a `findings` collection could crash while preparing workspace-tip counts; activity collections now safely default to zero.
+- Validation: changed-file ESLint, TypeScript, and `git diff --check` passed.
+
+## August 22, 2026 — Workspace experience tips
+
+- Reworked the App experience banner into a dismissible, state-aware tip surface. Free workspaces now use a 24-hour cooldown, while paid/complimentary workspaces use a 7-day cooldown and receive action-based tips for adding sources, connecting vendors, reviewing findings, or checking settings.
+- Dismissals persist per organization in local storage, and a new relevant workspace state produces a new tip instead of replaying the same message.
+- Validation: Node `v24.19.0`; changed-file ESLint, TypeScript, and `git diff --check` passed.
+
+## August 22, 2026 — Complimentary Starter test grant
+
+- Added an explicit `complimentary` billing source so founder/test access does not masquerade as a Stripe payment or subscription.
+- Granted `l.patterson@costivra.ai` / Apex Logistics Group an active Starter entitlement with the configured Starter limits and an internal audit record. No Stripe customer, payment method, or Stripe subscription was created.
+- Billing settings now identify complimentary access and do not offer a Stripe customer portal action for that grant.
+- Validation: remote Supabase grant read back as active Starter with paid workspace, vendor, location, team-seat, and scheduled-report entitlements; Node `v24.19.0`; changed-file ESLint, TypeScript, and `git diff --check` passed.
+
 ## August 22, 2026 — Bill breakdown opening sequence
 
 - Replaced the bill breakdown's disconnected pulsing icons and text with one restrained document-analysis sequence: a moving source cursor, a quiet transfer trace, and ordered Source, Charges, and Evidence stages.
@@ -7,6 +25,7 @@
 - Added responsive single-column stages for narrow screens and a non-animated reduced-motion fallback. Also removed a stray stylesheet brace that could invalidate later modal rules.
 - Simplified the loaded breakdown header to Ask Costivra and Close; the duplicate source-file and header download actions are gone while the existing viewer download control remains. Ask Costivra preserves the active document as assistant context.
 - Moved the animated activity trace into the divider above the Source, Charges, and Evidence steps, replacing the static rule and tightening the step copy to “Reading the bill,” “Structuring bill activity,” and “Connecting source.”
+- Standardized the Upload source document Vendor field on `/app/bills` to use the shared `CostivraSelect` control, preserving the existing controlled vendor ID and upload payload.
 - Validation: Node `v24.19.0`; the focused bill-breakdown test passed 4/4; direct TypeScript and changed-file ESLint passed; authenticated browser QA at desktop and 390px mobile widths confirmed the loading state appears and the real bill breakdown completes without console warnings; `git diff --check` passed.
 
 ## August 22, 2026 — Location assignment and vendor-removal safety

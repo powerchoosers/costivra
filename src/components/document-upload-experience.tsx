@@ -18,6 +18,7 @@ import {
   type DocumentUploadCompletion,
 } from "@/lib/documents/client-upload";
 import { DocumentUploadRequestError } from "@/lib/documents/client-upload";
+import { CostivraSelect } from "@/components/ui/costivra-select";
 
 type UploadVendor = {
   relationshipId: string;
@@ -216,19 +217,19 @@ export function DocumentUploadExperience({
     <form className="document-upload-experience" onSubmit={submit}>
       <label className="portal-field">
         <span>Vendor</span>
-        <select
+        <CostivraSelect
           name="organizationVendorId"
           value={vendorId}
           disabled={busy}
-          onChange={(event) => setVendorId(event.target.value)}
-        >
-          <option value="">No vendor selected</option>
-          {vendors.map((vendor) => (
-            <option key={vendor.relationshipId} value={vendor.relationshipId}>
-              {vendor.name}
-            </option>
-          ))}
-        </select>
+          onChange={setVendorId}
+          options={vendors.map((vendor) => ({
+            value: vendor.relationshipId,
+            label: vendor.name,
+          }))}
+          placeholder="No vendor selected"
+          aria-label="Vendor"
+          className="document-upload-vendor-select"
+        />
       </label>
 
       <label

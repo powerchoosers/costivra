@@ -12,26 +12,20 @@ type FreeReviewState = {
 };
 
 type BannerDismissal = {
-  mode: "free";
-  used: number;
-  limit: number;
+  tipKey: string;
   expiresAt: number;
 };
 
 const BANNER_DISMISSAL_STORAGE_KEY = "costivra.workspace-experience-banner.dismissal";
-const BANNER_REAPPEAR_DELAY_MS = 5 * 60 * 1000;
+const FREE_BANNER_REAPPEAR_DELAY_MS = 24 * 60 * 60 * 1000;
+const PAID_BANNER_REAPPEAR_DELAY_MS = 7 * 24 * 60 * 60 * 1000;
 
 function readBannerDismissal(storageKey: string): BannerDismissal | null {
   try {
-    const raw = window.sessionStorage.getItem(storageKey);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<BannerDismissal>;
-    if (
-      parsed.mode !== "free"
-      || !Number.isFinite(parsed.used)
-      || !Number.isFinite(parsed.limit)
-      || !Number.isFinite(parsed.expiresAt)
-    ) return null;
+    if (typeof parsed.tipKey !== "string" || !Number.isFinite(parsed.expiresAt)) return null;
     return parsed as BannerDismissal;
   } catch {
     return null;
@@ -40,7 +34,7 @@ function readBannerDismissal(storageKey: string): BannerDismissal | null {
 
 function clearBannerDismissal(storageKey: string) {
   try {
-    window.sessionStorage.removeItem(storageKey);
+    window.localStorage.removeItem(storageKey);
   } catch {
     // Storage can be unavailable in private browsing; a local dismissal still works.
   }
@@ -49,9 +43,11 @@ function clearBannerDismissal(storageKey: string) {
 export function WorkspaceExperienceBanner({
   initialDocumentCount,
   organizationId,
+  activity,
 }: {
   initialDocumentCount: number;
   organizationId: string;
+  activity: { vendorCount: number; invoiceCount: number; contractCount: number; findingCount: number };
 }) {
   const [state, setState] = useState<FreeReviewState | null>(null);
   const [visible, setVisible] = useState(false);
@@ -61,6 +57,16 @@ export function WorkspaceExperienceBanner({
   const limit = isFree ? state?.limit ?? 3 : 0;
   const remaining = isFree ? Math.max(limit - used, 0) : 0;
   const dismissalStorageKey = `${BANNER_DISMISSAL_STORAGE_KEY}.${organizationId}`;
+  const tip = isFree
+    ? { id: `free-${used}-${limit}`, title: `Free review · ${used} of ${limit} bills used`, message: remaining ? `${remaining} bill${remaining === 1 ? "" : "s"} left to analyze. Your source evidence stays private.` : "Your free review is complete. Subscribe to keep analyzing bills and monitoring costs.", href: null, action: null }
+    : activity.invoiceCount === 0 && activity.contractCount === 0
+      ? { id: "paid-first-source", title: "Bring your first source into focus", message: "Upload a bill or contract to create an evidence-backed workspace record.", href: "/app/bills", action: "Add a source" }
+      : activity.vendorCount === 0
+        ? { id: "paid-first-vendor", title: "Connect your first vendor", message: "Add a vendor relationship so bills, contracts, and follow-up stay together.", href: "/app/vendors", action: "Open vendors" }
+        : activity.findingCount === 0
+          ? { id: "paid-first-finding", title: "Turn evidence into a next step", message: "Review your source-backed records to see where Costivra can help.", href: "/app/findings", action: "Review findings" }
+          : { id: "paid-review-settings", title: "Keep your workspace current", message: "Review alerts and your operating digest so important renewals stay visible.", href: "/app/settings", action: "Review settings" };
+  const tipKey = `${state?.mode ?? "unknown"}:${tip.id}`;
 
   useEffect(() => {
     let active = true;
@@ -80,15 +86,9 @@ export function WorkspaceExperienceBanner({
       setVisible(true);
     };
 
-    if (!isFree) {
-      const frame = window.requestAnimationFrame(show);
-      return () => window.cancelAnimationFrame(frame);
-    }
-
     const dismissal = readBannerDismissal(dismissalStorageKey);
     const isCurrentDismissal = dismissal
-      && dismissal.used === used
-      && dismissal.limit === limit
+      && dismissal.tipKey === tipKey
       && dismissal.expiresAt > Date.now();
     if (!isCurrentDismissal) {
       clearBannerDismissal(dismissalStorageKey);
@@ -100,7 +100,7 @@ export function WorkspaceExperienceBanner({
     return () => {
       if (reappearTimerRef.current !== null) window.clearTimeout(reappearTimerRef.current);
     };
-  }, [dismissalStorageKey, isFree, limit, state, used]);
+  }, [dismissalStorageKey, state, tipKey]);
 
   useEffect(() => () => {
     if (reappearTimerRef.current !== null) window.clearTimeout(reappearTimerRef.current);
@@ -111,12 +111,10 @@ export function WorkspaceExperienceBanner({
   const dismiss = () => {
     setVisible(false);
     if (reappearTimerRef.current !== null) window.clearTimeout(reappearTimerRef.current);
-    const expiresAt = Date.now() + BANNER_REAPPEAR_DELAY_MS;
+    const expiresAt = Date.now() + (isFree ? FREE_BANNER_REAPPEAR_DELAY_MS : PAID_BANNER_REAPPEAR_DELAY_MS);
     try {
-      window.sessionStorage.setItem(dismissalStorageKey, JSON.stringify({
-        mode: "free",
-        used,
-        limit,
+      window.localStorage.setItem(dismissalStorageKey, JSON.stringify({
+        tipKey,
         expiresAt,
       } satisfies BannerDismissal));
     } catch {
@@ -125,22 +123,23 @@ export function WorkspaceExperienceBanner({
     reappearTimerRef.current = window.setTimeout(() => {
       clearBannerDismissal(dismissalStorageKey);
       setVisible(true);
-    }, BANNER_REAPPEAR_DELAY_MS);
+    }, isFree ? FREE_BANNER_REAPPEAR_DELAY_MS : PAID_BANNER_REAPPEAR_DELAY_MS);
   };
 
   if (state.mode === "paid") {
     return <div className={`workspace-experience-banner-shell${visible ? " is-visible" : ""}`}>
       <div className="workspace-experience-banner workspace-experience-banner--paid" data-tour="plan-status" role="status">
         <span className="workspace-experience-banner__icon"><CheckCircle2 size={17} /></span>
-        <div><strong>Paid workspace</strong><span>Ongoing monitoring, evidence history, and team controls are active.</span></div>
-        <Link href="/app/settings?tab=billing">Manage billing <ArrowRight size={14} /></Link>
+        <div className="workspace-experience-banner__copy"><strong>{tip.title}</strong><span>{tip.message}</span></div>
+        {tip.href && <Link href={tip.href}>{tip.action} <ArrowRight size={14} /></Link>}
+        <button type="button" className="workspace-close-button workspace-experience-banner__dismiss" onClick={(event) => { event.stopPropagation(); dismiss(); }} aria-label="Dismiss workspace tip" tabIndex={visible ? 0 : -1}><X size={15} /></button>
       </div>
     </div>;
   }
   return <div className={`workspace-experience-banner-shell${visible ? " is-visible" : ""}`}>
     <div className={`workspace-experience-banner workspace-experience-banner--free${remaining === 0 ? " is-complete" : ""}`} data-tour="free-review-banner" role="status" aria-hidden={!visible}>
       <span className="workspace-experience-banner__icon"><ReceiptText size={17} /></span>
-      <div className="workspace-experience-banner__copy"><strong>Free review · {used} of {limit} bills used</strong><span>{remaining ? `${remaining} bill${remaining === 1 ? "" : "s"} left to analyze. Your source evidence stays private.` : "Your free review is complete. Subscribe to keep analyzing bills and monitoring costs."}</span></div>
+      <div className="workspace-experience-banner__copy"><strong>{tip.title}</strong><span>{tip.message}</span></div>
       <div className="workspace-experience-banner__progress" aria-label={`${used} of ${limit} free bills used`}><span style={{ width: `${Math.min((used / limit) * 100, 100)}%` }} /></div>
       <Link className="button button-quiet button-sm" href="/pricing?from=workspace">{remaining ? "See paid plans" : "Unlock the full workspace"} <ArrowRight size={14} /></Link>
       <button type="button" className="workspace-close-button workspace-experience-banner__dismiss" onClick={(event) => { event.stopPropagation(); dismiss(); }} aria-label="Dismiss free review notice" tabIndex={visible ? 0 : -1}><X size={15} /></button>

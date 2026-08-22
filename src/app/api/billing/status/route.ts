@@ -31,7 +31,7 @@ export async function GET() {
       ...catalog.filter((plan) => plan.checkoutEnabled && plan.active && !plan.stripePriceId).map((plan) => `price_missing:${plan.key}`),
     ];
     const [{ data: subscriptions, error: subscriptionsError }, { data: entitlements, error: entitlementsError }] = await Promise.all([
-      db.from("billing_subscriptions").select("plan_key,billing_interval,status,cancel_at_period_end,current_period_end,trial_end").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(5),
+      db.from("billing_subscriptions").select("plan_key,billing_interval,status,billing_source,cancel_at_period_end,current_period_end,trial_end").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(5),
       db.from("billing_entitlements").select("feature_key,enabled,limit_value,expires_at").eq("organization_id", organizationId),
     ]);
     if (subscriptionsError?.code === "42P01" || entitlementsError?.code === "42P01") {
