@@ -40,6 +40,15 @@ function inRowsQuery(rows: unknown[]) {
   return query;
 }
 
+function listRowsQuery(rows: unknown[]) {
+  const query: Record<string, ReturnType<typeof vi.fn>> = {};
+  query.select = vi.fn(() => query);
+  query.eq = vi.fn(() => query);
+  query.in = vi.fn().mockResolvedValue({ data: rows, error: null });
+  query.limit = vi.fn().mockResolvedValue({ data: rows, error: null });
+  return query;
+}
+
 const organizationId = "11111111-1111-4111-8111-111111111111";
 const documentId = "22222222-2222-4222-8222-222222222222";
 
@@ -84,6 +93,48 @@ function successfulDb() {
             categoryKey: "commercial-electricity-supply",
             packVersion: "2026.08.1",
             confidence: 0.98,
+          },
+          extractionFacts: {
+            energyServices: [
+              {
+                serviceAddress: "100 Main St, Austin, TX 78701",
+                meterId: "METER-1",
+                serviceIdentifier: "ESI-1",
+                usageKwh: "15900",
+                averagePricePerKwh: "0.081",
+                billedDemandKw: "72",
+                actualDemandKw: "66",
+                billingDays: "31",
+                readStatus: "actual",
+                previousMeterRead: "1000",
+                currentMeterRead: "16900",
+                meterReadUnit: "kWh",
+              },
+              {
+                serviceAddress: "100 Main St, Austin, TX 78701",
+                meterId: "METER-2",
+                serviceIdentifier: "ESI-2",
+                usageKwh: "8200",
+                billingDays: "31",
+                readStatus: "estimated",
+              },
+            ],
+            chargeSummaries: [
+              { label: "Delivery charges", amount: "940.00", servicePeriodStart: "2026-05-01", servicePeriodEnd: "2026-05-31" },
+            ],
+            serviceDetails: {
+              planName: "Business DIA",
+              serviceAddresses: ["100 Main St, Austin, TX 78701"],
+              circuitIds: ["CIRCUIT-1234"],
+              cloudAccountIdentifiers: ["123456789012"],
+              region: "us-east-1",
+              usageQuantity: "420",
+              usageUnit: "GB",
+            },
+            categoryFacts: [
+              { key: "merchant_id", value: "MERCHANT-123456", unit: null, sourceKey: "fact-1" },
+              { key: "container_size", value: "8", unit: "yd³", sourceKey: "fact-2" },
+            ],
           },
         },
         expense_category: "Commercial Electricity Supply",
@@ -183,6 +234,14 @@ function successfulDb() {
         field_path: "line_items[0]",
       },
     ]),
+    invoice_energy_meters: listRowsQuery([
+      { energy_meter_id: "meter-1", service_index: 0, is_primary: true },
+      { energy_meter_id: "meter-2", service_index: 1, is_primary: false },
+    ]),
+    energy_meters: listRowsQuery([
+      { id: "meter-1", meter_identifier: "METER-1", service_identifier: "ESI-1", utility_territory: "Austin", display_name: "Main meter" },
+      { id: "meter-2", meter_identifier: "METER-2", service_identifier: "ESI-2", utility_territory: "Austin", display_name: "Secondary meter" },
+    ]),
   };
 
   return {
@@ -258,6 +317,37 @@ describe("GET /api/portal/documents/[id]/breakdown", () => {
       { label: "Billed demand", value: 72, unit: "kW" },
       { label: "Actual demand", value: 66, unit: "kW" },
       { label: "Billing days", value: 31, unit: "days" },
+    ]);
+    expect(payload.energyServices).toHaveLength(2);
+    expect(payload.energyServices[0]).toEqual(expect.objectContaining({
+      serviceAddress: "100 Main St, Austin, TX 78701",
+      meterId: "•••• ER-1",
+      serviceIdentifier: "•••• SI-1",
+      readStatus: "actual",
+      previousMeterRead: "1000",
+      currentMeterRead: "16900",
+      persistedMeter: expect.objectContaining({ isPrimary: true }),
+    }));
+    expect(payload.energyServices[1]).toEqual(expect.objectContaining({
+      meterId: "•••• ER-2",
+      readStatus: "estimated",
+      persistedMeter: expect.objectContaining({ isPrimary: false }),
+    }));
+    expect(payload.sourceChargeSummaries).toEqual([
+      expect.objectContaining({ label: "Delivery charges", amount: "940.00" }),
+    ]);
+    expect(payload.serviceDetails).toEqual(expect.objectContaining({
+      planName: "Business DIA",
+      serviceAddresses: ["100 Main St, Austin, TX 78701"],
+      circuitIds: ["•••• 1234"],
+      cloudAccountIdentifiers: ["•••• 9012"],
+      region: "us-east-1",
+      usageQuantity: "420",
+      usageUnit: "GB",
+    }));
+    expect(payload.categoryFacts).toEqual([
+      { key: "merchant_id", value: "•••• 3456", unit: null, sourceKey: "fact-1" },
+      { key: "container_size", value: "8", unit: "yd³", sourceKey: "fact-2" },
     ]);
     expect(payload.marketBenchmark).toEqual(
       expect.objectContaining({

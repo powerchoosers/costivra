@@ -62,6 +62,8 @@ function fileLabel(file: File) {
   if (extension === "PDF") return "PDF document";
   if (extension === "DOCX") return "Word document";
   if (extension === "TXT") return "Text document";
+  if (extension === "PNG") return "PNG image";
+  if (extension === "JPG" || extension === "JPEG") return "JPEG image";
   return file.type || "Document";
 }
 
@@ -243,7 +245,7 @@ export function DocumentUploadExperience({
           ref={inputRef}
           type="file"
           name="file"
-          accept=".pdf,.docx,.txt"
+          accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,image/png,image/jpeg"
           aria-label="Choose a bill file"
           required={!selectedFile}
           disabled={busy}
@@ -301,7 +303,7 @@ export function DocumentUploadExperience({
               <UploadCloud size={26} />
             </span>
             <strong>Choose or drop a bill</strong>
-            <span>PDF, DOCX, or TXT · 20 MB maximum</span>
+            <span>PDF, DOCX, TXT, PNG, or JPG · 20 MB maximum</span>
           </div>
         )}
       </label>

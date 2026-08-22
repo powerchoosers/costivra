@@ -20,6 +20,7 @@
     "test:database:lifecycle": "tsx --env-file-if-exists=.env.local scripts/run-database-lifecycle-smoke.ts",
     "eval:invoices": "tsx --env-file-if-exists=.env.local scripts/evaluate-invoice-extraction.ts",
     "eval:public-invoice-samples": "tsx scripts/validate-public-invoice-samples.ts",
+    "eval:public-bill-shapes": "tsx --env-file-if-exists=.env.local scripts/evaluate-public-bill-shapes.ts",
     "eval:pilot": "tsx --env-file-if-exists=.env.local scripts/evaluate-pilot.ts",
     "eval:categories": "tsx --env-file-if-exists=.env.local scripts/evaluate-category-intelligence.ts categories",
     "eval:line-items": "tsx --env-file-if-exists=.env.local scripts/evaluate-category-intelligence.ts line_items",

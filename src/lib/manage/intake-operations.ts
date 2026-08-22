@@ -139,7 +139,7 @@ export async function getManageIntakeOperationsData(
         filename: text(document.original_filename, "Source document"),
         summary: nullable(document.extraction_summary),
         failureCode: text(failure?.failure_code, "extraction_failed"),
-        inputMode: inputMode === "native_text" || inputMode === "pdf_ocr" ? inputMode : null,
+        inputMode: inputMode === "native_text" || inputMode === "pdf_ocr" || inputMode === "image_vision" ? inputMode : null,
         createdAt: text(document.created_at),
         sourceAvailable: !document.source_purged_at,
         recoveryState,

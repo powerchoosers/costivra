@@ -150,6 +150,7 @@ type ContextValue = {
   openInspector: (blockId: string) => void;
   closeInspector: () => void;
   selectSession: (id: string | null) => Promise<void>;
+  restoreLatestSession: () => Promise<void>;
   createSession: () => void;
   sendMessage: (text: string) => Promise<void>;
   uploadAttachment: (file: File) => Promise<void>;
@@ -222,6 +223,30 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const restoreLatestSession = useCallback(async () => {
+    try {
+      const sessionsResponse = await fetch("/api/portal/chat/sessions", { cache: "no-store" });
+      if (!sessionsResponse.ok) return;
+      const sessionsResult = await sessionsResponse.json().catch(() => null) as {
+        sessions?: ChatSessionSummary[];
+      } | null;
+      const latestSessionId = sessionsResult?.sessions?.find((session) => typeof session.id === "string")?.id;
+      if (!latestSessionId) return;
+      const conversationResponse = await fetch(`/api/portal/chat/sessions/${latestSessionId}`, { cache: "no-store" });
+      if (!conversationResponse.ok) return;
+      const conversationResult = await conversationResponse.json().catch(() => null) as {
+        sessionId?: string;
+        messages?: ClientChatMessage[];
+      } | null;
+      if (conversationResult?.sessionId !== latestSessionId) return;
+      dispatch({ type: "SET_SESSIONS", sessions: sessionsResult?.sessions ?? [] });
+      dispatch({ type: "SET_ACTIVE_SESSION", sessionId: latestSessionId });
+      dispatch({ type: "SET_MESSAGES", messages: conversationResult.messages ?? [] });
+    } catch {
+      // The dashboard remains a usable new-chat entry point if history is unavailable.
+    }
+  }, []);
+
   const createSession = useCallback(() => {
     dispatch({ type: "ADVANCE_VIEW" });
     dispatch({ type: "SET_ACTIVE_SESSION", sessionId: null });
@@ -230,6 +255,24 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendMessage = useCallback(async (text: string) => {
+    const hasUploadingAttachment = state.pendingAttachments.some((attachment) => attachment.status === "uploading");
+    const hasBlockedAttachment = state.pendingAttachments.some((attachment) => !["processed"].includes(attachment.status));
+    if (hasUploadingAttachment) {
+      dispatch({ type: "SET_ERROR", error: "Wait for the attachment to finish uploading before sending." });
+      return;
+    }
+    if (hasBlockedAttachment) {
+      dispatch({ type: "SET_ERROR", error: "Remove attachments that are not ready for review before sending." });
+      return;
+    }
+    const docIds = state.pendingAttachments
+      .filter((attachment) => attachment.status === "processed")
+      .map((a) => a.documentId)
+      .filter((id): id is string => Boolean(id));
+    if (!text.trim() && docIds.length === 0) {
+      dispatch({ type: "SET_ERROR", error: "Enter a question or attach a processed document to continue." });
+      return;
+    }
     let sessId = state.activeSessionId;
     if (!sessId) {
       const res = await fetch("/api/portal/chat/sessions", { method: "POST" });
@@ -238,14 +281,18 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         sessId = data.session.id;
         dispatch({ type: "SET_ACTIVE_SESSION", sessionId: sessId });
         await fetchSessions();
+      } else {
+        dispatch({ type: "SET_ERROR", error: "Could not start a chat session. Please try again." });
+        return;
       }
     }
-    if (!sessId) return;
+    if (!sessId) {
+      dispatch({ type: "SET_ERROR", error: "Could not start a chat session. Please try again." });
+      return;
+    }
 
     dispatch({ type: "SET_SENDING", sending: true });
     dispatch({ type: "SET_ERROR", error: null });
-
-    const docIds = state.pendingAttachments.map((a) => a.documentId).filter((id): id is string => Boolean(id));
 
     const optUserMsg: ClientChatMessage = {
       id: crypto.randomUUID(),
@@ -303,6 +350,9 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("clientUploadId", clientUploadId);
+    if (state.currentContext?.kind === "vendor") {
+      formData.append("vendorRelationshipId", state.currentContext.id);
+    }
 
     try {
       const res = await fetch("/api/portal/chat/attachments", {
@@ -337,7 +387,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         updates: { status: "failed" },
       });
     }
-  }, []);
+  }, [state.currentContext]);
 
   const removeAttachment = useCallback((clientUploadId: string) => {
     dispatch({ type: "REMOVE_ATTACHMENT", clientUploadId });
@@ -399,6 +449,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         openInspector,
         closeInspector,
         selectSession,
+        restoreLatestSession,
         createSession,
         sendMessage,
         uploadAttachment,

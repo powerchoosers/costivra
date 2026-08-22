@@ -14,6 +14,7 @@ import { solidWastePack } from "./solid-waste";
 import { wirelessMobilityPack } from "./wireless-mobility";
 import { cloudIaasPaasPack } from "./cloud-iaas-paas";
 import { aiApiConsumptionPack } from "./ai-api-consumption";
+import { voiceUcaasPack } from "./voice-ucaas";
 
 const DRAFT_CAVEAT =
   "This category pack is in draft review. Use it to explain bill structure and identify questions, not to certify market pricing or verified savings.";
@@ -42,11 +43,9 @@ function asDraft(
 }
 
 /**
- * Only register exact, materially valid expert packs.
- * Deliberately absent until dedicated packs exist:
- * cloud, AI APIs, cybersecurity, workers compensation, group health,
- * wireless, voice/UCaaS, WAN/SD-WAN, hazardous waste, shredding, electric delivery.
- * Those categories receive a neutral draft pack rather than borrowed rules.
+ * Register only category-specific packs. Every pack remains draft until its
+ * evidence, pricing, and evaluation gates are strong enough for production
+ * conclusions; draft packs explain structure and surface review questions.
  */
 export const EXPERT_PACKS_REGISTRY: Record<string, CategoryExpertPackV1> = {
   "commercial-electricity-supply": asDraft(energyElectricityPack),
@@ -62,6 +61,7 @@ export const EXPERT_PACKS_REGISTRY: Record<string, CategoryExpertPackV1> = {
   "wireless-mobility": asDraft(wirelessMobilityPack),
   "cloud-iaas-paas": asDraft(cloudIaasPaasPack),
   "ai-api-consumption": asDraft(aiApiConsumptionPack),
+  "voice-ucaas": asDraft(voiceUcaasPack),
 };
 
 const CATEGORY_ALIASES: Record<string, string> = {
@@ -82,6 +82,15 @@ const CATEGORY_ALIASES: Record<string, string> = {
   "business broadband": "business-broadband-dia",
   dia: "business-broadband-dia",
   internet: "business-broadband-dia",
+  // Voice / UCaaS
+  voip: "voice-ucaas",
+  voice: "voice-ucaas",
+  ucaas: "voice-ucaas",
+  "unified communications": "voice-ucaas",
+  "hosted pbx": "voice-ucaas",
+  sip: "voice-ucaas",
+  nextiva: "voice-ucaas",
+  ringcentral: "voice-ucaas",
   // Wireless
   wireless: "wireless-mobility",
   "wireless mobility": "wireless-mobility",
@@ -123,6 +132,7 @@ const PARENT_BY_KEY_PREFIX: Array<[string, string]> = [
   ["business-broadband", "telecom-connectivity"],
   ["wireless", "telecom-connectivity"],
   ["voice-", "telecom-connectivity"],
+  ["ucaas", "telecom-connectivity"],
   ["wan-", "telecom-connectivity"],
   ["saas", "technology"],
   ["cloud", "technology"],

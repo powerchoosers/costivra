@@ -32,6 +32,11 @@ export function AssistantCardShell({
       className="assistant-card"
       data-selected={selected}
       onClick={onSelect}
+      onKeyDown={(event) => {
+        if (!onSelect || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        onSelect();
+      }}
       role={onSelect ? "button" : undefined}
       tabIndex={onSelect ? 0 : undefined}
     >

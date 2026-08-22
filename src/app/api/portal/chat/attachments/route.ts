@@ -4,6 +4,17 @@ import { requirePortalContext } from "@/lib/portal/repository";
 import { ingestManualUpload } from "@/lib/documents/manual-upload";
 import { finalizeFreeReviewSlot, prepareFreeReviewBufferClaim } from "@/lib/billing/free-review";
 
+function normalizedUploadMimeType(file: File): string {
+  if (file.type) return file.type.toLowerCase();
+  const extension = file.name.toLowerCase().split(".").pop();
+  if (extension === "png") return "image/png";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "txt") return "text/plain";
+  if (extension === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return "application/octet-stream";
+}
+
 export async function POST(request: Request) {
   try {
     const { db, organizationId, userId, role } = await requirePortalContext();
@@ -47,7 +58,7 @@ export async function POST(request: Request) {
         organizationId,
         actorId: userId,
         filename: file.name,
-        mimeType: file.type || "application/pdf",
+        mimeType: normalizedUploadMimeType(file),
         buffer,
         organizationVendorId: vendorRelationshipId,
       });

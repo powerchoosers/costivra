@@ -7,6 +7,7 @@ Costivra does not treat a few successful uploads as proof that invoice extractio
 - classification accuracy;
 - precision and recall for vendor, currency, invoice identifiers, dates, service periods, totals, taxes, fees, credits, and amount due;
 - exact line-item precision and recall when line-item truth is supplied;
+- optional structured-field precision and recall for service addresses, contract terms, service details, indexed meters/charge summaries, bounded `categoryFacts[]`, and source-visible line units/tax rates;
 - whether required evidence citations exist and are copied from the source document;
 - deterministic reconciliation status;
 - whether questionable invoices are routed to human review;
@@ -30,6 +31,8 @@ Only use documents the business is allowed to test. Remove names, addresses, acc
 Start from `tests/fixtures/invoices/golden-manifest.smoke.json`, but do not copy its zero coverage requirements into the production manifest. If `coverageRequirements` is omitted, the evaluator enforces the production minimums of 20 software, 20 telecom/internet, 20 utility, and 10 scanned cases. The pilot wrapper additionally requires 10 adversarial cases and refuses synthetic smoke cases.
 
 Every invoice field must be present in expected truth. Use `null` only when the source truly does not show the field. Omitting a field is rejected because it could hide a weak extraction result.
+
+Use `expected.structuredFields` for category-specific assertions. Each entry has an allowlisted `path` and an exact scalar or string-array `value`, for example `invoice.energyServices[0].meterId`, `invoice.serviceDetails.phoneNumbers`, `categoryFacts[0].value`, `invoice.lineItems[0].unit`, `serviceAddress`, or `contractDetails.serviceAddresses`. Structured fields with non-null values become evidence requirements when no explicit evidence list is supplied. Category facts are source-visible candidates, not calculated financial outputs.
 
 For native-text documents, evidence quotes must occur in the text extracted by the production parser. For scanned documents, each required evidence field must include one or more human-transcribed `evidenceSnippets` because there is no native text layer against which to verify a quote.
 
@@ -64,3 +67,20 @@ The committed smoke files test the scorer and command wiring only. They do not m
 ```powershell
 npm run eval:invoices -- --manifest tests/fixtures/invoices/golden-manifest.smoke.json --predictions tests/fixtures/invoices/golden-predictions.smoke.json
 ```
+
+## Public bill-shape provider smoke
+
+For source-shape coverage without sending live customer documents or writing
+Supabase records, run the bounded public-sample smoke:
+
+```powershell
+npm run eval:public-bill-shapes
+```
+
+It exercises native-text energy, telecom/VoIP, broadband, software, and cloud
+PDFs through the same provider/parser path as intake. The command prints only
+masked identifiers and structured summaries, and it fails if any sample cannot
+produce a schema-valid result. A passing run proves the path can preserve
+source-visible shapes such as multiple energy meters, read units, charge
+summaries, telecom fees, software units, and cloud line items; it is still not a
+labeled accuracy evaluation. Use the private golden workflow above for that.

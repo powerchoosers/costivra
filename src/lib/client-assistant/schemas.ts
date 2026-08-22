@@ -65,6 +65,14 @@ export function parseClientAssistantModelOutput(rawText: string): ClientAssistan
               : undefined,
           });
           break;
+        case "invoice_ranking":
+          blockRequests.push({
+            type: "invoice_ranking",
+            invoiceIds: Array.isArray(b.invoiceIds)
+              ? b.invoiceIds.filter((id): id is string => typeof id === "string")
+              : undefined,
+          });
+          break;
         case "invoice_summary":
           if (typeof b.invoiceId === "string") {
             blockRequests.push({ type: "invoice_summary", invoiceId: b.invoiceId });
@@ -104,6 +112,9 @@ export function parseClientAssistantModelOutput(rawText: string): ClientAssistan
             vendorRelationshipId: typeof b.vendorRelationshipId === "string" ? b.vendorRelationshipId : undefined,
             category: typeof b.category === "string" ? b.category : undefined,
           });
+          break;
+        case "monitoring_overview":
+          blockRequests.push({ type: "monitoring_overview" });
           break;
         case "renewal_timeline":
           if (Array.isArray(b.contractIds)) {

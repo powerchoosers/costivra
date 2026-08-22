@@ -9,7 +9,12 @@ function fixture(): AssistantBoundedContext {
     currentContextCategory: null,
     attachedDocuments: [],
     recentVendors: [{ id: "vendor-1", name: "Relay", category: "software", spend: 0 }],
-    recentInvoices: [{ id: "invoice-1", vendorName: "Relay", category: "software", amount: 0, date: "2026-08-01", status: "needs_review" }],
+    recentInvoices: [{ id: "invoice-1", vendorName: "Relay", category: "software", amount: 0, date: "2026-08-01", status: "needs_review", documentId: null }],
+    recentExpenses: [],
+    verifiedSavings: [],
+    pendingApprovals: [],
+    supplierCatalog: [],
+    recentLineItems: [],
     openOpportunities: [{ id: "opportunity-1", title: "Relay duplicate licenses", estimatedAnnualValue: 0, status: "under_review" }],
     upcomingContracts: [{ id: "contract-1", title: "Relay agreement", vendorName: "Relay", endDate: "2026-12-31", noticeDeadline: "2026-10-01", autoRenews: true }],
   };

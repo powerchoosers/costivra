@@ -4,7 +4,7 @@ import { classifyInvoiceReview } from "@/lib/domain/invoice-review";
 import { resolveVendorAndCategory } from "@/lib/vendors/resolve";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { categoryIntelligence } from "@/lib/category-intelligence/service";
-import { resolveInvoiceIdentity, type InvoiceIdentityResolution } from "@/lib/domain/invoice-matching";
+import { persistServiceLocationAndMeter, type ServiceIdentityResolution } from "@/lib/domain/service-location";
 import { lineItemEvidenceMap, type EvidenceReferenceForMapping } from "@/lib/documents/evidence-mapping";
 import { evaluateTariffReview } from "@/lib/domain/tariff-review";
 import { resolveKnownVendorIdentity } from "@/lib/vendors/normalize";
@@ -71,8 +71,12 @@ export async function createInvoiceRecordFromExtraction(input: {
   const identity = await resolveIdentityForInvoice({
     db: input.db,
     organizationId: input.organizationId,
+    documentId: input.documentId,
     candidate,
+    customerName: input.intelligence.customerName,
+    serviceAddress: input.intelligence.serviceAddress,
   });
+  const primaryEnergyService = candidate.energyService ?? candidate.energyServices?.[0] ?? null;
 
   const lineItemEvidenceIds = lineItemEvidenceMap({
     evidence: input.evidenceReferences ?? [],
@@ -127,7 +131,8 @@ export async function createInvoiceRecordFromExtraction(input: {
       current_period_credits: candidate.currentPeriodCredits,
       total_amount: candidate.totalAmount,
       amount_due: candidate.amountDue,
-      energy_service: candidate.energyService,
+      energy_service: primaryEnergyService,
+      energy_meter_id: identity.energyMeterId,
       expense_account_id: identity.expenseAccountId,
       location_id: identity.locationId,
       workspace_customer_match_status: identity.workspaceCustomerMatchStatus,
@@ -149,6 +154,15 @@ export async function createInvoiceRecordFromExtraction(input: {
         reconciliationChecks: reconciliation.checks,
         identityMatch: identity,
         extractedVendorName: input.intelligence.vendorName,
+        extractionFacts: {
+          customerName: input.intelligence.customerName ?? null,
+          paymentTermsDays: input.intelligence.paymentTermsDays ?? null,
+          contractDetails: input.intelligence.contractDetails ?? null,
+          categoryFacts: input.intelligence.categoryFacts ?? [],
+          energyServices: candidate.energyServices ?? (primaryEnergyService ? [primaryEnergyService] : []),
+          chargeSummaries: candidate.chargeSummaries ?? [],
+          serviceDetails: candidate.serviceDetails ?? null,
+        },
         isCandidateVendor: vendorResult.isCandidate,
         categoryIntelligence: {
           categoryKey: categoryResolution.key,
@@ -163,6 +177,21 @@ export async function createInvoiceRecordFromExtraction(input: {
   if (invoiceError) throw invoiceError;
 
   try {
+    if (identity.energyMeterLinks.length > 0) {
+      const { error: meterLinkError } = await input.db
+        .from("invoice_energy_meters")
+        .insert(
+          identity.energyMeterLinks.map((link) => ({
+            organization_id: input.organizationId,
+            invoice_id: invoice.id,
+            energy_meter_id: link.energyMeterId,
+            service_index: link.serviceIndex,
+            source_key: link.sourceKey,
+            is_primary: link.energyMeterId === identity.energyMeterId,
+          })),
+        );
+      if (meterLinkError) throw meterLinkError;
+    }
     if (candidate.lineItems.length) {
       const { data: storedLines, error: lineError } = await input.db
         .from("invoice_line_items")
@@ -180,6 +209,8 @@ export async function createInvoiceRecordFromExtraction(input: {
         service_period_end: line.servicePeriodEnd,
         metadata: {
           sourceKey: line.sourceKey ?? `line-${index + 1}`,
+          unit: line.unit ?? null,
+          taxRate: line.taxRate ?? null,
           evidenceReferenceIds: lineItemEvidenceIds[index] ?? [],
         },
       })),
@@ -248,15 +279,15 @@ export async function createInvoiceRecordFromExtraction(input: {
     });
     const tariffReview = categoryResolution.parentKey === "energy-utilities"
       ? evaluateTariffReview({
-        utilityTerritory: candidate.energyService?.utilityTerritory ?? null,
-        serviceIdentifier: candidate.energyService?.serviceIdentifier ?? null,
-        assignedRateCode: candidate.energyService?.assignedRateCode ?? null,
-        serviceVoltage: candidate.energyService?.serviceVoltage ?? null,
-        meteringConfiguration: candidate.energyService?.meteringConfiguration ?? null,
-        serviceClass: candidate.energyService?.serviceClass ?? null,
-        billedDemandKw: candidate.energyService?.billedDemandKw ?? null,
-        historicalDemandKw: candidate.energyService?.historicalDemandKw ?? null,
-        ratchetApplies: candidate.energyService?.ratchetApplies ?? null,
+        utilityTerritory: primaryEnergyService?.utilityTerritory ?? null,
+        serviceIdentifier: primaryEnergyService?.serviceIdentifier ?? null,
+        assignedRateCode: primaryEnergyService?.assignedRateCode ?? null,
+        serviceVoltage: primaryEnergyService?.serviceVoltage ?? null,
+        meteringConfiguration: primaryEnergyService?.meteringConfiguration ?? null,
+        serviceClass: primaryEnergyService?.serviceClass ?? null,
+        billedDemandKw: primaryEnergyService?.billedDemandKw ?? null,
+        historicalDemandKw: primaryEnergyService?.historicalDemandKw ?? null,
+        ratchetApplies: primaryEnergyService?.ratchetApplies ?? null,
         officialSource: null,
         comparison: null,
       })
@@ -320,18 +351,33 @@ export async function createInvoiceRecordFromExtraction(input: {
 async function resolveIdentityForInvoice(input: {
   db: DatabaseClient;
   organizationId: string;
+  documentId: string;
   candidate: NonNullable<DocumentIntelligence["invoice"]>;
-}): Promise<InvoiceIdentityResolution> {
+  customerName?: string | null;
+  serviceAddress?: string | null;
+}): Promise<ServiceIdentityResolution> {
   const hasIdentityEvidence = Boolean(
-    input.candidate.accountNumberLast4 || input.candidate.energyService,
+    input.candidate.accountNumberLast4
+      || input.candidate.energyService
+      || input.candidate.energyServices?.length
+      || input.candidate.serviceDetails?.serviceAddresses?.length
+      || input.customerName
+      || input.serviceAddress,
   );
-  const unknown: InvoiceIdentityResolution = {
+  const unknown: ServiceIdentityResolution = {
     workspaceCustomerMatchStatus: "unknown",
     expenseAccountMatchStatus: "unknown",
     serviceLocationMatchStatus: "unknown",
     expenseAccountId: null,
     locationId: null,
     issueCodes: [],
+    energyMeterId: null,
+    energyMeterIds: [],
+    energyMeterLinks: [],
+    createdLocationId: null,
+    createdMeterId: null,
+    createdMeterIds: [],
+    locationIds: [],
   };
   if (!hasIdentityEvidence) return unknown;
 
@@ -344,8 +390,13 @@ async function resolveIdentityForInvoice(input: {
   if (failed?.error) throw failed.error;
 
   const organization = (organizationResult.data ?? {}) as Record<string, unknown>;
-  return resolveInvoiceIdentity({
+  return persistServiceLocationAndMeter({
+    db: input.db,
+    organizationId: input.organizationId,
+    documentId: input.documentId,
     candidate: input.candidate,
+    customerName: input.customerName,
+    serviceAddress: input.serviceAddress,
     workspaceNames: [organization.name, organization.legal_name].filter((value): value is string => typeof value === "string"),
     accounts: Array.isArray(accountsResult.data) ? accountsResult.data as Record<string, unknown>[] : [],
     locations: Array.isArray(locationsResult.data) ? locationsResult.data as Record<string, unknown>[] : [],

@@ -68,6 +68,9 @@ import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
 import { EditRecordSheet } from "@/components/records/edit-record-sheet";
 import { RecordDangerDialog, DependencyPreview } from "@/components/records/record-danger-dialog";
 import { RecordChangeHistory, type AuditHistoryItem } from "@/components/records/record-change-history";
+import { VendorRelationshipContacts } from "@/components/vendor-relationship-contacts";
+import { VendorSpendHistory } from "@/components/vendor-spend-history";
+import { buildVendorSpendHistory } from "@/lib/portal/vendor-spend-history";
 import { recordDraftChanged } from "@/lib/records/draft-state";
 import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { getPlainLanguageReviewReasons, resolveBillsView } from "@/lib/portal/bills-workspace";
@@ -2167,6 +2170,7 @@ export function VendorDetail({
   const searchParams = useSearchParams();
   const toast = useToast();
   const { openInspector } = useBillInspector();
+  const { setContext: setAssistantContext } = useClientAssistant();
   const vendor = data.vendors.find((item) => item.id === vendorId);
   const vendorRelationshipId = vendor?.relationshipId ?? null;
   const requestedAccount = searchParams?.get("account");
@@ -2188,6 +2192,12 @@ export function VendorDetail({
   const [monitoring, setMonitoring] = useState<VendorMonitoringRecord | null>(null);
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
   const workspaceCurrency = resolveRecordDetailCurrency(data.organization.currency);
+
+  useEffect(() => {
+    if (!vendorRelationshipId) return;
+    setAssistantContext({ kind: "vendor", id: vendorRelationshipId });
+    return () => setAssistantContext(null);
+  }, [setAssistantContext, vendorRelationshipId]);
 
   // Edit form state
   const [displayNameOverride, setDisplayNameOverride] = useState(vendor?.displayNameOverride ?? "");
@@ -2296,8 +2306,12 @@ export function VendorDetail({
   );
   const actions = data.actions.filter((item) => item.vendorId === vendorId);
   const vendorSavings = data.savings.filter((s) => s.opportunityId && opportunities.some((o) => o.id === s.opportunityId));
+  const vendorContacts = data.vendorContacts.filter((contact) => contact.relationshipId === vendor.relationshipId);
   const contract = contracts[0];
-  const latest = expenses[0];
+  const latestRecordedPoint = buildVendorSpendHistory(invoices, expenses, {
+    currency: workspaceCurrency,
+    limit: 1,
+  }).points.at(-1);
   const rawMonitoringState = monitoring?.state ?? ((vendor as unknown as Record<string, unknown>).monitoringState as MonitoringState | undefined) ?? "not_set_up";
   const monitoringState = getMonitoringStateLabel(rawMonitoringState);
   const pendingReviewCount = invoices.filter((invoice) => invoice.reviewStatus === "needs_review").length;
@@ -2305,7 +2319,7 @@ export function VendorDetail({
   const hasOpenFinding = opportunities.some((o) => !["closed", "declined"].includes(o.status));
   const hasPendingAction = actions.some((a) => !["complete", "cancelled"].includes(a.status));
   const inferredVendorAccounts = groupVendorInvoicesByAccount(invoices);
-  const vendorAccountCount = vendorAccounts.length || inferredVendorAccounts.length || 1;
+  const vendorAccountCount = vendorAccounts.length || inferredVendorAccounts.length;
 
   const vendorDocumentIds = getChronologicalBillDocumentIds(documents, invoices);
 
@@ -2586,17 +2600,17 @@ export function VendorDetail({
 
       {activeTab === "overview" && (
         <div className="vendor-detail-stack">
-          <section className="vendor-overview-summary" aria-label={`${vendor.name} relationship summary`}>
+           <section className="vendor-overview-summary" aria-label={`${vendor.name} relationship summary`}>
             <dl className="vendor-overview-summary__metrics">
               <div>
-                <dt>Annualized spend</dt>
+                <dt>Recorded annualized spend</dt>
                 <dd>{vendorMoney(vendor.annualizedSpend)}</dd>
                 <small>Current relationship record</small>
               </div>
               <div>
-                <dt>Latest bill</dt>
-                <dd>{latest ? vendorMoney(latest.amount) : "Not recorded"}</dd>
-                <small>{latest ? `Period ending ${date(latest.periodEnd)}` : "Add a bill or source document"}</small>
+                <dt>Latest recorded charge</dt>
+                <dd>{latestRecordedPoint ? vendorMoney(latestRecordedPoint.amount) : "Not recorded"}</dd>
+                <small>{latestRecordedPoint ? `${latestRecordedPoint.dateSource === "invoice_date" ? "Invoice dated" : "Service period ending"} ${formatFinancialDate(latestRecordedPoint.date)}` : "Add a bill or source document"}</small>
               </div>
             </dl>
             <dl className="vendor-overview-summary__facts">
@@ -2607,48 +2621,66 @@ export function VendorDetail({
                 </div>
               ))}
             </dl>
-          </section>
+           </section>
 
-          {/* Value summary */}
-          <section className="portal-panel workspace-value-summary">
-            <h2>Value Summary</h2>
-            <div className="workspace-value-summary__grid">
-              <div className="workspace-value-summary__metric" data-tone="potential">
-                <span>Potential Value</span>
-                <strong>{potentialFindings.length ? vendorMoney(potentialValueTotal) : "Not established"}</strong>
-                <small>{potentialFindings.length ? `${potentialFindings.length} evidence-backed finding${potentialFindings.length === 1 ? "" : "s"}` : "No evidence-backed finding yet"}</small>
-              </div>
-              <div className="workspace-value-summary__metric">
-                <span>Actions in Progress</span>
-                <strong>{actionsInProgress ? `${actionsInProgress} work item${actionsInProgress === 1 ? "" : "s"}` : "No active work"}</strong>
-                <small>{actionsInProgress ? "Active execution" : "No approved work is underway"}</small>
-              </div>
-              <div className="workspace-value-summary__metric" data-tone="verified">
-                <span>Verified Value</span>
-                <strong>{hasVerifiedValue ? vendorMoney(verifiedValueTotal) : "Not verified yet"}</strong>
-                <small>{hasVerifiedValue ? "Proven by later evidence" : "Awaiting comparison evidence"}</small>
-              </div>
-            </div>
-            <p className="workspace-value-summary__note">
-              <ShieldCheck aria-hidden="true" size={14} /> {potentialFindings.length ? "Potential value is an estimate based on linked evidence and a deterministic calculation. Verified value is proven by later invoice evidence." : "Costivra will show potential value only after a finding has linked evidence and a deterministic calculation."}
-            </p>
-          </section>
-
-          <VendorMonitoringCard
-            vendor={vendor}
-            monitoring={monitoring}
-            error={monitoringError}
-            canWrite={canWrite}
-            onMonitor={() => onAdd("monitor", vendor.relationshipId)}
-          />
-
-          <DataCompletenessChecklist
-            documents={documents}
-            expenses={expenses}
+          <VendorSpendHistory
             invoices={invoices}
-            contract={contract}
-            monitoring={monitoring}
+            expenses={expenses}
+            currency={workspaceCurrency}
           />
+
+          <div className="vendor-overview-support-grid">
+            <div className="vendor-overview-support-grid__main">
+              <VendorRelationshipContacts
+                relationshipId={vendor.relationshipId}
+                contacts={vendorContacts}
+                canWrite={canWrite}
+              />
+
+              {/* Value summary */}
+              <section className="portal-panel workspace-value-summary">
+                <h2>Value Summary</h2>
+                <div className="workspace-value-summary__grid">
+                  <div className="workspace-value-summary__metric" data-tone="potential">
+                    <span>Potential Value</span>
+                    <strong>{potentialFindings.length ? vendorMoney(potentialValueTotal) : "Not established"}</strong>
+                    <small>{potentialFindings.length ? `${potentialFindings.length} evidence-backed finding${potentialFindings.length === 1 ? "" : "s"}` : "No evidence-backed finding yet"}</small>
+                  </div>
+                  <div className="workspace-value-summary__metric">
+                    <span>Actions in Progress</span>
+                    <strong>{actionsInProgress ? `${actionsInProgress} work item${actionsInProgress === 1 ? "" : "s"}` : "No active work"}</strong>
+                    <small>{actionsInProgress ? "Active execution" : "No approved work is underway"}</small>
+                  </div>
+                  <div className="workspace-value-summary__metric" data-tone="verified">
+                    <span>Verified Value</span>
+                    <strong>{hasVerifiedValue ? vendorMoney(verifiedValueTotal) : "Not verified yet"}</strong>
+                    <small>{hasVerifiedValue ? "Proven by later evidence" : "Awaiting comparison evidence"}</small>
+                  </div>
+                </div>
+                <p className="workspace-value-summary__note">
+                  <ShieldCheck aria-hidden="true" size={14} /> {potentialFindings.length ? "Potential value is an estimate based on linked evidence and a deterministic calculation. Verified value is proven by later invoice evidence." : "Costivra will show potential value only after a finding has linked evidence and a deterministic calculation."}
+                </p>
+              </section>
+            </div>
+
+            <div className="vendor-overview-support-grid__rail">
+              <VendorMonitoringCard
+                vendor={vendor}
+                monitoring={monitoring}
+                error={monitoringError}
+                canWrite={canWrite}
+                onMonitor={() => onAdd("monitor", vendor.relationshipId)}
+              />
+
+              <DataCompletenessChecklist
+                documents={documents}
+                expenses={expenses}
+                invoices={invoices}
+                contract={contract}
+                monitoring={monitoring}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -2759,7 +2791,7 @@ export function VendorDetail({
           <div className="workspace-record-form__grid">
             <div className="workspace-record-form__field">
               <label className="workspace-record-form__label">
-                Annualized Spend ($)
+                Annualized Spend ({workspaceCurrency})
               </label>
               <input
                 type="number"
@@ -3688,7 +3720,7 @@ function Integrations({
                     <div>
                       <strong>Send one test document</strong>
                       <p>
-                        Attach a PDF, DOCX, or TXT file. Costivra verifies the
+                        Attach a PDF, DOCX, TXT, PNG, or JPG file. Costivra verifies the
                         sender, scans the file, prevents duplicates, and
                         preserves the source.
                       </p>
@@ -4460,7 +4492,7 @@ function LocationManager({
               <span className="settings-location-icon"><MapPin size={17} /></span>
               <div>
                 <strong>{item.name}</strong>
-                <small>{addressLine(item)}</small>
+                <small>{addressLine(item)}{item.meterCount > 0 ? ` · ${item.meterCount} meter${item.meterCount === 1 ? "" : "s"}` : ""}</small>
               </div>
               <Status value={item.status} />
               {addressLine(item) !== "Address not added" && <a className="settings-location-map-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${item.name}, ${addressLine(item)}`)}`} target="_blank" rel="noreferrer">Open map</a>}
@@ -5144,7 +5176,7 @@ function CreateModals({
         side
         className="portal-modal--upload"
         title="Upload source document"
-        description="PDF, DOCX, or text up to 20 MB. Every file passes a security scan before extraction."
+        description="PDF, DOCX, text, PNG, or JPG up to 20 MB. Every file passes a security scan before extraction."
         onClose={close}
         onClosed={handleUploadModalClosed}
       >

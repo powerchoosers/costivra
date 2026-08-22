@@ -81,4 +81,67 @@ describe("invoice identity matching", () => {
       normalizeAddress("7500 John W Carpenter Fwy, Dallas, TX 75247"),
     );
   });
+
+  it("matches the canonical line1 shape saved by the Settings form", () => {
+    expect(normalizeAddress("6700 WANDT DR DALLAS TX 75236-2528")).toBe(
+      normalizeAddress({ line1: "6700 WANDT DR", city: "DALLAS", state: "TX", postal_code: "75236-2528" }),
+    );
+  });
+
+  it("matches a non-energy invoice from top-level customer and service address fields", () => {
+    const result = resolveInvoiceIdentity({
+      candidate: { ...candidate, energyService: null, energyServices: [] },
+      customerName: "Fabrikam Supply of Houston LLC",
+      serviceAddress: "8301 Ambassador Row, Dallas, TX 75247-4707",
+      workspaceNames: ["Fabrikam Supply of Houston LLC"],
+      accounts: [{ id: "account-1", external_account_reference: "TEL-00005124" }],
+      locations: [{ id: "location-1", name: "Service hub", address: { line1: "8301 Ambassador Row", city: "Dallas", state: "TX", postal_code: "75247-4707" } }],
+    });
+
+    expect(result.workspaceCustomerMatchStatus).toBe("matched");
+    expect(result.serviceLocationMatchStatus).toBe("matched");
+    expect(result.locationId).toBe("location-1");
+  });
+
+  it("includes category-specific addresses and identifiers in the initial identity match", () => {
+    const result = resolveInvoiceIdentity({
+      candidate: {
+        ...candidate,
+        energyService: null,
+        energyServices: [],
+        serviceDetails: {
+          planName: "Dedicated Internet",
+          productFamily: "broadband",
+          serviceAddresses: ["8301 Ambassador Row, Dallas, TX 75247-4707"],
+          serviceIdentifiers: [],
+          phoneNumbers: [],
+          circuitIds: ["CIRCUIT-4491"],
+          subscriptionIdentifiers: [],
+          resourceIdentifiers: [],
+          cloudAccountIdentifiers: [],
+          region: null,
+          bandwidthQuantity: "1000",
+          bandwidthUnit: "Mbps",
+          lineCount: null,
+          deviceCount: null,
+          seatCount: null,
+          usageQuantity: null,
+          usageUnit: null,
+          includedUsageQuantity: null,
+          includedUsageUnit: null,
+          commitmentType: null,
+          commitmentTermMonths: null,
+        },
+      },
+      customerName: "Fabrikam Supply of Houston LLC",
+      workspaceNames: ["Fabrikam Supply of Houston LLC"],
+      accounts: [{ id: "account-1", external_account_reference: "CIRCUIT-4491" }],
+      locations: [{ id: "location-1", name: "Service hub", address: { line1: "8301 Ambassador Row", city: "Dallas", state: "TX", postal_code: "75247-4707" } }],
+    });
+
+    expect(result.expenseAccountMatchStatus).toBe("matched");
+    expect(result.serviceLocationMatchStatus).toBe("matched");
+    expect(result.expenseAccountId).toBe("account-1");
+    expect(result.locationId).toBe("location-1");
+  });
 });

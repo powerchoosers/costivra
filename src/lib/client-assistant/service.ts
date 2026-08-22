@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import {
   planDeterministicBlocks,
+  filterRelevantModelBlockRequests,
   mergeAndDedupeBlockRequests,
 } from "./presentation-planner";
 import { categoryIntelligence } from "@/lib/category-intelligence/service";
@@ -45,6 +46,7 @@ export interface ExecuteTurnResult {
     documentName: string;
     pageNumber: number;
     quote: string;
+    href?: string | null;
   }>;
   blocks: AssistantBlockV1[];
   followUps: string[];
@@ -263,6 +265,7 @@ export async function executeAssistantTurn(
         documentName: filenames.get(evidence.document_id) ?? "Source document",
         pageNumber: evidence.page_number,
         quote: evidence.text_excerpt,
+        href: `/app/documents/${evidence.document_id}`,
       });
     }
   }
@@ -404,6 +407,10 @@ ${vendorSummary || "No vendors on record."}
 Recent Invoices:
 ${invoiceSummary || "No recent invoices."}
 
+Bill-question grounding:
+- When the user asks about bills or invoices, use the invoice records above as the authoritative bill source and request the appropriate invoice card. Do not substitute an expense-period total for an invoice total or describe an expense record as a bill.
+- When a deterministic bill-ranking card is present, keep the narrative aligned with that card and do not introduce larger amounts from another record type.
+
 Recent Expenses:
 ${boundedContext.recentExpenses.map((expense) => `${expense.vendorName ?? "Unknown vendor"} — ${expense.currency} ${expense.amount} (${expense.category}) from ${expense.periodStart} to ${expense.periodEnd} [id: ${expense.id}]`).join("\n") || "No expense records."}
 
@@ -428,16 +435,18 @@ ${boundedContext.supplierCatalog.map((vendor) => `${vendor.name}${vendor.categor
 Energy referral boundary:
 - Costivra does not select a supplier, rank providers by hidden compensation, or send a referral automatically.
 - If the user asks who to renew with, explain that supplier advice requires a current, comparable review and human choice.
+- If the category or vendor is ambiguous, ask a short clarifying question before presenting supplier-directory records.
 - The only currently configured optional partner path is a disclosed UCEP review; it requires the disclosure and explicit, purpose-specific consent before any sharing.
 
 Respond with valid JSON matching this schema exactly:
 {
   "answer": "<your response>",
   "citationIds": ["<known evidence reference id>"],
-  "blockRequests": [ { "type": "<block_type>", "invoiceId"?: "<uuid>", "vendorRelationshipId"?: "<uuid>", "opportunityId"?: "<uuid>", "documentId"?: "<uuid>", "invoiceIds"?: ["<uuid>","<uuid>"], "category"?: "<known category>", "currentVendorName"?: "<known vendor name>" } ],
+  "blockRequests": [ { "type": "<block_type>", "invoiceId"?: "<uuid>", "invoiceIds"?: ["<uuid>"], "vendorRelationshipId"?: "<uuid>", "opportunityId"?: "<uuid>", "documentId"?: "<uuid>", "category"?: "<known category>", "currentVendorName"?: "<known vendor name>" } ],
   "followUps": ["<suggested question>"],
   "missingInformation": ["<what is missing>"]
 }
+Available visual block types include spend_overview, invoice_ranking, invoice_summary, invoice_comparison, invoice_breakdown, spend_trend, vendor_summary, supplier_options, energy_review_path, renewal_timeline, opportunity, savings_summary, approval_queue, monitoring_overview, document_ingestion, evidence_list, and notice.
 Keep blockRequests to a maximum of 5. Only request block types for records explicitly present in the context. Do not invent record IDs.`;
 
   const conversation = [
@@ -492,7 +501,7 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
 
   const finalBlockRequests = mergeAndDedupeBlockRequests(
     deterministicBlocks,
-    modelRequestedBlocks,
+    filterRelevantModelBlockRequests(prompt, boundedContext, contextRef, modelRequestedBlocks),
     5,
   );
   const hydratedBlocks = await hydrateAssistantBlocks(
@@ -607,7 +616,7 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
     userMessageId: userMessage.id,
     assistantMessageId: assistantMessage.id,
     content: responseText,
-    citations: [],
+    citations: selectedCitations,
     blocks: hydratedBlocks,
     followUps,
     missingInformation,

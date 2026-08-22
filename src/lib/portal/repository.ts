@@ -7,7 +7,8 @@ import {
   deriveOpportunityTrustState,
   isOpportunityTrustState,
 } from "@/lib/domain/opportunity-trust";
-import type { PortalData } from "@/lib/portal/types";
+import type { PortalData, PortalVendorContact } from "@/lib/portal/types";
+import { isAllowedCategoryFactKey } from "@/lib/category-intelligence/category-facts";
 
 type Row = Record<string, unknown>;
 
@@ -27,6 +28,72 @@ function nullableString(value: unknown): string | null {
 function maskIdentifier(value: unknown): string | null {
   const raw = nullableString(value);
   return raw ? `•••• ${raw.slice(-4)}` : null;
+}
+
+function maskedIdentifierList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => {
+        const masked = maskIdentifier(item);
+        return masked ? [masked] : [];
+      })
+    : [];
+}
+
+function contractCategoryFacts(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const row = item as Row;
+    const key = typeof row.key === "string" ? row.key.trim() : "";
+    const rawValue = typeof row.value === "string" ? row.value.trim() : "";
+    if (!key || !rawValue || !isAllowedCategoryFactKey(key)) return [];
+    const needsMask = /(?:account|customer|group|merchant|policy|circuit|phone|identifier|number|id|profile|org|api|extension|location)/i.test(key);
+    return [{
+      key,
+      value: needsMask ? `•••• ${rawValue.slice(-4)}` : rawValue,
+      unit: typeof row.unit === "string" && row.unit.trim() ? row.unit.trim() : null,
+      sourceKey: typeof row.sourceKey === "string" && row.sourceKey.trim() ? row.sourceKey.trim() : null,
+    }];
+  }).slice(0, 200);
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim())
+    : [];
+}
+
+function contractSourceFacts(contract: Row) {
+  const metadata = contract.metadata && typeof contract.metadata === "object" && !Array.isArray(contract.metadata)
+    ? contract.metadata as Row
+    : {};
+  const sourceAddresses = Array.isArray(metadata.sourceAddresses)
+    ? metadata.sourceAddresses.flatMap((item) => {
+        if (typeof item === "string" && item.trim()) return [item.trim()];
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+        const address = (item as Row).address;
+        return typeof address === "string" && address.trim() ? [address.trim()] : [];
+      })
+    : [];
+  const extractionFacts = metadata.extractionFacts && typeof metadata.extractionFacts === "object" && !Array.isArray(metadata.extractionFacts)
+    ? metadata.extractionFacts as Row
+    : {};
+  const details = extractionFacts.contractDetails && typeof extractionFacts.contractDetails === "object" && !Array.isArray(extractionFacts.contractDetails)
+    ? extractionFacts.contractDetails as Row
+    : {};
+  const addresses = sourceAddresses.length > 0 ? sourceAddresses : stringList(details.serviceAddresses);
+  const termMonths = details.termMonths == null ? null : Number(details.termMonths);
+  return {
+    sourceAddresses: Array.from(new Set(addresses)).slice(0, 100),
+    serviceIdentifiers: maskedIdentifierList(details.serviceIdentifiers),
+    termMonths: termMonths !== null && Number.isFinite(termMonths) && termMonths >= 0 ? termMonths : null,
+    sourceRateOrPrice: nullableString(details.rateOrPrice),
+    sourcePricingUnit: nullableString(details.pricingUnit),
+    minimumCommitmentQuantity: nullableString(details.minimumCommitmentQuantity),
+    minimumCommitmentUnit: nullableString(details.minimumCommitmentUnit),
+    currency: nullableString(contract.currency),
+    categoryFacts: contractCategoryFacts(extractionFacts.categoryFacts),
+  };
 }
 
 function rows(data: unknown): Row[] {
@@ -57,8 +124,8 @@ export async function getPortalData(): Promise<PortalData> {
   const organizationId = membership.organization_id as string;
 
   const [
-    organizationResult, profileResult, locationsResult, vendorsResult,
-    relationshipsResult, accountsResult, expensesResult, contractsResult,
+    organizationResult, profileResult, locationsResult, energyMetersResult, vendorsResult,
+    relationshipsResult, vendorContactsResult, accountsResult, expensesResult, contractsResult,
     documentsResult, extractionsResult, opportunitiesResult, opportunityEvidenceResult,
     actionsResult, approvalsResult, approvalPoliciesResult, savingsResult, integrationsResult,
     reportsResult, membershipsResult, profilesResult, notificationsResult,
@@ -68,8 +135,10 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("organizations").select("*").eq("id", organizationId).single(),
     db.from("profiles").select("id,email,full_name").eq("id", userId).single(),
     db.from("locations").select("*").eq("organization_id", organizationId).order("name"),
+    db.from("energy_meters").select("id,location_id,meter_identifier,service_identifier,account_number_last4,utility_territory,status,display_name,last_seen_at").eq("organization_id", organizationId).order("created_at"),
     db.from("vendors").select("id,canonical_name,category,website,search_aliases,logo_url").order("canonical_name"),
     db.from("organization_vendors").select("*").eq("organization_id", organizationId),
+    db.from("organization_vendor_contacts").select("*").eq("organization_id", organizationId).order("contact_type").order("contact_name"),
     db.from("expense_accounts").select("*").eq("organization_id", organizationId),
     db.from("expenses").select("*").eq("organization_id", organizationId).order("period_end", { ascending: false }),
     db.from("contracts").select("*").eq("organization_id", organizationId).order("end_date"),
@@ -96,8 +165,8 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("audit_events").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(250),
   ]);
 
-  const results = [organizationResult, profileResult, locationsResult, vendorsResult,
-    relationshipsResult, accountsResult, expensesResult, contractsResult, documentsResult,
+  const results = [organizationResult, profileResult, locationsResult, energyMetersResult, vendorsResult,
+    relationshipsResult, vendorContactsResult, accountsResult, expensesResult, contractsResult, documentsResult,
     extractionsResult, opportunitiesResult, opportunityEvidenceResult, actionsResult,
     approvalsResult, approvalPoliciesResult, savingsResult, integrationsResult, reportsResult, membershipsResult,
     profilesResult, notificationsResult, emailIntakeResult, inboundEmailEventsResult,
@@ -121,6 +190,25 @@ export async function getPortalData(): Promise<PortalData> {
   const profile = profileResult.data as Row;
   const vendorById = new Map(rows(vendorsResult.data).map((vendor) => [stringValue(vendor.id), vendor]));
   const relationshipById = new Map(rows(relationshipsResult.data).map((relationship) => [stringValue(relationship.id), relationship]));
+  const vendorContacts = rows(vendorContactsResult.data).map((contact): PortalVendorContact => ({
+    id: stringValue(contact.id),
+    relationshipId: stringValue(contact.organization_vendor_id),
+    contactType: stringValue(contact.contact_type, "other") as PortalVendorContact["contactType"],
+    companyName: nullableString(contact.company_name),
+    contactName: stringValue(contact.contact_name),
+    title: nullableString(contact.title),
+    email: nullableString(contact.email),
+    phone: nullableString(contact.phone),
+    phoneExtension: nullableString(contact.phone_extension),
+    websiteUrl: nullableString(contact.website_url),
+    preferredChannel: stringValue(contact.preferred_channel, "email") as PortalVendorContact["preferredChannel"],
+    isPrimary: Boolean(contact.is_primary),
+    status: stringValue(contact.status, "active") as PortalVendorContact["status"],
+    notes: nullableString(contact.notes),
+    lastVerifiedAt: nullableString(contact.last_verified_at),
+    createdAt: stringValue(contact.created_at),
+    updatedAt: stringValue(contact.updated_at),
+  }));
   const accountById = new Map(rows(accountsResult.data).map((account) => [stringValue(account.id), account]));
   const extractionByDocument = new Map<string, Row>();
   for (const extraction of rows(extractionsResult.data)) {
@@ -148,6 +236,21 @@ export async function getPortalData(): Promise<PortalData> {
   }
   const policyById = new Map(rows(approvalPoliciesResult.data).map((policy) => [stringValue(policy.id), policy]));
   const locationById = new Map(rows(locationsResult.data).map((location) => [stringValue(location.id), location]));
+  const energyMeters = rows(energyMetersResult.data).map((meter) => ({
+    id: stringValue(meter.id),
+    locationId: stringValue(meter.location_id),
+    meterIdentifier: maskIdentifier(meter.meter_identifier),
+    serviceIdentifier: maskIdentifier(meter.service_identifier),
+    accountNumberLast4: nullableString(meter.account_number_last4),
+    utilityTerritory: nullableString(meter.utility_territory),
+    status: stringValue(meter.status, "active"),
+    displayName: nullableString(meter.display_name),
+    lastSeenAt: nullableString(meter.last_seen_at),
+  }));
+  const meterCountByLocation = new Map<string, number>();
+  for (const meter of energyMeters) {
+    meterCountByLocation.set(meter.locationId, (meterCountByLocation.get(meter.locationId) ?? 0) + 1);
+  }
   const expenseById = new Map(rows(expensesResult.data).map((expense) => [stringValue(expense.id), expense]));
   const invoiceById = new Map(rows(invoicesResult.data).map((invoice) => [stringValue(invoice.id), invoice]));
   const profileById = new Map(rows(profilesResult.data).map((entry) => [stringValue(entry.id), entry]));
@@ -174,7 +277,9 @@ export async function getPortalData(): Promise<PortalData> {
     },
     locations: rows(locationsResult.data).map((location) => ({
       id: stringValue(location.id), name: stringValue(location.name), status: stringValue(location.status), address: (location.address as Record<string, string>) ?? null,
+      meterCount: meterCountByLocation.get(stringValue(location.id)) ?? 0,
     })),
+    energyMeters,
     expenseAccounts: rows(accountsResult.data).map((account) => {
       const relationshipId = nullableString(account.organization_vendor_id);
       const vendor = resolveVendor(relationshipId).vendor;
@@ -223,6 +328,7 @@ export async function getPortalData(): Promise<PortalData> {
         endedBy: nullableString(relationship.ended_by),
       };
     }),
+    vendorContacts,
     vendorCatalog: rows(vendorsResult.data).map((vendor) => ({
       id: stringValue(vendor.id),
       name: stringValue(vendor.canonical_name),
@@ -239,7 +345,7 @@ export async function getPortalData(): Promise<PortalData> {
     contracts: rows(contractsResult.data).map((contract) => {
       const { vendor } = resolveVendor(stringValue(contract.organization_vendor_id));
       const location = locationById.get(stringValue(contract.location_id));
-      return { id: stringValue(contract.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), title: stringValue(contract.title), category: stringValue(contract.category), startDate: nullableString(contract.start_date), endDate: nullableString(contract.end_date), noticePeriodDays: contract.notice_period_days == null ? null : numberValue(contract.notice_period_days), annualValue: contract.annual_value == null ? null : numberValue(contract.annual_value), status: stringValue(contract.status), autoRenews: Boolean(contract.auto_renews), ownerName: nullableString(contract.owner_name), documentId: nullableString(contract.document_id), expenseAccountId: nullableString(contract.expense_account_id), locationId: nullableString(contract.location_id), locationName: location ? stringValue(location.name) : null, updatedAt: stringValue(contract.updated_at) };
+      return { id: stringValue(contract.id), vendorId: stringValue(vendor?.id), vendorName: stringValue(vendor?.canonical_name, "Unknown vendor"), title: stringValue(contract.title), category: stringValue(contract.category), startDate: nullableString(contract.start_date), endDate: nullableString(contract.end_date), noticePeriodDays: contract.notice_period_days == null ? null : numberValue(contract.notice_period_days), annualValue: contract.annual_value == null ? null : numberValue(contract.annual_value), status: stringValue(contract.status), autoRenews: Boolean(contract.auto_renews), ownerName: nullableString(contract.owner_name), documentId: nullableString(contract.document_id), expenseAccountId: nullableString(contract.expense_account_id), locationId: nullableString(contract.location_id), locationName: location ? stringValue(location.name) : null, ...contractSourceFacts(contract), updatedAt: stringValue(contract.updated_at) };
     }),
     documents: rows(documentsResult.data).map((document) => {
       const { vendor } = resolveVendor(nullableString(document.organization_vendor_id));

@@ -9,6 +9,17 @@ import { getRequestId, safeOperationalError } from "@/lib/observability/request-
 
 export const runtime = "nodejs";
 
+function normalizedUploadMimeType(file: File) {
+  if (file.type) return file.type.toLowerCase();
+  const extension = file.name.toLowerCase().split(".").pop();
+  if (extension === "png") return "image/png";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "pdf") return "application/pdf";
+  if (extension === "txt") return "text/plain";
+  if (extension === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  return "application/octet-stream";
+}
+
 export async function POST(request: Request) {
   const requestId = getRequestId(request);
   try {
@@ -17,7 +28,8 @@ export async function POST(request: Request) {
     const file = form.get("file");
     const organizationVendorId = cleanUuid(form.get("organizationVendorId"));
     if (!(file instanceof File)) return NextResponse.json({ error: "Choose a file to upload." }, { status: 400 });
-    if (!DOCUMENT_MIME_TYPES.has(file.type)) return NextResponse.json({ error: "Upload a PDF, text file, or DOCX document." }, { status: 415 });
+    const mimeType = normalizedUploadMimeType(file);
+    if (!DOCUMENT_MIME_TYPES.has(mimeType)) return NextResponse.json({ error: "Upload a PDF, DOCX, text, PNG, or JPG document." }, { status: 415 });
     if (file.size <= 0 || file.size > MAX_DOCUMENT_SIZE) return NextResponse.json({ error: "Files must be between 1 byte and 20 MB." }, { status: 413 });
     const buffer = Buffer.from(await file.arrayBuffer());
     const freeReviewBuffer = await prepareFreeReviewBufferClaim(db, organizationId, buffer);
@@ -46,7 +58,7 @@ export async function POST(request: Request) {
         organizationId,
         actorId: userId,
         filename: file.name,
-        mimeType: file.type,
+        mimeType,
         buffer,
         organizationVendorId: organizationVendorId || null,
         requestId,

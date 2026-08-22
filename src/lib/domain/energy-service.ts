@@ -1,4 +1,6 @@
 export type EnergyService = {
+  /** Stable source-row key used to connect the meter row to page evidence. */
+  sourceKey?: string | null;
   customerName: string | null;
   serviceAddress: string | null;
   serviceIdentifier: string | null;
@@ -6,9 +8,18 @@ export type EnergyService = {
   productName: string | null;
   utilityTerritory: string | null;
   billingDays: number | null;
+  readStatus?: string | null;
+  previousMeterRead?: string | null;
+  currentMeterRead?: string | null;
+  meterReadUnit?: string | null;
   usageKwh: string | null;
+  deliveredKwh?: string | null;
+  receivedKwh?: string | null;
+  netUsageKwh?: string | null;
+  generationKwh?: string | null;
   actualDemandKw: string | null;
   billedDemandKw: string | null;
+  powerFactor?: string | null;
   meterMultiplier: string | null;
   averagePricePerKwh: string | null;
   readDateStart: string | null;
@@ -63,6 +74,7 @@ export function parseEnergyService(value: unknown): EnergyService | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const source = value as Record<string, unknown>;
   const service: EnergyService = {
+    sourceKey: nullableString(source.sourceKey, 80),
     customerName: nullableString(source.customerName, 255),
     serviceAddress: nullableString(source.serviceAddress, 500),
     serviceIdentifier: nullableString(source.serviceIdentifier, 120),
@@ -70,9 +82,18 @@ export function parseEnergyService(value: unknown): EnergyService | null {
     productName: nullableString(source.productName, 160),
     utilityTerritory: nullableString(source.utilityTerritory, 120),
     billingDays: nullableNonNegativeInteger(source.billingDays),
+    readStatus: nullableString(source.readStatus, 40),
+    previousMeterRead: nullableNonNegativeDecimal(source.previousMeterRead),
+    currentMeterRead: nullableNonNegativeDecimal(source.currentMeterRead),
+    meterReadUnit: nullableString(source.meterReadUnit, 40),
     usageKwh: nullableNonNegativeDecimal(source.usageKwh),
+    deliveredKwh: nullableNonNegativeDecimal(source.deliveredKwh),
+    receivedKwh: nullableNonNegativeDecimal(source.receivedKwh),
+    netUsageKwh: nullableNonNegativeDecimal(source.netUsageKwh),
+    generationKwh: nullableNonNegativeDecimal(source.generationKwh),
     actualDemandKw: nullableNonNegativeDecimal(source.actualDemandKw),
     billedDemandKw: nullableNonNegativeDecimal(source.billedDemandKw),
+    powerFactor: nullableNonNegativeDecimal(source.powerFactor),
     meterMultiplier: nullableNonNegativeDecimal(source.meterMultiplier),
     averagePricePerKwh: nullableNonNegativeDecimal(source.averagePricePerKwh),
     readDateStart: nullableDate(source.readDateStart),

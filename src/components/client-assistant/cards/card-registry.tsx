@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   ReceiptText,
@@ -23,6 +23,15 @@ import { AssistantCardShell } from "./assistant-card-shell";
 import { CardStatus, StatusTone } from "./card-status";
 import { CardMetric } from "./card-metric";
 
+function money(value: unknown, currency = "USD", maximumFractionDigits = 0) {
+  const amount = Number(value ?? 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits,
+  }).format(Number.isFinite(amount) ? amount : 0);
+}
+
 export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
   const p = block.payload;
 
@@ -37,21 +46,21 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           subtitle={`${Number(p.vendorCount ?? 0)} monitored vendors`}
           href={String(p.href ?? "/app/vendors")}
         >
-          <CardMetric amount={Number(p.annualizedSpend ?? 0)} period="year" />
+          <CardMetric amount={Number(p.annualizedSpend ?? 0)} currency={String(p.currency ?? "USD")} period="year" />
           {topVendors.length > 0 && (
             <div className="card-ranked-list">
               <span className="card-section-label">Top Vendors by Annual Spend</span>
               {topVendors.slice(0, 4).map((v, i) => (
-                <div key={String(v.vendorRelationshipId ?? i)} className="card-ranked-row">
+                <Link key={String(v.vendorRelationshipId ?? i)} href={String(v.href ?? "/app/vendors")} className="card-ranked-row card-ranked-row--link">
                   <div className="card-ranked-name">
                     <span className="card-rank-num">{i + 1}</span>
                     <strong>{String(v.name)}</strong>
                     <span className="muted">{String(v.category)}</span>
                   </div>
                   <span className="card-ranked-value">
-                    ${Number(v.annualizedSpend ?? 0).toLocaleString()}
+                    {money(v.annualizedSpend, String(p.currency ?? "USD"))}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -71,7 +80,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           title={String(p.vendorName ?? "Invoice Summary")}
           subtitle={p.invoiceNumber ? `Invoice #${String(p.invoiceNumber)}` : undefined}
           status={<CardStatus tone={tone}>{reviewStatus.replace("_", " ")}</CardStatus>}
-          href={String(p.href ?? `/app/documents/${p.invoiceId}`)}
+          href={String(p.href ?? (p.documentId ? `/app/documents/${p.documentId}` : "/app/documents"))}
         >
           <CardMetric amount={p.totalAmount as number} currency={String(p.currency ?? "USD")} />
           <div className="card-detail-grid">
@@ -96,6 +105,43 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
       );
     }
 
+    case "invoice_ranking": {
+      const invoices = Array.isArray(p.invoices) ? (p.invoices as Array<Record<string, unknown>>) : [];
+      const maxAmount = Math.max(...invoices.map((invoice) => Number(invoice.amount ?? 0)), 1);
+      return (
+        <AssistantCardShell
+          icon={<ReceiptText size={18} />}
+          label="Bill ranking"
+          title={String(p.title ?? "Most expensive bills")}
+          subtitle={String(p.subtitle ?? "Ranked by recorded total")}
+          href={String(p.href ?? "/app/bills")}
+        >
+          {invoices.length > 0 ? (
+            <div className="card-ranked-list" aria-label="Bills ranked by total amount">
+              {invoices.slice(0, 8).map((invoice, index) => {
+                const amount = Number(invoice.amount ?? 0);
+                return (
+                  <Link key={String(invoice.invoiceId ?? index)} href={String(invoice.href ?? "/app/bills")} className="card-ranked-row card-ranked-row--link">
+                    <div className="card-ranked-name">
+                      <span className="card-rank-num">{index + 1}</span>
+                      <span>
+                        <strong>{String(invoice.vendorName ?? "Vendor")}</strong>
+                        <small className="muted">{formatFinancialDate(invoice.invoiceDate as string, "Date not recorded")}</small>
+                      </span>
+                    </div>
+                    <span className="card-ranked-value">
+                      {money(amount, String(p.currency ?? "USD"), 2)}
+                      <span className="card-ranked-track"><span style={{ width: `${Math.max(5, Math.round((amount / maxAmount) * 100))}%` }} /></span>
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : <p className="card-helper-note">No recorded bills are available to rank yet.</p>}
+        </AssistantCardShell>
+      );
+    }
+
     case "invoice_comparison": {
       const periodA = (p.periodA as Record<string, unknown>) ?? {};
       const periodB = (p.periodB as Record<string, unknown>) ?? {};
@@ -114,14 +160,14 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
             <div className="card-comparison-col">
               <span className="card-comparison-date">{formatFinancialDate(periodA.date as string, "Prior")}</span>
               <span className="card-comparison-amount">
-                ${Number(periodA.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {money(periodA.amount, String(p.currency ?? "USD"), 2)}
               </span>
             </div>
             <div className="card-comparison-vs">vs</div>
             <div className="card-comparison-col">
               <span className="card-comparison-date">{formatFinancialDate(periodB.date as string, "Latest")}</span>
               <span className="card-comparison-amount">
-                ${Number(periodB.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {money(periodB.amount, String(p.currency ?? "USD"), 2)}
               </span>
             </div>
           </div>
@@ -161,7 +207,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
                       {item.category ? <span className="muted">{String(item.category)}</span> : null}
                     </div>
                     <div className="card-line-item-value">
-                      <span>${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span>{money(amount, String(p.currency ?? "USD"), 2)}</span>
                       <span className="card-line-item-track"><span style={{ width: `${Math.max(4, Math.round((Math.abs(amount) / max) * 100))}%` }} /></span>
                     </div>
                   </div>
@@ -225,7 +271,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           title={String(p.name)}
           subtitle={String(p.category)}
           status={<CardStatus tone="info">{String(p.relationshipStatus ?? "active")}</CardStatus>}
-          href={String(p.href ?? `/app/vendors/${p.vendorRelationshipId}`)}
+          href={String(p.href ?? (p.vendorRelationshipId ? `/app/vendors/${p.vendorRelationshipId}` : "/app/vendors"))}
         >
           <CardMetric amount={Number(p.annualizedSpend ?? 0)} period="year" />
           {Boolean(p.website) && (
@@ -244,7 +290,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           icon={<TrendingUp size={18} />}
           label="Spending Trend"
           title={String(p.scopeLabel ?? "Cost History")}
-          subtitle={`Monthly Average: $${Number(p.average ?? 0).toLocaleString()}`}
+          subtitle={`Monthly Average: ${money(p.average, String(p.currency ?? "USD"))}`}
           href={String(p.href ?? "/app/vendors")}
         >
           <CardMetric amount={Number(p.total ?? 0)} period="total" />
@@ -255,13 +301,42 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
                 const maxAmt = Math.max(...periods.map((x) => Number(x.amount ?? 0)), 1);
                 const heightPct = Math.round((amt / maxAmt) * 100);
                 return (
-                  <div key={idx} className="card-bar-col" title={`${String(per.label)}: $${amt.toLocaleString()}`}>
+                  <div key={idx} className="card-bar-col" title={`${String(per.label)}: ${money(amt, String(p.currency ?? "USD"))}`}>
                     <div className="card-bar-fill" style={{ height: `${heightPct}%` }} />
                     <span className="card-bar-label">{String(per.label)}</span>
                   </div>
                 );
               })}
             </div>
+          )}
+        </AssistantCardShell>
+      );
+    }
+
+    case "monitoring_overview": {
+      const configs = Array.isArray(p.configs) ? (p.configs as Array<Record<string, unknown>>) : [];
+      return (
+        <AssistantCardShell
+          icon={<ShieldCheck size={18} />}
+          label="Bill monitoring"
+          title="Monitoring coverage"
+          subtitle={configs.length ? `${configs.length} vendor feed${configs.length === 1 ? "" : "s"} configured` : "No vendor feeds configured"}
+          href={String(p.href ?? "/app/vendors")}
+        >
+          {configs.length > 0 ? (
+            <div className="card-actions-list" aria-label="Vendor monitoring configurations">
+              {configs.slice(0, 6).map((config, index) => (
+                <Link key={String(config.id ?? index)} className="card-action-row" href={String(config.href ?? "/app/vendors")}>
+                  <span>
+                    <strong>{String(config.vendorName ?? "Vendor")}</strong>
+                    <small className="muted">{String(config.state ?? "unknown").replaceAll("_", " ")} · {String(config.sourceMethod ?? "source not recorded")}</small>
+                  </span>
+                  <ArrowRight size={14} />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="card-helper-note">No vendor bill feeds are configured yet. Open a vendor relationship to choose a monitored source and expected cadence.</p>
           )}
         </AssistantCardShell>
       );
@@ -300,7 +375,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
         >
           <div className="card-timeline-list">
             {contracts.map((c, i) => (
-              <div key={String(c.contractId ?? i)} className="card-timeline-item">
+              <Link key={String(c.contractId ?? i)} href={String(c.href ?? "/app/contracts")} className="card-timeline-item card-timeline-item--link">
                 <div className="card-timeline-date-badge">
                   <span>Notice</span>
                   <strong>{formatFinancialDate((c.noticeDeadline ?? c.endDate) as string)}</strong>
@@ -309,7 +384,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
                   <strong>{String(c.vendorName ? `${c.vendorName} — ` : "")}{String(c.contractName)}</strong>
                   <span>Contract ends {formatFinancialDate(c.endDate as string)} {c.autoRenewal ? "· Auto-renews" : ""}</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </AssistantCardShell>
@@ -326,7 +401,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           title={String(p.title)}
           subtitle={`Category: ${String(p.category ?? "General")}`}
           status={<CardStatus tone="info">{String(p.status ?? "under_review")}</CardStatus>}
-          href={String(p.href ?? `/app/opportunities/${p.opportunityId}`)}
+          href={String(p.href ?? (p.opportunityId ? `/app/opportunities/${p.opportunityId}` : "/app/opportunities"))}
         >
           <CardMetric amount={annualVal} period="year estimated" />
           {p.confidence != null && (
@@ -352,10 +427,10 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           {outcomes.length > 0 && (
             <div className="card-outcomes-list">
               {outcomes.map((o, i) => (
-                <div key={String(o.savingsId ?? i)} className="card-outcome-row">
+                <Link key={String(o.savingsId ?? i)} href={String(o.href ?? "/app/opportunities")} className="card-outcome-row">
                   <span>{String(o.title)}</span>
-                  <strong>${Number(o.amount ?? 0).toLocaleString()}</strong>
-                </div>
+                  <strong>{money(o.amount, String(p.currency ?? "USD"))}</strong>
+                </Link>
               ))}
             </div>
           )}
@@ -371,17 +446,17 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           label="Authorization Needed"
           title="Decisions Awaiting Approval"
           subtitle={`${actions.length} pending actions`}
-          href={String(p.href ?? "/app/approvals")}
+          href={String(p.href ?? "/app/actions")}
         >
           <div className="card-actions-list">
             {actions.map((act, i) => (
-              <div key={String(act.actionId ?? i)} className="card-action-row">
+              <Link key={String(act.actionId ?? i)} href={String(act.href ?? "/app/actions")} className="card-action-row">
                 <div>
                   <strong>{String(act.title)}</strong>
-                  <span className="muted">${Number(act.annualValue ?? 0).toLocaleString()}/yr impact</span>
+                  <span className="muted">{act.annualValue == null ? "Impact not recorded" : `${money(act.annualValue, String(p.currency ?? "USD"))}/yr impact`}</span>
                 </div>
                 <span className="card-action-status">Pending</span>
-              </div>
+              </Link>
             ))}
           </div>
         </AssistantCardShell>
@@ -400,7 +475,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
           title={String(p.filename)}
           subtitle={p.byteSize ? `${Math.round(Number(p.byteSize) / 1024)} KB` : undefined}
           status={<CardStatus tone={isSafe ? "success" : "warning"}>{status}</CardStatus>}
-          href={String(p.href ?? `/app/documents/${p.documentId}`)}
+          href={String(p.href ?? (p.documentId ? `/app/documents/${p.documentId}` : "/app/documents"))}
         >
           <div className="card-ingestion-steps">
             {isSafe ? <>
@@ -464,6 +539,46 @@ function EnergyReviewPathCard({ payload }: { payload: Record<string, unknown> })
   const [disclosure, setDisclosure] = useState<string | null>(null);
   const [disclosureVersion, setDisclosureVersion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function restoreExistingRequest() {
+      try {
+        const response = await fetch("/api/portal/referrals", { cache: "no-store" });
+        if (!response.ok) return;
+        const result = await response.json().catch(() => null) as {
+          destinations?: Array<{ id?: string; slug?: string; disclosure_text?: string; disclosure_version?: string }>;
+          requests?: Array<{ id?: string; destination_id?: string; status?: string; source_context?: { vendorRelationshipId?: string } | null }>;
+        } | null;
+        if (cancelled) return;
+        const destination = result?.destinations?.find((item) => item.slug === "ucep-energy-review");
+        if (!destination) return;
+        const requestedVendorId = typeof payload.vendorRelationshipId === "string" ? payload.vendorRelationshipId : null;
+        const matchingRequests = (result?.requests ?? []).filter((request) => {
+          const contextVendorId = request.source_context?.vendorRelationshipId ?? null;
+          const sameDestination = Boolean(destination.id && request.destination_id === destination.id);
+          return sameDestination && (requestedVendorId ? contextVendorId === requestedVendorId : true);
+        });
+        const existing = matchingRequests.find((request) => request.status === "awaiting_approval")
+          ?? matchingRequests.find((request) => request.status === "consent_required" || request.status === "declined");
+        if (!existing?.id) return;
+        setReferralId(existing.id);
+        if (existing.status === "consent_required") {
+          setDisclosure(destination.disclosure_text ?? null);
+          setDisclosureVersion(destination.disclosure_version ?? null);
+          setState("consent");
+        } else if (existing.status === "awaiting_approval") {
+          setState("consented");
+        } else if (existing.status === "declined") {
+          setState("declined");
+        }
+      } catch {
+        // The card remains actionable if history is temporarily unavailable.
+      }
+    }
+    void restoreExistingRequest();
+    return () => { cancelled = true; };
+  }, [payload.vendorRelationshipId]);
 
   async function startRequest() {
     setState("loading");

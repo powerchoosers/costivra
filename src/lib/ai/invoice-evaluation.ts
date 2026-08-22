@@ -1,5 +1,6 @@
 import {
   parseDocumentIntelligence,
+  type ContractDetails,
   type DocumentClassification,
   type DocumentIntelligence,
 } from "@/lib/ai/document-intelligence";
@@ -8,8 +9,14 @@ import {
   normalizeMoney,
   normalizeVendorName,
   reconcileInvoice,
+  type InvoiceChargeSummary,
+  type InvoiceLineCandidate,
+  type InvoiceServiceDetails,
 } from "@/lib/domain/invoices";
+import type { EnergyService } from "@/lib/domain/energy-service";
+import type { SourceCategoryFact } from "@/lib/category-intelligence/category-facts";
 import { classifyInvoiceReview } from "@/lib/domain/invoice-review";
+import { hasMeaningfulExtractedText } from "@/lib/documents/text-extraction";
 
 export const GOLDEN_INVOICE_SCHEMA_VERSION = "costivra-golden-invoice-v1";
 export const GOLDEN_PREDICTION_SCHEMA_VERSION =
@@ -36,7 +43,35 @@ export type ScoredFieldPath =
   | "vendorName"
   | "currency"
   | `invoice.${CriticalInvoiceField}`;
-export type EvidenceFieldPath = ScoredFieldPath | "invoice.lineItems";
+type IndexedFieldPath<Prefix extends string, Field extends string> =
+  | `${Prefix}[${number}].${Field}`
+  | `${Prefix}.${number}.${Field}`;
+export type EvidenceFieldPath =
+  | ScoredFieldPath
+  | StructuredFieldPath
+  | "serviceAddress"
+  | "invoice.lineItems"
+  | "categoryFacts"
+  | IndexedFieldPath<"invoice.lineItems", keyof InvoiceLineCandidate & string>
+  | IndexedFieldPath<"invoice.energyServices", keyof EnergyService & string>
+  | IndexedFieldPath<"invoice.chargeSummaries", keyof InvoiceChargeSummary & string>
+  | IndexedFieldPath<"categoryFacts", keyof SourceCategoryFact & string>
+  | `invoice.serviceDetails.${keyof InvoiceServiceDetails & string}`
+  | `contractDetails.${keyof ContractDetails & string}`;
+
+export type StructuredFieldPath =
+  | "serviceAddress"
+  | `contractDetails.${keyof ContractDetails & string}`
+  | `invoice.serviceDetails.${keyof InvoiceServiceDetails & string}`
+  | IndexedFieldPath<"invoice.energyServices", keyof EnergyService & string>
+  | IndexedFieldPath<"invoice.chargeSummaries", keyof InvoiceChargeSummary & string>
+  | IndexedFieldPath<"categoryFacts", keyof SourceCategoryFact & string>
+  | IndexedFieldPath<"invoice.lineItems", keyof InvoiceLineCandidate & string>;
+
+export type GoldenStructuredField = {
+  path: StructuredFieldPath;
+  value: string | number | boolean | string[] | null;
+};
 
 export type GoldenLineItem = {
   description: string;
@@ -71,6 +106,7 @@ export type GoldenInvoiceCase = {
     invoice: GoldenInvoiceExpectation | null;
     reconciliationStatus: "reconciled" | "mismatch" | "incomplete" | null;
     needsReview: boolean | null;
+    structuredFields?: GoldenStructuredField[];
     requiredEvidenceFields?: EvidenceFieldPath[];
     evidenceSnippets?: Partial<Record<EvidenceFieldPath, string[]>>;
   };
@@ -80,6 +116,8 @@ export type InvoiceEvaluationThresholds = {
   classificationAccuracy: number;
   criticalFieldPrecision: number;
   criticalFieldRecall: number;
+  structuredFieldPrecision: number;
+  structuredFieldRecall: number;
   lineItemPrecision: number;
   lineItemRecall: number;
   evidenceCitationRecall: number;
@@ -125,6 +163,7 @@ export type InvoiceEvaluationCaseResult = {
   segment: GoldenInvoiceCase["segment"];
   extractionError: string | null;
   fieldCounts: CountMetric;
+  structuredFieldCounts: CountMetric;
   lineItemCounts: CountMetric;
   classification: AccuracyMetric;
   evidence: {
@@ -159,6 +198,8 @@ const defaultThresholds: InvoiceEvaluationThresholds = {
   classificationAccuracy: 0.98,
   criticalFieldPrecision: 0.97,
   criticalFieldRecall: 0.95,
+  structuredFieldPrecision: 0.95,
+  structuredFieldRecall: 0.95,
   lineItemPrecision: 0.95,
   lineItemRecall: 0.95,
   evidenceCitationRecall: 0.9,
@@ -187,11 +228,41 @@ const moneyFields = new Set<CriticalInvoiceField>([
 const evidenceAllowedFields = new Set<EvidenceFieldPath>([
   "vendorName",
   "currency",
+  "serviceAddress",
   ...criticalInvoiceFields.map(
     (field) => `invoice.${field}` as EvidenceFieldPath,
   ),
   "invoice.lineItems",
+  "categoryFacts",
 ]);
+
+const indexedLineEvidencePattern = /^invoice\.lineItems(?:\[\d+\]|\.\d+)(?:\.(?:sourceKey|description|quantity|unit|unitPrice|taxRate|amount|category|servicePeriodStart|servicePeriodEnd))?$/;
+const indexedEnergyEvidencePattern = /^invoice\.energyServices(?:\[\d+\]|\.\d+)(?:\.(?:sourceKey|customerName|serviceAddress|serviceIdentifier|meterId|productName|utilityTerritory|billingDays|readStatus|previousMeterRead|currentMeterRead|meterReadUnit|usageKwh|deliveredKwh|receivedKwh|netUsageKwh|generationKwh|actualDemandKw|billedDemandKw|powerFactor|meterMultiplier|averagePricePerKwh|readDateStart|readDateEnd|assignedRateCode|serviceVoltage|meteringConfiguration|serviceClass|historicalDemandKw|ratchetApplies))?$/;
+const indexedChargeEvidencePattern = /^invoice\.chargeSummaries(?:\[\d+\]|\.\d+)(?:\.(?:sourceKey|label|amount|servicePeriodStart|servicePeriodEnd))?$/;
+const serviceDetailsEvidencePattern = /^invoice\.serviceDetails\.(?:planName|productFamily|serviceAddresses|serviceIdentifiers|phoneNumbers|circuitIds|subscriptionIdentifiers|resourceIdentifiers|cloudAccountIdentifiers|region|bandwidthQuantity|bandwidthUnit|lineCount|deviceCount|seatCount|usageQuantity|usageUnit|includedUsageQuantity|includedUsageUnit|commitmentType|commitmentTermMonths)$/;
+const contractDetailsEvidencePattern = /^contractDetails\.(?:serviceAddresses|effectiveDate|expirationDate|termMonths|autoRenewal|terminationFee|rateOrPrice|pricingUnit|minimumCommitmentQuantity|minimumCommitmentUnit|serviceIdentifiers)$/;
+const categoryFactsEvidencePattern = /^categoryFacts(?:\[\d+\]|\.\d+)(?:\.(?:key|value|unit|sourceKey))?$/;
+
+function isAllowedEvidenceField(field: string): boolean {
+  return evidenceAllowedFields.has(field as EvidenceFieldPath)
+    || indexedLineEvidencePattern.test(field)
+    || indexedEnergyEvidencePattern.test(field)
+    || indexedChargeEvidencePattern.test(field)
+    || categoryFactsEvidencePattern.test(field)
+    || serviceDetailsEvidencePattern.test(field)
+    || contractDetailsEvidencePattern.test(field);
+}
+
+function isStructuredFieldPath(value: string): value is StructuredFieldPath {
+  const hasIndexedField = /(?:\[\d+\]|\.\d+)\.[^.]+$/.test(value);
+  return value === "serviceAddress"
+    || contractDetailsEvidencePattern.test(value)
+    || serviceDetailsEvidencePattern.test(value)
+    || (hasIndexedField && indexedLineEvidencePattern.test(value))
+    || (hasIndexedField && indexedEnergyEvidencePattern.test(value))
+    || (hasIndexedField && indexedChargeEvidencePattern.test(value))
+    || (hasIndexedField && categoryFactsEvidencePattern.test(value));
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -230,6 +301,75 @@ function actualValue(
   return result.invoice[
     path.slice("invoice.".length) as CriticalInvoiceField
   ];
+}
+
+function structuredValue(
+  result: DocumentIntelligence | undefined,
+  path: StructuredFieldPath,
+): string | number | boolean | string[] | null {
+  if (!result) return null;
+  if (path === "serviceAddress") return result.serviceAddress ?? null;
+
+  const contractMatch = /^contractDetails\.(.+)$/.exec(path);
+  if (contractMatch) {
+    return (result.contractDetails?.[
+      contractMatch[1] as keyof ContractDetails
+    ] ?? null) as string | number | boolean | string[] | null;
+  }
+
+  const serviceDetailsMatch = /^invoice\.serviceDetails\.(.+)$/.exec(path);
+  if (serviceDetailsMatch) {
+    return (result.invoice?.serviceDetails?.[
+      serviceDetailsMatch[1] as keyof InvoiceServiceDetails
+    ] ?? null) as string | number | boolean | string[] | null;
+  }
+
+  const categoryFactMatch = /^(?:categoryFacts)(?:\[(\d+)\]|\.(\d+))\.(.+)$/.exec(path);
+  if (categoryFactMatch) {
+    const index = Number(categoryFactMatch[1] ?? categoryFactMatch[2]);
+    const fact = result.categoryFacts?.[index];
+    return (fact?.[categoryFactMatch[3] as keyof SourceCategoryFact] ?? null) as string | null;
+  }
+
+  const indexedMatch = /^(invoice\.(?:lineItems|energyServices|chargeSummaries))(?:\[(\d+)\]|\.(\d+))\.(.+)$/.exec(path);
+  if (!indexedMatch || !result.invoice) return null;
+  const index = Number(indexedMatch[2] ?? indexedMatch[3]);
+  const collection = indexedMatch[1] === "invoice.lineItems"
+    ? result.invoice.lineItems
+    : indexedMatch[1] === "invoice.energyServices"
+      ? result.invoice.energyServices ?? []
+      : result.invoice.chargeSummaries ?? [];
+  const item = collection[index] as Record<string, unknown> | undefined;
+  return (item?.[indexedMatch[4]] ?? null) as string | number | boolean | string[] | null;
+}
+
+function normalizeStructuredValue(
+  value: string | number | boolean | string[] | null,
+) {
+  if (Array.isArray(value)) return value.map(normalizeText).sort();
+  if (typeof value === "string") return normalizeText(value);
+  return value;
+}
+
+function scoreStructuredFields(
+  expected: GoldenStructuredField[] | undefined,
+  result: DocumentIntelligence | undefined,
+): { counts: CountMetric; failures: string[] } {
+  const counts: CountMetric = { truePositive: 0, falsePositive: 0, falseNegative: 0 };
+  const failures: string[] = [];
+  for (const field of expected ?? []) {
+    const actual = structuredValue(result, field.path);
+    const correct = JSON.stringify(normalizeStructuredValue(field.value)) ===
+      JSON.stringify(normalizeStructuredValue(actual));
+    addFieldResult(
+      counts,
+      field.value === null ? null : JSON.stringify(field.value),
+      actual === null ? null : JSON.stringify(actual),
+      correct,
+    );
+    if (!correct) failures.push(`${field.path}: expected ${String(field.value)}, received ${String(actual)}`);
+  }
+  return { counts, failures };
 }
 
 function addFieldResult(
@@ -300,6 +440,9 @@ function defaultRequiredEvidenceFields(caseData: GoldenInvoiceCase) {
       paths.push("invoice.lineItems");
     }
   }
+  for (const field of caseData.expected.structuredFields ?? []) {
+    if (field.value !== null) paths.push(field.path);
+  }
   return paths;
 }
 
@@ -318,7 +461,7 @@ function isQuoteGrounded(
   snippets: string[] | undefined,
 ) {
   if (!quoteMatchesSnippets(quote, snippets)) return false;
-  if (!sourceText.trim()) return Boolean(snippets?.length);
+  if (!hasMeaningfulExtractedText(sourceText)) return Boolean(snippets?.length);
   return normalizeText(sourceText).includes(normalizeText(quote));
 }
 
@@ -369,6 +512,12 @@ function scoreCase(
     );
   }
 
+  const structured = scoreStructuredFields(
+    caseData.expected.structuredFields,
+    result,
+  );
+  failures.push(...structured.failures);
+
   const requiredEvidence = new Set(
     caseData.expected.requiredEvidenceFields ??
       defaultRequiredEvidenceFields(caseData),
@@ -380,7 +529,7 @@ function scoreCase(
     const path = evidence.field as EvidenceFieldPath;
     const snippets = caseData.expected.evidenceSnippets?.[path];
     const grounded =
-      evidenceAllowedFields.has(path) &&
+      isAllowedEvidenceField(path) &&
       isQuoteGrounded(evidence.quote, sourceText, snippets);
     if (grounded) groundedEvidence += 1;
     if (grounded && requiredEvidence.has(path)) validRequiredFields.add(path);
@@ -433,6 +582,7 @@ function scoreCase(
     segment: caseData.segment,
     extractionError: prediction?.error ?? (!prediction ? "Prediction missing." : null),
     fieldCounts,
+    structuredFieldCounts: structured.counts,
     lineItemCounts,
     classification: { correct: classificationCorrect ? 1 : 0, total: 1 },
     evidence: {
@@ -469,7 +619,7 @@ function accuracy(metric: AccuracyMetric) {
 
 function sumCounts(
   results: InvoiceEvaluationCaseResult[],
-  key: "fieldCounts" | "lineItemCounts",
+  key: "fieldCounts" | "structuredFieldCounts" | "lineItemCounts",
 ): CountMetric {
   return results.reduce(
     (sum, result) => ({
@@ -510,6 +660,7 @@ export function evaluateGoldenInvoices(input: {
     ),
   );
   const fieldCounts = sumCounts(cases, "fieldCounts");
+  const structuredFieldCounts = sumCounts(cases, "structuredFieldCounts");
   const lineItemCounts = sumCounts(cases, "lineItemCounts");
   const classification = sumAccuracy(cases, "classification");
   const reconciliation = sumAccuracy(cases, "reconciliation");
@@ -538,6 +689,8 @@ export function evaluateGoldenInvoices(input: {
     classificationAccuracy: accuracy(classification),
     criticalFieldPrecision: precision(fieldCounts),
     criticalFieldRecall: recall(fieldCounts),
+    structuredFieldPrecision: precision(structuredFieldCounts),
+    structuredFieldRecall: recall(structuredFieldCounts),
     lineItemPrecision: precision(lineItemCounts),
     lineItemRecall: recall(lineItemCounts),
     evidenceCitationRecall: evidence.required
@@ -732,6 +885,37 @@ function parseInvoiceExpectation(
   };
 }
 
+function parseStructuredField(
+  value: unknown,
+  location: string,
+): GoldenStructuredField {
+  if (!isRecord(value)) throw new Error(`${location} must be an object.`);
+  const path = value.path;
+  if (typeof path !== "string" || !isStructuredFieldPath(path)) {
+    throw new Error(`${location}.path is invalid.`);
+  }
+  const fieldValue = value.value;
+  if (
+    fieldValue !== null &&
+    typeof fieldValue !== "string" &&
+    typeof fieldValue !== "number" &&
+    typeof fieldValue !== "boolean" &&
+    (!Array.isArray(fieldValue) ||
+      fieldValue.some((item) => typeof item !== "string" || !item.trim()))
+  ) {
+    throw new Error(`${location}.value must be a scalar, string array, or null.`);
+  }
+  if (typeof fieldValue === "number" && !Number.isFinite(fieldValue)) {
+    throw new Error(`${location}.value must be finite.`);
+  }
+  return {
+    path,
+    value: Array.isArray(fieldValue)
+      ? fieldValue.map((item) => item.trim())
+      : fieldValue,
+  };
+}
+
 function parseCase(value: unknown, index: number): GoldenInvoiceCase {
   const location = `cases[${index}]`;
   if (!isRecord(value)) throw new Error(`${location} must be an object.`);
@@ -780,6 +964,13 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
   if (needsReview !== null && typeof needsReview !== "boolean") {
     throw new Error(`${location}.expected.needsReview must be boolean or null.`);
   }
+  const structuredFields = expected.structuredFields;
+  if (structuredFields !== undefined && !Array.isArray(structuredFields)) {
+    throw new Error(`${location}.expected.structuredFields must be an array.`);
+  }
+  const parsedStructuredFields = (structuredFields ?? []).map((field, fieldIndex) =>
+    parseStructuredField(field, `${location}.expected.structuredFields[${fieldIndex}]`),
+  );
   const requiredEvidenceFields = expected.requiredEvidenceFields;
   if (
     requiredEvidenceFields !== undefined &&
@@ -787,7 +978,7 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
       requiredEvidenceFields.some(
         (field) =>
           typeof field !== "string" ||
-          !evidenceAllowedFields.has(field as EvidenceFieldPath),
+          !isAllowedEvidenceField(field),
       ))
   ) {
     throw new Error(`${location}.expected.requiredEvidenceFields is invalid.`);
@@ -799,7 +990,7 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
   const parsedSnippets: Partial<Record<EvidenceFieldPath, string[]>> = {};
   for (const [field, snippets] of Object.entries(evidenceSnippets ?? {})) {
     if (
-      !evidenceAllowedFields.has(field as EvidenceFieldPath) ||
+      !isAllowedEvidenceField(field) ||
       !Array.isArray(snippets) ||
       snippets.some((snippet) => typeof snippet !== "string" || !snippet.trim())
     ) {
@@ -828,6 +1019,9 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
       ),
       reconciliationStatus: reconciliationStatus as GoldenInvoiceCase["expected"]["reconciliationStatus"],
       needsReview: needsReview as boolean | null,
+      ...(parsedStructuredFields.length
+        ? { structuredFields: parsedStructuredFields }
+        : {}),
       ...(requiredEvidenceFields === undefined
         ? {}
         : { requiredEvidenceFields: requiredEvidenceFields as EvidenceFieldPath[] }),
@@ -891,7 +1085,12 @@ function parseCase(value: unknown, index: number): GoldenInvoiceCase {
     const hasExpectedValue =
       field === "invoice.lineItems"
         ? Boolean(parsedCase.expected.invoice?.lineItems?.length)
-        : expectedValue(parsedCase, field as ScoredFieldPath) !== null;
+        : isStructuredFieldPath(field)
+          ? parsedCase.expected.structuredFields?.some(
+              (structuredField) =>
+                structuredField.path === field && structuredField.value !== null,
+            ) ?? false
+          : expectedValue(parsedCase, field as ScoredFieldPath) !== null;
     if (!hasExpectedValue) {
       throw new Error(
         `${location}.expected.requiredEvidenceFields includes ${field}, but that expected value is absent.`,

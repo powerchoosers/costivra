@@ -1,4 +1,4 @@
-export type DocumentExtractionInputMode = "native_text" | "pdf_ocr";
+export type DocumentExtractionInputMode = "native_text" | "pdf_ocr" | "image_vision";
 
 export type DocumentExtractionFailureCode =
   | "no_readable_text"
@@ -35,7 +35,7 @@ export function classifyDocumentExtractionFailure(
     message.includes("timeout") ||
     message.includes("aborted") ||
     /\b(408|429|5\d\d)\b/.test(message)
-  ) return inputMode === "pdf_ocr" ? "ocr_unavailable" : "ai_unavailable";
+  ) return inputMode === "pdf_ocr" || inputMode === "image_vision" ? "ocr_unavailable" : "ai_unavailable";
   return "extraction_failed";
 }
 

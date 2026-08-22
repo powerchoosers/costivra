@@ -75,12 +75,14 @@ export function ManageAiDrawer({
   section,
   detailId,
   initialQuestion,
+  initialSessionId,
 }: {
   open: boolean;
   onClose: () => void;
   section: string;
   detailId?: string | null;
   initialQuestion?: string | null;
+  initialSessionId?: string | null;
 }) {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [suggestions, setSuggestions] = useState<ManageAssistantSuggestion[]>([]);
@@ -94,6 +96,7 @@ export function ManageAiDrawer({
   const [error, setError] = useState<string | null>(null);
   const [conversationRevision, setConversationRevision] = useState(0);
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [mode, setMode] = useState<"drawer" | "fullscreen">("drawer");
   const [liveSuggestionsCollapsed, setLiveSuggestionsCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -124,9 +127,12 @@ export function ManageAiDrawer({
     try {
       const response = await fetch("/api/manage/assistant/sessions", { cache: "no-store" });
       const payload = await response.json().catch(() => null) as { sessions?: ManageAssistantSession[] } | null;
-      if (response.ok) setSessions(Array.isArray(payload?.sessions) ? payload.sessions : []);
+      const nextSessions = response.ok && Array.isArray(payload?.sessions) ? payload.sessions : [];
+      if (response.ok) setSessions(nextSessions);
+      return nextSessions;
     } catch {
       // The assistant remains usable if history is temporarily unavailable.
+      return [];
     }
   }
 
@@ -155,7 +161,11 @@ export function ManageAiDrawer({
       : undefined;
     const loadTimer = window.setTimeout(() => {
       void loadSuggestions();
-      void loadSessions();
+      void (async () => {
+        const availableSessions = await loadSessions();
+        const sessionToOpen = initialSessionId || availableSessions[0]?.id;
+        if (sessionToOpen) await selectSession(sessionToOpen);
+      })();
     }, 0);
     const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 320);
     return () => {
@@ -165,7 +175,7 @@ export function ManageAiDrawer({
     };
     // Suggestions refresh whenever the operator opens the drawer or changes CRM sections.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQuestion, open, section]);
+  }, [initialQuestion, initialSessionId, open, section]);
 
   useEffect(() => {
     if (!open) return;
@@ -189,6 +199,9 @@ export function ManageAiDrawer({
     setMessages([]);
     setActiveSessionId(null);
     setInput("");
+    setAttachmentName(null);
+    setAttachmentFile(null);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = "";
     setError(null);
     setConversationRevision((current) => current + 1);
     window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -207,7 +220,7 @@ export function ManageAiDrawer({
     return () => window.clearTimeout(resetTimer);
   }, [open]);
 
-  async function sendQuestion(question: string) {
+  async function sendQuestion(question: string, file: File | null = attachmentFile) {
     const cleanQuestion = question.trim();
     if (cleanQuestion.length < 2 || sending) return;
     const userMessage: AssistantMessage = {
@@ -220,15 +233,26 @@ export function ManageAiDrawer({
     setError(null);
     setSending(true);
     try {
+      const requestBody = file
+        ? (() => {
+            const form = new FormData();
+            form.set("question", cleanQuestion);
+            form.set("section", section);
+            if (detailId) form.set("detailId", detailId);
+            if (activeSessionId) form.set("sessionId", activeSessionId);
+            form.set("file", file);
+            return form;
+          })()
+        : JSON.stringify({
+            question: cleanQuestion,
+            section,
+            detailId,
+            sessionId: activeSessionId,
+          });
       const response = await fetch("/api/manage/assistant", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: cleanQuestion,
-          section,
-          detailId,
-          sessionId: activeSessionId,
-        }),
+        ...(file ? {} : { headers: { "Content-Type": "application/json" } }),
+        body: requestBody,
       });
       const payload = (await response.json().catch(() => null)) as
         | { answer?: string; sources?: ManageAssistantSource[]; session?: ManageAssistantSession; error?: string }
@@ -249,6 +273,11 @@ export function ManageAiDrawer({
           sources: payload.sources ?? [],
         },
       ]);
+      if (file) {
+        setAttachmentName(null);
+        setAttachmentFile(null);
+        if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Costivra could not answer that question.");
     } finally {
@@ -448,7 +477,11 @@ export function ManageAiDrawer({
                   className="sr-only"
                   type="file"
                   accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
-                  onChange={(event) => setAttachmentName(event.target.files?.[0]?.name ?? null)}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setAttachmentFile(file);
+                    setAttachmentName(file?.name ?? null);
+                  }}
                   tabIndex={-1}
                   aria-hidden="true"
                 />
@@ -456,7 +489,7 @@ export function ManageAiDrawer({
                   <div className="manage-assistant-attachment-chip" role="status">
                     <Paperclip size={13} aria-hidden="true" />
                     <span>{attachmentName}</span>
-                    <button type="button" onClick={() => { setAttachmentName(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ""; }} aria-label="Remove attachment">×</button>
+                    <button type="button" onClick={() => { setAttachmentName(null); setAttachmentFile(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ""; }} aria-label="Remove attachment">×</button>
                   </div>
                 )}
                 <AssistantComposerShell>

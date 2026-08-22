@@ -93,10 +93,10 @@ export function MessageThread() {
               {/* Citations */}
               {m.citations && m.citations.length > 0 && (
                 <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {m.citations.map((c) => (
+                  {m.citations.map((c) => c.href ? (
                     <a
                       key={c.id}
-                      href={c.href || "#"}
+                      href={c.href}
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
@@ -111,6 +111,10 @@ export function MessageThread() {
                     >
                       <FileText size={12} /> {c.title}
                     </a>
+                  ) : (
+                    <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.75rem", padding: "2px 8px", borderRadius: 4, background: "rgba(0,0,0,0.04)", color: "var(--assistant-muted)" }}>
+                      <FileText size={12} /> {c.title}
+                    </span>
                   ))}
                 </div>
               )}

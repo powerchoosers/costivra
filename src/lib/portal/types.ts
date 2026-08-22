@@ -45,6 +45,26 @@ export type PortalVendor = {
   monitoringState?: string;
 };
 
+export type PortalVendorContact = {
+  id: string;
+  relationshipId: string;
+  contactType: "vendor" | "billing" | "support" | "broker" | "consultant" | "other";
+  companyName: string | null;
+  contactName: string;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
+  phoneExtension: string | null;
+  websiteUrl: string | null;
+  preferredChannel: "email" | "phone" | "portal" | "other";
+  isPrimary: boolean;
+  status: "active" | "inactive";
+  notes: string | null;
+  lastVerifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PortalVendorCatalogEntry = {
   id: string;
   name: string;
@@ -89,6 +109,15 @@ export type PortalContract = {
   expenseAccountId: string | null;
   locationId: string | null;
   locationName: string | null;
+  sourceAddresses: string[];
+  serviceIdentifiers: string[];
+  termMonths: number | null;
+  sourceRateOrPrice: string | null;
+  sourcePricingUnit: string | null;
+  minimumCommitmentQuantity: string | null;
+  minimumCommitmentUnit: string | null;
+  currency: string | null;
+  categoryFacts?: Array<{ key: string; value: string; unit: string | null; sourceKey: string | null }>;
   updatedAt: string;
 };
 
@@ -370,13 +399,28 @@ export type PortalLocation = {
   name: string;
   status: string;
   address: Record<string, string> | null;
+  meterCount: number;
+};
+
+export type PortalEnergyMeter = {
+  id: string;
+  locationId: string;
+  meterIdentifier: string | null;
+  serviceIdentifier: string | null;
+  accountNumberLast4: string | null;
+  utilityTerritory: string | null;
+  status: string;
+  displayName: string | null;
+  lastSeenAt: string | null;
 };
 
 export type PortalData = {
   organization: PortalOrganization;
   currentUser: PortalUser;
   locations: PortalLocation[];
+  energyMeters: PortalEnergyMeter[];
   vendors: PortalVendor[];
+  vendorContacts: PortalVendorContact[];
   vendorCatalog: PortalVendorCatalogEntry[];
   expenseAccounts: PortalExpenseAccount[];
   expenses: PortalExpense[];

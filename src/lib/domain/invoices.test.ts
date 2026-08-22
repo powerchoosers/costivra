@@ -62,6 +62,29 @@ describe("invoice reconciliation", () => {
   it("marks insufficient arithmetic as incomplete", () => {
     expect(reconcileInvoice({ ...base, lineItems: [], subtotal: null }).status).toBe("incomplete");
   });
+
+  it("does not treat separately itemized taxes and telecom fees as subtotal service charges", () => {
+    const result = reconcileInvoice({
+      ...base,
+      subtotal: "100.00",
+      taxTotal: "8.25",
+      feeTotal: "1.75",
+      creditTotal: "0.00",
+      totalAmount: "110.00",
+      lineItems: [
+        { description: "Business voice plan", quantity: "1", unitPrice: "100.00", amount: "100.00", category: "recurring", servicePeriodStart: null, servicePeriodEnd: null },
+        { description: "FUSF", quantity: null, unitPrice: null, amount: "0.75", category: "telecom fee", servicePeriodStart: null, servicePeriodEnd: null },
+        { description: "E-911 service fee", quantity: null, unitPrice: null, amount: "1.00", category: "fee", servicePeriodStart: null, servicePeriodEnd: null },
+        { description: "State sales tax", quantity: null, unitPrice: null, amount: "8.25", category: "tax", servicePeriodStart: null, servicePeriodEnd: null },
+      ],
+    });
+
+    expect(result.checks).toContainEqual({
+      name: "line_items_to_subtotal",
+      status: "passed",
+      difference: "0.00",
+    });
+  });
 });
 
 describe("vendor matching", () => {

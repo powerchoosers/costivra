@@ -32,12 +32,17 @@ export function AssistantComposer({
   };
 
   const handleSend = () => {
-    if ((!text.trim() && state.pendingAttachments.length === 0) || state.sending) return;
+    if (!canSend || state.sending) return;
     const msg = text;
     setText("");
     onMessageSubmitted?.();
     void sendMessage(msg);
   };
+
+  const hasUploadingAttachment = state.pendingAttachments.some((attachment) => attachment.status === "uploading");
+  const hasBlockedAttachment = state.pendingAttachments.some((attachment) => attachment.status !== "processed");
+  const hasReadyAttachment = state.pendingAttachments.some((attachment) => attachment.status === "processed" && attachment.documentId);
+  const canSend = Boolean(text.trim() || hasReadyAttachment) && !hasUploadingAttachment && !hasBlockedAttachment;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -95,7 +100,7 @@ export function AssistantComposer({
           accept=".pdf,.png,.jpg,.jpeg,.txt,.docx"
         />
         <AssistantIconButton
-          label="Attach document"
+          label="Attach a PDF, DOCX, TXT, PNG, or JPG document"
           onClick={() => fileInputRef.current?.click()}
           style={{ marginBottom: 4 }}
         >
@@ -118,18 +123,18 @@ export function AssistantComposer({
         <button
           type="button"
           onClick={handleSend}
-          disabled={(!text.trim() && state.pendingAttachments.length === 0) || state.sending}
+          disabled={!canSend || state.sending}
           style={{
             width: 38,
             height: 38,
             borderRadius: "50%",
             border: "none",
-            background: (!text.trim() && state.pendingAttachments.length === 0) || state.sending ? "rgba(0,47,167,0.3)" : "var(--assistant-accent)",
+            background: !canSend || state.sending ? "rgba(0,47,167,0.3)" : "var(--assistant-accent)",
             color: "#ffffff",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            cursor: (!text.trim() && state.pendingAttachments.length === 0) || state.sending ? "not-allowed" : "pointer",
+            cursor: !canSend || state.sending ? "not-allowed" : "pointer",
             flexShrink: 0,
             transition: "all 160ms ease",
           }}

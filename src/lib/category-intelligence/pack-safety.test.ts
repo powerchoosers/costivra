@@ -71,6 +71,11 @@ describe("Packet 02: Pack Registry and Unknown-Category Safety", () => {
         { id: "v1", name: "Salesforce", category: "saas-subscriptions", spend: 500000 },
       ],
       recentInvoices: [],
+      recentExpenses: [],
+      verifiedSavings: [],
+      pendingApprovals: [],
+      supplierCatalog: [],
+      recentLineItems: [],
       openOpportunities: [],
       upcomingContracts: [],
     };
@@ -84,12 +89,17 @@ describe("Packet 02: Pack Registry and Unknown-Category Safety", () => {
       currentViewContext: null,
       currentContextCategory: null,
       attachedDocuments: [
-        { id: "d1", filename: "waste.pdf", extractionSummary: "Waste bill", category: "solid-waste-recycling" },
+        { id: "d1", filename: "waste.pdf", status: "processed", extractionSummary: "Waste bill", category: "solid-waste-recycling" },
       ],
       recentVendors: [
         { id: "v1", name: "AWS", category: "saas-subscriptions", spend: 900000 },
       ],
       recentInvoices: [],
+      recentExpenses: [],
+      verifiedSavings: [],
+      pendingApprovals: [],
+      supplierCatalog: [],
+      recentLineItems: [],
       openOpportunities: [],
       upcomingContracts: [],
     };

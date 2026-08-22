@@ -4,6 +4,8 @@ import { cleanUuid } from "@/lib/portal/http";
 import { requirePortalContext } from "@/lib/portal/repository";
 import { normalizeLineItems } from "@/lib/category-intelligence/line-item-normalizer";
 import { getExpertPack } from "@/lib/category-intelligence/packs";
+import { isAllowedCategoryFactKey } from "@/lib/category-intelligence/category-facts";
+import { parseEnergyService, type EnergyService } from "@/lib/domain/energy-service";
 
 const PROCESSING_STATUSES = new Set([
   "pending_upload",
@@ -36,6 +38,129 @@ function stringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function maskedIdentifier(value: unknown): string | null {
+  const raw = stringValue(value);
+  return raw ? `•••• ${raw.slice(-4)}` : null;
+}
+
+function maskedIdentifierArray(value: unknown) {
+  return stringArray(value).map((item) => maskedIdentifier(item)).filter((item): item is string => Boolean(item));
+}
+
+function categoryFactNeedsMasking(key: string): boolean {
+  return /(?:account|customer|group|merchant|policy|circuit|phone|identifier|number|id|profile|org|api|extension|location)/i.test(key);
+}
+
+function normalizedCategoryFacts(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const fact = asRecord(item);
+    const key = stringValue(fact.key);
+    const rawValue = stringValue(fact.value);
+    if (!key || !rawValue || !isAllowedCategoryFactKey(key)) return [];
+    return [{
+      key,
+      value: categoryFactNeedsMasking(key) ? maskedIdentifier(rawValue) : rawValue,
+      unit: stringValue(fact.unit) || null,
+      sourceKey: stringValue(fact.sourceKey) || null,
+    }];
+  }).slice(0, 200);
+}
+
+function nonNegativeNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function normalizedServiceDetails(value: unknown) {
+  const details = asRecord(value);
+  const normalized = {
+    planName: stringValue(details.planName) || null,
+    productFamily: stringValue(details.productFamily) || null,
+    serviceAddresses: stringArray(details.serviceAddresses),
+    serviceIdentifiers: maskedIdentifierArray(details.serviceIdentifiers),
+    phoneNumbers: maskedIdentifierArray(details.phoneNumbers),
+    circuitIds: maskedIdentifierArray(details.circuitIds),
+    subscriptionIdentifiers: maskedIdentifierArray(details.subscriptionIdentifiers),
+    resourceIdentifiers: maskedIdentifierArray(details.resourceIdentifiers),
+    cloudAccountIdentifiers: maskedIdentifierArray(details.cloudAccountIdentifiers),
+    region: stringValue(details.region) || null,
+    bandwidthQuantity: stringValue(details.bandwidthQuantity) || null,
+    bandwidthUnit: stringValue(details.bandwidthUnit) || null,
+    lineCount: nonNegativeNumber(details.lineCount),
+    deviceCount: nonNegativeNumber(details.deviceCount),
+    seatCount: nonNegativeNumber(details.seatCount),
+    usageQuantity: stringValue(details.usageQuantity) || null,
+    usageUnit: stringValue(details.usageUnit) || null,
+    includedUsageQuantity: stringValue(details.includedUsageQuantity) || null,
+    includedUsageUnit: stringValue(details.includedUsageUnit) || null,
+    commitmentType: stringValue(details.commitmentType) || null,
+    commitmentTermMonths: nonNegativeNumber(details.commitmentTermMonths),
+  };
+  const hasValue = Object.values(normalized).some((item) => Array.isArray(item) ? item.length > 0 : item !== null);
+  return hasValue ? normalized : null;
+}
+
+function normalizedChargeSummaries(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const summary = asRecord(item);
+    const label = stringValue(summary.label);
+    const amount = stringValue(summary.amount);
+    return label && amount
+      ? [{
+          label,
+          amount,
+          servicePeriodStart: stringValue(summary.servicePeriodStart) || null,
+          servicePeriodEnd: stringValue(summary.servicePeriodEnd) || null,
+        }]
+      : [];
+  }).slice(0, 200);
+}
+
+function normalizedEnergyService(service: EnergyService, persistedMeter: AnyRecord | null) {
+  return {
+    customerName: service.customerName,
+    serviceAddress: service.serviceAddress,
+    serviceIdentifier: maskedIdentifier(service.serviceIdentifier),
+    meterId: maskedIdentifier(service.meterId),
+    productName: service.productName,
+    utilityTerritory: service.utilityTerritory,
+    billingDays: service.billingDays,
+    readStatus: service.readStatus ?? null,
+    previousMeterRead: service.previousMeterRead ?? null,
+    currentMeterRead: service.currentMeterRead ?? null,
+    meterReadUnit: service.meterReadUnit ?? null,
+    usageKwh: service.usageKwh,
+    deliveredKwh: service.deliveredKwh ?? null,
+    receivedKwh: service.receivedKwh ?? null,
+    netUsageKwh: service.netUsageKwh ?? null,
+    generationKwh: service.generationKwh ?? null,
+    actualDemandKw: service.actualDemandKw,
+    billedDemandKw: service.billedDemandKw,
+    powerFactor: service.powerFactor ?? null,
+    meterMultiplier: service.meterMultiplier,
+    averagePricePerKwh: service.averagePricePerKwh,
+    readDateStart: service.readDateStart,
+    readDateEnd: service.readDateEnd,
+    assignedRateCode: service.assignedRateCode ?? null,
+    serviceVoltage: service.serviceVoltage ?? null,
+    meteringConfiguration: service.meteringConfiguration ?? null,
+    serviceClass: service.serviceClass ?? null,
+    historicalDemandKw: service.historicalDemandKw ?? null,
+    ratchetApplies: service.ratchetApplies ?? null,
+    persistedMeter: persistedMeter
+      ? {
+          meterIdentifier: maskedIdentifier(persistedMeter.meter_identifier),
+          serviceIdentifier: maskedIdentifier(persistedMeter.service_identifier),
+          utilityTerritory: stringValue(persistedMeter.utility_territory) || null,
+          displayName: stringValue(persistedMeter.display_name) || null,
+          isPrimary: Boolean(persistedMeter.is_primary),
+        }
+      : null,
+  };
 }
 
 function moneyCents(value: unknown): bigint | null {
@@ -397,6 +522,56 @@ export async function GET(
       );
     }
 
+    const metadata = asRecord(invoice.metadata);
+    const extractionFacts = asRecord(metadata.extractionFacts);
+    const extractedEnergyServices = Array.isArray(extractionFacts.energyServices)
+      ? extractionFacts.energyServices.flatMap((item) => {
+          const parsed = parseEnergyService(item);
+          return parsed ? [parsed] : [];
+        })
+      : [];
+    const energyServices = extractedEnergyServices.length > 0
+      ? extractedEnergyServices
+      : (parseEnergyService(invoice.energy_service) ? [parseEnergyService(invoice.energy_service)!] : []);
+    const serviceDetails = normalizedServiceDetails(extractionFacts.serviceDetails);
+    const sourceChargeSummaries = normalizedChargeSummaries(extractionFacts.chargeSummaries);
+    const categoryFacts = normalizedCategoryFacts(extractionFacts.categoryFacts);
+    const persistedMeterByIndex = new Map<number, AnyRecord>();
+
+    if (energyServices.length > 0) {
+      const { data: meterLinks, error: meterLinksError } = await db
+        .from("invoice_energy_meters")
+        .select("energy_meter_id,service_index,is_primary")
+        .eq("organization_id", organizationId)
+        .eq("invoice_id", invoice.id)
+        .limit(200);
+      if (meterLinksError) {
+        return logDatabaseFailure({ traceId, documentId: id, organizationId, error: meterLinksError });
+      }
+      const linkRows = Array.isArray(meterLinks) ? meterLinks as AnyRecord[] : [];
+      const meterIds = linkRows.map((link) => stringValue(link.energy_meter_id)).filter(Boolean);
+      if (meterIds.length > 0) {
+        const { data: meters, error: metersError } = await db
+          .from("energy_meters")
+          .select("id,meter_identifier,service_identifier,utility_territory,display_name")
+          .eq("organization_id", organizationId)
+          .in("id", meterIds);
+        if (metersError) {
+          return logDatabaseFailure({ traceId, documentId: id, organizationId, error: metersError });
+        }
+        const meterById = new Map(
+          (Array.isArray(meters) ? meters as AnyRecord[] : []).map((meter) => [stringValue(meter.id), meter]),
+        );
+        for (const link of linkRows) {
+          const serviceIndex = Number(link.service_index);
+          const meter = meterById.get(stringValue(link.energy_meter_id));
+          if (Number.isInteger(serviceIndex) && meter) {
+            persistedMeterByIndex.set(serviceIndex, { ...meter, is_primary: link.is_primary });
+          }
+        }
+      }
+    }
+
     let vendor: {
       id: string;
       name: string;
@@ -440,7 +615,6 @@ export async function GET(
       }
     }
 
-    const metadata = asRecord(invoice.metadata);
     const storedCategory = asRecord(metadata.categoryIntelligence);
     const categoryName = stringValue(
       invoice.expense_category,
@@ -656,6 +830,10 @@ export async function GET(
       },
       priorRecordedBill,
       serviceFacts: buildServiceFacts(invoice.energy_service),
+      energyServices: energyServices.map((service, serviceIndex) => normalizedEnergyService(service, persistedMeterByIndex.get(serviceIndex) ?? null)),
+      serviceDetails,
+      sourceChargeSummaries,
+      categoryFacts,
       categoryReviewLens: buildCategoryReviewLens(categoryKey),
       evidence,
       evidenceCounts: {

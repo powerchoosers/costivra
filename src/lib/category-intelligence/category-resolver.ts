@@ -96,6 +96,30 @@ const ALIAS_MAP: Record<string, CategoryCandidate> = {
     parentKey: "telecom-connectivity",
     confidence: 0.8,
   },
+  voip: {
+    key: "voice-ucaas",
+    name: "Voice, VoIP & UCaaS",
+    parentKey: "telecom-connectivity",
+    confidence: 0.92,
+  },
+  voice: {
+    key: "voice-ucaas",
+    name: "Voice, VoIP & UCaaS",
+    parentKey: "telecom-connectivity",
+    confidence: 0.85,
+  },
+  ucaas: {
+    key: "voice-ucaas",
+    name: "Voice, VoIP & UCaaS",
+    parentKey: "telecom-connectivity",
+    confidence: 0.92,
+  },
+  "unified communications": {
+    key: "voice-ucaas",
+    name: "Voice, VoIP & UCaaS",
+    parentKey: "telecom-connectivity",
+    confidence: 0.95,
+  },
 
   // Technology
   software: {
@@ -328,6 +352,14 @@ function resolution(
 
 function vendorCandidate(vendorName: string): CategoryCandidate | null {
   const name = vendorName.toLowerCase();
+  if (/\b(nextiva|ringcentral|8x8|vonage|dialpad|ooma|gotomeeting|go\s*to\s*connect)\b/.test(name)) {
+    return {
+      key: "voice-ucaas",
+      name: "Voice, VoIP & UCaaS",
+      parentKey: "telecom-connectivity",
+      confidence: 0.98,
+    };
+  }
   if (/\b(aws|amazon web services|microsoft azure|google cloud)\b/.test(name)) {
     return {
       key: "cloud-iaas-paas",
@@ -380,6 +412,14 @@ function vendorCandidate(vendorName: string): CategoryCandidate | null {
 }
 
 function textCandidate(text: string): CategoryCandidate | null {
+  if (/\b(voip|ucaas|unified communications|hosted pbx|sip trunk|minutes usage|call recording|e911|fusf \(voip\)|telecommunications sales tax)\b/.test(text)) {
+    return {
+      key: "voice-ucaas",
+      name: "Voice, VoIP & UCaaS",
+      parentKey: "telecom-connectivity",
+      confidence: 0.92,
+    };
+  }
   if (/\b(kwh|kw demand|peak demand|tdsp|esi id)\b/.test(text)) {
     return {
       key: "commercial-electricity-supply",
@@ -464,6 +504,23 @@ export async function resolveCategory(
   input: ResolveCategoryInput,
 ): Promise<CategoryResolution> {
   const rawCategory = (input.rawCategory || "").trim().toLowerCase();
+  const earlyText = [
+    ...(input.lineItemDescriptions || []),
+    input.extractedText || "",
+    input.vendorName || "",
+  ].join(" ").toLowerCase();
+  const earlyVendor = vendorCandidate(input.vendorName || "");
+  if (
+    ["telecom", "telecom & internet", "telecom-connectivity"].includes(rawCategory) &&
+    (earlyVendor?.key === "voice-ucaas" || /\b(voip|ucaas|unified communications|hosted pbx|sip trunk|minutes usage|call recording|e911|fusf \(voip\)|telecommunications sales tax)\b/.test(earlyText))
+  ) {
+    return resolution({
+      key: "voice-ucaas",
+      name: "Voice, VoIP & UCaaS",
+      parentKey: "telecom-connectivity",
+      confidence: 0.92,
+    }, "line_item_evidence");
+  }
   if (rawCategory && ALIAS_MAP[rawCategory]) {
     return resolution(ALIAS_MAP[rawCategory], "catalog");
   }
@@ -491,6 +548,7 @@ export async function resolveCategory(
   const combinedText = [
     ...(input.lineItemDescriptions || []),
     input.extractedText || "",
+    input.vendorName || "",
   ]
     .join(" ")
     .toLowerCase();

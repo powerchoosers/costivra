@@ -3,6 +3,12 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssistantBlockRequest, AssistantBlockV1 } from "./types";
 import { parseMoneyToCents } from "@/lib/vendors/spend";
+import { supplierCategoryMatches } from "./supplier-matching";
+
+function numeric(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 // ---- Local row types (schema-accurate) ----
 
@@ -91,6 +97,12 @@ export async function hydrateAssistantBlocks(
 ): Promise<AssistantBlockV1[]> {
   const blocks: AssistantBlockV1[] = [];
   const bounded = requests.slice(0, 5);
+  const { data: organization } = await db
+    .from("organizations")
+    .select("currency")
+    .eq("id", organizationId)
+    .maybeSingle();
+  const workspaceCurrency = typeof organization?.currency === "string" && organization.currency ? organization.currency : "USD";
 
   for (const req of bounded) {
     try {
@@ -104,12 +116,12 @@ export async function hydrateAssistantBlocks(
             .limit(5);
 
           const rels = (data ?? []) as unknown as VendorRelRow[];
-          const totalSpend = rels.reduce((acc, r) => acc + (r.annualized_spend ?? 0), 0);
+          const totalSpend = rels.reduce((acc, r) => acc + numeric(r.annualized_spend), 0);
           const topVendors = rels.map((r) => ({
             vendorRelationshipId: r.id,
             name: r.vendors?.canonical_name ?? "Vendor",
             category: r.vendors?.category ?? "General",
-            annualizedSpend: r.annualized_spend ?? 0,
+            annualizedSpend: numeric(r.annualized_spend),
             href: `/app/vendors/${r.id}`,
           }));
 
@@ -118,7 +130,7 @@ export async function hydrateAssistantBlocks(
             type: "spend_overview",
             payload: {
               annualizedSpend: totalSpend,
-              currency: "USD",
+              currency: workspaceCurrency,
               vendorCount: rels.length,
               topVendors,
               href: "/app/vendors",
@@ -149,12 +161,12 @@ export async function hydrateAssistantBlocks(
                 invoiceDate: inv.invoice_date,
                 dueDate: inv.due_date,
                 totalAmount: inv.total_amount,
-                currency: inv.currency ?? "USD",
+                currency: inv.currency ?? workspaceCurrency,
                 reviewStatus: inv.review_status,
                 vendorMatchStatus: inv.vendor_match_status,
                 reconciliationState: inv.reconciliation_status,
                 documentId: inv.document_id,
-                href: `/app/documents/${inv.document_id}`,
+                href: inv.document_id ? `/app/documents/${inv.document_id}` : "/app/documents",
                 filename: inv.documents?.original_filename ?? "Invoice Document",
               },
             });
@@ -162,11 +174,44 @@ export async function hydrateAssistantBlocks(
           break;
         }
 
+        case "invoice_ranking": {
+          let query = db
+            .from("invoices")
+            .select("id, invoice_number, invoice_date, total_amount, currency, review_status, document_id, organization_vendor_id, organization_vendors(vendors(canonical_name))")
+            .eq("organization_id", organizationId)
+            .order("total_amount", { ascending: false })
+            .limit(8);
+          if (req.invoiceIds?.length) query = query.in("id", req.invoiceIds);
+          const { data } = await query;
+          const invoices = (data ?? []) as unknown as InvoiceRow[];
+          const currency = invoices.find((invoice) => invoice.currency)?.currency ?? workspaceCurrency;
+          blocks.push({
+            id: `invoice-ranking-${organizationId}-${req.invoiceIds?.join("-") ?? "workspace"}`,
+            type: "invoice_ranking",
+            payload: {
+              title: "Most expensive bills",
+              subtitle: `${invoices.length} recorded invoice${invoices.length === 1 ? "" : "s"}, ranked by total amount`,
+              currency,
+              invoices: invoices.map((invoice) => ({
+                invoiceId: invoice.id,
+                vendorName: invoice.organization_vendors?.vendors?.canonical_name ?? "Vendor not matched",
+                invoiceNumber: invoice.invoice_number,
+                invoiceDate: invoice.invoice_date,
+                amount: invoice.total_amount,
+                reviewStatus: invoice.review_status,
+                href: invoice.document_id ? `/app/documents/${invoice.document_id}` : "/app/documents",
+              })),
+              href: "/app/bills",
+            },
+          });
+          break;
+        }
+
         case "invoice_comparison": {
           const [id1, id2] = req.invoiceIds;
           const { data } = await db
             .from("invoices")
-            .select("id, invoice_number, invoice_date, total_amount, document_id, organization_vendor_id, organization_vendors(vendors(canonical_name))")
+            .select("id, invoice_number, invoice_date, total_amount, currency, document_id, organization_vendor_id, organization_vendors(vendors(canonical_name))")
             .in("id", [id1, id2])
             .eq("organization_id", organizationId);
 
@@ -214,8 +259,9 @@ export async function hydrateAssistantBlocks(
                   },
                   differenceAmount: diffCents != null ? diffCents / 100 : null,
                   percentageChange: pctChange != null ? Math.round(pctChange * 10) / 10 : null,
+                  currency: first.currency ?? second.currency ?? workspaceCurrency,
                   vendorName,
-                  href: `/app/documents/${second.document_id}`,
+                  href: second.document_id ? `/app/documents/${second.document_id}` : "/app/documents",
                 },
               });
             }
@@ -239,7 +285,7 @@ export async function hydrateAssistantBlocks(
             .order("amount", { ascending: false })
             .limit(20);
           const rows = (lineItems ?? []) as LineItemRow[];
-          const total = rows.reduce((sum, row) => sum + (row.amount ?? 0), 0);
+          const total = rows.reduce((sum, row) => sum + numeric(row.amount), 0);
           blocks.push({
             id: `ibreakdown-${invoice.id}`,
             type: "invoice_breakdown",
@@ -248,18 +294,18 @@ export async function hydrateAssistantBlocks(
               invoiceNumber: invoice.invoice_number,
               invoiceDate: invoice.invoice_date,
               vendorName: (invoice.organization_vendors as { vendors?: { canonical_name?: string } | null } | null)?.vendors?.canonical_name ?? null,
-              currency: invoice.currency ?? "USD",
+              currency: invoice.currency ?? workspaceCurrency,
               invoiceTotal: invoice.total_amount,
               lineItemTotal: total,
               lineItems: rows.map((row) => ({
                 id: row.id,
                 description: row.description,
-                amount: row.amount,
+                amount: numeric(row.amount),
                 quantity: row.quantity,
                 unitPrice: row.unit_price,
                 category: row.category,
               })),
-              href: `/app/documents/${invoice.document_id}`,
+              href: invoice.document_id ? `/app/documents/${invoice.document_id}` : "/app/documents",
             },
           });
           break;
@@ -295,9 +341,9 @@ export async function hydrateAssistantBlocks(
             .order("catalog_status", { ascending: true })
             .order("canonical_name", { ascending: true })
             .limit(40);
-          const requestedCategory = req.category?.trim().toLowerCase();
+          const requestedCategory = req.category?.trim() || null;
           const options = (catalogRows ?? [])
-            .filter((vendor) => !requestedCategory || String(vendor.category ?? "").toLowerCase().includes(requestedCategory))
+            .filter((vendor) => !requestedCategory || supplierCategoryMatches(requestedCategory, vendor.category))
             .slice(0, 6)
             .map((vendor) => ({
               vendorId: vendor.id,
@@ -340,7 +386,7 @@ export async function hydrateAssistantBlocks(
                 category: v.category ?? "General",
                 website: v.website ?? null,
                 relationshipStatus: rel.relationship_status,
-                annualizedSpend: rel.annualized_spend ?? 0,
+                annualizedSpend: numeric(rel.annualized_spend),
                 catalogStatus: v.catalog_status,
                 logoUrl: v.logo_url ?? null,
                 href: `/app/vendors/${rel.id}`,
@@ -356,31 +402,66 @@ export async function hydrateAssistantBlocks(
             .select("id, total_amount, invoice_date, organization_vendors(vendors(canonical_name))")
             .eq("organization_id", organizationId)
             .order("invoice_date", { ascending: false })
-            .limit(6);
+            .limit(24);
           if (req.vendorRelationshipId) query = query.eq("organization_vendor_id", req.vendorRelationshipId);
           const { data } = await query;
 
           const invoices = (data ?? []) as unknown as InvoiceRow[];
-          const periods = invoices.map((inv) => ({
-            label: inv.invoice_date ? inv.invoice_date.slice(0, 7) : "Period",
-            amount: inv.total_amount ?? 0,
-          })).reverse();
+          const byMonth = new Map<string, number>();
+          for (const invoice of invoices) {
+            const label = invoice.invoice_date ? invoice.invoice_date.slice(0, 7) : "Unknown";
+            byMonth.set(label, (byMonth.get(label) ?? 0) + numeric(invoice.total_amount));
+          }
+          const periods = [...byMonth.entries()]
+            .filter(([label]) => label !== "Unknown")
+            .sort(([a], [b]) => a.localeCompare(b))
+            .slice(-6)
+            .map(([label, amount]) => ({ label, amount }));
 
           const total = periods.reduce((sum, p) => sum + p.amount, 0);
           const average = periods.length > 0 ? Math.round(total / periods.length) : 0;
 
           blocks.push({
-            id: `strend-${organizationId}`,
+            id: `strend-${organizationId}-${req.vendorRelationshipId ?? "workspace"}`,
             type: "spend_trend",
             payload: {
-              scopeLabel: "Recent Spend Trend",
-              currency: "USD",
+              scopeLabel: req.vendorRelationshipId
+                ? `${invoices[0]?.organization_vendors?.vendors?.canonical_name ?? "Vendor"} Spend Trend`
+                : "Recent Spend Trend",
+              currency: workspaceCurrency,
               total,
               average,
               changePercent: null,
               periods,
-              href: "/app/vendors",
+              href: req.vendorRelationshipId ? `/app/vendors/${req.vendorRelationshipId}` : "/app/vendors",
             },
+          });
+          break;
+        }
+
+        case "monitoring_overview": {
+          const { data } = await db
+            .from("vendor_monitoring_configs")
+            .select("id, organization_vendor_id, state, source_method, next_expected_at, last_received_at, organization_vendors(vendors(canonical_name))")
+            .eq("organization_id", organizationId)
+            .order("updated_at", { ascending: false })
+            .limit(20);
+
+          const configs = (data ?? []).map((monitoring) => ({
+            id: monitoring.id,
+            vendorRelationshipId: monitoring.organization_vendor_id,
+            vendorName: (monitoring.organization_vendors as { vendors?: { canonical_name?: string } | null } | null)?.vendors?.canonical_name ?? "Vendor",
+            state: monitoring.state,
+            sourceMethod: monitoring.source_method,
+            nextExpectedAt: monitoring.next_expected_at,
+            lastReceivedAt: monitoring.last_received_at,
+            href: `/app/vendors/${monitoring.organization_vendor_id}?tab=monitoring`,
+          }));
+
+          blocks.push({
+            id: `monitoring-${organizationId}`,
+            type: "monitoring_overview",
+            payload: { configs, href: "/app/vendors" },
           });
           break;
         }
@@ -414,12 +495,19 @@ export async function hydrateAssistantBlocks(
         }
 
         case "renewal_timeline": {
-          const { data } = await db
+          let query = db
             .from("contracts")
             .select("id, title, end_date, notice_deadline, auto_renews, organization_vendors(vendors(canonical_name))")
             .eq("organization_id", organizationId)
+            .gte("end_date", new Date().toISOString().slice(0, 10))
             .order("end_date", { ascending: true })
             .limit(5);
+
+          if (req.contractIds?.length) {
+            query = query.in("id", req.contractIds.slice(0, 20));
+          }
+
+          const { data } = await query;
 
           const contracts = (data ?? []) as unknown as ContractRow[];
           const contractList = contracts.map((c) => ({
@@ -484,10 +572,10 @@ export async function hydrateAssistantBlocks(
             savingsId: saving.id,
             title: saving.title,
             category: "Verified outcome",
-            amount: saving.amount,
+            amount: numeric(saving.amount),
             href: saving.opportunity_id ? `/app/opportunities/${saving.opportunity_id}` : "/app/opportunities",
           }));
-          const totalVerified = outcomes.reduce((sum, outcome) => sum + (outcome.amount ?? 0), 0);
+          const totalVerified = outcomes.reduce((sum, outcome) => sum + numeric(outcome.amount), 0);
 
           blocks.push({
             id: `ssummary-${organizationId}`,
@@ -526,7 +614,7 @@ export async function hydrateAssistantBlocks(
             actionType: approval.resource_type,
             annualValue: null,
             status: approval.decision,
-            href: "/app/approvals",
+            href: "/app/actions",
           }));
           actions.push(...(referralRequests ?? []).map((request) => ({
             actionId: request.id,
@@ -542,7 +630,7 @@ export async function hydrateAssistantBlocks(
             type: "approval_queue",
             payload: {
               actions,
-              href: "/app/approvals",
+              href: "/app/actions",
             },
           });
           break;

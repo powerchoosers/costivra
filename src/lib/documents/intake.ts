@@ -1,7 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import { analyzeDocument, analyzeScannedPdf } from "@/lib/ai/document-intelligence";
+import { analyzeDocument, analyzeImageDocument, analyzeScannedPdf } from "@/lib/ai/document-intelligence";
+import { createContractRecordFromExtraction } from "@/lib/documents/contract-record";
 import { createInvoiceRecordFromExtraction } from "@/lib/documents/invoice-record";
-import { extractDocumentText } from "@/lib/documents/text-extraction";
+import { persistDetectedServiceLocation, type DetectedServiceLocationResolution } from "@/lib/domain/service-location";
+import { normalizeAddress, resolveWorkspaceCustomer, type IdentityMatchStatus } from "@/lib/domain/invoice-matching";
+import { extractDocumentText, hasMeaningfulExtractedText } from "@/lib/documents/text-extraction";
 import {
   classifyDocumentExtractionFailure,
   documentExtractionReviewSummary,
@@ -17,6 +20,8 @@ export const DOCUMENT_MIME_TYPES = new Set([
   "application/pdf",
   "text/plain",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/png",
+  "image/jpeg",
 ]);
 
 export function evidencePageNumber(
@@ -25,6 +30,82 @@ export function evidencePageNumber(
   explicitPageNumber: number | null | undefined,
 ) {
   return explicitPageNumber ?? (inputMode === "native_text" ? 1 : pageCount === 1 ? 1 : null);
+}
+
+export function shouldUsePdfOcr(mimeType: string, extractedText: string): boolean {
+  return mimeType === "application/pdf" && !hasMeaningfulExtractedText(extractedText);
+}
+
+export function sourceBackedServiceAddresses(input: {
+  serviceAddress?: string | null;
+  contractDetails?: { serviceAddresses?: string[] | null } | null;
+}): Array<{ address: string; sourceField: string }> {
+  const candidates = [
+    ...(typeof input.serviceAddress === "string" && input.serviceAddress.trim()
+      ? [{ address: input.serviceAddress.trim(), sourceField: "serviceAddress" }]
+      : []),
+    ...(input.contractDetails?.serviceAddresses ?? []).flatMap((address, index) =>
+      typeof address === "string" && address.trim()
+        ? [{ address: address.trim(), sourceField: `contractDetails.serviceAddresses[${index}]` }]
+        : [],
+    ),
+  ];
+  const seen = new Set<string>();
+  return candidates.filter((candidate) => {
+    const normalized = normalizeAddress(candidate.address);
+    if (!normalized || seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+}
+
+export async function persistSourceBackedServiceLocations(input: {
+  db: DatabaseClient;
+  organizationId: string;
+  documentId: string;
+  sources: Array<{ address: string; sourceField: string }>;
+  workspaceCustomerMatchStatus?: IdentityMatchStatus;
+  locations: Array<Record<string, unknown>>;
+}): Promise<{
+  locationIds: string[];
+  resolutions: Array<{
+    address: string;
+    sourceField: string;
+    resolution: DetectedServiceLocationResolution;
+  }>;
+}> {
+  const workingLocations = [...input.locations];
+  const locationIds: string[] = [];
+  const resolutions: Array<{
+    address: string;
+    sourceField: string;
+    resolution: DetectedServiceLocationResolution;
+  }> = [];
+
+  for (const source of input.sources) {
+    const resolution = await persistDetectedServiceLocation({
+      db: input.db,
+      organizationId: input.organizationId,
+      documentId: input.documentId,
+      serviceAddress: source.address,
+      workspaceCustomerMatchStatus: input.workspaceCustomerMatchStatus,
+      locations: workingLocations,
+      sourceField: source.sourceField,
+    });
+    resolutions.push({ ...source, resolution });
+    if (resolution.locationId && !locationIds.includes(resolution.locationId)) {
+      locationIds.push(resolution.locationId);
+    }
+    if (resolution.createdLocationId) {
+      workingLocations.push({
+        id: resolution.createdLocationId,
+        name: source.address,
+        address: source.address,
+      });
+    }
+  }
+
+  return { locationIds, resolutions };
 }
 
 type DatabaseClient = ReturnType<typeof createServerSupabaseClient>;
@@ -144,19 +225,24 @@ export async function processDocumentBuffer(input: {
       // path is the recovery mechanism; its output is still schema-validated.
       extracted = { text: "", pageCount: null };
     }
-    const usedPdfOcr = input.mimeType === "application/pdf" && !extracted.text.trim();
-    inputMode = usedPdfOcr ? "pdf_ocr" : "native_text";
-    if (!extracted.text.trim() && !usedPdfOcr) throw new Error("No readable text was found in this document.");
-      intelligence = usedPdfOcr
-      ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer, pageCount: extracted.pageCount })
-      : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text, pageCount: extracted.pageCount });
+    const hasNativeText = hasMeaningfulExtractedText(extracted.text);
+    const usedPdfOcr = shouldUsePdfOcr(input.mimeType, extracted.text);
+    const isImage = input.mimeType === "image/png" || input.mimeType === "image/jpeg";
+    const imageMimeType = input.mimeType === "image/png" || input.mimeType === "image/jpeg" ? input.mimeType : null;
+    inputMode = isImage ? "image_vision" : usedPdfOcr ? "pdf_ocr" : "native_text";
+    if (!hasNativeText && !usedPdfOcr && !isImage) throw new Error("No readable text was found in this document.");
+    intelligence = isImage
+      ? await analyzeImageDocument({ documentName: input.filename, mimeType: imageMimeType!, buffer: input.buffer })
+      : usedPdfOcr
+        ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer, pageCount: extracted.pageCount })
+        : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text, pageCount: extracted.pageCount });
   } catch (analysisError) {
     const failureCode = classifyDocumentExtractionFailure(analysisError, inputMode);
     const summary = documentExtractionReviewSummary(failureCode);
     const { error: failureVersionError } = await input.db.from("document_extraction_versions").insert({
       document_id: input.documentId,
       extractor_version: "costivra-intake-v3",
-      provider: inputMode === "pdf_ocr" ? "openrouter-pdf-ocr" : "openrouter",
+      provider: inputMode === "pdf_ocr" ? "openrouter-pdf-ocr" : inputMode === "image_vision" ? "openrouter-image-vision" : "openrouter",
       model_identifier: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
       schema_version: "cost-document-v2",
       status: "failed",
@@ -191,7 +277,7 @@ export async function processDocumentBuffer(input: {
     const { data: version, error: versionError } = await input.db.from("document_extraction_versions").insert({
       document_id: input.documentId,
       extractor_version: "costivra-intake-v3",
-      provider: inputMode === "pdf_ocr" ? "openrouter-pdf-ocr" : "openrouter",
+      provider: inputMode === "pdf_ocr" ? "openrouter-pdf-ocr" : inputMode === "image_vision" ? "openrouter-image-vision" : "openrouter",
       model_identifier: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
       schema_version: "cost-document-v2",
       status: intelligence.confidence < .75 || omittedEvidenceCount > 0 ? "needs_review" : "completed",
@@ -215,6 +301,42 @@ export async function processDocumentBuffer(input: {
         sourceKey: typeof evidence.source_key === "string" ? evidence.source_key : null,
       }));
     }
+    const sourceBackedAddresses = sourceBackedServiceAddresses(intelligence);
+    let contractLocationPersistence: Awaited<ReturnType<typeof persistSourceBackedServiceLocations>> = {
+      locationIds: [],
+      resolutions: [],
+    };
+    const isContractDocument = intelligence.classification === "contract" || intelligence.classification === "order_form";
+    if (isContractDocument && sourceBackedAddresses.length > 0) {
+      const { data: locations, error: locationsError } = await input.db
+        .from("locations")
+        .select("id,name,address")
+        .eq("organization_id", input.organizationId);
+      if (locationsError) throw locationsError;
+      let workspaceCustomerMatchStatus;
+      if (intelligence.customerName) {
+        const { data: organization, error: organizationError } = await input.db
+          .from("organizations")
+          .select("name,legal_name")
+          .eq("id", input.organizationId)
+          .maybeSingle();
+        if (organizationError) throw organizationError;
+        workspaceCustomerMatchStatus = resolveWorkspaceCustomer(
+          intelligence.customerName,
+          [organization?.name, organization?.legal_name].filter(
+            (value): value is string => typeof value === "string",
+          ),
+        );
+      }
+      contractLocationPersistence = await persistSourceBackedServiceLocations({
+        db: input.db,
+        organizationId: input.organizationId,
+        documentId: input.documentId,
+        sources: sourceBackedAddresses,
+        workspaceCustomerMatchStatus,
+        locations: Array.isArray(locations) ? locations as Record<string, unknown>[] : [],
+      });
+    }
     const invoiceRecord = await createInvoiceRecordFromExtraction({
       db: input.db,
       organizationId: input.organizationId,
@@ -225,11 +347,26 @@ export async function processDocumentBuffer(input: {
       intelligence,
       evidenceReferences,
     });
-    const finalStatus = intelligence.confidence < .75 || omittedEvidenceCount > 0 || invoiceRecord?.reviewStatus === "needs_review" ? "needs_review" : "ready";
+    const contractRecord = await createContractRecordFromExtraction({
+      db: input.db,
+      organizationId: input.organizationId,
+      documentId: input.documentId,
+      filename: input.filename,
+      providedRelationshipId: input.organizationVendorId,
+      intelligence,
+      locationIds: contractLocationPersistence.locationIds,
+      locationResolutions: contractLocationPersistence.resolutions,
+    });
+    const finalStatus = intelligence.confidence < .75
+      || omittedEvidenceCount > 0
+      || invoiceRecord?.reviewStatus === "needs_review"
+      || contractRecord?.needsReview === true
+      ? "needs_review"
+      : "ready";
     const { error: documentUpdateError } = await input.db.from("documents").update({ page_count: extracted.pageCount, document_type: intelligence.classification, extraction_summary: intelligence.summary, status: finalStatus, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
     if (documentUpdateError) throw documentUpdateError;
     const { error: auditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId, safe_metadata: input.requestId ? { request_id: input.requestId } : {} });
     if (auditError) throw auditError;
-    return { duplicate: false as const, documentId: input.documentId, extractionVersionId: version.id as string, invoiceRecord, status: finalStatus, sha256: input.sha256 };
+    return { duplicate: false as const, documentId: input.documentId, extractionVersionId: version.id as string, invoiceRecord, contractRecord, status: finalStatus, sha256: input.sha256 };
   }
 }

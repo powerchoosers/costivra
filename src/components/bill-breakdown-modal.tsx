@@ -155,6 +155,79 @@ export type BreakdownData = {
     value: number;
     unit: string;
   }>;
+  energyServices?: Array<{
+    customerName: string | null;
+    serviceAddress: string | null;
+    serviceIdentifier: string | null;
+    meterId: string | null;
+    productName: string | null;
+    utilityTerritory: string | null;
+    billingDays: number | null;
+    readStatus: string | null;
+    previousMeterRead: string | null;
+    currentMeterRead: string | null;
+    meterReadUnit: string | null;
+    usageKwh: string | null;
+    deliveredKwh: string | null;
+    receivedKwh: string | null;
+    netUsageKwh: string | null;
+    generationKwh: string | null;
+    actualDemandKw: string | null;
+    billedDemandKw: string | null;
+    powerFactor: string | null;
+    meterMultiplier: string | null;
+    averagePricePerKwh: string | null;
+    readDateStart: string | null;
+    readDateEnd: string | null;
+    assignedRateCode: string | null;
+    serviceVoltage: string | null;
+    meteringConfiguration: string | null;
+    serviceClass: string | null;
+    historicalDemandKw: string | null;
+    ratchetApplies: boolean | null;
+    persistedMeter: {
+      meterIdentifier: string | null;
+      serviceIdentifier: string | null;
+      utilityTerritory: string | null;
+      displayName: string | null;
+      isPrimary: boolean;
+    } | null;
+  }>;
+  serviceDetails?: {
+    planName: string | null;
+    productFamily: string | null;
+    serviceAddresses: string[];
+    serviceIdentifiers: string[];
+    phoneNumbers: string[];
+    circuitIds: string[];
+    subscriptionIdentifiers: string[];
+    resourceIdentifiers: string[];
+    cloudAccountIdentifiers: string[];
+    region: string | null;
+    bandwidthQuantity: string | null;
+    bandwidthUnit: string | null;
+    lineCount: number | null;
+    deviceCount: number | null;
+    seatCount: number | null;
+    usageQuantity: string | null;
+    usageUnit: string | null;
+    includedUsageQuantity: string | null;
+    includedUsageUnit: string | null;
+    commitmentType: string | null;
+    commitmentTermMonths: number | null;
+  } | null;
+  sourceChargeSummaries?: Array<{
+    label: string;
+    amount: string;
+    servicePeriodStart: string | null;
+    servicePeriodEnd: string | null;
+  }>;
+  categoryFacts?: Array<{
+    key: string;
+    value: string | null;
+    unit: string | null;
+    sourceKey: string | null;
+  }>;
   categoryReviewLens?: Array<{
     label: string;
     fields: string[];
@@ -236,6 +309,73 @@ const formatServiceFact = (fact: NonNullable<BreakdownData["serviceFacts"]>[numb
   }
   return `${fact.value.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${fact.unit}`;
 };
+
+function detailRows(entries: Array<[string, string | null | undefined]>) {
+  return entries.filter(([, value]) => value != null && value !== "");
+}
+
+function energyServiceDetailRows(service: NonNullable<BreakdownData["energyServices"]>[number]) {
+  const persistedMeter = service.persistedMeter
+    ? service.persistedMeter.displayName
+      || service.persistedMeter.meterIdentifier
+      || service.persistedMeter.serviceIdentifier
+      || "Stored meter link"
+    : null;
+  return detailRows([
+    ["Service address", service.serviceAddress],
+    ["Meter", service.meterId],
+    ["Service ID", service.serviceIdentifier],
+    ["Stored meter link", persistedMeter],
+    ["Product / supply", service.productName],
+    ["Utility territory", service.utilityTerritory],
+    ["Read status", service.readStatus],
+    ["Read dates", service.readDateStart && service.readDateEnd ? `${service.readDateStart} → ${service.readDateEnd}` : service.readDateStart || service.readDateEnd],
+    ["Previous / current read", service.previousMeterRead && service.currentMeterRead ? `${service.previousMeterRead} / ${service.currentMeterRead}${service.meterReadUnit ? ` ${service.meterReadUnit}` : ""}` : service.previousMeterRead || service.currentMeterRead],
+    ["Usage", service.usageKwh ? `${service.usageKwh} kWh` : null],
+    ["Delivered / received", service.deliveredKwh || service.receivedKwh ? `${service.deliveredKwh ?? "—"} / ${service.receivedKwh ?? "—"} kWh` : null],
+    ["Net / generation", service.netUsageKwh || service.generationKwh ? `${service.netUsageKwh ?? "—"} / ${service.generationKwh ?? "—"} kWh` : null],
+    ["Actual / billed demand", service.actualDemandKw || service.billedDemandKw ? `${service.actualDemandKw ?? "—"} / ${service.billedDemandKw ?? "—"} kW` : null],
+    ["Power factor", service.powerFactor],
+    ["Meter multiplier", service.meterMultiplier],
+    ["Average price", service.averagePricePerKwh ? `${service.averagePricePerKwh} / kWh` : null],
+    ["Assigned rate", service.assignedRateCode],
+    ["Voltage / configuration", service.serviceVoltage || service.meteringConfiguration ? `${service.serviceVoltage ?? "—"} / ${service.meteringConfiguration ?? "—"}` : null],
+    ["Service class", service.serviceClass],
+    ["Historical demand", service.historicalDemandKw ? `${service.historicalDemandKw} kW` : null],
+    ["Ratchet", service.ratchetApplies == null ? null : service.ratchetApplies ? "Applies" : "Does not apply"],
+  ]);
+}
+
+function serviceDetailRows(details: NonNullable<BreakdownData["serviceDetails"]>) {
+  return detailRows([
+    ["Plan", details.planName],
+    ["Product family", details.productFamily],
+    ["Service addresses", details.serviceAddresses.length ? details.serviceAddresses.join(" · ") : null],
+    ["Service identifiers", details.serviceIdentifiers.length ? details.serviceIdentifiers.join(" · ") : null],
+    ["Phone numbers", details.phoneNumbers.length ? details.phoneNumbers.join(" · ") : null],
+    ["Circuits", details.circuitIds.length ? details.circuitIds.join(" · ") : null],
+    ["Subscriptions", details.subscriptionIdentifiers.length ? details.subscriptionIdentifiers.join(" · ") : null],
+    ["Cloud accounts", details.cloudAccountIdentifiers.length ? details.cloudAccountIdentifiers.join(" · ") : null],
+    ["Resources", details.resourceIdentifiers.length ? details.resourceIdentifiers.join(" · ") : null],
+    ["Region", details.region],
+    ["Bandwidth", details.bandwidthQuantity && details.bandwidthUnit ? `${details.bandwidthQuantity} ${details.bandwidthUnit}` : details.bandwidthQuantity],
+    ["Lines / devices / seats", details.lineCount != null || details.deviceCount != null || details.seatCount != null ? `${details.lineCount ?? "—"} / ${details.deviceCount ?? "—"} / ${details.seatCount ?? "—"}` : null],
+    ["Usage", details.usageQuantity && details.usageUnit ? `${details.usageQuantity} ${details.usageUnit}` : details.usageQuantity],
+    ["Included usage", details.includedUsageQuantity && details.includedUsageUnit ? `${details.includedUsageQuantity} ${details.includedUsageUnit}` : details.includedUsageQuantity],
+    ["Commitment", details.commitmentType || details.commitmentTermMonths != null ? `${details.commitmentType ?? "Term"}${details.commitmentTermMonths != null ? ` · ${details.commitmentTermMonths} months` : ""}` : null],
+  ]);
+}
+
+function categoryFactRows(facts: NonNullable<BreakdownData["categoryFacts"]>) {
+  return facts.flatMap((fact) => {
+    if (!fact.value) return [];
+    const label = fact.key
+      .split("_")
+      .map((part) => part ? part[0].toUpperCase() + part.slice(1) : part)
+      .join(" ");
+    return [[label, fact.unit ? `${fact.value} ${fact.unit}` : fact.value] as [string, string]];
+  });
+}
 
 interface BillBreakdownContentProps {
   documentId: string;
@@ -705,6 +845,84 @@ function BillBreakdownContent({
               </article>
             ) : null}
 
+            {(data.energyServices?.length || data.serviceDetails || data.sourceChargeSummaries?.length || data.categoryFacts?.length) ? (
+              <article className="bill-breakdown-card bill-breakdown-service-coverage-card">
+                <div className="bill-breakdown-card-heading">
+                  <div>
+                    <span className="bill-breakdown-label">Service coverage</span>
+                    <h3>{data.energyServices?.length ? `${data.energyServices.length} energy service point${data.energyServices.length === 1 ? "" : "s"}` : data.categoryFacts?.length ? `${data.categoryFacts.length} source fact${data.categoryFacts.length === 1 ? "" : "s"}` : "Category-specific service details"}</h3>
+                    <p className="bill-breakdown-card-subtitle">Physical service identity stays separate from the bill-to account and charge totals.</p>
+                  </div>
+                </div>
+                {data.energyServices?.length ? (
+                  <div className="bill-breakdown-service-points">
+                    {data.energyServices.map((service, index) => {
+                      const rows = energyServiceDetailRows(service);
+                      return (
+                        <section className="bill-breakdown-service-point" key={`${service.serviceIdentifier ?? service.meterId ?? "service"}-${index}`}>
+                          <div className="bill-breakdown-service-point-heading">
+                            <div>
+                              <span>Service point {index + 1}</span>
+                              <strong>{service.serviceAddress ?? service.productName ?? "Address not recorded"}</strong>
+                            </div>
+                            <small className={service.persistedMeter ? "is-linked" : "is-review"}>
+                              {service.persistedMeter ? `${service.persistedMeter.isPrimary ? "Primary · " : ""}meter linked` : "Meter link needs review"}
+                            </small>
+                          </div>
+                          <dl className="bill-breakdown-detail-grid">
+                            {rows.map(([label, value]) => (
+                              <div key={label}>
+                                <dt>{label}</dt>
+                                <dd>{value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </section>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {data.serviceDetails ? (
+                  <dl className="bill-breakdown-detail-grid bill-breakdown-category-service-details">
+                    {serviceDetailRows(data.serviceDetails).map(([label, value]) => (
+                      <div key={label}>
+                        <dt>{label}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {data.categoryFacts?.length ? (
+                  <div>
+                    <span className="bill-breakdown-label">Source facts</span>
+                    <p className="bill-breakdown-card-subtitle">Visible category fields retained from the document; confirm them against the source before relying on them.</p>
+                    <dl className="bill-breakdown-detail-grid bill-breakdown-category-facts">
+                      {categoryFactRows(data.categoryFacts).map(([label, value]) => (
+                        <div key={`${label}-${value}`}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                ) : null}
+                {data.sourceChargeSummaries?.length ? (
+                  <div className="bill-breakdown-source-summaries">
+                    <span className="bill-breakdown-label">Source-labelled charge groups</span>
+                    {data.sourceChargeSummaries.map((summary, index) => {
+                      const numericAmount = Number(summary.amount);
+                      return (
+                        <div key={`${summary.label}-${index}`}>
+                          <span>{summary.label}</span>
+                          <strong>{Number.isFinite(numericAmount) ? money(numericAmount, currency) : summary.amount}</strong>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </article>
+            ) : null}
+
             {data.categoryReviewLens?.length ? (
               <article className="bill-breakdown-card bill-breakdown-category-lens">
                 <div className="bill-breakdown-card-heading">
@@ -731,7 +949,7 @@ function BillBreakdownContent({
                     <span className="bill-breakdown-label">Line-item interpretation</span>
                     <h3>{data.lineItems.length} categorized line items</h3>
                     <p className="bill-breakdown-card-subtitle">
-                      {classificationSummary.classified} of {classificationSummary.total} mapped to the commercial electricity ontology
+                      {classificationSummary.classified} of {classificationSummary.total} mapped to the {data.category?.displayName ?? "category"} review lens
                       {classificationSummary.reviewRequired > 0
                         ? ` · ${classificationSummary.reviewRequired} flagged for confirmation`
                         : " · no classification exceptions"}
@@ -1546,6 +1764,25 @@ export function BillBreakdownModal({
         }
         .bill-breakdown-composition { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
         .bill-breakdown-composition small { display: block; margin-top: 3px; color: #64748b; font-size: 0.62rem; }
+        .bill-breakdown-service-coverage-card { padding-bottom: 14px; }
+        .bill-breakdown-card-subtitle { margin: 5px 0 0; color: #94a3b8; font-size: 0.68rem; line-height: 1.45; }
+        .bill-breakdown-service-points { display: grid; gap: 10px; }
+        .bill-breakdown-service-point { padding: 12px; border: 1px solid rgba(148, 163, 184, 0.14); border-radius: 12px; background: rgba(15, 23, 42, 0.3); }
+        .bill-breakdown-service-point-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+        .bill-breakdown-service-point-heading span { display: block; color: #94a3b8; font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.06em; }
+        .bill-breakdown-service-point-heading strong { display: block; max-width: 100%; margin-top: 4px; color: #f8fafc; font-size: 0.78rem; font-weight: 650; }
+        .bill-breakdown-service-point-heading small { flex: 0 0 auto; padding: 4px 7px; border: 1px solid rgba(251, 191, 36, 0.22); border-radius: 999px; color: #fcd34d; background: rgba(146, 64, 14, 0.14); font-size: 0.61rem; white-space: nowrap; }
+        .bill-breakdown-service-point-heading small.is-linked { border-color: rgba(52, 211, 153, 0.22); color: #6ee7b7; background: rgba(16, 185, 129, 0.1); }
+        .bill-breakdown-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+        .bill-breakdown-detail-grid > div { min-width: 0; padding: 8px 9px; border-radius: 9px; background: rgba(30, 41, 59, 0.34); }
+        .bill-breakdown-detail-grid dt { color: #94a3b8; font-size: 0.62rem; }
+        .bill-breakdown-detail-grid dd { overflow-wrap: anywhere; margin: 3px 0 0; color: #e2e8f0; font-size: 0.7rem; line-height: 1.35; }
+        .bill-breakdown-category-service-details { margin-top: 10px; }
+        .bill-breakdown-source-summaries { display: grid; gap: 0; margin-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.12); }
+        .bill-breakdown-source-summaries > .bill-breakdown-label { padding: 11px 0 5px; }
+        .bill-breakdown-source-summaries > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid rgba(148, 163, 184, 0.1); }
+        .bill-breakdown-source-summaries > div span { color: #94a3b8; font-size: 0.68rem; }
+        .bill-breakdown-source-summaries > div strong { color: #e2e8f0; font-size: 0.73rem; }
         .bill-breakdown-reconciliation-note { margin: 11px 0 0; color: #94a3b8; font-size: 0.68rem; line-height: 1.45; }
         .bill-breakdown-category-lens-grid { display: grid; gap: 0; }
         .bill-breakdown-category-lens-grid > div {
@@ -1844,6 +2081,8 @@ export function BillBreakdownModal({
           .bill-breakdown-overview__amount { text-align: left; }
           .bill-breakdown-overview__facts, .bill-breakdown-market-readout { grid-template-columns: 1fr; }
           .bill-breakdown-composition { grid-template-columns: 1fr; }
+          .bill-breakdown-detail-grid { grid-template-columns: 1fr; }
+          .bill-breakdown-service-point-heading { flex-direction: column; }
           .bill-breakdown-movement-grid { grid-template-columns: 1fr; }
           .bill-breakdown-category-lens-grid > div { grid-template-columns: 1fr; gap: 3px; }
         }

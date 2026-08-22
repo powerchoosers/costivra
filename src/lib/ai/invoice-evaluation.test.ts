@@ -74,7 +74,16 @@ function manifest(): GoldenInvoiceManifest {
           invoice: expectedInvoice,
           reconciliationStatus: "reconciled",
           needsReview: false,
-          requiredEvidenceFields: ["vendorName", "invoice.totalAmount"],
+          structuredFields: [
+            { path: "serviceAddress", value: "123 Main St" },
+            { path: "invoice.lineItems[0].unit", value: "Mbps" },
+          ],
+          requiredEvidenceFields: [
+            "vendorName",
+            "invoice.totalAmount",
+            "serviceAddress",
+            "invoice.lineItems[0].unit",
+          ],
         },
       },
     ],
@@ -86,21 +95,27 @@ function prediction(): DocumentIntelligence {
     classification: "invoice",
     summary: "Monthly fiber invoice.",
     vendorName: "ACME Telecom",
+    serviceAddress: "123 Main St",
     currency: "USD",
     totalAmount: "108.00",
     renewalDate: null,
     noticePeriodDays: null,
     confidence: 0.96,
-    invoice: { ...expectedInvoice },
+    invoice: {
+      ...expectedInvoice,
+      lineItems: [{ ...expectedInvoice.lineItems[0], unit: "Mbps" }],
+    },
     evidence: [
       { field: "vendorName", quote: "ACME Telecom" },
       { field: "invoice.totalAmount", quote: "Total 108.00" },
+      { field: "serviceAddress", quote: "123 Main St" },
+      { field: "invoice.lineItems[0].unit", quote: "1 Mbps" },
     ],
   };
 }
 
 const sourceText =
-  "ACME Telecom monthly invoice. Fiber service 100.00. Total 108.00.";
+  "ACME Telecom monthly invoice for 123 Main St. Fiber service 1 Mbps 100.00. Total 108.00.";
 
 describe("golden invoice evaluation", () => {
   it("passes a fully correct, grounded, reconciled extraction", () => {
@@ -118,11 +133,110 @@ describe("golden invoice evaluation", () => {
       criticalFieldRecall: 1,
       lineItemPrecision: 1,
       lineItemRecall: 1,
+      structuredFieldPrecision: 1,
+      structuredFieldRecall: 1,
       evidenceCitationRecall: 1,
       evidenceGroundedPrecision: 1,
       reconciliationAccuracy: 1,
       reviewRoutingAccuracy: 1,
     });
+  });
+
+  it("scores category-specific service facts and shared-address meters", () => {
+    const raw = JSON.parse(JSON.stringify(manifest())) as Record<string, unknown>;
+    const caseValue = (raw.cases as Array<Record<string, unknown>>)[0];
+    const expected = caseValue.expected as Record<string, unknown>;
+    expected.structuredFields = [
+      { path: "invoice.energyServices[0].meterId", value: "MTR-1" },
+      { path: "invoice.energyServices[1].serviceAddress", value: "123 Main St" },
+      { path: "invoice.serviceDetails.phoneNumbers", value: ["555-0100", "555-0101"] },
+      { path: "invoice.serviceDetails.lineCount", value: 2 },
+      { path: "categoryFacts[0].value", value: "8" },
+      { path: "categoryFacts[0].unit", value: "yd³" },
+    ];
+    expected.requiredEvidenceFields = [
+      "invoice.energyServices[0].meterId",
+      "invoice.energyServices[1].serviceAddress",
+      "invoice.serviceDetails.phoneNumbers",
+      "invoice.serviceDetails.lineCount",
+      "categoryFacts[0].value",
+      "categoryFacts[0].unit",
+    ];
+    const parsedManifest = parseGoldenInvoiceManifest(raw);
+    const result = prediction();
+    const firstMeter = {
+      customerName: "Acme",
+      serviceAddress: "123 Main St",
+      serviceIdentifier: "ESI-1",
+      meterId: "MTR-1",
+      productName: "Electric",
+      utilityTerritory: "ERCOT",
+      billingDays: 30,
+      usageKwh: "1000",
+      actualDemandKw: null,
+      billedDemandKw: null,
+      meterMultiplier: "1",
+      averagePricePerKwh: null,
+      readDateStart: "2026-06-01",
+      readDateEnd: "2026-06-30",
+    };
+    result.invoice = {
+      ...result.invoice!,
+      energyService: firstMeter,
+      energyServices: [
+        firstMeter,
+        { ...firstMeter, meterId: "MTR-2", serviceIdentifier: "ESI-2" },
+      ],
+      serviceDetails: {
+        planName: "Business Voice",
+        productFamily: "VoIP",
+        serviceAddresses: [],
+        serviceIdentifiers: [],
+        phoneNumbers: ["555-0100", "555-0101"],
+        circuitIds: [],
+        subscriptionIdentifiers: [],
+        resourceIdentifiers: [],
+        cloudAccountIdentifiers: [],
+        region: null,
+        bandwidthQuantity: null,
+        bandwidthUnit: null,
+        lineCount: 2,
+        deviceCount: null,
+        seatCount: null,
+        usageQuantity: null,
+        usageUnit: null,
+        includedUsageQuantity: null,
+        includedUsageUnit: null,
+        commitmentType: null,
+        commitmentTermMonths: null,
+      },
+    };
+    result.categoryFacts = [
+      { key: "container_size", value: "8", unit: "yd³", sourceKey: "waste-1" },
+      { key: "pickup_frequency", value: "2", unit: "per week", sourceKey: "waste-2" },
+    ];
+    result.evidence = [
+      { field: "invoice.energyServices[0].meterId", quote: "Meter MTR-1" },
+      { field: "invoice.energyServices[1].serviceAddress", quote: "123 Main St" },
+      { field: "invoice.serviceDetails.phoneNumbers", quote: "555-0100 555-0101" },
+      { field: "invoice.serviceDetails.lineCount", quote: "2 lines" },
+      { field: "categoryFacts[0].value", quote: "8 yd³ container" },
+      { field: "categoryFacts[0].unit", quote: "8 yd³ container" },
+    ];
+    const report = evaluateGoldenInvoices({
+      manifest: parsedManifest,
+      predictions: [{ id: "telecom-clean-1", result }],
+      sourceTextByCaseId: new Map([
+        [
+          "telecom-clean-1",
+          `${sourceText} Meter MTR-1 at 123 Main St. 555-0100 555-0101, 2 lines. 8 yd³ container, 2 per week.`,
+        ],
+      ]),
+    });
+
+    expect(report.passed).toBe(true);
+    expect(report.metrics.structuredFieldPrecision).toBe(1);
+    expect(report.metrics.structuredFieldRecall).toBe(1);
   });
 
   it("fails wrong money, invented evidence, arithmetic, and review routing", () => {
@@ -143,7 +257,7 @@ describe("golden invoice evaluation", () => {
     expect(report.passed).toBe(false);
     expect(report.metrics.criticalFieldPrecision).toBeLessThan(1);
     expect(report.metrics.criticalFieldRecall).toBeLessThan(1);
-    expect(report.metrics.evidenceCitationRecall).toBe(0.5);
+    expect(report.metrics.evidenceCitationRecall).toBe(0.25);
     expect(report.metrics.evidenceGroundedPrecision).toBe(0.5);
     expect(report.metrics.reconciliationAccuracy).toBe(0);
     expect(report.metrics.reviewRoutingAccuracy).toBe(0);

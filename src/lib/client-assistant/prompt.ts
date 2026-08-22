@@ -12,6 +12,7 @@ BOUNDED TENANT DATA:
 - Monitored Vendors (Top 5): ${JSON.stringify(context.recentVendors)}
 - Recent Invoices (Top 5): ${JSON.stringify(context.recentInvoices)}
 - Open Opportunities (Top 5): ${JSON.stringify(context.openOpportunities)}
+- Monitoring Configurations: ${JSON.stringify(context.monitoringConfigs ?? [])}
 
 NON-NEGOTIABLE DOCTRINE:
 1. AI interprets, code calculates, policies control, humans authorize, and evidence proves.
@@ -29,7 +30,8 @@ Return valid JSON adhering to the ClientAssistantModelOutputV1 schema:
   "citationIds": ["doc-id-or-record-id"],
   "blockRequests": [
     { "type": "invoice_summary", "invoiceId": "..." },
-    { "type": "vendor_summary", "vendorRelationshipId": "..." }
+    { "type": "vendor_summary", "vendorRelationshipId": "..." },
+    { "type": "monitoring_overview" }
   ],
   "followUps": ["Question 1?", "Question 2?"],
   "missingInformation": ["Missing field note..."]

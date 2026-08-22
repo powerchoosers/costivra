@@ -39,10 +39,12 @@ export type ClientCitation = {
 
 export type AssistantBlockRequest =
   | { type: "spend_overview"; vendorRelationshipIds?: string[] }
+  | { type: "invoice_ranking"; invoiceIds?: string[] }
   | { type: "invoice_summary"; invoiceId: string }
   | { type: "invoice_comparison"; invoiceIds: [string, string] }
   | { type: "vendor_summary"; vendorRelationshipId: string }
   | { type: "spend_trend"; vendorRelationshipId?: string; category?: string; periodCount?: number }
+  | { type: "monitoring_overview" }
   | { type: "invoice_breakdown"; invoiceId: string }
   | { type: "energy_review_path"; vendorRelationshipId?: string }
   | { type: "supplier_options"; category?: string; currentVendorName?: string }

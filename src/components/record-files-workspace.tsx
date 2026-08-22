@@ -36,7 +36,7 @@ export type RecordFile = {
   summary?: string | null;
   confidence?: number | null;
   extractionStatus?: string | null;
-  extractionInputMode?: "native_text" | "pdf_ocr" | null;
+  extractionInputMode?: "native_text" | "pdf_ocr" | "image_vision" | null;
   extractionFailureCode?: string | null;
   evidenceCount?: number;
   contextLabel?: string | null;
@@ -281,7 +281,7 @@ export function RecordFilesWorkspace({
                 <div><dt>Added</dt><dd>{formatDate(selectedFile.createdAt)}</dd></div>
                 {selectedFile.contextLabel && <div><dt>Linked to</dt><dd>{selectedFile.contextLabel}</dd></div>}
                 {selectedFile.pageCount && <div><dt>Pages</dt><dd>{selectedFile.pageCount}</dd></div>}
-                {selectedFile.extractionInputMode && <div><dt>Read with</dt><dd>{selectedFile.extractionInputMode === "pdf_ocr" ? "Image OCR" : "Embedded text"}</dd></div>}
+                {selectedFile.extractionInputMode && <div><dt>Read with</dt><dd>{selectedFile.extractionInputMode === "image_vision" ? "Image understanding" : selectedFile.extractionInputMode === "pdf_ocr" ? "Image OCR" : "Embedded text"}</dd></div>}
                 {selectedFile.extractionFailureCode && <div><dt>Recovery reason</dt><dd>{formatStatus(selectedFile.extractionFailureCode)}</dd></div>}
                 {selectedFile.evidenceCount ? <div><dt>Evidence links</dt><dd>{selectedFile.evidenceCount}</dd></div> : null}
               </dl>

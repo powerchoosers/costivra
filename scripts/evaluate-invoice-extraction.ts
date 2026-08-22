@@ -13,7 +13,7 @@ import {
   type GoldenPrediction,
   type GoldenPredictionSet,
 } from "@/lib/ai/invoice-evaluation";
-import { extractDocumentText } from "@/lib/documents/text-extraction";
+import { extractDocumentText, hasMeaningfulExtractedText } from "@/lib/documents/text-extraction";
 import { getConfiguredEnv } from "../src/lib/env/secrets";
 
 type Options = {
@@ -161,7 +161,7 @@ async function main() {
       );
       try {
         const usePdfOcr =
-          caseData.mimeType === "application/pdf" && !sourceText.trim();
+          caseData.mimeType === "application/pdf" && !hasMeaningfulExtractedText(sourceText);
         const result = usePdfOcr
           ? await analyzeScannedPdf({
               documentName: path.basename(caseData.file),

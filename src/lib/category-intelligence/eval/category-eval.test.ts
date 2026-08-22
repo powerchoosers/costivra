@@ -39,6 +39,41 @@ describe("Category Intelligence Layer Verification", () => {
     expect(insurance.confidence).toBeLessThan(0.8);
   });
 
+  it("separates VoIP and UCaaS bills from broadband when the source shows voice-specific lines", async () => {
+    const voice = await categoryIntelligence.resolveCategory({
+      rawCategory: "Telecom & Internet",
+      vendorName: "Nextiva",
+      lineItemDescriptions: [
+        "Local Subscription Plan Fee",
+        "Minutes Usage Charge",
+        "Federal FUSF (VoIP)",
+        "State E-911",
+      ],
+    });
+
+    expect(voice.key).toBe("voice-ucaas");
+    expect(voice.parentKey).toBe("telecom-connectivity");
+    expect(voice.expertPackVersion).toBe("2026.08.2");
+
+    const normalized = await categoryIntelligence.normalizeLineItems(
+      [
+        { description: "Minutes Usage Charge", amount: 24 },
+        { description: "Federal FUSF (VoIP)", amount: 2.4 },
+        { description: "State E-911", amount: 1.25 },
+        { description: "Local/County/State Telecommunications Sales Tax", amount: 8.25 },
+      ],
+      voice.key,
+    );
+
+    expect(normalized.map((line) => line.canonicalCode)).toEqual([
+      "VOICE-USAGE-01",
+      "VOICE-USF-01",
+      "VOICE-E911-01",
+      "VOICE-TAX-01",
+    ]);
+    expect(normalized.every((line) => line.reviewRequired)).toBe(true);
+  });
+
   it("preserves an exact canonical pack key through the persistence path", async () => {
     const category = await categoryIntelligence.resolveCategory({
       rawCategory: "cloud-iaas-paas",

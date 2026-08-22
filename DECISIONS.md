@@ -1,5 +1,33 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-21 — Model service locations separately from energy meters
+
+### Context
+
+Uploaded bills and contracts can name a physical service address that is not yet in workspace settings. An address is the durable operating location, while a utility meter or service point is an account-level identity beneath it; multiple meters may share one address. The existing invoice matcher also did not recognize the settings page's canonical `line1` address field, which could create false unmatched results.
+
+### Decision
+
+Treat `locations` as physical service addresses and store energy service points in a tenant-scoped `energy_meters` table linked to a location. During document intake, exact normalized address matches are reused. A source-backed unmatched address may create an active location when the tenant's location entitlement allows it, but creation is blocked when the extracted customer conflicts with the workspace. Meter and service identifiers are matched deterministically; a new meter is created beneath the resolved location, and identifier conflicts remain in review. Contract and other non-invoice documents may use the same address resolver without creating an energy meter.
+
+### Consequences
+
+Settings can show how many meters belong to each location, while the portal masks meter and service identifiers. The existing live bill whose source customer is Duncanville Independent School District remains unmatched in the Apex Logistics Group workspace by design; it is not safe to import that address automatically. The current extraction model records one energy service point per invoice candidate; the relational model is ready for a later multi-meter extraction shape without conflating meters with locations.
+
+## 2026-08-21 — Keep vendor relationship contacts separate from internal CRM
+
+### Context
+
+Business owners and finance leaders need a practical way to reach the supplier, billing desk, support team, or intermediary responsible for a vendor relationship. The existing `crm_contacts` table is an internal operator directory with different privacy and tenancy semantics, so reusing it would blur customer/vendor relationships and create an unnecessary data-sharing boundary.
+
+### Decision
+
+Store relationship contacts in the tenant-scoped `organization_vendor_contacts` table, linked to `organization_vendors` with a composite organization/relationship foreign key. Support vendor, billing, support, broker, consultant, and other roles; keep contact details private to the organization; expose browser reads through membership RLS only; and route writes through authorized portal server endpoints with safe audit metadata. Contact records are context and navigation aids: saving one does not send outreach, share documents, or create a referral.
+
+### Consequences
+
+The vendor detail page can put the right person beside spend, evidence, and next actions without turning Costivra into an unapproved broker or outreach system. The model supports primary contacts and optional customer verification timestamps, while intentionally leaving referral disclosure/consent in the existing governed workflow. The additional relationship and audit foreign-key indexes keep the new table ready for production volume.
+
 ## 2026-08-11 — Keep record identity and queue controls task-first
 
 ### Context
@@ -2093,3 +2121,159 @@ Treat the local verifier as engineering-gate evidence only: require a clean trac
 ## Consequences
 
 Local checks can no longer certify deployment, scanner, migration, status, or authenticated production behavior. Those claims require the protected workflow and owner-controlled live checks. The repository’s root report is now explicitly non-authoritative.
+
+# 2026-08-21 — Treat service locations and meters as separate source-backed identities
+
+## Context
+
+Live uploaded documents exposed two gaps in the original invoice shape: some utility bills carried a physical service address that was not in Settings, and commercial summary bills can contain several meters under one address or several addresses on one account. The existing singular `energy_service` and `invoices.energy_meter_id` fields could not retain those relationships safely.
+
+## Decision
+
+Extract top-level customer and physical service address facts for every supported document class, keep invoice payment terms separate from contract notice periods, and retain repeated energy service rows. During intake, create a location only from a source-backed address when tenant/customer checks allow it; create or match each meter beneath that location by visible meter/service identifiers. Keep the legacy primary meter field for compatibility and store all invoice-to-meter relationships in the tenant-scoped `invoice_energy_meters` table. Store source-labelled charge summaries as evidence, not calculated totals.
+
+## Consequences
+
+One physical location can now own multiple meters without overwriting prior identity. A source/customer mismatch or missing location entitlement blocks automatic creation and leaves a review issue. A new location or meter is not proof that the source is authorized; it is a source-backed candidate identity that remains auditable. Existing uploaded records are not silently backfilled; re-extraction or a deliberate migration is required. The multi-meter schema is applied to the Costivra Supabase project with RLS and explicit authenticated read grants; no deployment was performed.
+
+# 2026-08-21 — Preserve category-specific service facts without widening the invoice authority boundary
+
+## Context
+
+Public and live samples showed that generic description, quantity, and amount fields are not enough for serious review. Energy bills need repeated meter/service rows, while telecom/VoIP, wireless, SaaS, cloud, and AI bills expose different identifiers, usage units, counts, regions, allowances, and commitment facts. Treating a Nextiva-style voice bill as broad telecom also loses its distinct FUSF, E-911, minutes, and add-on structure.
+
+## Decision
+
+Keep generic line items small and source-faithful, but add an optional typed `serviceDetails` object and a source-visible line `unit`. The parser accepts only bounded strings, arrays, non-negative quantities, and evidence-allowlisted fields; it never infers units, counts, identifiers, regions, or commitments from descriptions. Persist these candidates in invoice metadata and line metadata for later review. Register a separate draft `voice-ucaas` pack and resolver path; it may explain structure and route questions, but it cannot certify pricing, savings, tax treatment, or an authorized line removal.
+
+## Consequences
+
+The upload path can retain the facts needed for energy, telecom, wireless, SaaS, cloud, and AI review without adding arbitrary JSON to the model contract or treating model output as financial truth. Existing uploads remain unchanged until a controlled re-extraction is run. The draft voice pack improves classification and line labeling while keeping current research, contract comparison, evidence, and human approval gates in place. Production accuracy still requires an approved de-identified golden set across each category and scanned documents.
+
+# 2026-08-21 — Make category-specific extraction measurable before promotion
+
+## Context
+
+The original golden invoice evaluator scored classification, generic invoice fields, line items, evidence, reconciliation, and review routing, but it could still pass while a service address, meter row, telecom identifier, SaaS/cloud fact, or contract term was silently omitted. Public and live samples are useful for discovering field shapes, but they are not by themselves model-accuracy proof.
+
+## Decision
+
+Extend the existing evaluator with optional, allowlisted structured-field expectations and indexed evidence paths. Expectations can assert top-level service addresses, contract details, service details, individual energy meters/charge summaries, and source-visible line units or tax rates. Keep the expectations optional for existing manifests, require evidence when a structured field is part of the default evidence set, and keep scanned evidence snippet-gated. Do not promote public parser samples to a production accuracy claim until an approved de-identified or consented golden set has reviewed values and quotes.
+
+## Consequences
+
+Future category fixtures can fail loudly when a field disappears, while old smoke fixtures remain backward-compatible. The evaluator now measures structured-field precision and recall separately from generic invoice-field accuracy. The repository has broader source-shape coverage, including energy, internet, wireless, VoIP, SaaS, cloud, AI, and contract references, but live model accuracy and controlled re-extraction remain open until the owner authorizes provider-backed evaluation with approved data and credentials.
+
+# 2026-08-22 — Preserve source-visible utility reads and multi-address contract scope
+
+## Context
+
+The available Austin Energy and commercial utility examples show that one usage number is not enough for review: bills can distinguish actual versus estimated reads, previous/current reads, read units, delivered/received/net/generation usage, and power factor. Contracts can also govern more than one service address. Dropping those values would weaken meter identity and later reconciliation even when invoice totals remain present.
+
+## Decision
+
+Extend the source-backed energy service row with bounded read status, meter reads, read unit, delivered/received/net/generation kWh, and power factor. Extend contract details with a bounded service-address array. Preserve these values in the existing candidate and extraction-facts metadata path, add indexed evidence allowlists, and keep them reviewable facts only. Do not derive tariff classification, annual usage, or savings from these fields.
+
+## Consequences
+
+Solar, net-metered, estimated-read, and demand-oriented bills retain the distinctions needed for expert review. A contract covering several locations can be represented without abusing a single address field. Existing records remain unchanged until controlled re-extraction; the new fields are covered by parser and evaluator tests.
+
+# 2026-08-22 — Route category-specific invoice addresses through location identity
+
+## Context
+
+The typed `invoice.serviceDetails.serviceAddresses[]` field can contain multiple telecom, broadband, wireless, SaaS, or cloud locations. Extracting those addresses without passing them through intake would make the structured record look complete while Settings stayed incomplete.
+
+## Decision
+
+After energy service rows are resolved, intake resolves any distinct category-specific service addresses through the same exact normalized address matcher and source-backed location-creation guard. Existing energy rows remain the only path that creates or links `energy_meters`; category-specific addresses create locations only. Duplicate addresses across top-level, energy-row, and service-detail fields are collapsed by normalized address and retain the first source field for provenance.
+
+## Consequences
+
+Multi-site non-energy invoices can populate or reuse Settings locations without inventing meter relationships. Customer/workspace mismatch, ambiguous matches, and location-entitlement limits remain reviewable and fail closed. Existing invoice records are unchanged until controlled re-extraction.
+
+# 2026-08-22 — Require a non-null invoice envelope for invoice classifications
+
+## Context
+
+The public AWS VAT sample once produced a provider response classified as `invoice` with no invoice object. The parser correctly rejected that unsafe shape, but the prompt contract allowed the model to omit the envelope even when the document was clearly an invoice.
+
+## Decision
+
+Require every `invoice` or `statement` classification to return a non-null invoice object, using null fields when a source fact is absent or uncertain. Keep `invoice: null` valid only for contracts, order forms, and other non-invoice classifications. Do not repair missing values from surrounding text in deterministic code.
+
+## Consequences
+
+Cloud and other multi-page bills now have a stable schema envelope for review and can preserve partial line-item/charge evidence without inventing totals. A malformed or incomplete provider response still fails closed into document review. The public 10-sample provider smoke passed after this instruction was added; it remains source-shape evidence, not a labeled accuracy claim.
+
+# 2026-08-22 — Persist extracted contracts as reviewable draft records
+
+## Context
+
+The upload path extracted contract terms and created source-backed locations, but it did not create a row in the existing `contracts` table. That left a contract's effective dates, notice period, renewal state, and supplier relationship available only in the extraction version, while Settings could contain locations with no durable contract link.
+
+## Decision
+
+For `contract` and `order_form` classifications, persist a draft contract record when the supplier resolves to an organization vendor relationship. Link the first resolved service location through `contracts.location_id`, retain every resolved address and source field in metadata, and preserve all extracted contract terms in an extraction-facts object. Keep the record review-required. If the supplier cannot be matched or currency cannot be established from the source or workspace configuration, leave the extraction and any source-backed location available for review without inventing a vendor relationship or contract record.
+
+## Consequences
+
+Contract uploads now appear in the existing contract system while preserving multi-address scope and source provenance. The single `location_id` column remains a primary navigation link; the metadata array is the authoritative representation of additional governed locations until a dedicated contract-location join is justified. Draft status and review flags prevent extracted terms from being treated as approved commercial commitments.
+
+# 2026-08-22 — Make structured service coverage visible in customer review
+
+## Context
+
+The upload and persistence paths retained repeated energy rows, meter links, category-specific service facts, and source-labelled charge groups, but the customer bill breakdown still exposed only the legacy primary energy service. Contract detail views also omitted the newly retained source addresses and commercial terms. Stored facts that cannot be seen or reviewed are operationally equivalent to dropped facts.
+
+## Decision
+
+Expose every persisted/extracted energy service point in the bill breakdown, including its physical address, masked identifiers, reads, usage, demand, rate, and meter-link review state. Expose bounded telecom, wireless, SaaS, cloud, and similar service details plus source-labelled charge groups. Surface multi-address contract scope and source commercial terms in the contract record detail. Keep the legacy primary fields for compatibility, mask service identifiers, and label unresolved links as review-required rather than implying a relationship.
+
+## Consequences
+
+Customers can distinguish several meters under one address from several physical addresses and can review the source facts before approval. Existing records remain unchanged until controlled re-extraction; the new UI intentionally renders no data when the older metadata is absent. Browser proof of the authenticated customer surface still requires a valid local session.
+
+# 2026-08-22 — Preserve registered-pack fields as bounded source facts
+
+## Context
+
+The common extraction shape covered the most important energy, telecom, SaaS,
+cloud, and voice identity fields, but the 14 registered category packs also
+define fields for insurance declarations, benefits invoices, waste services,
+merchant processing, workers compensation, and other category-specific facts.
+Without a separate representation, those visible fields would be lost in a
+summary or an untyped line description.
+
+## Decision
+
+Derive a bounded `categoryFacts[]` allowlist from every registered pack's
+required fields and bill anatomy. Each fact retains only a source-visible key,
+value, unit, and source key. The parser rejects unknown keys and bounds strings
+and row count; evidence can cite indexed facts. Facts are persisted in invoice
+and contract extraction metadata, masked in customer-facing responses, and
+shown as review-only source facts. They never calculate money, create a
+location, create a meter, or support an automatic conclusion.
+
+## Consequences
+
+Uploads can carry the real anatomy of all registered categories without making
+the model an unrestricted metadata writer. The registry remains the schema
+source of truth, so adding a pack field also makes it extractable after review.
+All packs remain draft and require category-specific golden fixtures and
+current research before any pricing or savings claim. Existing live records are
+not backfilled automatically.
+
+# 2026-08-22 — Preserve meter evidence and audit automatic identity creation
+
+## Context
+
+The shared upload path can create a source-backed location when a bill or contract contains a new physical service address, and can attach several energy meters beneath that location. The meter relationship already carried a nullable source key, but the extracted energy row did not retain it consistently, and automatic location/meter creation was not visible in the append-only audit history.
+
+## Decision
+
+Retain an optional bounded `sourceKey` on every parsed energy service row and copy it to the invoice-meter relationship and meter provenance metadata. Write service audit events for each automatically created location and meter with only the organization, source document, source field/index, and safe identifiers. Restrict document-level address creation to `contract` and `order_form` classifications; unrelated documents remain source evidence without changing Settings locations.
+
+## Consequences
+
+Reviewers can connect a meter row to the exact source evidence and distinguish a shared-address multi-meter relationship from a new physical site. Automatic identity changes are attributable without logging full document contents or secrets. Existing live records remain unchanged until a controlled re-extraction or new upload exercises the path.

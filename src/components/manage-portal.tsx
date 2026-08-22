@@ -796,9 +796,11 @@ export function ManagePortal({
   const [busy, setBusy] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantInitialQuestion, setAssistantInitialQuestion] = useState<string | null>(null);
+  const [assistantInitialSessionId, setAssistantInitialSessionId] = useState<string | null>(null);
 
-  const openManageAssistant = useCallback((question?: string) => {
+  const openManageAssistant = useCallback((question?: string, sessionId?: string | null) => {
     setAssistantInitialQuestion(question?.trim() || null);
+    setAssistantInitialSessionId(sessionId ?? null);
     setAssistantOpen(true);
   }, []);
 
@@ -1674,10 +1676,11 @@ export function ManagePortal({
       <div id="manage-ai-drawer">
         <ManageAiDrawer
           open={assistantOpen}
-          onClose={() => { setAssistantOpen(false); setAssistantInitialQuestion(null); }}
+          onClose={() => { setAssistantOpen(false); setAssistantInitialQuestion(null); setAssistantInitialSessionId(null); }}
           section={section}
           detailId={detailId}
           initialQuestion={assistantInitialQuestion}
+          initialSessionId={assistantInitialSessionId}
         />
       </div>
       {dialog === "account" && (
@@ -1776,7 +1779,7 @@ export function ManagePortal({
   );
 }
 
-function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant: (question?: string) => void }) {
+function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant: (question?: string, sessionId?: string | null) => void }) {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     data.accounts[0]?.id ?? null,
   );
@@ -1829,6 +1832,7 @@ function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant
         </div>
       </section>
       <ManageOverviewAssistant onOpenAssistant={onOpenAssistant} />
+      <ManageReferralReviewQueue />
       <section className="manage-summary" aria-label="CRM summary">
         <div className="manage-summary-card">
           <div className="manage-summary-meta">
@@ -2038,12 +2042,61 @@ function TableFooter({
   );
 }
 
-function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (question?: string) => void }) {
+function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (question?: string, sessionId?: string | null) => void }) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string; sources?: Array<{ id: string; label: string; detail: string; href: string }> }>>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (messages.length > 0 || sessionId) return;
+    let cancelled = false;
+
+    async function restoreLatestConversation() {
+      try {
+        const sessionsResponse = await fetch("/api/manage/assistant/sessions", { cache: "no-store" });
+        if (!sessionsResponse.ok) return;
+        const sessionsResult = await sessionsResponse.json().catch(() => null) as {
+          sessions?: Array<{ id?: string }>;
+        } | null;
+        const latestSessionId = sessionsResult?.sessions?.find((session) => typeof session.id === "string")?.id;
+        if (!latestSessionId || cancelled) return;
+
+        const conversationResponse = await fetch(`/api/manage/assistant/sessions/${latestSessionId}`, { cache: "no-store" });
+        if (!conversationResponse.ok) return;
+        const conversationResult = await conversationResponse.json().catch(() => null) as {
+          session?: { id?: string };
+          messages?: Array<{ id?: string; role?: string; content?: string; sources?: Array<{ id: string; label: string; detail: string; href: string }> }>;
+        } | null;
+        if (cancelled || conversationResult?.session?.id !== latestSessionId) return;
+
+        const restoredMessages = (conversationResult.messages ?? [])
+          .filter((message): message is { id: string; role: "user" | "assistant"; content: string; sources?: Array<{ id: string; label: string; detail: string; href: string }> } =>
+            typeof message.id === "string" &&
+            (message.role === "user" || message.role === "assistant") &&
+            typeof message.content === "string",
+          )
+          .map((message) => ({
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            sources: message.sources ?? [],
+          }));
+        if (restoredMessages.length > 0) {
+          setSessionId(latestSessionId);
+          setMessages(restoredMessages);
+        }
+      } catch {
+        // The inline entry remains available if history is temporarily unavailable.
+      }
+    }
+
+    void restoreLatestConversation();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages.length, sessionId]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2082,7 +2135,7 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
       </div>}
       <form className="manage-dashboard-assistant__form" onSubmit={(event) => void submit(event)}>
         <AssistantComposerShell>
-          <AssistantIconButton label="Open full Ask Costivra history" onClick={() => onOpenAssistant(question.trim() || undefined)}>
+          <AssistantIconButton label="Open full Ask Costivra history" onClick={() => onOpenAssistant(question.trim() || undefined, sessionId)}>
             <CostivraAssistantIcon size={18} />
           </AssistantIconButton>
           <textarea
@@ -2105,6 +2158,96 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
         </AssistantComposerShell>
       </form>
       {error && <p className="manage-dashboard-assistant__error" role="alert">{error}</p>}
+    </section>
+  );
+}
+
+type ManageReferralReview = {
+  id: string;
+  organization_id: string;
+  status: string;
+  purpose: string;
+  consent_id: string | null;
+  created_at: string;
+  organizations?: { name?: string | null } | null;
+  partner_destinations?: { display_name?: string | null; category?: string | null; external_enabled?: boolean } | null;
+};
+
+function ManageReferralReviewQueue() {
+  const [requests, setRequests] = useState<ManageReferralReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/manage/referrals", { cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json().catch(() => null) as { requests?: ManageReferralReview[]; error?: string } | null;
+        if (!response.ok) throw new Error(result?.error || "The referral review queue could not be loaded.");
+        if (!cancelled) {
+          setRequests(result?.requests ?? []);
+          setError(null);
+        }
+      })
+      .catch((requestError) => {
+        if (!cancelled) setError(requestError instanceof Error ? requestError.message : "The referral review queue could not be loaded.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function blockRequest(id: string) {
+    if (!window.confirm("Block this partner review request? No customer records will be shared.")) return;
+    setBusyId(id);
+    try {
+      const response = await fetch("/api/manage/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "block", referralId: id, reason: "Blocked by an authorized internal operator." }),
+      });
+      const result = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error || "The referral request could not be blocked.");
+      setRequests((current) => current.filter((request) => request.id !== id));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "The referral request could not be blocked.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (loading || (!requests.length && !error)) return null;
+
+  return (
+    <section className="manage-referral-queue" aria-labelledby="manage-referral-queue-title">
+      <header className="manage-referral-queue__header">
+        <div>
+          <span className="manage-referral-queue__eyebrow">Partner review</span>
+          <h2 id="manage-referral-queue-title">Consent requests awaiting internal review</h2>
+          <p>Customer consent is recorded. Nothing is transmitted while the destination remains disabled.</p>
+        </div>
+        <span className="manage-referral-queue__count">{requests.length} pending</span>
+      </header>
+      {error && <p className="manage-referral-queue__error" role="alert">{error}</p>}
+      <div className="manage-referral-queue__list">
+        {requests.map((request) => (
+          <div className="manage-referral-queue__item" key={request.id}>
+            <div className="manage-referral-queue__item-copy">
+              <strong>{request.organizations?.name || "Organization review"}</strong>
+              <span>{request.partner_destinations?.display_name || "Partner destination"} · {request.partner_destinations?.category || "Category not recorded"}</span>
+              <small>{request.purpose}</small>
+            </div>
+            <div className="manage-referral-queue__item-actions">
+              <span className="manage-referral-queue__status">Consent recorded</span>
+              <button type="button" className="manage-button manage-button--quiet" disabled={busyId === request.id} onClick={() => void blockRequest(request.id)}>
+                {busyId === request.id ? "Blocking…" : "Block request"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

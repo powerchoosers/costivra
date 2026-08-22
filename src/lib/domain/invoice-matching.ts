@@ -1,4 +1,3 @@
-import type { EnergyService } from "@/lib/domain/energy-service";
 import type { InvoiceCandidate } from "@/lib/domain/invoices";
 
 export type IdentityMatchStatus = "matched" | "unmatched" | "ambiguous" | "unknown";
@@ -36,7 +35,7 @@ export function normalizeAddress(value: unknown): string {
     : value && typeof value === "object" && !Array.isArray(value)
       ? Object.entries(value as Row)
         .filter(([key]) => [
-          "address", "address1", "address_line1", "addressLine1", "street",
+          "address", "address1", "address_line1", "addressLine1", "line1", "line2", "street",
           "street1", "city", "state", "postal_code", "postalCode", "zip", "zip_code",
         ].includes(key))
         .map(([, item]) => text(item))
@@ -90,11 +89,16 @@ function lastFour(value: string): string {
   return normalized.slice(-4);
 }
 
-function energyService(candidate: InvoiceCandidate): EnergyService | null {
-  return candidate.energyService;
+function energyServices(candidate: InvoiceCandidate) {
+  const services = candidate.energyServices?.length
+    ? candidate.energyServices
+    : candidate.energyService
+      ? [candidate.energyService]
+      : [];
+  return services;
 }
 
-function resolveWorkspaceCustomer(
+export function resolveWorkspaceCustomer(
   sourceName: string | null,
   workspaceNames: string[],
 ): IdentityMatchStatus {
@@ -109,13 +113,23 @@ function resolveExpenseAccount(candidate: InvoiceCandidate, accounts: Row[]): {
   id: string | null;
   serviceIdentifierMatched: boolean;
 } {
-  const service = energyService(candidate);
+  const services = energyServices(candidate);
   const accountLast4 = candidate.accountNumberLast4 ? lastFour(candidate.accountNumberLast4) : "";
-  const serviceIdentifiers = [service?.serviceIdentifier, service?.meterId]
+  const serviceIdentifiers = [
+    ...services.flatMap((service) => [service.serviceIdentifier, service.meterId]),
+    ...(candidate.serviceDetails?.serviceIdentifiers ?? []),
+    ...(candidate.serviceDetails?.circuitIds ?? []),
+    ...(candidate.serviceDetails?.subscriptionIdentifiers ?? []),
+    ...(candidate.serviceDetails?.resourceIdentifiers ?? []),
+    ...(candidate.serviceDetails?.cloudAccountIdentifiers ?? []),
+  ]
     .map((value) => value ? normalizeIdentity(value) : "")
     .filter(Boolean);
-  const sourceAddress = service?.serviceAddress ? normalizeAddress(service.serviceAddress) : "";
-  const hasEvidence = Boolean(accountLast4 || serviceIdentifiers.length || sourceAddress);
+  const sourceAddresses = services
+    .map((service) => service.serviceAddress ? normalizeAddress(service.serviceAddress) : "")
+    .concat((candidate.serviceDetails?.serviceAddresses ?? []).map(normalizeAddress))
+    .filter(Boolean);
+  const hasEvidence = Boolean(accountLast4 || serviceIdentifiers.length || sourceAddresses.length);
   if (!hasEvidence) return { status: "unknown", id: null, serviceIdentifierMatched: false };
 
   const identifierMatchedIds = new Set<string>();
@@ -127,7 +141,7 @@ function resolveExpenseAccount(candidate: InvoiceCandidate, accounts: Row[]): {
     let score = 0;
     if (accountLast4 && normalizedValues.some((value) => value === accountLast4 || value.endsWith(accountLast4))) score += 3;
     if (serviceIdentifiers.some((identifier) => normalizedValues.includes(identifier))) score += 5;
-    if (sourceAddress && values.some((value) => normalizeAddress(value) === sourceAddress)) score += 4;
+    if (sourceAddresses.some((address) => values.some((value) => normalizeAddress(value) === address))) score += 4;
     return score > 0 ? [{ id: text(account.id), score }] : [];
   }).filter((entry): entry is { id: string; score: number } => Boolean(entry.id));
 
@@ -157,19 +171,44 @@ export function resolveInvoiceIdentity(input: {
   workspaceNames: string[];
   accounts: Row[];
   locations: Row[];
+  customerName?: string | null;
+  serviceAddress?: string | null;
 }): InvoiceIdentityResolution {
-  const service = energyService(input.candidate);
-  const workspaceCustomerMatchStatus = resolveWorkspaceCustomer(
-    service?.customerName ?? null,
-    input.workspaceNames,
+  const services = energyServices(input.candidate);
+  const sourceCustomerNames = [
+    input.customerName,
+    ...services.map((service) => service.customerName),
+  ].map(text).filter((value): value is string => Boolean(value));
+  const customerStatuses = sourceCustomerNames.map((name) =>
+    resolveWorkspaceCustomer(name, input.workspaceNames),
   );
+  const workspaceCustomerMatchStatus = customerStatuses.includes("unmatched")
+    ? "unmatched"
+    : customerStatuses.includes("matched")
+      ? "matched"
+      : "unknown";
   const account = resolveExpenseAccount(input.candidate, input.accounts);
-  const location = resolveLocation(service?.serviceAddress ?? null, input.locations);
+  const sourceAddresses = [
+    input.serviceAddress,
+    ...services.map((service) => service.serviceAddress),
+    ...(input.candidate.serviceDetails?.serviceAddresses ?? []),
+  ].map(text).filter((value): value is string => Boolean(value));
+  const locationResults = sourceAddresses.map((address) => resolveLocation(address, input.locations));
+  const location = locationResults.length === 0
+    ? resolveLocation(null, input.locations)
+    : {
+        id: locationResults.find((result) => result.status === "matched")?.id ?? null,
+        status: locationResults.some((result) => result.status === "ambiguous")
+          ? "ambiguous" as const
+          : locationResults.some((result) => result.status === "unmatched")
+            ? "unmatched" as const
+            : "matched" as const,
+      };
   const issueCodes: string[] = [];
 
   if (workspaceCustomerMatchStatus === "unmatched") issueCodes.push("workspace_customer_name_mismatch");
   if (account.status !== "matched" && account.status !== "unknown") issueCodes.push("expense_account_unmatched");
-  if (service?.serviceIdentifier || service?.meterId) {
+  if (services.some((service) => service.serviceIdentifier || service.meterId)) {
     if (!account.serviceIdentifierMatched) issueCodes.push("service_identifier_unmatched");
   }
   if (location.status !== "matched" && location.status !== "unknown") issueCodes.push("service_location_unmatched");

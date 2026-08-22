@@ -3,6 +3,17 @@ export type ExtractedDocumentText = {
   pageCount: number | null;
 };
 
+const pageBoundaryMarkerPattern = /\[\[COSTIVRA_PAGE\s+\d+\s+of\s+\d+\]\]/g;
+
+/**
+ * PDF parsing preserves page markers even when every page has no readable
+ * native text. Those markers are useful evidence delimiters, but they must
+ * not be mistaken for document content or bypass the OCR recovery path.
+ */
+export function hasMeaningfulExtractedText(value: string): boolean {
+  return value.replace(pageBoundaryMarkerPattern, "").trim().length > 0;
+}
+
 /**
  * Extracts text without persisting or analyzing a document. Keeping this in a
  * small shared module makes production intake and the golden-data evaluator

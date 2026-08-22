@@ -26,7 +26,9 @@ const contract = (overrides: Partial<PortalContract> = {}): PortalContract => ({
   id: "contract-1", vendorId: "vendor-1", vendorName: "Vendor", title: "Agreement", category: "software",
   startDate: "2025-01-01", endDate: "2026-12-31", noticePeriodDays: 60, annualValue: 1000,
   status: "active", autoRenews: true, ownerName: "Lewis", documentId: "doc-1", expenseAccountId: "account-1",
-  locationId: "location-1", locationName: "HQ", updatedAt: "2026-01-01", ...overrides,
+  locationId: "location-1", locationName: "HQ", sourceAddresses: [], serviceIdentifiers: [], termMonths: null,
+  sourceRateOrPrice: null, sourcePricingUnit: null, minimumCommitmentQuantity: null, minimumCommitmentUnit: null,
+  currency: "USD", updatedAt: "2026-01-01", ...overrides,
 });
 
 const finding = (overrides: Partial<PortalOpportunity> = {}): PortalOpportunity => ({

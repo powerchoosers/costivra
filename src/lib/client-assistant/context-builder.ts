@@ -74,6 +74,15 @@ export type AssistantBoundedContext = {
     status: string;
   }>;
   upcomingContracts: UpcomingContract[];
+  monitoringConfigs?: Array<{
+    id: string;
+    vendorRelationshipId: string;
+    vendorName: string | null;
+    state: string;
+    sourceMethod: string;
+    nextExpectedAt: string | null;
+    lastReceivedAt: string | null;
+  }>;
 };
 
 type VendorJoin = {
@@ -213,6 +222,7 @@ export async function buildAssistantContext(
       .from("action_plans")
       .select("id, title, status, opportunity_id")
       .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
       .maybeSingle();
     if (action) currentViewContext = `Action Plan: ${action.title ?? "Untitled action"} (${action.status})`;
   } else if (contextRef?.kind === "savings") {
@@ -373,6 +383,23 @@ export async function buildAssistantContext(
     status: opportunity.status,
   }));
 
+  const { data: monitoringRows } = await db
+    .from("vendor_monitoring_configs")
+    .select("id, organization_vendor_id, state, source_method, next_expected_at, last_received_at, organization_vendors(vendors(canonical_name))")
+    .eq("organization_id", organizationId)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+
+  const monitoringConfigs = (monitoringRows ?? []).map((monitoring) => ({
+    id: monitoring.id,
+    vendorRelationshipId: monitoring.organization_vendor_id,
+    vendorName: joinedVendor(monitoring.organization_vendors).name,
+    state: monitoring.state,
+    sourceMethod: monitoring.source_method,
+    nextExpectedAt: monitoring.next_expected_at,
+    lastReceivedAt: monitoring.last_received_at,
+  }));
+
   const today = new Date().toISOString().slice(0, 10);
   const { data: contractRows } = await db
     .from("contracts")
@@ -413,5 +440,6 @@ export async function buildAssistantContext(
     recentLineItems,
     openOpportunities,
     upcomingContracts,
+    monitoringConfigs,
   };
 }

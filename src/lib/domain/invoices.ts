@@ -1,14 +1,56 @@
 import type { EnergyService } from "@/lib/domain/energy-service";
 
+export type InvoiceChargeSummary = {
+  sourceKey: string;
+  label: string;
+  amount: string;
+  servicePeriodStart: string | null;
+  servicePeriodEnd: string | null;
+};
+
 export type InvoiceLineCandidate = {
   sourceKey?: string | null;
   description: string;
   quantity: string | null;
+  /** Source-visible unit only; never infer a unit from the description. */
+  unit?: string | null;
   unitPrice: string | null;
+  /** Source-visible tax rate, expressed as a decimal percentage when shown. */
+  taxRate?: string | null;
   amount: string;
   category: string | null;
   servicePeriodStart: string | null;
   servicePeriodEnd: string | null;
+};
+
+/**
+ * Cross-category service facts that do not belong in the generic money/line
+ * item fields. Values are source-backed candidates and may remain null when a
+ * bill does not show them. Arrays retain distinct identifiers instead of
+ * collapsing several phone lines, circuits, subscriptions, or resources.
+ */
+export type InvoiceServiceDetails = {
+  planName: string | null;
+  productFamily: string | null;
+  serviceAddresses: string[];
+  serviceIdentifiers: string[];
+  phoneNumbers: string[];
+  circuitIds: string[];
+  subscriptionIdentifiers: string[];
+  resourceIdentifiers: string[];
+  cloudAccountIdentifiers: string[];
+  region: string | null;
+  bandwidthQuantity: string | null;
+  bandwidthUnit: string | null;
+  lineCount: number | null;
+  deviceCount: number | null;
+  seatCount: number | null;
+  usageQuantity: string | null;
+  usageUnit: string | null;
+  includedUsageQuantity: string | null;
+  includedUsageUnit: string | null;
+  commitmentType: string | null;
+  commitmentTermMonths: number | null;
 };
 
 export type InvoiceCandidate = {
@@ -31,6 +73,16 @@ export type InvoiceCandidate = {
   totalAmount: string | null;
   amountDue: string | null;
   energyService: EnergyService | null;
+  /**
+   * Some commercial bills contain one row per meter/service point. Keep the
+   * legacy singular field for compatibility, but use this array for new
+   * extraction and persistence paths.
+   */
+  energyServices?: EnergyService[];
+  /** Source-labelled subtotals such as recurring, usage, delivery, or taxes. */
+  chargeSummaries?: InvoiceChargeSummary[];
+  /** Typed service facts for telecom, wireless, SaaS, cloud, and similar bills. */
+  serviceDetails?: InvoiceServiceDetails | null;
   lineItems: InvoiceLineCandidate[];
 };
 
@@ -51,6 +103,18 @@ export type InvoiceReconciliation = {
 
 const moneyPattern = /^-?\d{1,16}(?:\.\d{1,2})?$/;
 const decimalPattern = /^-?\d{1,16}(?:\.\d{1,6})?$/;
+
+const nonSubtotalLinePattern = /\b(?:tax(?:es)?|vat|gst|hst|pst|sales tax|use tax|fee|fees|surcharge|recovery|assessment|fusf|usf|e[- ]?911|regulatory|gross receipts|discount|credit|credits|adjustment|previous balance|balance forward|payment|amount due|total current|current charges)\b/i;
+
+function isSubtotalExcludedLine(line: InvoiceLineCandidate): boolean {
+  return nonSubtotalLinePattern.test(`${line.category ?? ""} ${line.description}`);
+}
+
+function subtotalLineItems(lineItems: InvoiceLineCandidate[]): InvoiceLineCandidate[] | null {
+  const chargeLines = lineItems.filter((line) => !isSubtotalExcludedLine(line));
+  // If every row is a tax/fee/summary row, there is no safe subtotal check.
+  return chargeLines.length > 0 ? chargeLines : null;
+}
 
 export function normalizeMoney(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -90,16 +154,19 @@ export function reconcileInvoice(candidate: InvoiceCandidate): InvoiceReconcilia
   const checks: InvoiceReconciliation["checks"] = [];
 
   if (candidate.lineItems.length > 0 && candidate.subtotal !== null) {
-    const lineTotal = candidate.lineItems.reduce(
+    const chargeLines = subtotalLineItems(candidate.lineItems);
+    const lineTotal = chargeLines?.reduce(
       (sum, line) => sum + toMinorUnits(line.amount),
       BigInt(0),
     );
-    const difference = lineTotal - toMinorUnits(candidate.subtotal);
-    checks.push({
-      name: "line_items_to_subtotal",
-      status: difference === BigInt(0) ? "passed" : "failed",
-      difference: fromMinorUnits(difference),
-    });
+    if (lineTotal !== undefined) {
+      const difference = lineTotal - toMinorUnits(candidate.subtotal);
+      checks.push({
+        name: "line_items_to_subtotal",
+        status: difference === BigInt(0) ? "passed" : "failed",
+        difference: fromMinorUnits(difference),
+      });
+    }
   }
 
   if (candidate.lineItems.length > 0 && candidate.currentCharges !== null) {

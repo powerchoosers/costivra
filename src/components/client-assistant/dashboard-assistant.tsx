@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { AssistantComposer } from "./assistant-composer";
 import { useClientAssistant } from "./client-assistant-provider";
 import { MessageThread } from "./message-thread";
@@ -10,7 +11,14 @@ import { MessageThread } from "./message-thread";
  * the dashboard never becomes a separate or less-governed chat experience.
  */
 export function DashboardAssistant() {
-  const { state } = useClientAssistant();
+  const { state, restoreLatestSession } = useClientAssistant();
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    if (restoredRef.current || state.activeSessionId || state.messages.length > 0) return;
+    restoredRef.current = true;
+    void restoreLatestSession();
+  }, [restoreLatestSession, state.activeSessionId, state.messages.length]);
 
   return (
     <section className={`dashboard-assistant${state.messages.length > 0 ? " dashboard-assistant--active" : ""}`} aria-labelledby="dashboard-assistant-title">

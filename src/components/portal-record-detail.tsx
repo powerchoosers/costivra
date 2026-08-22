@@ -21,6 +21,7 @@ import {
 } from "@/lib/portal/record-context";
 import { formatFinancialDate } from "@/lib/ui/date-format";
 import { getMotionSafeScrollBehavior } from "@/lib/ui/motion";
+import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
 
 type Kind = PortalRecordKind;
 type FieldOption = string | { value: string; label: string };
@@ -48,8 +49,9 @@ const recordFieldGroups: Record<Kind, readonly RecordFieldGroupDefinition[]> = {
     { id: "review", label: "Review status", description: "Where this expense is in the current review workflow.", keys: ["status"] },
   ],
   contract: [
-    { id: "agreement", label: "Agreement", description: "The contract identity, coverage, and renewal terms to confirm before acting.", keys: ["title", "category", "locationId", "startDate", "endDate", "noticePeriodDays", "autoRenews"] },
+    { id: "agreement", label: "Agreement", description: "The contract identity, coverage, and renewal terms to confirm before acting.", keys: ["title", "category", "locationId", "sourceAddresses", "serviceIdentifiers", "startDate", "endDate", "termMonths", "noticePeriodDays", "autoRenews"] },
     { id: "financial", label: "Financial & ownership", description: "The recorded value and internal owner responsible for this agreement.", keys: ["annualValue", "ownerName", "status"] },
+    { id: "source-terms", label: "Source terms", description: "Commercial terms and category fields retained from the uploaded agreement; confirm them against the source before relying on them.", keys: ["sourceRateOrPrice", "sourcePricingUnit", "minimumCommitmentQuantity", "minimumCommitmentUnit", "currency", "categoryFacts"] },
   ],
   document: [
     { id: "source", label: "Source & extraction", description: "The immutable source identity and the current extraction record for this file.", keys: ["originalFilename", "documentType", "summary", "mimeType", "byteSize", "pageCount", "confidence", "sha256"] },
@@ -60,9 +62,10 @@ const recordFieldGroups: Record<Kind, readonly RecordFieldGroupDefinition[]> = {
     { id: "quality", label: "Matching & quality", description: "Deterministic reconciliation and identity checks that determine whether a review is needed.", keys: ["reconciliationStatus", "vendorMatchStatus", "workspaceCustomerMatchStatus", "expenseAccountMatchStatus", "serviceLocationMatchStatus", "extractionConfidence"] },
   ],
   opportunity: [
-    { id: "finding", label: "Finding", description: "The operational issue, priority, and timing that need attention.", keys: ["title", "summary", "priority", "deadlineAt"] },
-    { id: "assessment", label: "Assessment", description: "The trust and calculation context behind the recorded opportunity.", keys: ["trustState", "estimatedAnnualValue", "confidence", "generatedBy", "ruleVersion"] },
-    { id: "source", label: "Evidence & source", description: "The records and location that anchor this finding to a real operating cost.", keys: ["evidenceCount", "sourceDocumentId", "expenseAccountReference", "locationName", "lastEvaluatedAt"] },
+    { id: "finding", label: "What needs attention", description: "The issue, expected timing, and priority a finance leader needs to understand first.", keys: ["title", "summary", "priority", "deadlineAt"] },
+    { id: "assessment", label: "Decision signal", description: "The confidence and customer-visible value currently supported by the record.", keys: ["trustState", "estimatedAnnualValue", "confidence"] },
+    { id: "source", label: "Evidence & source", description: "The records that anchor this finding to a real operating cost.", keys: ["evidenceCount", "sourceDocumentId", "locationName", "lastEvaluatedAt"] },
+    { id: "provenance", label: "Calculation record", description: "Technical provenance retained for review and auditability.", keys: ["generatedBy", "ruleVersion", "expenseAccountReference"] },
   ],
   action: [
     { id: "plan", label: "Action plan", description: "What must happen, when it is due, and the intended operating outcome.", keys: ["title", "description", "actionType", "priority", "dueAt"] },
@@ -132,10 +135,15 @@ function build(data: PortalData, kind: Kind, id: string) {
   ] as Field[] };
   if (kind === "contract") return { ...common, title: String(record.title), subtitle: String(record.vendorName), status: String(record.status), fields: [
     { key: "title", label: "Contract title", value: record.title, editable, type: "text" }, { key: "category", label: "Category", value: record.category, editable, type: "text" },
-    { key: "locationId", label: "Location", value: record.locationId ?? "", display: String(record.locationName ?? "All locations / not assigned"), editable, type: "select", options: [{ value: "", label: "All locations / not assigned" }, ...data.locations.map((location) => ({ value: location.id, label: `${location.name}${location.status === "inactive" ? " · archived" : ""}` }))] },
+    { key: "locationId", label: "Primary location", value: record.locationId ?? "", display: String(record.locationName ?? "All locations / not assigned"), editable, type: "select", options: [{ value: "", label: "All locations / not assigned" }, ...data.locations.map((location) => ({ value: location.id, label: `${location.name}${location.status === "inactive" ? " · archived" : ""}` }))] },
+    { key: "sourceAddresses", label: "Governed service addresses", value: record.sourceAddresses, display: Array.isArray(record.sourceAddresses) && record.sourceAddresses.length ? record.sourceAddresses.join(" · ") : "Not recorded" },
+    { key: "serviceIdentifiers", label: "Service identifiers", value: record.serviceIdentifiers, display: Array.isArray(record.serviceIdentifiers) && record.serviceIdentifiers.length ? record.serviceIdentifiers.join(" · ") : "Not recorded" },
     { key: "startDate", label: "Start date", value: record.startDate, display: date(record.startDate as string | null), editable, type: "date" }, { key: "endDate", label: "End date", value: record.endDate, display: date(record.endDate as string | null), editable, type: "date" },
+    { key: "termMonths", label: "Term", value: record.termMonths, display: record.termMonths == null ? "Not recorded" : `${record.termMonths} months` },
     { key: "noticePeriodDays", label: "Notice period", value: record.noticePeriodDays, display: record.noticePeriodDays == null ? "Not recorded" : `${record.noticePeriodDays} days`, editable, type: "number" }, { key: "annualValue", label: "Annual value", value: record.annualValue, display: money(record.annualValue as number | null, workspaceCurrency), editable, type: "number", note: "Manual contract value; edits are audited." },
-    { key: "ownerName", label: "Internal owner", value: record.ownerName, editable, type: "text" }, { key: "autoRenews", label: "Auto-renews", value: record.autoRenews, display: record.autoRenews ? "Yes" : "No", editable, type: "checkbox" },
+    { key: "sourceRateOrPrice", label: "Source rate / price", value: record.sourceRateOrPrice, display: record.sourceRateOrPrice == null ? "Not recorded" : `${record.sourceRateOrPrice}${record.sourcePricingUnit ? ` · ${record.sourcePricingUnit}` : ""}` }, { key: "sourcePricingUnit", label: "Pricing unit", value: record.sourcePricingUnit, display: record.sourcePricingUnit ?? "Not recorded" }, { key: "minimumCommitmentQuantity", label: "Minimum commitment", value: record.minimumCommitmentQuantity, display: record.minimumCommitmentQuantity == null ? "Not recorded" : `${record.minimumCommitmentQuantity}${record.minimumCommitmentUnit ? ` ${record.minimumCommitmentUnit}` : ""}` }, { key: "minimumCommitmentUnit", label: "Commitment unit", value: record.minimumCommitmentUnit, display: record.minimumCommitmentUnit ?? "Not recorded" }, { key: "currency", label: "Source currency", value: record.currency, display: record.currency ?? "Not recorded" },
+     { key: "categoryFacts", label: "Source category facts", value: record.categoryFacts, display: Array.isArray(record.categoryFacts) && record.categoryFacts.length ? record.categoryFacts.map((fact) => `${String(fact.key).replaceAll("_", " ")}: ${fact.value}${fact.unit ? ` ${fact.unit}` : ""}`).join(" · ") : "Not recorded", note: "Visible source fields only; confirm against the uploaded agreement." },
+     { key: "ownerName", label: "Internal owner", value: record.ownerName, editable, type: "text" }, { key: "autoRenews", label: "Auto-renews", value: record.autoRenews, display: record.autoRenews ? "Yes" : "No", editable, type: "checkbox" },
     { key: "status", label: "Status", value: record.status, editable, type: "select", options: ["draft", "active", "expired", "terminated"] },
   ] as Field[] };
   if (kind === "document") return { ...common, title: String(record.originalFilename), subtitle: String(record.vendorName), status: String(record.status), fields: [
@@ -366,12 +374,14 @@ function FindingDecisionBrief({
   hasRelatedRecords,
   sourceHref,
   vendorHref,
+  currency,
 }: {
   finding: PortalData["opportunities"][number];
   accessibleEvidenceCount: number;
   hasRelatedRecords: boolean;
   sourceHref: string | null;
   vendorHref: string | null;
+  currency: string;
 }) {
   const evidence = presentFindingEvidence({
     recordedEvidenceCount: finding.evidenceCount,
@@ -387,9 +397,13 @@ function FindingDecisionBrief({
     ? { href: "#evidence", label: "Review source evidence", anchor: true }
     : sourceHref
       ? { href: sourceHref, label: "Open source record", anchor: false }
-      : vendorHref
+        : vendorHref
         ? { href: vendorHref, label: "Review vendor records", anchor: false }
         : { href: "/app/bills?view=review", label: "Review source bills", anchor: false };
+  const valueLabel = finding.monetaryClaimAllowed && finding.estimatedAnnualValue != null
+    ? money(finding.estimatedAnnualValue, currency)
+    : "Not shown";
+  const deadlineLabel = finding.deadlineAt ? date(finding.deadlineAt) : "No deadline";
 
   return <WorkspaceDecisionSummary
     ariaLabel={readiness.heading}
@@ -397,9 +411,10 @@ function FindingDecisionBrief({
     eyebrow="Finding readiness"
     description={readiness.description}
     facts={[
-      { label: "Trust state", value: opportunityTrustLabel(finding.trustState) },
+      { label: "Potential annual value", value: valueLabel },
       { label: "Source evidence", value: evidence.compactLabel },
       { label: "Calculation", value: hasCalculation ? "Recorded" : "Needed" },
+      { label: "Deadline", value: deadlineLabel },
     ]}
     heading={readiness.heading}
     actions={<>
@@ -448,8 +463,8 @@ function FindingCalculationRecord({
   return <section className="record-section finding-calculation-record" id="calculation">
     <div className="record-section-heading">
       <div>
-        <h2>Method & assumptions</h2>
-        <p>See the deterministic record behind this finding. Inputs and output remain protected until this finding is customer-ready.</p>
+        <h2>How this was calculated</h2>
+        <p>Review the recorded inputs, result, and assumptions before relying on the finding’s potential value.</p>
       </div>
       <span className={`finding-calculation-record__status${canShowOutput ? " is-ready" : ""}`}>{calculationStatus}</span>
     </div>
@@ -533,6 +548,11 @@ export function getRecordDecisionAction(kind: Kind, hasRecordFiles: boolean, rel
 }
 
 export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind: Kind; id: string }) {
+  const { setContext: setAssistantContext } = useClientAssistant();
+  useEffect(() => {
+    setAssistantContext({ kind, id });
+    return () => setAssistantContext(null);
+  }, [id, kind, setAssistantContext]);
   const detail = build(data, kind, id); const meta = labels[kind];
   if (!detail) return <div className="record-detail"><GlobalBackControl className="record-back" /><section className="record-empty"><h1>{meta.noun} not found</h1><p>This record is not part of your workspace, or it no longer exists.</p></section></div>;
   const recordId = String((detail.record as Record<string, unknown>).id); const vendorId = (detail.record as Record<string, unknown>).vendorId as string | null;
@@ -578,7 +598,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
   const tabs: RecordSectionTab[] = [
     ...(savingsOutcome ? [{ id: "verification", label: "Verification" }] : []),
     { id: "overview", label: "Overview" },
-    ...(finding ? [{ id: "calculation", label: "Method & assumptions" }] : []),
+    ...(finding ? [{ id: "calculation", label: "How calculated" }] : []),
     ...(lineItems.length > 0 ? [{ id: "line-items", label: "Line items", count: lineItems.length }] : []),
     ...(showRecordFiles ? [{ id: "files", label: "Files", count: recordFiles.length }] : []),
     { id: "quality", label: "Data quality" },
@@ -595,7 +615,7 @@ export function PortalRecordDetail({ data, kind, id }: { data: PortalData; kind:
     <div className="record-detail-layout"><main>
       {savingsOutcome && <SavingsReviewPanel outcome={savingsOutcome} currency={recordCurrency} canDecide={["owner", "admin"].includes(data.currentUser.role)} />}
       <div className="record-overview-anchor" id="overview">
-        {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} hasRelatedRecords={related.length > 0} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} action={recordDecisionAction} />}
+        {finding ? <FindingDecisionBrief finding={finding} accessibleEvidenceCount={evidence.length} hasRelatedRecords={related.length > 0} sourceHref={sourceHref} vendorHref={vendor ? `/app/vendors/${vendor.id}?tab=bills` : null} currency={recordCurrency} /> : <RecordDecisionBrief kind={kind} fields={detail.fields} action={recordDecisionAction} />}
       </div>
       {finding && <FindingCalculationRecord finding={finding} currency={recordCurrency} />}
       <section className="record-section">

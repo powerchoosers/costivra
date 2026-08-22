@@ -522,6 +522,12 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.getByText("Reconciliation: Reconciled", { exact: false })).toBeVisible();
       await page.goto(`/app/vendors/${fixture.vendorId}?tab=overview`);
       await expect(page.getByRole("heading", { name: "Continuous Bill Monitoring" })).toBeVisible();
+      const spendHistory = page.locator(".vendor-spend-history");
+      await expect(spendHistory).toBeVisible();
+      await expect(spendHistory.getByRole("heading", { name: "Invoice charges over time", exact: true })).toBeVisible();
+      expect(await spendHistory.locator(".vendor-spend-history__bar").count()).toBeGreaterThan(0);
+      await expect(spendHistory).toContainText("not confirmed bank-settled payments");
+      await page.screenshot({ path: resolve(process.cwd(), "artifacts/pilot-journey/vendor-detail-overview.png"), fullPage: true });
       await page.getByRole("button", { name: "Monitor this vendor" }).click();
       const monitoringDialog = page.getByRole("dialog", { name: /Monitor E2E Telecom/ });
       await expect(monitoringDialog).toBeVisible();
@@ -584,8 +590,8 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.getByRole("heading", { name: "Invoice line items" })).toBeVisible();
       await expect(page.getByText("Monthly internet service", { exact: true })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Data quality" })).toBeVisible();
-      await expect(page.locator(".record-quality", { hasText: "Vendor match" })).toContainText("exact");
-      await expect(page.locator(".record-quality", { hasText: "Reconciliation" })).toContainText("reconciled");
+      await expect(page.locator(".record-quality", { hasText: "Vendor match" })).toContainText(/exact|matched/i);
+      await expect(page.locator(".record-quality", { hasText: "Reconciliation" })).toContainText(/reconciled/i);
       const reviewNotes = `Customer review note ${fixture.organizationId.slice(0, 8)}`;
       await page.getByRole("button", { name: "Edit Reviewer notes" }).click();
       await page.locator("textarea").last().fill(reviewNotes);
@@ -620,6 +626,13 @@ test.describe("authenticated customer workspace", () => {
       await expect(opportunityCard.getByText("Needs evidence", { exact: true })).toBeVisible();
       await expect(opportunityCard).toContainText("Not shown");
       await expect(opportunityCard).not.toContainText("$3,000");
+      await page.goto(`/app/findings/${fixture.opportunityId}`);
+      await expect(page.getByRole("navigation", { name: "Finding detail sections" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "How this was calculated", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Record details", exact: true })).toBeVisible();
+      await page.screenshot({ path: resolve(process.cwd(), "artifacts/pilot-journey/finding-detail.png"), fullPage: true });
+      await page.goto("/app/findings");
+      await expect(page.locator(".workspace-work-item", { hasText: fixture.opportunityTitle })).toBeVisible();
       await opportunityCard
         .getByRole("button", { name: `Update ${fixture.opportunityTitle} status` })
         .click();
@@ -913,6 +926,43 @@ test.describe("authenticated customer workspace", () => {
       await expect(tour).toContainText("Upload the source before making a claim.");
       await tour.getByRole("button", { name: "Skip tour", exact: true }).click();
       await expect(tour).toBeHidden();
+    } finally {
+      await removeWorkspaceFixture(fixture);
+    }
+  });
+
+  test("renders the vendor history and finding decision surfaces", async ({ page }) => {
+    test.setTimeout(120_000);
+    const fixture = await createWorkspaceFixture();
+    try {
+      await page.goto(`/login?next=/app/vendors/${fixture.vendorId}`);
+      await page.getByRole("textbox", { name: "Work email" }).fill(fixture.email);
+      await page.getByRole("textbox", { name: "Password" }).fill(fixture.password);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+
+      await expect(page).toHaveURL(new RegExp(`/app/vendors/${fixture.vendorId}$`), { timeout: 30_000 });
+      const dismissTour = async () => {
+        const tour = page.locator(".workspace-tour__panel");
+        if (await tour.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await tour.getByRole("button", { name: "Skip tour", exact: true }).click();
+          await expect(tour).toBeHidden();
+        }
+      };
+      const spendHistory = page.locator(".vendor-spend-history");
+      await expect(spendHistory).toBeVisible({ timeout: 30_000 });
+      await expect(spendHistory.getByRole("heading", { name: "Invoice charges over time", exact: true })).toBeVisible();
+      expect(await spendHistory.locator(".vendor-spend-history__bar").count()).toBeGreaterThan(0);
+      await expect(spendHistory).toContainText("not confirmed bank-settled payments");
+      await spendHistory.screenshot({ path: resolve(process.cwd(), "artifacts/pilot-journey/vendor-history-target.png") });
+
+      await page.goto(`/app/findings/${fixture.opportunityId}`);
+      await expect(page).toHaveURL(new RegExp(`/app/findings/${fixture.opportunityId}$`), { timeout: 30_000 });
+      await dismissTour();
+      await expect(page.getByRole("navigation", { name: "Finding detail sections" })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("heading", { name: "How this was calculated", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Record details", exact: true })).toBeVisible();
+      await page.screenshot({ path: resolve(process.cwd(), "artifacts/pilot-journey/finding-detail-target.png"), fullPage: true });
+      await page.locator(".finding-calculation-record").screenshot({ path: resolve(process.cwd(), "artifacts/pilot-journey/finding-calculation-target.png") });
     } finally {
       await removeWorkspaceFixture(fixture);
     }

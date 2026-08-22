@@ -275,7 +275,7 @@ export async function getManageData(input?: {
       summary: nullable(document.extraction_summary),
       confidence: nullableNumber(extraction?.confidence),
       extractionStatus: nullable(extraction?.status),
-      extractionInputMode: inputMode === "native_text" || inputMode === "pdf_ocr" ? (inputMode as "native_text" | "pdf_ocr") : null,
+      extractionInputMode: inputMode === "native_text" || inputMode === "pdf_ocr" || inputMode === "image_vision" ? (inputMode as "native_text" | "pdf_ocr" | "image_vision") : null,
       extractionFailureCode: nullable(extraction?.failure_code),
       createdAt: text(document.created_at),
       updatedAt: text(document.updated_at),

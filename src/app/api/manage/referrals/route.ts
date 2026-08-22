@@ -18,7 +18,7 @@ export async function GET() {
     const { data, error } = await db
       .from("partner_referral_requests")
       .select(
-        "id,organization_id,destination_id,status,purpose,requested_scope,source_context,consent_id,approval_id,created_at,updated_at,partner_destinations(display_name,category,external_enabled)",
+        "id,organization_id,destination_id,status,purpose,requested_scope,source_context,consent_id,approval_id,created_at,updated_at,organizations(name),partner_destinations(display_name,category,external_enabled)",
       )
       .eq("status", "awaiting_approval")
       .order("created_at", { ascending: false })
