@@ -45,7 +45,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ resou
     const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : null;
     if (expectedUpdatedAt && "updated_at" in before && before.updated_at !== expectedUpdatedAt) return NextResponse.json({ error: "This record changed in another session. Refresh before saving." }, { status: 409 });
 
-    let update = db.from(config.table).update({ [normalized.column]: normalized.value }).eq("id", id);
+    const updateValues: Record<string, unknown> = { [normalized.column]: normalized.value };
+    if (resource === "invoice" && field === "locationId") {
+      updateValues.service_location_match_status = normalized.value ? "matched" : "unknown";
+      const currentMetadata = before.metadata && typeof before.metadata === "object" && !Array.isArray(before.metadata)
+        ? before.metadata as Record<string, unknown>
+        : {};
+      const currentIdentityMatch = currentMetadata.identityMatch && typeof currentMetadata.identityMatch === "object" && !Array.isArray(currentMetadata.identityMatch)
+        ? currentMetadata.identityMatch as Record<string, unknown>
+        : {};
+      updateValues.metadata = {
+        ...currentMetadata,
+        identityMatch: {
+          ...currentIdentityMatch,
+          locationId: normalized.value,
+          serviceLocationMatchStatus: normalized.value ? "matched" : "unknown",
+        },
+      };
+    }
+    let update = db.from(config.table).update(updateValues).eq("id", id);
     if (resource !== "action") update = update.eq("organization_id", organizationId);
     if (expectedUpdatedAt && "updated_at" in before) update = update.eq("updated_at", expectedUpdatedAt);
     const { data: after, error: updateError } = await update.select("*").maybeSingle();

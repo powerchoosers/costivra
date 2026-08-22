@@ -4,21 +4,17 @@ import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import { ResponseBlockRenderer } from "./response-block-renderer";
 import { useClientAssistant } from "./client-assistant-provider";
 import { FileText, ArrowRight } from "@/lib/icons";
-import { useEffect, useRef, type CSSProperties } from "react";
+import { AssistantConversationScroller } from "@/components/assistant-conversation-scroller";
+import { type CSSProperties } from "react";
 
 export function MessageThread() {
   const { state, sendMessage } = useClientAssistant();
   const messages = state.messages;
-  const threadEndRef = useRef<HTMLDivElement>(null);
   const fallbackPrompts = [
     "Summarize our latest recurring expenses.",
     "Which contracts have notice deadlines approaching?",
     "Where did recurring spend increase most?",
   ];
-
-  useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, state.sending]);
 
   if (messages.length === 0) {
     return (
@@ -68,7 +64,12 @@ export function MessageThread() {
   }
 
   return (
-      <div className="assistant-thread" aria-live="polite">
+      <AssistantConversationScroller
+        className="assistant-thread"
+        itemCount={messages.length}
+        isLoading={state.sending}
+        conversationKey={state.activeSessionId ?? "new"}
+      >
       {messages.map((m, index) => (
         <div key={m.id} className={`assistant-message assistant-message--${m.role}`} style={{ "--message-index": index } as CSSProperties}>
           {m.role === "user" ? (
@@ -161,7 +162,6 @@ export function MessageThread() {
           <span className="sr-only">Costivra is preparing a response.</span>
         </div>
       )}
-      <div ref={threadEndRef} />
-    </div>
+      </AssistantConversationScroller>
   );
 }

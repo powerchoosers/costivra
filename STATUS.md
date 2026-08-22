@@ -1,5 +1,27 @@
 # Costivra Status
 
+## August 22, 2026 — Bill breakdown opening sequence
+
+- Replaced the bill breakdown's disconnected pulsing icons and text with one restrained document-analysis sequence: a moving source cursor, a quiet transfer trace, and ordered Source, Charges, and Evidence stages.
+- Loading copy now stays stable and explains the actual review work without implying that unverified analysis is complete. The compact document-preview state uses the same visual language.
+- Added responsive single-column stages for narrow screens and a non-animated reduced-motion fallback. Also removed a stray stylesheet brace that could invalidate later modal rules.
+- Validation: Node `v24.19.0`; the focused bill-breakdown test passed 4/4; direct TypeScript and changed-file ESLint passed; authenticated browser QA at desktop and 390px mobile widths confirmed the loading state appears and the real bill breakdown completes without console warnings; `git diff --check` passed.
+
+## August 22, 2026 — Location assignment and vendor-removal safety
+
+- Fixed location edits rejecting the workspace's valid UUID v7 location IDs; invoice records now expose an editable service-location field and keep the invoice match status and identity metadata in sync when a location is assigned or cleared.
+- Live Supabase inspection confirmed `l.patterson@costivra.ai` is the owner of Apex Logistics Group. The Reliant sample invoice is currently unassigned because its source address and customer identity do not match the saved workspace locations; it remains in review rather than being silently attributed.
+- Vendor removal remains dependency-safe: both Reliant relationships have invoices and source documents, so removal is blocked. Ending the relationship preserves those bills and documents.
+- Validation: Node `v24.19.0`; focused location, invoice-matching, service-location, and account-grouping tests passed 20/20; `git diff --check` passed. Live Supabase reads were performed without modifying customer records.
+
+## August 22, 2026 — Conversation reset and shared latest-message controls
+
+- Dashboard App and Manage assistants now start with a clean visible conversation after refresh while durable sessions remain available through explicit assistant history.
+- Added a shared conversation scroller for App and Manage inline, drawer, and fullscreen assistants. It follows the latest message only while the user is at the bottom, preserves reading position during new responses, and provides an accessible circular jump-to-latest control when the thread is scrolled upward.
+- Dashboard composers animate from the centered entry state into a bottom composer once a conversation begins; existing drawer composers retain their fixed-bottom behavior. Reduced-motion users receive the same state changes without animation.
+- Follow-up polish removes the empty-state textarea scrollbar and suppresses the nested textarea focus ring while preserving the single focus ring on the composer shell.
+- Validation: Node `v24.19.0`; assistant scroll unit tests passed 3/3; direct TypeScript passed; Next `16.2.12` production build passed with 60/60 static pages; `git diff --check` passed. Browser QA at `http://localhost:3000` confirmed clean App and Manage refresh states, App composer transition, App jump-to-latest behavior, Manage drawer jump-to-latest behavior, and a 420px-wide App layout with no horizontal overflow or browser console warnings. Targeted ESLint was attempted but the local ESLint process did not complete after the generated build; no lint result is claimed.
+
 ## August 22, 2026 — Assistant context and card relevance hardening
 
 - Added a bounded relevance gate for model-requested assistant cards. Explicit software-renewal questions no longer inherit unrelated energy invoices, energy-review cards, or top-spend vendor summaries from the workspace snapshot.

@@ -8,5 +8,7 @@ describe("portal inline field validation", () => {
   it("accepts a location link and allows clearing it", () => {
     expect(normalizeRecordField("expense", "locationId", "11111111-1111-4111-8111-111111111111")).toEqual({ column: "location_id", value: "11111111-1111-4111-8111-111111111111" });
     expect(normalizeRecordField("contract", "locationId", "")).toEqual({ column: "location_id", value: null });
+    expect(normalizeRecordField("invoice", "locationId", "11111111-1111-4111-8111-111111111111")).toEqual({ column: "location_id", value: "11111111-1111-4111-8111-111111111111" });
+    expect(normalizeRecordField("invoice", "locationId", "b1b2c3d4-e5f6-7890-abcd-123456789001")).toEqual({ column: "location_id", value: "b1b2c3d4-e5f6-7890-abcd-123456789001" });
   });
 });

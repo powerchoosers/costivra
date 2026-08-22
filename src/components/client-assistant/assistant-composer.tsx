@@ -109,7 +109,7 @@ export function AssistantComposer({
 
         <textarea
           ref={textareaRef}
-          className="assistant-composer-textarea"
+          className={`assistant-composer-textarea${text.length > 0 ? " has-content" : ""}`}
           placeholder="Ask a question or upload a bill to review..."
           value={text}
           onChange={(e) => {

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type AnimationEvent 
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
-  ChartLine,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -10,9 +9,7 @@ import {
   Download,
   ExternalLink,
   FileText,
-  Link2,
   MessageCircle,
-  ScanSearch,
   ShieldCheck,
   TrendingUp,
   X,
@@ -28,38 +25,35 @@ function BillBreakdownLoadingState({ compact = false }: { compact?: boolean }) {
       aria-live="polite"
     >
       <div className={`bill-breakdown-loading-visual${compact ? " is-compact" : ""}`} aria-hidden="true">
-        <div className="bill-breakdown-loading-mark">
-          <FileText size={compact ? 19 : 24} strokeWidth={1.7} />
-          <span className="bill-breakdown-loading-scan" />
+        <div className="bill-breakdown-loading-document">
+          <div className="bill-breakdown-loading-document__header">
+            <FileText size={compact ? 18 : 20} strokeWidth={1.6} />
+            <span />
+          </div>
+          <div className="bill-breakdown-loading-document__rows">
+            <i /><i /><i /><i />
+          </div>
+          <span className="bill-breakdown-loading-cursor" />
         </div>
-        {!compact ? (
-          <>
-            <span className="bill-breakdown-loading-connection bill-breakdown-loading-connection--source" />
-            <span className="bill-breakdown-loading-connection bill-breakdown-loading-connection--charges" />
-            <span className="bill-breakdown-loading-connection bill-breakdown-loading-connection--evidence" />
-            <span className="bill-breakdown-loading-node bill-breakdown-loading-node--source"><ShieldCheck size={15} /></span>
-            <span className="bill-breakdown-loading-node bill-breakdown-loading-node--charges"><ScanSearch size={15} /></span>
-            <span className="bill-breakdown-loading-node bill-breakdown-loading-node--evidence"><Link2 size={15} /></span>
-          </>
-        ) : null}
+        {!compact ? <span className="bill-breakdown-loading-trace"><i /></span> : null}
       </div>
       <div className="bill-breakdown-loading-copy">
-        <p className="bill-breakdown-loading-eyebrow">Preparing bill review</p>
+        <p className="bill-breakdown-loading-eyebrow">Preparing review</p>
         <p className="bill-breakdown-loading-title">
-          {compact ? "Loading document preview" : "Building the evidence map"}
+          {compact ? "Opening protected source" : "Organizing the bill for review"}
         </p>
         {!compact ? (
           <p className="bill-breakdown-loading-description">
-            Reading the protected source, mapping charges, and linking review signals to evidence.
+            Separating current charges, account history, and source evidence into one reviewable record.
           </p>
         ) : null}
       </div>
       {!compact ? (
-        <div className="bill-breakdown-loading-steps" aria-hidden="true">
-          <span><ShieldCheck size={13} /> Source secured</span>
-          <span><ChartLine size={13} /> Charges mapped</span>
-          <span><Link2 size={13} /> Evidence linked</span>
-        </div>
+        <ol className="bill-breakdown-loading-steps" aria-hidden="true">
+          <li><span>01</span><div><strong>Source</strong><small>Reading the protected bill</small></div></li>
+          <li><span>02</span><div><strong>Charges</strong><small>Structuring bill activity</small></div></li>
+          <li><span>03</span><div><strong>Evidence</strong><small>Connecting source references</small></div></li>
+        </ol>
       ) : null}
     </div>
   );
@@ -1268,25 +1262,20 @@ export function BillBreakdownModal({
           from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes billLoadingScan {
-          0%, 100% { transform: translateY(0); opacity: 0.36; }
-          48% { transform: translateY(-42px); opacity: 1; }
+        @keyframes billLoadingCursor {
+          0% { opacity: 0; transform: translateY(0); }
+          12% { opacity: 1; }
+          78% { opacity: 1; }
+          100% { opacity: 0; transform: translateY(28px); }
         }
-        @keyframes billLoadingPulse {
-          0%, 100% { opacity: 0.45; transform: scale(0.82); }
-          50% { opacity: 1; transform: scale(1); }
+        @keyframes billLoadingTrace {
+          0% { transform: translateX(-100%); }
+          56%, 100% { transform: translateX(260%); }
         }
-        @keyframes billLoadingNode {
-          0%, 100% { opacity: 0.46; transform: scale(0.9); }
-          38%, 64% { opacity: 1; transform: scale(1); }
-        }
-        @keyframes billLoadingConnection {
-          0%, 100% { opacity: 0.18; }
-          42%, 62% { opacity: 0.68; }
-        }
-        @keyframes billLoadingCore {
-          0%, 100% { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.22), 0 0 0 0 rgba(125, 211, 252, 0); }
-          50% { box-shadow: 0 12px 34px rgba(2, 6, 23, 0.3), 0 0 0 8px rgba(125, 211, 252, 0.035); }
+        @keyframes billLoadingStage {
+          0%, 18% { border-color: rgba(148, 163, 184, 0.18); color: #64748b; background: rgba(15, 23, 42, 0.44); }
+          24%, 46% { border-color: rgba(125, 211, 252, 0.5); color: #bae6fd; background: rgba(14, 116, 144, 0.16); }
+          52%, 100% { border-color: rgba(94, 234, 212, 0.3); color: #99f6e4; background: rgba(13, 148, 136, 0.1); }
         }
         .bill-breakdown-header {
           flex: 0 0 72px;
@@ -1411,103 +1400,92 @@ export function BillBreakdownModal({
           color: #94a3b8;
         }
         .bill-breakdown-loading-state {
-          width: min(100%, 390px);
+          width: min(100%, 430px);
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
           color: #cbd5e1;
-          animation: billLoadingEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation: billLoadingEnter 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .bill-breakdown-loading-visual {
-          width: 244px;
+          width: 184px;
           height: 104px;
           position: relative;
-        }
-        .bill-breakdown-loading-mark {
-          width: 56px;
-          height: 66px;
           display: grid;
           place-items: center;
+        }
+        .bill-breakdown-loading-document {
+          width: 78px;
+          height: 96px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
           position: relative;
           overflow: hidden;
-          border: 1px solid rgba(125, 211, 252, 0.24);
-          border-radius: 16px;
-          background: linear-gradient(145deg, rgba(30, 64, 175, 0.18), rgba(15, 23, 42, 0.15));
-          color: #bae6fd;
-          box-shadow: 0 10px 30px rgba(2, 6, 23, 0.22);
-          animation: billLoadingCore 2.8s ease-in-out infinite;
-        }
-        .bill-breakdown-loading-visual:not(.is-compact) .bill-breakdown-loading-mark {
-          position: absolute;
           z-index: 2;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
+          padding: 15px 13px;
+          border: 1px solid rgba(148, 163, 184, 0.2);
+          border-radius: 17px;
+          background: #0f172a;
+          box-shadow: 0 18px 42px rgba(2, 6, 23, 0.24);
         }
-        .bill-breakdown-loading-connection {
-          position: absolute;
-          z-index: 1;
+        .bill-breakdown-loading-document__header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #bae6fd;
+        }
+        .bill-breakdown-loading-document__header span {
+          width: 24px;
+          height: 4px;
+          border-radius: 999px;
+          background: rgba(186, 230, 253, 0.34);
+        }
+        .bill-breakdown-loading-document__rows { display: grid; gap: 8px; }
+        .bill-breakdown-loading-document__rows i {
           display: block;
-          height: 1px;
-          transform-origin: left center;
-          background: linear-gradient(90deg, rgba(125, 211, 252, 0.62), rgba(125, 211, 252, 0.08));
-          animation: billLoadingConnection 2.8s ease-in-out infinite;
+          height: 3px;
+          border-radius: 999px;
+          background: rgba(148, 163, 184, 0.2);
         }
-        .bill-breakdown-loading-connection--source {
-          top: 40px;
-          left: 38px;
-          width: 64px;
-          transform: rotate(23deg);
-        }
-        .bill-breakdown-loading-connection--charges {
-          top: 40px;
-          right: 38px;
-          width: 64px;
-          transform: rotate(157deg);
-          transform-origin: right center;
-          animation-delay: 0.24s;
-        }
-        .bill-breakdown-loading-connection--evidence {
-          top: 67px;
-          left: 50%;
-          width: 1px;
-          height: 29px;
-          transform-origin: center top;
-          background: linear-gradient(180deg, rgba(125, 211, 252, 0.62), rgba(125, 211, 252, 0.08));
-          animation-delay: 0.48s;
-        }
-        .bill-breakdown-loading-node {
+        .bill-breakdown-loading-document__rows i:nth-child(2) { width: 76%; }
+        .bill-breakdown-loading-document__rows i:nth-child(3) { width: 88%; }
+        .bill-breakdown-loading-document__rows i:nth-child(4) { width: 58%; }
+        .bill-breakdown-loading-cursor {
           position: absolute;
           z-index: 3;
-          display: grid;
-          width: 34px;
-          height: 34px;
-          place-items: center;
-          border: 1px solid rgba(125, 211, 252, 0.2);
-          border-radius: 11px;
-          color: #a5f3fc;
-          background: rgba(15, 23, 42, 0.82);
-          box-shadow: 0 8px 20px rgba(2, 6, 23, 0.2);
-          animation: billLoadingNode 2.8s ease-in-out infinite;
+          top: 49px;
+          right: 10px;
+          width: 14px;
+          height: 3px;
+          border-radius: 999px;
+          background: rgba(125, 211, 252, 0.92);
+          box-shadow: 0 0 10px rgba(56, 189, 248, 0.28);
+          animation: billLoadingCursor 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
         }
-        .bill-breakdown-loading-node--source { top: 2px; left: 5px; }
-        .bill-breakdown-loading-node--charges { top: 2px; right: 5px; animation-delay: 0.24s; }
-        .bill-breakdown-loading-node--evidence { bottom: 0; left: calc(50% - 17px); animation-delay: 0.48s; }
-        .bill-breakdown-loading-node svg { opacity: 0.9; }
+        .bill-breakdown-loading-trace {
+          position: absolute;
+          z-index: 1;
+          right: 0;
+          bottom: 8px;
+          left: 0;
+          height: 1px;
+          overflow: hidden;
+          background: rgba(148, 163, 184, 0.12);
+        }
+        .bill-breakdown-loading-trace i {
+          display: block;
+          width: 42%;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.82), transparent);
+          animation: billLoadingTrace 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+        }
         .bill-breakdown-loading-visual.is-compact {
           width: auto;
           height: auto;
         }
-        .bill-breakdown-loading-scan {
-          position: absolute;
-          inset: auto 8px 8px;
-          height: 1px;
-          background: rgba(186, 230, 253, 0.92);
-          box-shadow: 0 0 12px rgba(125, 211, 252, 0.84);
-          animation: billLoadingScan 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-        }
-        .bill-breakdown-loading-copy { margin-top: 18px; }
+        .bill-breakdown-loading-copy { margin-top: 17px; }
         .bill-breakdown-loading-eyebrow {
           margin: 0;
           color: #7dd3fc;
@@ -1517,9 +1495,9 @@ export function BillBreakdownModal({
           text-transform: uppercase;
         }
         .bill-breakdown-loading-title {
-          margin: 7px 0 0;
+          margin: 8px 0 0;
           color: #f8fafc;
-          font-size: 1rem;
+          font-size: 1.04rem;
           font-weight: 650;
           letter-spacing: -0.012em;
         }
@@ -1534,37 +1512,55 @@ export function BillBreakdownModal({
           width: 100%;
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 6px;
-          margin-top: 20px;
-          padding-top: 14px;
+          gap: 8px;
+          margin: 22px 0 0;
+          padding: 16px 0 0;
           border-top: 1px solid rgba(148, 163, 184, 0.13);
+          list-style: none;
+          text-align: left;
         }
-        .bill-breakdown-loading-steps span {
-          display: inline-flex;
+        .bill-breakdown-loading-steps li {
+          display: flex;
           align-items: center;
-          justify-content: center;
-          gap: 5px;
+          gap: 8px;
           min-width: 0;
-          color: #94a3b8;
-          font-size: 0.65rem;
-          white-space: nowrap;
-          animation: billLoadingPulse 2.8s ease-in-out infinite;
         }
-        .bill-breakdown-loading-steps svg { color: #5eead4; }
-        .bill-breakdown-loading-steps span:nth-child(2) { animation-delay: 0.24s; }
-        .bill-breakdown-loading-steps span:nth-child(3) { animation-delay: 0.48s; }
+        .bill-breakdown-loading-steps li > span {
+          display: grid;
+          flex: 0 0 28px;
+          width: 28px;
+          height: 28px;
+          place-items: center;
+          border: 1px solid rgba(148, 163, 184, 0.18);
+          border-radius: 9px;
+          color: #64748b;
+          background: rgba(15, 23, 42, 0.44);
+          font-size: 0.58rem;
+          font-variant-numeric: tabular-nums;
+          animation: billLoadingStage 4.2s linear infinite;
+        }
+        .bill-breakdown-loading-steps li:nth-child(2) > span { animation-delay: 1.4s; }
+        .bill-breakdown-loading-steps li:nth-child(3) > span { animation-delay: 2.8s; }
+        .bill-breakdown-loading-steps div { min-width: 0; }
+        .bill-breakdown-loading-steps strong,
+        .bill-breakdown-loading-steps small { display: block; }
+        .bill-breakdown-loading-steps strong { color: #cbd5e1; font-size: 0.67rem; font-weight: 650; }
+        .bill-breakdown-loading-steps small { margin-top: 2px; color: #64748b; font-size: 0.58rem; line-height: 1.35; }
         .bill-breakdown-loading-state.is-compact {
           width: auto;
           padding: 22px;
         }
-        .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-mark {
-          width: 42px;
-          height: 49px;
-          border-radius: 12px;
+        .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-document {
+          width: 58px;
+          height: 70px;
+          gap: 8px;
+          padding: 11px 10px;
+          border-radius: 13px;
         }
+        .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-document__rows { gap: 5px; }
+        .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-cursor { top: 36px; }
         .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-copy { margin-top: 12px; }
         .bill-breakdown-loading-state.is-compact .bill-breakdown-loading-title { font-size: 0.8rem; }
-        }
         .bill-breakdown-error { color: #fca5a5; }
         .bill-breakdown-error button {
           padding: 8px 14px;
@@ -2072,6 +2068,8 @@ export function BillBreakdownModal({
           .bill-breakdown-overview { border-radius: 0; border-inline: 0; }
         }
         @media (max-width: 620px) {
+          .bill-breakdown-loading-state:not(.is-compact) { padding: 0 20px; }
+          .bill-breakdown-loading-steps { grid-template-columns: 1fr; gap: 10px; }
           .bill-breakdown-file-icon { display: none; }
           .bill-breakdown-title-row p { max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
           .bill-breakdown-ask { font-size: 0 !important; width: 36px; padding: 0 !important; }
@@ -2092,13 +2090,12 @@ export function BillBreakdownModal({
           .bill-breakdown-dialog,
           .bill-breakdown-dialog.is-closing,
           .bill-breakdown-loading-state,
-          .bill-breakdown-loading-scan,
-          .bill-breakdown-loading-mark,
-          .bill-breakdown-loading-connection,
-          .bill-breakdown-loading-node,
-          .bill-breakdown-loading-steps span {
+          .bill-breakdown-loading-cursor,
+          .bill-breakdown-loading-trace i,
+          .bill-breakdown-loading-steps li > span {
             animation: none !important;
           }
+          .bill-breakdown-loading-cursor { opacity: 0.7; }
         }
       `}</style>
     </div>

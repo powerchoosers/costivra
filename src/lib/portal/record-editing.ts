@@ -53,6 +53,7 @@ export const editableResources = {
       expenseCategory: { column: "expense_category", kind: "nullable_text", max: 100 },
       reviewPriority: { column: "review_priority", kind: "enum", values: ["low", "normal", "high", "urgent"] },
       reviewNotes: { column: "review_notes", kind: "nullable_text", max: 2000 },
+      locationId: { column: "location_id", kind: "nullable_uuid" },
     },
   },
   opportunity: {
@@ -97,7 +98,7 @@ export function normalizeRecordField(resource: string, field: string, value: unk
   if (rule.kind === "nullable_uuid") {
     if (value === "" || value == null) return { column: rule.column, value: null };
     const uuid = typeof value === "string" ? value.trim() : "";
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid))
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid))
       throw new PortalInputError("Choose a valid location.");
     return { column: rule.column, value: uuid };
   }

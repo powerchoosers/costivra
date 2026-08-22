@@ -38,5 +38,6 @@ export function cleanText(value: unknown, maxLength = 255): string {
 
 export function cleanUuid(value: unknown): string {
   const text = cleanText(value, 36);
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : "";
+  // Accept RFC 4122 UUIDs across supported versions, including UUID v7.
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : "";
 }

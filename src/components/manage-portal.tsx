@@ -88,6 +88,7 @@ import type {
 import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
 import { createClient } from "@/lib/supabase/client";
 import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
+import { AssistantConversationScroller } from "@/components/assistant-conversation-scroller";
 import { getMotionSafeScrollBehavior } from "@/lib/ui/motion";
 import { useToast } from "@/components/toast-provider";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
@@ -2049,55 +2050,6 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (messages.length > 0 || sessionId) return;
-    let cancelled = false;
-
-    async function restoreLatestConversation() {
-      try {
-        const sessionsResponse = await fetch("/api/manage/assistant/sessions", { cache: "no-store" });
-        if (!sessionsResponse.ok) return;
-        const sessionsResult = await sessionsResponse.json().catch(() => null) as {
-          sessions?: Array<{ id?: string }>;
-        } | null;
-        const latestSessionId = sessionsResult?.sessions?.find((session) => typeof session.id === "string")?.id;
-        if (!latestSessionId || cancelled) return;
-
-        const conversationResponse = await fetch(`/api/manage/assistant/sessions/${latestSessionId}`, { cache: "no-store" });
-        if (!conversationResponse.ok) return;
-        const conversationResult = await conversationResponse.json().catch(() => null) as {
-          session?: { id?: string };
-          messages?: Array<{ id?: string; role?: string; content?: string; sources?: Array<{ id: string; label: string; detail: string; href: string }> }>;
-        } | null;
-        if (cancelled || conversationResult?.session?.id !== latestSessionId) return;
-
-        const restoredMessages = (conversationResult.messages ?? [])
-          .filter((message): message is { id: string; role: "user" | "assistant"; content: string; sources?: Array<{ id: string; label: string; detail: string; href: string }> } =>
-            typeof message.id === "string" &&
-            (message.role === "user" || message.role === "assistant") &&
-            typeof message.content === "string",
-          )
-          .map((message) => ({
-            id: message.id,
-            role: message.role,
-            content: message.content,
-            sources: message.sources ?? [],
-          }));
-        if (restoredMessages.length > 0) {
-          setSessionId(latestSessionId);
-          setMessages(restoredMessages);
-        }
-      } catch {
-        // The inline entry remains available if history is temporarily unavailable.
-      }
-    }
-
-    void restoreLatestConversation();
-    return () => {
-      cancelled = true;
-    };
-  }, [messages.length, sessionId]);
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const cleanQuestion = question.trim();
@@ -2129,34 +2081,36 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
         <h2 id="manage-dashboard-assistant-title">What would you like to find?</h2>
         <p>Ask about an account, contact, follow-up, or the next action in your client work.</p>
       </div>
-      {messages.length > 0 && <div className="manage-dashboard-assistant__thread" aria-live="polite">
-        {messages.map((message) => <div key={message.id} className={`manage-dashboard-assistant__message manage-dashboard-assistant__message--${message.role}`}><strong>{message.role === "assistant" ? "Costivra" : "You"}</strong><p>{message.content}</p>{message.sources && message.sources.length > 0 && <div className="manage-dashboard-assistant__sources"><span>Referenced records</span>{message.sources.slice(0, 4).map((source) => <a key={source.id} href={source.href}><strong>{source.label}</strong><small>{source.detail}</small></a>)}</div>}</div>)}
-        {sending && <p className="manage-dashboard-assistant__thinking">Costivra is reviewing client operations…</p>}
-      </div>}
-      <form className="manage-dashboard-assistant__form" onSubmit={(event) => void submit(event)}>
-        <AssistantComposerShell>
-          <AssistantIconButton label="Open full Ask Costivra history" onClick={() => onOpenAssistant(question.trim() || undefined, sessionId)}>
-            <CostivraAssistantIcon size={18} />
-          </AssistantIconButton>
-          <textarea
-            className="assistant-composer-textarea"
-            value={question}
-            onChange={(event) => setQuestion(event.target.value.slice(0, 2_000))}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                event.currentTarget.form?.requestSubmit();
-              }
-            }}
-            placeholder="Ask about the client workspace..."
-            rows={1}
-            aria-label="Ask Costivra about client operations"
-          />
-          <button type="submit" className="manage-dashboard-assistant__send" aria-label="Send question" disabled={sending || question.trim().length < 2}>
-            {sending ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <ArrowUpRight size={17} aria-hidden="true" />}
-          </button>
-        </AssistantComposerShell>
-      </form>
+      <div className={`manage-dashboard-assistant__conversation${messages.length ? " is-active" : ""}`}>
+        {messages.length > 0 && <AssistantConversationScroller className="manage-dashboard-assistant__thread" itemCount={messages.length} isLoading={sending} conversationKey={sessionId ?? "new"}>
+          {messages.map((message) => <div key={message.id} className={`manage-dashboard-assistant__message manage-dashboard-assistant__message--${message.role}`}><strong>{message.role === "assistant" ? "Costivra" : "You"}</strong><p>{message.content}</p>{message.sources && message.sources.length > 0 && <div className="manage-dashboard-assistant__sources"><span>Referenced records</span>{message.sources.slice(0, 4).map((source) => <a key={source.id} href={source.href}><strong>{source.label}</strong><small>{source.detail}</small></a>)}</div>}</div>)}
+          {sending && <p className="manage-dashboard-assistant__thinking">Costivra is reviewing client operations…</p>}
+        </AssistantConversationScroller>}
+        <form className="manage-dashboard-assistant__form" onSubmit={(event) => void submit(event)}>
+          <AssistantComposerShell>
+            <AssistantIconButton label="Open full Ask Costivra history" onClick={() => onOpenAssistant(question.trim() || undefined, sessionId)}>
+              <CostivraAssistantIcon size={18} />
+            </AssistantIconButton>
+            <textarea
+              className="assistant-composer-textarea"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value.slice(0, 2_000))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder="Ask about the client workspace..."
+              rows={1}
+              aria-label="Ask Costivra about client operations"
+            />
+            <button type="submit" className="manage-dashboard-assistant__send" aria-label="Send question" disabled={sending || question.trim().length < 2}>
+              {sending ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <ArrowUpRight size={17} aria-hidden="true" />}
+            </button>
+          </AssistantComposerShell>
+        </form>
+      </div>
       {error && <p className="manage-dashboard-assistant__error" role="alert">{error}</p>}
     </section>
   );

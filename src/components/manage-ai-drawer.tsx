@@ -26,6 +26,7 @@ import {
   AssistantIconButton,
   AssistantWorkspaceHeader,
 } from "@/components/assistant-workspace";
+import { AssistantConversationScroller } from "@/components/assistant-conversation-scroller";
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import { resizeAssistantComposer } from "@/lib/ui/assistant-composer";
 import type {
@@ -99,7 +100,6 @@ export function ManageAiDrawer({
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [mode, setMode] = useState<"drawer" | "fullscreen">("drawer");
   const [liveSuggestionsCollapsed, setLiveSuggestionsCollapsed] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const isFullscreen = mode === "fullscreen";
@@ -185,10 +185,6 @@ export function ManageAiDrawer({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, sending]);
 
   useEffect(() => {
     const textarea = inputRef.current;
@@ -426,7 +422,7 @@ export function ManageAiDrawer({
               )}
 
               {(messages.length > 0 || sending || error) && (
-              <div className="assistant-thread manage-assistant-messages" aria-live="polite" key={conversationRevision}>
+              <AssistantConversationScroller className="assistant-thread manage-assistant-messages" itemCount={messages.length} isLoading={sending} conversationKey={activeSessionId ?? `new-${conversationRevision}`} key={conversationRevision}>
                 {messages.map((message) => message.role === "user" ? (
                   <div className="assistant-message assistant-message--user" key={message.id}>
                     <div className="user-bubble">{message.content}</div>
@@ -465,8 +461,7 @@ export function ManageAiDrawer({
                   </div>
                 )}
                 {error && <p className="manage-assistant-error" role="alert">{error}</p>}
-                <div ref={messagesEndRef} />
-              </div>
+              </AssistantConversationScroller>
               )}
             </div>
 
