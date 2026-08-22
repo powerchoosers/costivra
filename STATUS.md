@@ -1,5 +1,10 @@
 # Costivra Status
 
+## August 22, 2026 — App shell deployment type fix
+
+- Fixed the workspace-tip activity count to use the `PortalData.opportunities` collection; `PortalData` has no `findings` property, which caused the Vercel TypeScript build to fail.
+- Validation: Node `v24.19.0`; direct TypeScript and `git diff --check` passed. The standard `pnpm run build` remains blocked by the repository’s existing `ERR_PNPM_IGNORED_BUILDS` dependency guard; the direct Next build was started with the corrected source.
+
 ## August 22, 2026 — Banner activity fallback
 
 - Fixed the App shell regression where routes without a `findings` collection could crash while preparing workspace-tip counts; activity collections now safely default to zero.
