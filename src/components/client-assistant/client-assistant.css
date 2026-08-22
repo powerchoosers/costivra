@@ -1709,6 +1709,128 @@
 .spin {
   animation: spin 1s linear infinite;
 }
+
+.card-line-item-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.card-line-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--assistant-border);
+}
+
+.card-line-item-copy,
+.card-line-item-value {
+  display: grid;
+  gap: 3px;
+}
+
+.card-line-item-copy strong,
+.card-line-item-value span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.card-line-item-value {
+  justify-items: end;
+  min-width: 100px;
+}
+
+.card-line-item-track {
+  display: block;
+  width: 100px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--assistant-border);
+}
+
+.card-line-item-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--assistant-accent);
+}
+
+.assistant-missing-information {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--assistant-border);
+  border-radius: var(--assistant-radius-control);
+  color: var(--assistant-muted);
+  font-size: 0.76rem;
+}
+
+.assistant-missing-information strong {
+  color: var(--assistant-text);
+}
+
+.assistant-missing-information ul {
+  margin: 5px 0 0 16px;
+  padding: 0;
+}
+
+.card-action-row--button {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.card-consent-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--assistant-border);
+  border-radius: var(--assistant-radius-control);
+  background: color-mix(in srgb, var(--assistant-accent-soft) 42%, white);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.card-consent-box p {
+  margin: 0;
+  color: var(--assistant-muted);
+}
+
+.card-consent-box small {
+  color: var(--assistant-muted);
+  font-size: 0.68rem;
+}
+
+.card-consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.card-action-button {
+  border: 1px solid var(--assistant-border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: white;
+  color: var(--assistant-text);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.card-action-button--primary {
+  border-color: var(--assistant-accent);
+  background: var(--assistant-accent);
+  color: white;
+}
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

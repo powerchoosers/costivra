@@ -57,6 +57,16 @@ export function planDeterministicBlocks(input: PlanBlocksInput): AssistantBlockR
     });
   }
 
+  const isBreakdownPrompt =
+    p.includes("line item") ||
+    p.includes("bill breakdown") ||
+    p.includes("invoice breakdown") ||
+    p.includes("what was i charged") ||
+    p.includes("charges on");
+  if (isBreakdownPrompt && context.recentInvoices.length > 0) {
+    blocks.push({ type: "invoice_breakdown", invoiceId: context.recentInvoices[0].id });
+  }
+
   // 4. Invoice Comparison
   const isComparisonPrompt =
     p.includes("compare") ||
@@ -102,6 +112,28 @@ export function planDeterministicBlocks(input: PlanBlocksInput): AssistantBlockR
     blocks.push({
       type: "renewal_timeline",
       contractIds: context.upcomingContracts.map((c) => c.id),
+    });
+  }
+
+  const isEnergyRenewalQuestion =
+    (p.includes("renew") || p.includes("supplier") || p.includes("energy provider")) &&
+    (context.currentContextCategory ?? context.recentVendors[0]?.category ?? "").toLowerCase().includes("energy");
+  if (isEnergyRenewalQuestion) {
+    blocks.push({
+      type: "energy_review_path",
+      vendorRelationshipId: context.recentVendors.find((vendor) => (vendor.category ?? "").toLowerCase().includes("energy"))?.id,
+    });
+  }
+
+  const isSupplierOptionsQuestion =
+    (p.includes("renew") || p.includes("supplier") || p.includes("provider") || p.includes("alternative")) &&
+    !isEnergyRenewalQuestion &&
+    context.supplierCatalog.length > 0;
+  if (isSupplierOptionsQuestion) {
+    blocks.push({
+      type: "supplier_options",
+      category: context.currentContextCategory ?? context.recentVendors[0]?.category ?? undefined,
+      currentVendorName: context.recentVendors[0]?.name,
     });
   }
 
@@ -176,6 +208,9 @@ export function mergeAndDedupeBlockRequests(
     switch (r.type) {
       case "spend_overview": return "spend_overview";
       case "invoice_summary": return `invoice_summary:${r.invoiceId}`;
+      case "invoice_breakdown": return `invoice_breakdown:${r.invoiceId}`;
+      case "energy_review_path": return `energy_review_path:${r.vendorRelationshipId ?? "workspace"}`;
+      case "supplier_options": return `supplier_options:${r.category ?? "workspace"}`;
       case "invoice_comparison": return `invoice_comparison:${r.invoiceIds.join(",")}`;
       case "vendor_summary": return `vendor_summary:${r.vendorRelationshipId}`;
       case "spend_trend": return `spend_trend:${r.vendorRelationshipId ?? ""}`;

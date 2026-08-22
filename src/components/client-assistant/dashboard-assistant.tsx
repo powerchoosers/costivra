@@ -2,6 +2,7 @@
 
 import { AssistantComposer } from "./assistant-composer";
 import { useClientAssistant } from "./client-assistant-provider";
+import { MessageThread } from "./message-thread";
 
 /**
  * Command Center entry point for the existing scoped assistant. It deliberately
@@ -9,10 +10,10 @@ import { useClientAssistant } from "./client-assistant-provider";
  * the dashboard never becomes a separate or less-governed chat experience.
  */
 export function DashboardAssistant() {
-  const { openDrawer } = useClientAssistant();
+  const { state } = useClientAssistant();
 
   return (
-    <section className="dashboard-assistant" aria-labelledby="dashboard-assistant-title">
+    <section className={`dashboard-assistant${state.messages.length > 0 ? " dashboard-assistant--active" : ""}`} aria-labelledby="dashboard-assistant-title">
       <div className="dashboard-assistant__identity">
         <h2 id="dashboard-assistant-title">What would you like to look into?</h2>
         <p>Ask about a vendor, bill, contract, finding, or the work that needs attention.</p>
@@ -20,8 +21,8 @@ export function DashboardAssistant() {
 
       <AssistantComposer
         className="dashboard-assistant__composer"
-        onMessageSubmitted={openDrawer}
       />
+      {state.messages.length > 0 && <MessageThread />}
     </section>
   );
 }

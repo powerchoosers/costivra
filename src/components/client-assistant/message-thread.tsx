@@ -115,6 +115,15 @@ export function MessageThread() {
                 </div>
               )}
 
+              {m.missingInformation && m.missingInformation.length > 0 && (
+                <div className="assistant-missing-information" role="note">
+                  <strong>What is still unknown</strong>
+                  <ul>
+                    {m.missingInformation.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </div>
+              )}
+
               {/* Follow-up Suggestions */}
               {m.followUps && m.followUps.length > 0 && (
                 <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>

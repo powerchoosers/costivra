@@ -70,6 +70,24 @@ export function parseClientAssistantModelOutput(rawText: string): ClientAssistan
             blockRequests.push({ type: "invoice_summary", invoiceId: b.invoiceId });
           }
           break;
+        case "invoice_breakdown":
+          if (typeof b.invoiceId === "string") {
+            blockRequests.push({ type: "invoice_breakdown", invoiceId: b.invoiceId });
+          }
+          break;
+        case "energy_review_path":
+          blockRequests.push({
+            type: "energy_review_path",
+            vendorRelationshipId: typeof b.vendorRelationshipId === "string" ? b.vendorRelationshipId : undefined,
+          });
+          break;
+        case "supplier_options":
+          blockRequests.push({
+            type: "supplier_options",
+            category: typeof b.category === "string" ? b.category : undefined,
+            currentVendorName: typeof b.currentVendorName === "string" ? b.currentVendorName : undefined,
+          });
+          break;
         case "invoice_comparison":
           if (Array.isArray(b.invoiceIds) && b.invoiceIds.length >= 2 && typeof b.invoiceIds[0] === "string" && typeof b.invoiceIds[1] === "string") {
             blockRequests.push({ type: "invoice_comparison", invoiceIds: [b.invoiceIds[0], b.invoiceIds[1]] });
@@ -121,7 +139,7 @@ export function parseClientAssistantModelOutput(rawText: string): ClientAssistan
           if (typeof b.code === "string" && typeof b.title === "string" && typeof b.message === "string") {
             blockRequests.push({
               type: "notice",
-              severity: ["info", "warning", "error"].includes(String(b.severity)) ? (b.severity as "info" | "warning" | "error") : "info",
+              severity: ["info", "warning", "error", "success"].includes(String(b.severity)) ? (b.severity as "info" | "warning" | "error" | "success") : "info",
               code: b.code,
               title: b.title,
               message: b.message,

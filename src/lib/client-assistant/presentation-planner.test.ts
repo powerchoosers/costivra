@@ -76,6 +76,24 @@ describe("Presentation Planner", () => {
     ]);
   });
 
+  it("selects supplier reference options for non-energy renewal questions", () => {
+    const blocks = planDeterministicBlocks({
+      prompt: "Who should we renew our telecom service with?",
+      context: {
+        ...mockContext,
+        currentContextCategory: "Telecom",
+        supplierCatalog: [
+          { id: "supplier-1", name: "Verizon Business", category: "Telecom", website: "verizon.com", status: "verified" },
+        ],
+      },
+    });
+    expect(blocks).toContainEqual({
+      type: "supplier_options",
+      category: "Telecom",
+      currentVendorName: "AT&T Business",
+    });
+  });
+
   it("selects document_ingestion for attached files", () => {
     const blocks = planDeterministicBlocks({
       prompt: "Review this uploaded bill",

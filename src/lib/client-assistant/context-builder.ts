@@ -11,6 +11,7 @@ export type AssistantBoundedContext = {
   attachedDocuments: Array<{
     id: string;
     filename: string;
+    status: string;
     extractionSummary: string | null;
     category: string | null;
   }>;
@@ -27,6 +28,44 @@ export type AssistantBoundedContext = {
     amount: number;
     date: string;
     status: string;
+    documentId: string | null;
+  }>;
+  recentExpenses: Array<{
+    id: string;
+    vendorName: string | null;
+    category: string;
+    amount: number;
+    currency: string;
+    periodStart: string;
+    periodEnd: string;
+  }>;
+  verifiedSavings: Array<{
+    id: string;
+    title: string;
+    amount: number;
+    currency: string;
+    status: string;
+    verifiedAt: string | null;
+  }>;
+  pendingApprovals: Array<{
+    id: string;
+    resourceType: string;
+    resourceId: string;
+    decision: string;
+    createdAt: string;
+  }>;
+  supplierCatalog: Array<{
+    id: string;
+    name: string;
+    category: string | null;
+    website: string | null;
+    status: string;
+  }>;
+  recentLineItems: Array<{
+    invoiceId: string;
+    description: string;
+    amount: number;
+    category: string | null;
   }>;
   openOpportunities: Array<{
     id: string;
@@ -169,6 +208,21 @@ export async function buildAssistantContext(
       currentContextCategory =
         expense.category ?? joinedVendor(expense.organization_vendors).category;
     }
+  } else if (contextRef?.kind === "action") {
+    const { data: action } = await db
+      .from("action_plans")
+      .select("id, title, status, opportunity_id")
+      .eq("id", contextRef.id)
+      .maybeSingle();
+    if (action) currentViewContext = `Action Plan: ${action.title ?? "Untitled action"} (${action.status})`;
+  } else if (contextRef?.kind === "savings") {
+    const { data: saving } = await db
+      .from("savings_outcomes")
+      .select("id, title, amount, currency, status, verified_at")
+      .eq("id", contextRef.id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (saving) currentViewContext = `Savings Outcome: ${saving.title} — ${saving.currency} ${saving.amount} (${saving.status})`;
   }
 
   let attachedDocuments: AssistantBoundedContext["attachedDocuments"] = [];
@@ -177,7 +231,7 @@ export async function buildAssistantContext(
     const [{ data: documents }, { data: linkedInvoices }] = await Promise.all([
       db
         .from("documents")
-        .select("id, original_filename, extraction_summary")
+        .select("id, original_filename, status, extraction_summary")
         .in("id", uniqueDocumentIds)
         .eq("organization_id", organizationId),
       db
@@ -198,6 +252,7 @@ export async function buildAssistantContext(
     attachedDocuments = (documents ?? []).map((document) => ({
       id: document.id,
       filename: document.original_filename,
+      status: document.status,
       extractionSummary: document.extraction_summary ?? null,
       category: categoriesByDocument.get(document.id) ?? null,
     }));
@@ -223,7 +278,7 @@ export async function buildAssistantContext(
   const { data: invoiceRows } = await db
     .from("invoices")
     .select(
-      "id, total_amount, invoice_date, review_status, organization_vendor_id, organization_vendors(vendors(canonical_name, category))",
+      "id, total_amount, invoice_date, review_status, document_id, organization_vendor_id, organization_vendors(vendors(canonical_name, category))",
     )
     .eq("organization_id", organizationId)
     .order("invoice_date", { ascending: false })
@@ -238,8 +293,70 @@ export async function buildAssistantContext(
       amount: invoice.total_amount ?? 0,
       date: invoice.invoice_date ?? "Unknown",
       status: invoice.review_status ?? "recorded",
+      documentId: invoice.document_id ?? null,
     };
   });
+
+  const invoiceIds = recentInvoices.map((invoice) => invoice.id);
+  const [{ data: expenseRows }, { data: lineItemRows }, { data: savingsRows }, { data: approvalRows }] = await Promise.all([
+    db
+      .from("expenses")
+      .select("id, amount, currency, category, period_start, period_end, organization_vendors(vendors(canonical_name))")
+      .eq("organization_id", organizationId)
+      .order("period_end", { ascending: false })
+      .limit(12),
+    invoiceIds.length
+      ? db.from("invoice_line_items").select("invoice_id, description, amount, category").eq("organization_id", organizationId).in("invoice_id", invoiceIds).order("amount", { ascending: false }).limit(40)
+      : Promise.resolve({ data: [], error: null }),
+    db.from("savings_outcomes").select("id, title, amount, currency, status, verified_at").eq("organization_id", organizationId).eq("status", "verified").order("verified_at", { ascending: false }).limit(10),
+    db.from("approvals").select("id, resource_type, resource_id, decision, created_at").eq("organization_id", organizationId).eq("decision", "pending").order("created_at", { ascending: false }).limit(10),
+  ]);
+
+  const { data: catalogRows } = await db
+    .from("vendors")
+    .select("id, canonical_name, category, website, catalog_status")
+    .in("catalog_status", ["verified", "candidate"])
+    .order("catalog_status", { ascending: true })
+    .order("canonical_name", { ascending: true })
+    .limit(40);
+  const supplierCatalog = (catalogRows ?? []).map((vendor) => ({
+    id: vendor.id,
+    name: vendor.canonical_name,
+    category: vendor.category,
+    website: vendor.website,
+    status: vendor.catalog_status,
+  }));
+
+  const recentExpenses = (expenseRows ?? []).map((expense) => ({
+    id: expense.id,
+    vendorName: joinedVendor(expense.organization_vendors).name,
+    category: expense.category,
+    amount: expense.amount,
+    currency: expense.currency,
+    periodStart: expense.period_start,
+    periodEnd: expense.period_end,
+  }));
+  const verifiedSavings = (savingsRows ?? []).map((saving) => ({
+    id: saving.id,
+    title: saving.title,
+    amount: saving.amount,
+    currency: saving.currency,
+    status: saving.status,
+    verifiedAt: saving.verified_at,
+  }));
+  const pendingApprovals = (approvalRows ?? []).map((approval) => ({
+    id: approval.id,
+    resourceType: approval.resource_type,
+    resourceId: approval.resource_id,
+    decision: approval.decision,
+    createdAt: approval.created_at,
+  }));
+  const recentLineItems = (lineItemRows ?? []).map((line) => ({
+    invoiceId: line.invoice_id,
+    description: line.description,
+    amount: line.amount,
+    category: line.category,
+  }));
 
   const { data: opportunityRows } = await db
     .from("opportunities")
@@ -289,6 +406,11 @@ export async function buildAssistantContext(
     attachedDocuments,
     recentVendors,
     recentInvoices,
+    recentExpenses,
+    verifiedSavings,
+    pendingApprovals,
+    supplierCatalog,
+    recentLineItems,
     openOpportunities,
     upcomingContracts,
   };

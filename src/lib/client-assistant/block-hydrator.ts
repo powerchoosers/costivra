@@ -65,6 +65,15 @@ type ContractRow = {
   organization_vendors: { vendors: { canonical_name: string } | null } | null;
 };
 
+type LineItemRow = {
+  id: string;
+  description: string;
+  amount: number | null;
+  quantity: number | null;
+  unit_price: number | null;
+  category: string | null;
+};
+
 /**
  * Hydrates block requests into authoritative versioned AssistantBlockV1 payloads.
  * Strictly verifies that all requested record IDs belong to the authenticated organization.
@@ -145,7 +154,7 @@ export async function hydrateAssistantBlocks(
                 vendorMatchStatus: inv.vendor_match_status,
                 reconciliationState: inv.reconciliation_status,
                 documentId: inv.document_id,
-                href: `/app/documents/${inv.id}`,
+                href: `/app/documents/${inv.document_id}`,
                 filename: inv.documents?.original_filename ?? "Invoice Document",
               },
             });
@@ -157,7 +166,7 @@ export async function hydrateAssistantBlocks(
           const [id1, id2] = req.invoiceIds;
           const { data } = await db
             .from("invoices")
-            .select("id, invoice_number, invoice_date, total_amount, organization_vendor_id, organization_vendors(vendors(canonical_name))")
+            .select("id, invoice_number, invoice_date, total_amount, document_id, organization_vendor_id, organization_vendors(vendors(canonical_name))")
             .in("id", [id1, id2])
             .eq("organization_id", organizationId);
 
@@ -206,11 +215,107 @@ export async function hydrateAssistantBlocks(
                   differenceAmount: diffCents != null ? diffCents / 100 : null,
                   percentageChange: pctChange != null ? Math.round(pctChange * 10) / 10 : null,
                   vendorName,
-                  href: `/app/documents/${second.id}`,
+                  href: `/app/documents/${second.document_id}`,
                 },
               });
             }
           }
+          break;
+        }
+
+        case "invoice_breakdown": {
+          const { data: invoice } = await db
+            .from("invoices")
+            .select("id, document_id, invoice_number, invoice_date, total_amount, currency, organization_vendor_id, organization_vendors(vendors(canonical_name))")
+            .eq("id", req.invoiceId)
+            .eq("organization_id", organizationId)
+            .maybeSingle();
+          if (!invoice) break;
+          const { data: lineItems } = await db
+            .from("invoice_line_items")
+            .select("id, description, amount, quantity, unit_price, category")
+            .eq("invoice_id", req.invoiceId)
+            .eq("organization_id", organizationId)
+            .order("amount", { ascending: false })
+            .limit(20);
+          const rows = (lineItems ?? []) as LineItemRow[];
+          const total = rows.reduce((sum, row) => sum + (row.amount ?? 0), 0);
+          blocks.push({
+            id: `ibreakdown-${invoice.id}`,
+            type: "invoice_breakdown",
+            payload: {
+              invoiceId: invoice.id,
+              invoiceNumber: invoice.invoice_number,
+              invoiceDate: invoice.invoice_date,
+              vendorName: (invoice.organization_vendors as { vendors?: { canonical_name?: string } | null } | null)?.vendors?.canonical_name ?? null,
+              currency: invoice.currency ?? "USD",
+              invoiceTotal: invoice.total_amount,
+              lineItemTotal: total,
+              lineItems: rows.map((row) => ({
+                id: row.id,
+                description: row.description,
+                amount: row.amount,
+                quantity: row.quantity,
+                unitPrice: row.unit_price,
+                category: row.category,
+              })),
+              href: `/app/documents/${invoice.document_id}`,
+            },
+          });
+          break;
+        }
+
+        case "energy_review_path": {
+          if (req.vendorRelationshipId) {
+            const { data: relationship } = await db.from("organization_vendors").select("id, vendors(canonical_name, category)").eq("id", req.vendorRelationshipId).eq("organization_id", organizationId).maybeSingle();
+            if (!relationship) break;
+          }
+          blocks.push({
+            id: `energy-path-${req.vendorRelationshipId ?? organizationId}`,
+            type: "energy_review_path",
+            payload: {
+              vendorRelationshipId: req.vendorRelationshipId ?? null,
+              title: "Choose how to handle the energy review",
+              message: "Costivra can organize the evidence and renewal timing, but it does not choose a supplier or guarantee a rate.",
+              options: [
+                { id: "keep", label: "Keep the review in Costivra", detail: "Save the evidence and decide later.", action: "save" },
+                { id: "export", label: "Export for an advisor", detail: "Choose an advisor and share only the records you approve.", action: "export" },
+                { id: "ucep", label: "Request a disclosed partner review", detail: "Review the relationship disclosure before requesting an optional UCEP review.", action: "disclosure", href: "/ucep-disclosure" },
+              ],
+            },
+          });
+          break;
+        }
+
+        case "supplier_options": {
+          const { data: catalogRows } = await db
+            .from("vendors")
+            .select("id, canonical_name, category, website, catalog_status")
+            .in("catalog_status", ["verified", "candidate"])
+            .order("catalog_status", { ascending: true })
+            .order("canonical_name", { ascending: true })
+            .limit(40);
+          const requestedCategory = req.category?.trim().toLowerCase();
+          const options = (catalogRows ?? [])
+            .filter((vendor) => !requestedCategory || String(vendor.category ?? "").toLowerCase().includes(requestedCategory))
+            .slice(0, 6)
+            .map((vendor) => ({
+              vendorId: vendor.id,
+              name: vendor.canonical_name,
+              category: vendor.category,
+              website: vendor.website,
+              status: vendor.catalog_status,
+            }));
+          blocks.push({
+            id: `supplier-options-${organizationId}-${requestedCategory ?? "all"}`,
+            type: "supplier_options",
+            payload: {
+              category: req.category ?? null,
+              currentVendorName: req.currentVendorName ?? null,
+              options,
+              href: "/app/vendors",
+            },
+          });
           break;
         }
 
@@ -246,12 +351,14 @@ export async function hydrateAssistantBlocks(
         }
 
         case "spend_trend": {
-          const { data } = await db
+          let query = db
             .from("invoices")
             .select("id, total_amount, invoice_date, organization_vendors(vendors(canonical_name))")
             .eq("organization_id", organizationId)
             .order("invoice_date", { ascending: false })
             .limit(6);
+          if (req.vendorRelationshipId) query = query.eq("organization_vendor_id", req.vendorRelationshipId);
+          const { data } = await query;
 
           const invoices = (data ?? []) as unknown as InvoiceRow[];
           const periods = invoices.map((inv) => ({
@@ -367,28 +474,27 @@ export async function hydrateAssistantBlocks(
 
         case "savings_summary": {
           const { data } = await db
-            .from("opportunities")
-            .select("id, title, estimated_annual_value, category")
+            .from("savings_outcomes")
+            .select("id, title, amount, currency, status, opportunity_id")
             .eq("organization_id", organizationId)
-            .eq("status", "implemented")
+            .eq("status", "verified")
             .limit(5);
 
-          const opps = (data ?? []) as unknown as OppRow[];
-          const totalVerified = opps.reduce((sum, o) => sum + (o.estimated_annual_value ?? 0), 0);
-          const outcomes = opps.map((o) => ({
-            savingsId: o.id,
-            title: o.title,
-            category: o.category ?? "General",
-            amount: o.estimated_annual_value ?? 0,
-            href: `/app/opportunities/${o.id}`,
+          const outcomes = (data ?? []).map((saving) => ({
+            savingsId: saving.id,
+            title: saving.title,
+            category: "Verified outcome",
+            amount: saving.amount,
+            href: saving.opportunity_id ? `/app/opportunities/${saving.opportunity_id}` : "/app/opportunities",
           }));
+          const totalVerified = outcomes.reduce((sum, outcome) => sum + (outcome.amount ?? 0), 0);
 
           blocks.push({
             id: `ssummary-${organizationId}`,
             type: "savings_summary",
             payload: {
               totalVerifiedValue: totalVerified,
-              currency: "USD",
+              currency: data?.[0]?.currency ?? "USD",
               outcomeCount: outcomes.length,
               outcomes,
               href: "/app/opportunities",
@@ -398,22 +504,38 @@ export async function hydrateAssistantBlocks(
         }
 
         case "approval_queue": {
-          const { data } = await db
-            .from("opportunities")
-            .select("id, title, estimated_annual_value, status")
+          const [{ data }, { data: referralRequests }] = await Promise.all([
+            db
+            .from("approvals")
+            .select("id, resource_type, resource_id, decision, created_at")
             .eq("organization_id", organizationId)
-            .eq("status", "pending_review")
-            .limit(5);
+            .eq("decision", "pending")
+            .limit(5),
+            db
+              .from("partner_referral_requests")
+              .select("id, purpose, status, created_at, partner_destinations(display_name)")
+              .eq("organization_id", organizationId)
+              .eq("status", "awaiting_approval")
+              .order("created_at", { ascending: false })
+              .limit(5),
+          ]);
 
-          const opps = (data ?? []) as unknown as OppRow[];
-          const actions = opps.map((o) => ({
-            actionId: o.id,
-            title: o.title,
-            actionType: "Review Opportunity",
-            annualValue: o.estimated_annual_value ?? 0,
-            status: o.status,
-            href: `/app/opportunities/${o.id}`,
+          const actions = (data ?? []).map((approval) => ({
+            actionId: approval.id,
+            title: `${approval.resource_type} requires a decision`,
+            actionType: approval.resource_type,
+            annualValue: null,
+            status: approval.decision,
+            href: "/app/approvals",
           }));
+          actions.push(...(referralRequests ?? []).map((request) => ({
+            actionId: request.id,
+            title: `${(request.partner_destinations as { display_name?: string } | null)?.display_name ?? "Partner review"} requires a decision`,
+            actionType: "partner_referral",
+            annualValue: null,
+            status: request.status,
+            href: "/app/settings",
+          })));
 
           blocks.push({
             id: `aqueue-${organizationId}`,

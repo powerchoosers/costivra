@@ -55,6 +55,8 @@ export async function POST(
         completedAt,
         citations: result.citations,
         blocks: result.blocks,
+        followUps: result.followUps,
+        missingInformation: result.missingInformation,
       },
     });
   } catch (error) {

@@ -317,9 +317,10 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
           clientUploadId,
           updates: {
             documentId: data.documentId,
-            status: data.outcome === "processed" || data.outcome === "duplicate" ? "processed" : "rejected",
+            status: data.outcome === "processed" || data.outcome === "duplicate" ? "processed" : data.outcome === "quarantined" ? "quarantined" : "rejected",
             invoiceId: data.invoiceId,
             reviewStatus: data.reviewStatus,
+            warning: data.warning || data.error,
           },
         });
       } else {

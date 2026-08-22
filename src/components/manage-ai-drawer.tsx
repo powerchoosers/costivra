@@ -149,7 +149,10 @@ export function ManageAiDrawer({
 
   useEffect(() => {
     if (!open) return;
-    if (initialQuestion?.trim()) setInput(initialQuestion.trim());
+    const initialQuestionText = initialQuestion?.trim();
+    const initialQuestionTimer = initialQuestionText
+      ? window.setTimeout(() => setInput(initialQuestionText), 0)
+      : undefined;
     const loadTimer = window.setTimeout(() => {
       void loadSuggestions();
       void loadSessions();
@@ -158,6 +161,7 @@ export function ManageAiDrawer({
     return () => {
       window.clearTimeout(loadTimer);
       window.clearTimeout(focusTimer);
+      if (initialQuestionTimer) window.clearTimeout(initialQuestionTimer);
     };
     // Suggestions refresh whenever the operator opens the drawer or changes CRM sections.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2040,21 +2040,49 @@ function TableFooter({
 
 function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (question?: string) => void }) {
   const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState<Array<{ id: string; role: "user" | "assistant"; content: string; sources?: Array<{ id: string; label: string; detail: string; href: string }> }>>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onOpenAssistant(question.trim() || undefined);
+    const cleanQuestion = question.trim();
+    if (cleanQuestion.length < 2 || sending) return;
+    setQuestion("");
+    setError(null);
+    setMessages((current) => [...current, { id: crypto.randomUUID(), role: "user", content: cleanQuestion }]);
+    setSending(true);
+    try {
+      const response = await fetch("/api/manage/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: cleanQuestion, section: "overview", sessionId }),
+      });
+      const result = await response.json().catch(() => null) as { answer?: string; session?: { id?: string }; sources?: Array<{ id: string; label: string; detail: string; href: string }>; error?: string } | null;
+      if (!response.ok || !result?.answer) throw new Error(result?.error || "Costivra could not answer that question.");
+      if (result.session?.id) setSessionId(result.session.id);
+      setMessages((current) => [...current, { id: crypto.randomUUID(), role: "assistant", content: result.answer!, sources: result.sources ?? [] }]);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Costivra could not answer that question.");
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
-    <section className="manage-dashboard-assistant" aria-labelledby="manage-dashboard-assistant-title">
+    <section className={`manage-dashboard-assistant${messages.length ? " manage-dashboard-assistant--active" : ""}`} aria-labelledby="manage-dashboard-assistant-title">
       <div className="manage-dashboard-assistant__copy">
         <h2 id="manage-dashboard-assistant-title">What would you like to find?</h2>
         <p>Ask about an account, contact, follow-up, or the next action in your client work.</p>
       </div>
-      <form className="manage-dashboard-assistant__form" onSubmit={submit}>
+      {messages.length > 0 && <div className="manage-dashboard-assistant__thread" aria-live="polite">
+        {messages.map((message) => <div key={message.id} className={`manage-dashboard-assistant__message manage-dashboard-assistant__message--${message.role}`}><strong>{message.role === "assistant" ? "Costivra" : "You"}</strong><p>{message.content}</p>{message.sources && message.sources.length > 0 && <div className="manage-dashboard-assistant__sources"><span>Referenced records</span>{message.sources.slice(0, 4).map((source) => <a key={source.id} href={source.href}><strong>{source.label}</strong><small>{source.detail}</small></a>)}</div>}</div>)}
+        {sending && <p className="manage-dashboard-assistant__thinking">Costivra is reviewing client operations…</p>}
+      </div>}
+      <form className="manage-dashboard-assistant__form" onSubmit={(event) => void submit(event)}>
         <AssistantComposerShell>
-          <AssistantIconButton label="Open Ask Costivra" onClick={() => onOpenAssistant(question.trim() || undefined)}>
+          <AssistantIconButton label="Open full Ask Costivra history" onClick={() => onOpenAssistant(question.trim() || undefined)}>
             <CostivraAssistantIcon size={18} />
           </AssistantIconButton>
           <textarea
@@ -2071,11 +2099,12 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
             rows={1}
             aria-label="Ask Costivra about client operations"
           />
-          <button type="submit" className="manage-dashboard-assistant__send" aria-label="Open Ask Costivra">
-            <ArrowUpRight size={17} aria-hidden="true" />
+          <button type="submit" className="manage-dashboard-assistant__send" aria-label="Send question" disabled={sending || question.trim().length < 2}>
+            {sending ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <ArrowUpRight size={17} aria-hidden="true" />}
           </button>
         </AssistantComposerShell>
       </form>
+      {error && <p className="manage-dashboard-assistant__error" role="alert">{error}</p>}
     </section>
   );
 }

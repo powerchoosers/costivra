@@ -12873,3 +12873,138 @@ button.workspace-notification-row:focus-visible {
     animation-delay: 190ms;
   }
 }
+
+/* Inline Manage assistant: keep the first question quiet and centered, then
+   let the conversation grow without turning the dashboard into a drawer. */
+.manage-dashboard-assistant {
+  display: grid;
+  gap: 20px;
+  justify-items: center;
+  margin: 36px auto 40px;
+  max-width: 860px;
+  text-align: center;
+}
+
+.manage-dashboard-assistant--active {
+  justify-items: stretch;
+  text-align: left;
+}
+
+.manage-dashboard-assistant__copy {
+  max-width: 560px;
+}
+
+.manage-dashboard-assistant__copy h2 {
+  margin: 0;
+  color: var(--ink, #17233a);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  letter-spacing: -0.03em;
+}
+
+.manage-dashboard-assistant__copy p {
+  margin: 8px 0 0;
+  color: var(--muted, #687b99);
+}
+
+.manage-dashboard-assistant__thread {
+  display: grid;
+  gap: 12px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 4px 2px 8px;
+  scrollbar-gutter: stable;
+}
+
+.manage-dashboard-assistant__message {
+  max-width: min(680px, 92%);
+  padding: 14px 16px;
+  border: 1px solid rgba(38, 61, 96, .12);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink, #17233a);
+  box-shadow: 0 8px 24px rgba(35, 54, 86, .05);
+}
+
+.manage-dashboard-assistant__message--user {
+  justify-self: end;
+  background: #f3f7ff;
+  border-color: rgba(53, 103, 196, .16);
+}
+
+.manage-dashboard-assistant__message strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #536783;
+  font-size: .72rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.manage-dashboard-assistant__message p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.manage-dashboard-assistant__thinking,
+.manage-dashboard-assistant__error {
+  margin: 0;
+  color: #687b99;
+  font-size: .9rem;
+}
+
+.manage-dashboard-assistant__sources {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(38, 61, 96, .1);
+}
+
+.manage-dashboard-assistant__sources > span {
+  color: #687b99;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.manage-dashboard-assistant__sources a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid rgba(38, 61, 96, .1);
+  border-radius: 10px;
+  color: var(--ink, #17233a);
+  text-decoration: none;
+}
+
+.manage-dashboard-assistant__sources a:hover,
+.manage-dashboard-assistant__sources a:focus-visible {
+  border-color: rgba(53, 103, 196, .35);
+  background: #f7faff;
+}
+
+.manage-dashboard-assistant__sources a strong,
+.manage-dashboard-assistant__sources a small {
+  display: block;
+  margin: 0;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.manage-dashboard-assistant__sources a small {
+  margin-top: 2px;
+  color: #687b99;
+}
+
+.manage-dashboard-assistant__error {
+  color: #a14d45;
+}
+
+.manage-dashboard-assistant__send:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}

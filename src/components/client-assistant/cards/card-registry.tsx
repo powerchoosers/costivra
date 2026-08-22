@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
+
 import {
   ReceiptText,
   Building2,
@@ -12,6 +15,7 @@ import {
   ListOrdered,
   Layers,
   ExternalLink,
+  ArrowRight,
 } from "@/lib/icons";
 import type { AssistantBlockV1 } from "@/lib/client-assistant/types";
 import { formatFinancialDate } from "@/lib/ui/date-format";
@@ -134,6 +138,85 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
       );
     }
 
+    case "invoice_breakdown": {
+      const lineItems = Array.isArray(p.lineItems) ? (p.lineItems as Array<Record<string, unknown>>) : [];
+      const max = Math.max(...lineItems.map((item) => Math.abs(Number(item.amount ?? 0))), 1);
+      return (
+        <AssistantCardShell
+          icon={<ReceiptText size={18} />}
+          label="Bill detail"
+          title={String(p.vendorName ?? "Invoice breakdown")}
+          subtitle={p.invoiceNumber ? `Invoice #${String(p.invoiceNumber)}` : "Recorded line items"}
+          href={String(p.href ?? "/app/documents")}
+        >
+          <CardMetric amount={p.invoiceTotal as number} currency={String(p.currency ?? "USD")} />
+          {lineItems.length > 0 ? (
+            <div className="card-line-item-list" aria-label="Invoice line items">
+              {lineItems.slice(0, 8).map((item, index) => {
+                const amount = Number(item.amount ?? 0);
+                return (
+                  <div key={String(item.id ?? index)} className="card-line-item-row">
+                    <div className="card-line-item-copy">
+                      <strong>{String(item.description ?? "Unlabeled charge")}</strong>
+                      {item.category ? <span className="muted">{String(item.category)}</span> : null}
+                    </div>
+                    <div className="card-line-item-value">
+                      <span>${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className="card-line-item-track"><span style={{ width: `${Math.max(4, Math.round((Math.abs(amount) / max) * 100))}%` }} /></span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : <p className="card-helper-note">No structured line items are available yet. The source document is still the record to review.</p>}
+        </AssistantCardShell>
+      );
+    }
+
+    case "energy_review_path": {
+      return <EnergyReviewPathCard payload={p} />;
+    }
+
+    case "supplier_options": {
+      const options = Array.isArray(p.options) ? (p.options as Array<Record<string, unknown>>) : [];
+      return (
+        <AssistantCardShell
+          icon={<Building2 size={18} />}
+          label="Supplier directory"
+          title="Reference options for renewal"
+          subtitle={p.category ? String(p.category) : "Current catalog records"}
+          href={String(p.href ?? "/app/vendors")}
+        >
+          <p className="card-helper-note">
+            These are directory records to investigate, not quotes, endorsements, or a ranked recommendation. Confirm availability, terms, and pricing before choosing.
+          </p>
+          {options.length > 0 ? (
+            <div className="card-actions-list" aria-label="Supplier directory options">
+              {options.map((option, index) => (
+                option.website ? (
+                  <a key={String(option.vendorId ?? index)} className="card-action-row" href={String(option.website).startsWith("http") ? String(option.website) : `https://${String(option.website)}`} target="_blank" rel="noreferrer">
+                    <span>
+                      <strong>{String(option.name ?? "Supplier")}</strong>
+                      <small className="muted">{String(option.status ?? "catalog record")} · {String(option.category ?? "Category not recorded")}</small>
+                    </span>
+                    <ExternalLink size={14} />
+                  </a>
+                ) : (
+                  <Link key={String(option.vendorId ?? index)} className="card-action-row" href="/app/vendors">
+                    <span>
+                      <strong>{String(option.name ?? "Supplier")}</strong>
+                      <small className="muted">{String(option.status ?? "catalog record")} · {String(option.category ?? "Category not recorded")}</small>
+                    </span>
+                    <ArrowRight size={14} />
+                  </Link>
+                )
+              ))}
+            </div>
+          ) : <p className="card-helper-note">No matching catalog records are available. Add the category or ask Costivra to review the current supplier landscape.</p>}
+        </AssistantCardShell>
+      );
+    }
+
     case "vendor_summary": {
       return (
         <AssistantCardShell
@@ -166,7 +249,7 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
         >
           <CardMetric amount={Number(p.total ?? 0)} period="total" />
           {periods.length > 0 && (
-            <div className="card-mini-bars">
+            <div className="card-mini-bars" role="img" aria-label={`Spend trend across ${periods.length} periods`}>
               {periods.map((per, idx) => {
                 const amt = Number(per.amount ?? 0);
                 const maxAmt = Math.max(...periods.map((x) => Number(x.amount ?? 0)), 1);
@@ -307,18 +390,23 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
 
     case "document_ingestion": {
       const summary = p.extractionSummary ? String(p.extractionSummary) : null;
+      const status = String(p.status ?? "processing");
+      const isSafe = ["processed", "reviewed", "needs_review"].includes(status);
+      const isQuarantined = status === "quarantined";
       return (
         <AssistantCardShell
           icon={<ShieldCheck size={18} />}
           label="Source File Ingestion"
           title={String(p.filename)}
           subtitle={p.byteSize ? `${Math.round(Number(p.byteSize) / 1024)} KB` : undefined}
-          status={<CardStatus tone={p.status === "processed" ? "success" : "warning"}>{String(p.status)}</CardStatus>}
+          status={<CardStatus tone={isSafe ? "success" : "warning"}>{status}</CardStatus>}
           href={String(p.href ?? `/app/documents/${p.documentId}`)}
         >
           <div className="card-ingestion-steps">
-            <div className="card-step-row"><CheckCircle2 size={13} className="text-success" /> Security malware scan passed</div>
-            <div className="card-step-row"><CheckCircle2 size={13} className="text-success" /> Structured text extracted</div>
+            {isSafe ? <>
+              <div className="card-step-row"><CheckCircle2 size={13} className="text-success" /> Security review completed</div>
+              <div className="card-step-row"><CheckCircle2 size={13} className="text-success" /> Structured text extracted</div>
+            </> : <div className="card-step-row card-step-row--warning"><AlertTriangle size={13} /> {isQuarantined ? "Security review is still required" : "Source is not ready for analysis"}</div>}
             {summary && <p className="card-extraction-summary">{summary}</p>}
           </div>
         </AssistantCardShell>
@@ -368,4 +456,68 @@ export function RenderAssistantCard({ block }: { block: AssistantBlockV1 }) {
     default:
       return null;
   }
+}
+
+function EnergyReviewPathCard({ payload }: { payload: Record<string, unknown> }) {
+  const [state, setState] = useState<"idle" | "loading" | "consent" | "consented" | "declined">("idle");
+  const [referralId, setReferralId] = useState<string | null>(null);
+  const [disclosure, setDisclosure] = useState<string | null>(null);
+  const [disclosureVersion, setDisclosureVersion] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function startRequest() {
+    setState("loading");
+    setError(null);
+    try {
+      const response = await fetch("/api/portal/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start",
+          destinationSlug: "ucep-energy-review",
+          purpose: "Request an optional disclosed commercial energy review.",
+          requestedScope: { includeSourceDocuments: false, includeExtractedFields: true, includeFinancialAmounts: false },
+          sourceContext: { vendorRelationshipId: payload.vendorRelationshipId ?? null },
+        }),
+      });
+      const result = await response.json().catch(() => null) as { referral?: { id?: string }; destination?: { disclosure_text?: string; disclosure_version?: string }; error?: string } | null;
+      if (!response.ok || !result?.referral?.id || !result.destination?.disclosure_text) throw new Error(result?.error || "The partner review request could not be prepared.");
+      setReferralId(result.referral.id);
+      setDisclosure(result.destination.disclosure_text);
+      setDisclosureVersion(result.destination.disclosure_version ?? null);
+      setState("consent");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "The partner review request could not be prepared.");
+      setState("idle");
+    }
+  }
+
+  async function decide(granted: boolean) {
+    if (!referralId) return;
+    setState("loading");
+    const response = await fetch("/api/portal/referrals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "consent", referralId, granted }),
+    });
+    const result = await response.json().catch(() => null) as { error?: string } | null;
+    if (!response.ok) {
+      setError(result?.error || "The consent decision could not be recorded.");
+      setState("consent");
+      return;
+    }
+    setState(granted ? "consented" : "declined");
+  }
+
+  return (
+    <AssistantCardShell icon={<Building2 size={18} />} label="Energy review" title={String(payload.title)} subtitle="Customer-controlled next step">
+      <p className="card-helper-note">{String(payload.message)}</p>
+      {state === "idle" && <div className="card-actions-list"><button type="button" className="card-action-row card-action-row--button" onClick={() => void startRequest()}><span><strong>Request the disclosed partner review</strong><small className="muted">Costivra will show the disclosure before anything is shared.</small></span><ArrowRight size={14} /></button><Link className="card-action-row" href="/ucep-disclosure"><span><strong>Read the relationship disclosure</strong><small className="muted">See the relationship and your alternatives.</small></span><ExternalLink size={14} /></Link></div>}
+      {state === "loading" && <p className="card-helper-note">Preparing the consent record…</p>}
+      {state === "consent" && disclosure && <div className="card-consent-box"><strong>Before you continue</strong><p>{disclosure}</p><small>Disclosure version: {disclosureVersion ?? "recorded"}</small><div className="card-consent-actions"><button type="button" className="card-action-button card-action-button--primary" onClick={() => void decide(true)}>I understand and want to request this review</button><button type="button" className="card-action-button" onClick={() => void decide(false)}>Decline</button></div></div>}
+      {state === "consented" && <p className="card-helper-note">Your consent is recorded and the request is awaiting authorized review. Nothing has been shared externally, and no supplier enrollment or rate commitment has been made.</p>}
+      {state === "declined" && <p className="card-helper-note">No partner sharing was authorized. Your review remains in Costivra.</p>}
+      {error && <p className="card-notice-message">{error}</p>}
+    </AssistantCardShell>
+  );
 }

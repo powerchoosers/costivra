@@ -21,6 +21,7 @@ import {
   mergeAndDedupeBlockRequests,
 } from "./presentation-planner";
 import { categoryIntelligence } from "@/lib/category-intelligence/service";
+import { parseClientAssistantModelOutput } from "./schemas";
 
 export interface ExecuteTurnInput {
   db: SupabaseClient;
@@ -46,6 +47,8 @@ export interface ExecuteTurnResult {
     quote: string;
   }>;
   blocks: AssistantBlockV1[];
+  followUps: string[];
+  missingInformation: string[];
   status: "complete" | "failed";
   error?: string;
 }
@@ -208,11 +211,12 @@ export async function executeAssistantTurn(
         assistantMessageId: existingAssistantMessage.id,
         content: existingAssistantMessage.content || "",
         citations:
-          ((existingAssistantMessage.metadata as Record<string, unknown>)
-            ?.citations as ExecuteTurnResult["citations"]) || [],
+          (existingAssistantMessage.citations as ExecuteTurnResult["citations"]) || [],
         blocks:
           (existingAssistantMessage.response_blocks as unknown as AssistantBlockV1[]) ||
           [],
+        followUps: ((existingAssistantMessage.metadata as Record<string, unknown>)?.follow_ups as string[]) || [],
+        missingInformation: ((existingAssistantMessage.metadata as Record<string, unknown>)?.missing_information as string[]) || [],
         status:
           existingAssistantMessage.status === "failed" ? "failed" : "complete",
       };
@@ -224,7 +228,7 @@ export async function executeAssistantTurn(
     const uniqueIds = Array.from(new Set(attachmentIds));
     const { data: documents, error: documentError } = await db
       .from("documents")
-      .select("id, original_filename")
+        .select("id, original_filename, status")
       .eq("organization_id", organizationId)
       .in("id", uniqueIds);
 
@@ -241,6 +245,27 @@ export async function executeAssistantTurn(
     contextRef,
     authorizedDocumentIds.length > 0 ? authorizedDocumentIds : undefined,
   );
+
+  const citations: ExecuteTurnResult["citations"] = [];
+  if (boundedContext.attachedDocuments.length > 0) {
+    const attachedIds = boundedContext.attachedDocuments.map((document) => document.id);
+    const { data: evidenceRows } = await db
+      .from("evidence_references")
+      .select("id, document_id, page_number, text_excerpt")
+      .in("document_id", attachedIds)
+      .order("page_number", { ascending: true })
+      .limit(10);
+    const filenames = new Map(boundedContext.attachedDocuments.map((document) => [document.id, document.filename]));
+    for (const evidence of evidenceRows ?? []) {
+      citations.push({
+        id: evidence.id,
+        documentId: evidence.document_id,
+        documentName: filenames.get(evidence.document_id) ?? "Source document",
+        pageNumber: evidence.page_number,
+        quote: evidence.text_excerpt,
+      });
+    }
+  }
 
   const { data: priorRaw } = await db
     .from("chat_messages")
@@ -369,7 +394,9 @@ Doctrine (non-negotiable):
 ${categoryExpertSection}
 
 ${boundedContext.currentViewContext ? `Current Context: ${boundedContext.currentViewContext}` : ""}
-${authorizedDocumentIds.length > 0 ? `Attached Documents (${authorizedDocumentIds.length}): ${boundedContext.attachedDocuments.map((document) => document.filename).join(", ")}` : ""}
+${authorizedDocumentIds.length > 0 ? `Attached Documents (${authorizedDocumentIds.length}): ${boundedContext.attachedDocuments.map((document) => `${document.filename} [${document.status}]`).join(", ")}` : ""}
+
+Attachment safety: documents with status quarantined, rejected, failed, or still processing are not safe source evidence. Do not summarize or cite their contents; say that security/extraction review is still required.
 
 Vendor Overview (top by spend):
 ${vendorSummary || "No vendors on record."}
@@ -377,16 +404,37 @@ ${vendorSummary || "No vendors on record."}
 Recent Invoices:
 ${invoiceSummary || "No recent invoices."}
 
+Recent Expenses:
+${boundedContext.recentExpenses.map((expense) => `${expense.vendorName ?? "Unknown vendor"} — ${expense.currency} ${expense.amount} (${expense.category}) from ${expense.periodStart} to ${expense.periodEnd} [id: ${expense.id}]`).join("\n") || "No expense records."}
+
+Recent Invoice Line Items:
+${boundedContext.recentLineItems.map((line) => `${line.description} — ${line.amount}${line.category ? ` (${line.category})` : ""} [invoice id: ${line.invoiceId}]`).join("\n") || "No line items are available."}
+
 Open Opportunities:
 ${opportunitySummary || "No open opportunities."}
 
 Upcoming Contract Dates (ordered by deterministic code):
 ${contractSummary || "No upcoming contract dates on record."}
 
+Verified Savings Outcomes (only records explicitly marked verified):
+${boundedContext.verifiedSavings.map((saving) => `${saving.title}: ${saving.currency} ${saving.amount}; verified ${saving.verifiedAt ?? "date not recorded"} [id: ${saving.id}]`).join("\n") || "No verified savings outcomes."}
+
+Pending Approvals:
+${boundedContext.pendingApprovals.map((approval) => `${approval.resourceType} ${approval.resourceId}; requested ${approval.createdAt} [id: ${approval.id}]`).join("\n") || "No pending approvals."}
+
+Supplier Directory (reference candidates, not quotes or endorsements):
+${boundedContext.supplierCatalog.map((vendor) => `${vendor.name}${vendor.category ? ` (${vendor.category})` : ""}${vendor.website ? ` — ${vendor.website}` : ""} [${vendor.status}]`).join("\n") || "No supplier directory records are available."}
+
+Energy referral boundary:
+- Costivra does not select a supplier, rank providers by hidden compensation, or send a referral automatically.
+- If the user asks who to renew with, explain that supplier advice requires a current, comparable review and human choice.
+- The only currently configured optional partner path is a disclosed UCEP review; it requires the disclosure and explicit, purpose-specific consent before any sharing.
+
 Respond with valid JSON matching this schema exactly:
 {
   "answer": "<your response>",
-  "blockRequests": [ { "type": "<block_type>", "invoiceId"?: "<uuid>", "vendorRelationshipId"?: "<uuid>", "opportunityId"?: "<uuid>", "documentId"?: "<uuid>", "invoiceIds"?: ["<uuid>","<uuid>"] } ],
+  "citationIds": ["<known evidence reference id>"],
+  "blockRequests": [ { "type": "<block_type>", "invoiceId"?: "<uuid>", "vendorRelationshipId"?: "<uuid>", "opportunityId"?: "<uuid>", "documentId"?: "<uuid>", "invoiceIds"?: ["<uuid>","<uuid>"], "category"?: "<known category>", "currentVendorName"?: "<known vendor name>" } ],
   "followUps": ["<suggested question>"],
   "missingInformation": ["<what is missing>"]
 }
@@ -395,8 +443,8 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
   const conversation = [
     { role: "system" as const, content: systemPrompt },
     ...priorMessages.map((message) => ({
-      role: message.role as "user",
-      content: message.content,
+      role: "user" as const,
+      content: `${message.role === "assistant" ? "Assistant response" : "User message"}:\n${message.content}`,
     })),
     { role: "user" as const, content: prompt },
   ];
@@ -411,6 +459,9 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
   let responseText = "";
   let modelRequestedBlocks: AssistantBlockRequest[] = [];
   let aiError: string | null = null;
+  let followUps: string[] = [];
+  let missingInformation: string[] = [];
+  let selectedCitationIds: string[] = [];
   const nextContractAnswer = isNextContractExpirationQuestion(prompt)
     ? describeNextContractExpiration(boundedContext.upcomingContracts)
     : null;
@@ -423,34 +474,14 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
         messages: conversation,
         maxTokens: 1400,
         temperature: 0.1,
-      })) as {
-        answer?: string;
-        blockRequests?: AssistantBlockRequest[];
-        followUps?: string[];
-        missingInformation?: string[];
-      } | null;
-
-      if (aiJson?.answer) responseText = aiJson.answer;
-      if (Array.isArray(aiJson?.blockRequests)) {
-        const allowedTypes = new Set([
-          "spend_overview",
-          "invoice_summary",
-          "invoice_comparison",
-          "vendor_summary",
-          "spend_trend",
-          "renewal_timeline",
-          "opportunity",
-          "savings_summary",
-          "approval_queue",
-          "document_ingestion",
-          "vendor_candidate",
-          "evidence_list",
-          "notice",
-        ]);
-        modelRequestedBlocks = (
-          aiJson.blockRequests as AssistantBlockRequest[]
-        ).filter((request) => allowedTypes.has(request.type));
-      }
+      })) as Record<string, unknown> | null;
+      const parsed = parseClientAssistantModelOutput(JSON.stringify(aiJson ?? {}));
+      if (parsed.answer) responseText = parsed.answer;
+      modelRequestedBlocks = parsed.blockRequests;
+      followUps = parsed.followUps;
+      missingInformation = parsed.missingInformation;
+      const allowedCitationIds = new Set(citations.map((citation) => citation.id));
+      selectedCitationIds = parsed.citationIds.filter((id) => allowedCitationIds.has(id));
     } catch (error) {
       console.error("[assistant-service] AI provider error:", error);
       aiError = "provider_error";
@@ -470,6 +501,9 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
     finalBlockRequests,
   );
 
+  const traceId = crypto.randomUUID();
+  const selectedCitations = citations.filter((citation) => selectedCitationIds.includes(citation.id));
+
   const { data: userMessage, error: userMessageError } = await db
     .from("chat_messages")
     .insert({
@@ -478,6 +512,7 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
       role: "user",
       content: prompt,
       status: "complete",
+      citations: [],
     })
     .select("id")
     .single();
@@ -505,8 +540,16 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
       role: "assistant",
       content: responseText,
       status: assistantStatus,
+      citations: JSON.parse(JSON.stringify(selectedCitations)),
+      response_schema_version: "client-assistant-v1",
+      model_identifier: "openrouter",
+      trace_id: traceId,
       response_blocks: JSON.parse(JSON.stringify(hydratedBlocks)),
-      metadata: categoryTrace ? { categoryIntelligence: categoryTrace } : {},
+      metadata: {
+        ...(categoryTrace ? { categoryIntelligence: categoryTrace } : {}),
+        follow_ups: followUps,
+        missing_information: missingInformation,
+      },
       error_code: aiError,
       completed_at: aiError ? null : new Date().toISOString(),
     })
@@ -546,7 +589,6 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
     })
     .eq("id", sessionId);
 
-  const traceId = crypto.randomUUID();
   const { error: auditError } = await db.from("audit_events").insert({
     organization_id: organizationId,
     actor_type: "user",
@@ -567,6 +609,8 @@ Keep blockRequests to a maximum of 5. Only request block types for records expli
     content: responseText,
     citations: [],
     blocks: hydratedBlocks,
+    followUps,
+    missingInformation,
     status: aiError ? "failed" : "complete",
     ...(aiError ? { error: aiError } : {}),
   };
