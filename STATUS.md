@@ -1,5 +1,17 @@
 # Costivra Status
 
+## August 23, 2026 — Production catalog cleanup and vendor picker modes
+
+- Removed the seven synthetic `Acme Cloud Infrastructure <suffix>` seed catalog rows after confirming none had client relationships; Supabase read-back returned zero remaining matches.
+- Changed upload vendor selection to open with existing client vendors, with an explicit magnifying-glass control to switch into global catalog search. Search results remain hidden until the user types.
+- Validation: `git diff --check` passed; Supabase deletion and read-back completed.
+
+## August 23, 2026 — Vendor picker scroll consistency
+
+- Confirmed the repeated “Acme Cloud Infrastructure <suffix>” entries are synthetic seed catalog records: all are verified catalog rows, created by `seed`, and have zero client relationships. They are not real client vendor relationships; cleanup should be handled as a separate catalog-data decision.
+- Registered the upload vendor results panel with the shared workspace scrollbar overlay and contained nested overscroll so scrolling the picker does not move the page behind it. The picker now uses the same light green/yellow scrollbar behavior as the other authenticated workspace scrollports.
+- Validation: `git diff --check` passed; live Supabase read was performed without modifying catalog records.
+
 ## August 23, 2026 — Shared vendor search in bill upload
 
 - Bill upload now searches the shared vendor catalog, not only the current workspace's vendor relationships. Selecting a shared catalog vendor creates the tenant relationship through the existing authorized vendor endpoint before upload, so the bill remains correctly tenant-scoped.

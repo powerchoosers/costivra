@@ -58,6 +58,7 @@ const NATIVE_SCROLL_SELECTOR = [
   ".ask-conversation",
   ".vendor-table-wrap",
   ".vendor-panel-scroll",
+  ".document-upload-vendor-results",
   ".demo-drawer-layer",
   ".demo-drawer-body",
   ".bills-table-wrap",

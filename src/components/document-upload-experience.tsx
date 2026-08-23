@@ -8,6 +8,7 @@ import {
   FileText,
   FileType2,
   LoaderCircle,
+  MagnifyingGlass,
   ShieldCheck,
   UploadCloud,
   X,
@@ -109,6 +110,7 @@ export function DocumentUploadExperience({
   const [vendorId, setVendorId] = useState(presetVendor ?? "");
   const [selectedVendorLabel, setSelectedVendorLabel] = useState<string | null>(null);
   const [vendorSearch, setVendorSearch] = useState("");
+  const [vendorSearchMode, setVendorSearchMode] = useState(false);
   const [vendorPickerOpen, setVendorPickerOpen] = useState(false);
   const [vendorPickerBusy, setVendorPickerBusy] = useState(false);
   const [flowState, setFlowState] = useState<UploadState>("idle");
@@ -178,6 +180,7 @@ export function DocumentUploadExperience({
     setVendorId(presetVendor ?? "");
     setSelectedVendorLabel(null);
     setVendorSearch("");
+    setVendorSearchMode(false);
     setVendorPickerOpen(false);
     setFlow(nextState);
   };
@@ -191,6 +194,7 @@ export function DocumentUploadExperience({
     setVendorId(presetVendor ?? "");
     setSelectedVendorLabel(null);
     setVendorSearch("");
+    setVendorSearchMode(false);
     setVendorPickerOpen(false);
     setFlow("idle");
   };
@@ -273,24 +277,40 @@ export function DocumentUploadExperience({
       <div className="portal-field document-upload-vendor-picker">
         <span>Vendor</span>
         <input type="hidden" name="organizationVendorId" value={vendorId} />
-        <input
-          className="document-upload-vendor-search"
-          value={vendorSearch}
-          disabled={busy || vendorPickerBusy}
-          onChange={(event) => { setVendorSearch(event.target.value); setVendorPickerOpen(true); }}
-          onFocus={() => setVendorPickerOpen(true)}
-          placeholder={vendorId ? selectedVendorName : "Search all vendors"}
-          aria-label="Search all vendors"
-        />
+        <div className="document-upload-vendor-control">
+          {vendorSearchMode ? (
+            <input
+              className="document-upload-vendor-search"
+              autoFocus
+              value={vendorSearch}
+              disabled={busy || vendorPickerBusy}
+              onChange={(event) => { setVendorSearch(event.target.value); setVendorPickerOpen(Boolean(event.target.value.trim())); }}
+              placeholder="Search all vendors"
+              aria-label="Search all vendors"
+            />
+          ) : (
+            <button type="button" className="document-upload-vendor-trigger" disabled={busy || vendorPickerBusy} onClick={() => setVendorPickerOpen((open) => !open)} aria-haspopup="listbox" aria-expanded={vendorPickerOpen}>
+              {selectedVendorName}
+            </button>
+          )}
+          <button type="button" className={`document-upload-vendor-search-button${vendorSearchMode ? " is-active" : ""}`} disabled={busy || vendorPickerBusy} onClick={() => { setVendorSearchMode((active) => !active); setVendorSearch(""); setVendorPickerOpen(false); }} aria-label={vendorSearchMode ? "Show existing vendors" : "Search all vendors"} title={vendorSearchMode ? "Show existing vendors" : "Search all vendors"}>
+            <MagnifyingGlass size={16} />
+          </button>
+        </div>
         {vendorPickerOpen && !busy && (
           <div className="document-upload-vendor-results" role="listbox" aria-label="Available vendors">
             <button type="button" className="document-upload-vendor-clear" onClick={() => { setVendorId(""); setSelectedVendorLabel(null); setVendorSearch(""); setVendorPickerOpen(false); }}>No vendor selected</button>
-            {filteredCatalog.map((vendor) => (
+            {!vendorSearchMode && vendors.map((vendor) => (
+              <button type="button" role="option" aria-selected={vendor.relationshipId === vendorId} key={vendor.relationshipId} onClick={() => { setVendorId(vendor.relationshipId); setSelectedVendorLabel(vendor.name); setVendorPickerOpen(false); }} disabled={vendorPickerBusy}>
+                <strong>{vendor.name}</strong>
+              </button>
+            ))}
+            {vendorSearchMode && vendorSearch.trim() && filteredCatalog.map((vendor) => (
               <button type="button" role="option" aria-selected={vendor.id === vendorId} key={vendor.id} onClick={() => void chooseVendor(vendor)} disabled={vendorPickerBusy}>
                 <strong>{vendor.name}</strong><small>{vendor.category}</small>
               </button>
             ))}
-            {filteredCatalog.length === 0 && <small className="document-upload-vendor-empty">No shared vendor matches that search.</small>}
+            {vendorSearchMode && vendorSearch.trim() && filteredCatalog.length === 0 && <small className="document-upload-vendor-empty">No shared vendor matches that search.</small>}
           </div>
         )}
       </div>
@@ -434,9 +454,13 @@ export function DocumentUploadExperience({
       <style jsx>{`
         .document-upload-experience { display: grid; gap: 16px; }
         .document-upload-vendor-picker { position: relative; display: grid; gap: 7px; }
-        .document-upload-vendor-search { width: 100%; min-height: 42px; border: 1px solid rgba(15, 23, 42, .14); border-radius: 11px; padding: 0 13px; background: #fff; color: #172033; font: inherit; }
+        .document-upload-vendor-control { display: flex; min-height: 42px; border: 1px solid rgba(15, 23, 42, .14); border-radius: 11px; background: #fff; }
+        .document-upload-vendor-search { width: 100%; min-height: 40px; border: 0; border-radius: 11px; padding: 0 13px; outline: 0; background: #fff; color: #172033; font: inherit; }
+        .document-upload-vendor-trigger { min-width: 0; flex: 1; overflow: hidden; border: 0; border-radius: 11px; padding: 0 13px; background: transparent; color: #172033; font: inherit; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+        .document-upload-vendor-search-button { display: grid; width: 42px; flex: 0 0 auto; place-items: center; border: 0; border-left: 1px solid rgba(15, 23, 42, .08); border-radius: 0 10px 10px 0; background: transparent; color: #65748b; cursor: pointer; }
+        .document-upload-vendor-search-button:hover, .document-upload-vendor-search-button.is-active { color: #1749b5; background: #f1f5ff; }
         .document-upload-vendor-search:focus { outline: 2px solid rgba(0, 47, 167, .2); border-color: #1749b5; }
-        .document-upload-vendor-results { position: absolute; z-index: 8; top: 68px; left: 0; right: 0; max-height: 260px; overflow: auto; padding: 6px; border: 1px solid rgba(15, 23, 42, .12); border-radius: 14px; background: #fff; box-shadow: 0 18px 40px rgba(15, 23, 42, .16); }
+        .document-upload-vendor-results { position: absolute; z-index: 8; top: 68px; left: 0; right: 0; max-height: 260px; overflow: auto; overscroll-behavior: contain; padding: 6px; border: 1px solid rgba(15, 23, 42, .12); border-radius: 14px; background: #fff; box-shadow: 0 18px 40px rgba(15, 23, 42, .16); }
         .document-upload-vendor-results button { width: 100%; display: grid; gap: 2px; border: 0; border-radius: 9px; padding: 9px 10px; background: transparent; color: #172033; text-align: left; cursor: pointer; }
         .document-upload-vendor-results button:hover, .document-upload-vendor-results button[aria-selected="true"] { background: #f0f4ff; }
         .document-upload-vendor-results small, .document-upload-vendor-empty { color: #6b7280; font-size: 11px; }
