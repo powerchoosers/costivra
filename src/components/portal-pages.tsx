@@ -5294,6 +5294,11 @@ function CreateModals({
             relationshipId: vendor.relationshipId,
             name: vendor.name,
           }))}
+          vendorCatalog={data.vendorCatalog.map((vendor) => ({
+            id: vendor.id,
+            name: vendor.name,
+            category: vendor.category,
+          }))}
           presetVendor={presetVendor}
           onBusyChange={setBusy}
           onComplete={completeUpload}

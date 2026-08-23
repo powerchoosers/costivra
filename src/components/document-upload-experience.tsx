@@ -18,11 +18,16 @@ import {
   type DocumentUploadCompletion,
 } from "@/lib/documents/client-upload";
 import { DocumentUploadRequestError } from "@/lib/documents/client-upload";
-import { CostivraSelect } from "@/components/ui/costivra-select";
 
 type UploadVendor = {
   relationshipId: string;
   name: string;
+};
+
+type CatalogVendor = {
+  id: string;
+  name: string;
+  category: string;
 };
 
 type UploadState =
@@ -85,12 +90,14 @@ function FileKindIcon({ file }: { file: File }) {
 
 export function DocumentUploadExperience({
   vendors,
+  vendorCatalog,
   presetVendor,
   onComplete,
   onCancel,
   onBusyChange,
 }: {
   vendors: UploadVendor[];
+  vendorCatalog: CatalogVendor[];
   presetVendor?: string;
   onComplete: (completion: DocumentUploadCompletion) => void;
   onCancel: () => void;
@@ -99,6 +106,9 @@ export function DocumentUploadExperience({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [vendorId, setVendorId] = useState(presetVendor ?? "");
+  const [vendorSearch, setVendorSearch] = useState("");
+  const [vendorPickerOpen, setVendorPickerOpen] = useState(false);
+  const [vendorPickerBusy, setVendorPickerBusy] = useState(false);
   const [flowState, setFlowState] = useState<UploadState>("idle");
   const [dragging, setDragging] = useState(false);
   const [stage, setStage] = useState<UploadStage | null>(null);
@@ -109,6 +119,40 @@ export function DocumentUploadExperience({
   const selectedVendorName =
     vendors.find((vendor) => vendor.relationshipId === vendorId)?.name ??
     "Unassigned";
+  const filteredCatalog = vendorCatalog
+    .filter((vendor) => {
+      const query = vendorSearch.trim().toLowerCase();
+      return !query || `${vendor.name} ${vendor.category}`.toLowerCase().includes(query);
+    })
+    .slice(0, 30);
+
+  async function chooseVendor(catalogVendor: CatalogVendor) {
+    const existing = vendors.find((vendor) => vendor.name.toLowerCase() === catalogVendor.name.toLowerCase());
+    if (existing) {
+      setVendorId(existing.relationshipId);
+      setVendorPickerOpen(false);
+      return;
+    }
+    setVendorPickerBusy(true);
+    setErrorMessage(null);
+    try {
+      const response = await fetch("/api/portal/vendors", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ vendorId: catalogVendor.id }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || typeof body.relationshipId !== "string") {
+        throw new Error(typeof body.error === "string" ? body.error : "That vendor could not be added to this workspace.");
+      }
+      setVendorId(body.relationshipId);
+      setVendorPickerOpen(false);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "That vendor could not be selected.");
+    } finally {
+      setVendorPickerBusy(false);
+    }
+  }
 
   const setFlow = (next: UploadState) => {
     setFlowState(next);
@@ -127,6 +171,8 @@ export function DocumentUploadExperience({
     setErrorMessage(null);
     setErrorCode(null);
     setVendorId(presetVendor ?? "");
+    setVendorSearch("");
+    setVendorPickerOpen(false);
     setFlow(nextState);
   };
 
@@ -137,6 +183,8 @@ export function DocumentUploadExperience({
     setErrorMessage(null);
     setErrorCode(null);
     setVendorId(presetVendor ?? "");
+    setVendorSearch("");
+    setVendorPickerOpen(false);
     setFlow("idle");
   };
 
@@ -215,22 +263,30 @@ export function DocumentUploadExperience({
 
   return (
     <form className="document-upload-experience" onSubmit={submit}>
-      <label className="portal-field">
+      <div className="portal-field document-upload-vendor-picker">
         <span>Vendor</span>
-        <CostivraSelect
-          name="organizationVendorId"
-          value={vendorId}
-          disabled={busy}
-          onChange={setVendorId}
-          options={vendors.map((vendor) => ({
-            value: vendor.relationshipId,
-            label: vendor.name,
-          }))}
-          placeholder="No vendor selected"
-          aria-label="Vendor"
-          className="document-upload-vendor-select"
+        <input type="hidden" name="organizationVendorId" value={vendorId} />
+        <input
+          className="document-upload-vendor-search"
+          value={vendorSearch}
+          disabled={busy || vendorPickerBusy}
+          onChange={(event) => { setVendorSearch(event.target.value); setVendorPickerOpen(true); }}
+          onFocus={() => setVendorPickerOpen(true)}
+          placeholder={vendorId ? selectedVendorName : "Search all vendors"}
+          aria-label="Search all vendors"
         />
-      </label>
+        {vendorPickerOpen && !busy && (
+          <div className="document-upload-vendor-results" role="listbox" aria-label="Available vendors">
+            <button type="button" className="document-upload-vendor-clear" onClick={() => { setVendorId(""); setVendorSearch(""); setVendorPickerOpen(false); }}>No vendor selected</button>
+            {filteredCatalog.map((vendor) => (
+              <button type="button" role="option" aria-selected={vendor.id === vendorId} key={vendor.id} onClick={() => void chooseVendor(vendor)} disabled={vendorPickerBusy}>
+                <strong>{vendor.name}</strong><small>{vendor.category}</small>
+              </button>
+            ))}
+            {filteredCatalog.length === 0 && <small className="document-upload-vendor-empty">No shared vendor matches that search.</small>}
+          </div>
+        )}
+      </div>
 
       <label
         className={`document-upload-dropzone${dragging ? " is-dragging" : ""}${selectedFile ? " has-file" : ""}`}
@@ -370,6 +426,14 @@ export function DocumentUploadExperience({
 
       <style jsx>{`
         .document-upload-experience { display: grid; gap: 16px; }
+        .document-upload-vendor-picker { position: relative; display: grid; gap: 7px; }
+        .document-upload-vendor-search { width: 100%; min-height: 42px; border: 1px solid rgba(15, 23, 42, .14); border-radius: 11px; padding: 0 13px; background: #fff; color: #172033; font: inherit; }
+        .document-upload-vendor-search:focus { outline: 2px solid rgba(0, 47, 167, .2); border-color: #1749b5; }
+        .document-upload-vendor-results { position: absolute; z-index: 8; top: 68px; left: 0; right: 0; max-height: 260px; overflow: auto; padding: 6px; border: 1px solid rgba(15, 23, 42, .12); border-radius: 14px; background: #fff; box-shadow: 0 18px 40px rgba(15, 23, 42, .16); }
+        .document-upload-vendor-results button { width: 100%; display: grid; gap: 2px; border: 0; border-radius: 9px; padding: 9px 10px; background: transparent; color: #172033; text-align: left; cursor: pointer; }
+        .document-upload-vendor-results button:hover, .document-upload-vendor-results button[aria-selected="true"] { background: #f0f4ff; }
+        .document-upload-vendor-results small, .document-upload-vendor-empty { color: #6b7280; font-size: 11px; }
+        .document-upload-vendor-clear { border-bottom: 1px solid rgba(15, 23, 42, .08) !important; color: #5b6473 !important; }
         .document-upload-dropzone { position: relative; display: block; min-height: 148px; border: 1px dashed rgba(15, 23, 42, .22); border-radius: 18px; background: linear-gradient(145deg, #fbfdff 0%, #f4f7ff 100%); cursor: pointer; overflow: hidden; transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
         .document-upload-dropzone:hover, .document-upload-dropzone:focus-within, .document-upload-dropzone.is-dragging { border-color: rgba(0, 47, 167, .55); box-shadow: 0 18px 45px rgba(15, 44, 104, .1); transform: translateY(-1px); }
         .document-upload-dropzone input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; opacity: 0; cursor: pointer; }

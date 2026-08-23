@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 23, 2026 — Known vendor creation after extraction
+
+- Added ENGIE to deterministic known-vendor identity resolution and removed the optional enrichment dependency for known identities. A successfully extracted ENGIE bill now creates or reuses the tenant vendor relationship even when public enrichment is unavailable.
+- Live Supabase inspection found the reported Engie upload stopped earlier at image/PDF OCR (`ocr_unavailable`), with no invoice or extracted vendor field created. The existing document still requires an OCR retry.
+- Validation: Node `v24.19.0`; focused vendor and invoice-record tests passed 6/6; full typecheck/lint not rerun because the repository's existing pnpm ignored-build guard blocks the wrapper.
+
 ## August 23, 2026 — Manage steady-state dashboard
 
 - Completed the Manage dashboard companion to App’s steady-state workspace pulse. When there are no open follow-ups or onboarding accounts, Manage now shows client coverage, upcoming client touches, and recent operations activity instead of ending at summary cards and empty panels.

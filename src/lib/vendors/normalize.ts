@@ -98,6 +98,9 @@ export type KnownVendorIdentity = {
 
 export function resolveKnownVendorIdentity(rawName: string): KnownVendorIdentity | null {
   const normalized = normalizeVendorName(rawName);
+  if (normalized === "engie" || normalized.startsWith("engie energy")) {
+    return { canonicalName: "ENGIE", categoryName: "Commercial Energy" };
+  }
   if (normalized === "reliant energy" || normalized.startsWith("reliant energy retail")) {
     return { canonicalName: "Reliant Energy", categoryName: "Commercial Energy" };
   }

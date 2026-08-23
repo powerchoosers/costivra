@@ -294,14 +294,15 @@ export async function resolveVendorAndCategory(
     };
   }
 
-  // Apply confidence threshold — only create global candidate if enrichment confidence >= 0.85
-  // with at least one real source URL
+  // Known identities are already bounded by the deterministic identity map, so
+  // they must not depend on an optional enrichment provider being available.
+  // Unknown names still require a sufficiently confident, source-backed result.
   const enrichmentConfidence = enrichmentCandidate?.confidence ?? 0;
   const hasRealSources = (enrichmentCandidate?.sources ?? []).some(
     (s) => s.url && !s.url.includes("google.com") && s.url.startsWith("https://"),
   );
 
-  if (enrichmentConfidence < 0.70 || !enrichmentCandidate) {
+  if (!knownIdentity && (enrichmentConfidence < 0.70 || !enrichmentCandidate)) {
     // No enrichment or below threshold — remain unmatched
     return {
       vendorId: null,
@@ -317,11 +318,11 @@ export async function resolveVendorAndCategory(
   }
 
   // 7. Atomic candidate creation
-  const targetName = knownIdentity?.canonicalName || enrichmentCandidate.canonicalName || policy.cleanName;
-  const targetCategory = knownIdentity?.categoryName || enrichmentCandidate.categoryName || resolvedCategoryHint || "Other";
+  const targetName = knownIdentity?.canonicalName || enrichmentCandidate?.canonicalName || policy.cleanName;
+  const targetCategory = knownIdentity?.categoryName || enrichmentCandidate?.categoryName || resolvedCategoryHint || "Other";
   const targetNormalized = normalizeVendorName(targetName);
-  const targetDomains = enrichmentCandidate.domains.length > 0
-    ? enrichmentCandidate.domains
+  const targetDomains = (enrichmentCandidate?.domains.length ?? 0) > 0
+    ? enrichmentCandidate!.domains
     : normalizedDomains;
 
   if (isBlockedVendorName(targetNormalized)) {
@@ -418,7 +419,7 @@ export async function resolveVendorAndCategory(
     candidate_vendor_id: vendorId,
     candidate_category_id: categoryId,
     confidence: enrichmentConfidence,
-    public_evidence: enrichmentCandidate.sources.map((s) => ({
+    public_evidence: (enrichmentCandidate?.sources ?? []).map((s) => ({
       url: s.url,
       title: s.title,
       snippet: s.snippet,
