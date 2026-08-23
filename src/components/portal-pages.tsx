@@ -5292,6 +5292,7 @@ function CreateModals({
         <DocumentUploadExperience
           vendors={data.vendors.map((vendor) => ({
             relationshipId: vendor.relationshipId,
+            vendorId: vendor.id,
             name: vendor.name,
           }))}
           vendorCatalog={data.vendorCatalog.map((vendor) => ({

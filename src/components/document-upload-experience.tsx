@@ -21,6 +21,7 @@ import { DocumentUploadRequestError } from "@/lib/documents/client-upload";
 
 type UploadVendor = {
   relationshipId: string;
+  vendorId: string;
   name: string;
 };
 
@@ -129,7 +130,7 @@ export function DocumentUploadExperience({
     .slice(0, 30);
 
   async function chooseVendor(catalogVendor: CatalogVendor) {
-    const existing = vendors.find((vendor) => vendor.name.toLowerCase() === catalogVendor.name.toLowerCase());
+    const existing = vendors.find((vendor) => vendor.vendorId === catalogVendor.id);
     if (existing) {
       setVendorId(existing.relationshipId);
       setSelectedVendorLabel(existing.name);
