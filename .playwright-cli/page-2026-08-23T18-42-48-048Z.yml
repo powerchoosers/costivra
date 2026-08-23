@@ -1,0 +1,110 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "Costivra home" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e6]: Costivra
+        - button "Open navigation" [ref=e8] [cursor=pointer]
+    - main [ref=e11]:
+      - generic [ref=e13]:
+        - complementary [ref=e14]:
+          - generic [ref=e15]: Costivra workspace
+          - generic [ref=e18]:
+            - paragraph [ref=e19]: A calmer way to control recurring cost
+            - heading "Welcome back." [level=1] [ref=e20]
+            - paragraph [ref=e21]: Review evidence, approve bounded actions, and keep the next decision in view.
+          - generic [ref=e22]:
+            - generic [ref=e23]: Private by organization
+            - generic [ref=e26]: Evidence stays attached
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - text: Sign in
+            - heading "Your workspace is ready." [level=2] [ref=e31]
+            - paragraph [ref=e32]: Continue with the credentials associated with your Costivra workspace.
+          - generic [ref=e33]:
+            - generic [ref=e34]:
+              - generic [ref=e35]: Work email
+              - textbox "Work email" [ref=e36]:
+                - /placeholder: you@company.com
+            - generic [ref=e37]:
+              - generic [ref=e38]:
+                - generic [ref=e39]: Password
+                - button "Forgot password?" [ref=e40] [cursor=pointer]
+              - generic [ref=e41]:
+                - textbox "Password" [ref=e42]
+                - button "Show password" [ref=e43] [cursor=pointer]
+          - button "Sign in" [ref=e46] [cursor=pointer]
+          - paragraph [ref=e49]:
+            - text: New to Costivra?
+            - link "Create an account" [ref=e50] [cursor=pointer]:
+              - /url: /signup
+    - contentinfo [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - text: A clearer next step
+            - heading "Start with three bills. Keep the evidence." [level=2] [ref=e55]
+            - paragraph [ref=e56]: Costivra reviews the selected documents, shows what changed, and keeps every finding tied to the source.
+          - link "Start with 3 bills" [ref=e57] [cursor=pointer]:
+            - /url: /scan
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - link "Costivra home" [ref=e62] [cursor=pointer]:
+              - /url: /
+              - generic [ref=e63]: Costivra
+            - paragraph [ref=e64]: Evidence-first control for recurring business costs.
+          - generic [ref=e65]:
+            - strong [ref=e66]: Product
+            - link "How it works" [ref=e67] [cursor=pointer]:
+              - /url: /how-it-works
+            - link "Solutions" [ref=e68] [cursor=pointer]:
+              - /url: /solutions
+            - link "Software" [ref=e69] [cursor=pointer]:
+              - /url: /solutions/software
+            - link "Telecom" [ref=e70] [cursor=pointer]:
+              - /url: /solutions/telecom
+            - link "Energy" [ref=e71] [cursor=pointer]:
+              - /url: /solutions/energy
+            - link "Insurance & Benefits (planned)" [ref=e72] [cursor=pointer]:
+              - /url: /solutions/insurance
+            - link "Facilities (planned)" [ref=e73] [cursor=pointer]:
+              - /url: /solutions/facilities
+            - link "Pricing" [ref=e74] [cursor=pointer]:
+              - /url: /pricing
+          - generic [ref=e75]:
+            - strong [ref=e76]: Company
+            - link "About" [ref=e77] [cursor=pointer]:
+              - /url: /about
+            - link "Case studies" [ref=e78] [cursor=pointer]:
+              - /url: /case-studies
+            - link "Partners" [ref=e79] [cursor=pointer]:
+              - /url: /partners
+            - link "Contact" [ref=e80] [cursor=pointer]:
+              - /url: /contact
+          - generic [ref=e81]:
+            - strong [ref=e82]: Resources
+            - link "Start with 3 bills" [ref=e83] [cursor=pointer]:
+              - /url: /scan
+            - link "Help center" [ref=e84] [cursor=pointer]:
+              - /url: /help
+            - link "Security" [ref=e85] [cursor=pointer]:
+              - /url: /security
+            - link "System status" [ref=e86] [cursor=pointer]:
+              - /url: /status
+          - generic [ref=e87]:
+            - strong [ref=e88]: Legal
+            - link "Privacy" [ref=e89] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms" [ref=e90] [cursor=pointer]:
+              - /url: /terms
+            - link "UCEP disclosure" [ref=e91] [cursor=pointer]:
+              - /url: /ucep-disclosure
+        - generic [ref=e92]:
+          - generic [ref=e93]: © 2026 Costivra. Every recurring cost, under command.
+          - generic [ref=e94]:
+            - text: Built for evidence, approval, and verified outcomes.
+            - link "Logos by Logo.dev" [ref=e95] [cursor=pointer]:
+              - /url: https://logo.dev
+  - generic "Notifications"
+  - button "Open Next.js Dev Tools" [ref=e101] [cursor=pointer]

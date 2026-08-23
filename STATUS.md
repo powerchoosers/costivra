@@ -1,5 +1,34 @@
 # Costivra Status
 
+## August 23, 2026 — Manage steady-state dashboard
+
+- Completed the Manage dashboard companion to App’s steady-state workspace pulse. When there are no open follow-ups or onboarding accounts, Manage now shows client coverage, upcoming client touches, and recent operations activity instead of ending at summary cards and empty panels.
+- Preserved the existing task and activity panels for active-work states, so urgent work remains the first-class workflow when it exists.
+- Validation: Node `v24.19.0`; direct TypeScript check passed (`tsc_exit=0`); `/app` and `/manage` returned HTTP 200 locally; `git diff --check` passed.
+
+## August 23, 2026 — App steady-state dashboard
+
+- Added an evidence-backed workspace pulse for activated App workspaces with no open findings or pending approvals: monitoring health, upcoming contract dates, recent workspace changes, and recorded spend movement.
+- Empty decision queues now use a calm “All caught up” state instead of implying that no findings exist, while incomplete activation still keeps the checklist visible.
+- Added responsive, shared-surface styling so the steady-state panels follow the same restrained card and typography system as the App and Manage summary strips.
+- Validation: Node `v24.19.0`; `git diff --check` passed. Local `/app` and `/manage` HTTP checks remain the next browser-visible verification step; repository typecheck/lint wrappers are still affected by the existing dependency build-script guard.
+
+## August 23, 2026 — App and Manage summary-strip alignment
+
+- Converted the App metric row from four floating cards into the same single-frame segmented summary strip used by Manage, including matching typography, spacing, neutral dividers, and responsive cell borders.
+- Validation: Node `v24.19.0`; `/app` returned HTTP 200 locally; `git diff --check` passed.
+
+## August 22, 2026 — Manage dashboard spacing and hierarchy follow-up
+
+- Removed the redundant Manage overview intro, tightened the summary strip height, and aligned the Manage inline assistant to the same centered geometry as the App assistant.
+- Validation: Node `v24.19.0`; `git diff --check` passed; `/app` and `/manage` returned HTTP 200 locally.
+
+## August 22, 2026 — App and Manage dashboard hierarchy
+
+- Promoted the App dashboard's findings list into a shared “Needs attention” decision queue directly beneath the assistant, so evidence-backed work is visible before broad metrics and setup guidance.
+- Standardized App and Manage dashboard metric content through the shared workspace metric contract; removed decorative Manage summary markers and replaced them with plain-language operational context.
+- Validation: Node `v24.19.0`; `git diff --check` passed; `/app` and `/manage` returned HTTP 200 locally. The repository `pnpm typecheck`/lint wrapper remains blocked by the existing `ERR_PNPM_IGNORED_BUILDS` dependency guard and could not be claimed as complete in this environment.
+
 ## August 22, 2026 — App shell deployment type fix
 
 - Fixed the workspace-tip activity count to use the `PortalData.opportunities` collection; `PortalData` has no `findings` property, which caused the Vercel TypeScript build to fail.

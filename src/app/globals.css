@@ -8280,6 +8280,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-body .app-work-canvas .portal-panel,
 .app-body .app-work-canvas .portal-card,
 .app-body .app-work-canvas .portal-metric,
+.app-body .app-work-canvas .workspace-metric-card,
 .manage-shell-v2 .workspace-elevated-surface,
 .app-body .app-work-canvas .workspace-elevated-surface,
 .app-body .app-work-canvas .record-section,
@@ -8291,6 +8292,419 @@ body.modal-open .app-topbar { filter: blur(7px); }
   background: var(--workspace-surface);
   box-shadow: var(--workspace-panel-shadow);
   transition: border-color var(--workspace-motion-surface), background-color var(--workspace-motion-surface), box-shadow var(--workspace-motion-surface);
+}
+
+/* Dashboard metrics share one visual contract while their surrounding layout
+   remains product-specific. */
+.workspace-metric-card {
+  padding: 20px;
+}
+
+.app-body .app-work-canvas .workspace-metric-card {
+  min-height: 142px;
+}
+
+.workspace-metric-card strong {
+  color: var(--workspace-ink);
+  font-weight: 680;
+  letter-spacing: -.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace-metric-card small,
+.workspace-metric-card > span:not(.portal-metric-icon) {
+  color: var(--workspace-muted);
+}
+
+.portal-attention-panel {
+  margin-bottom: 18px;
+}
+
+.portal-panel-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--workspace-table-heading);
+  font-size: .63rem;
+  font-weight: 750;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.portal-panel-count {
+  flex: 0 0 auto;
+  color: var(--workspace-muted);
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.manage-app .manage-summary-card {
+  min-height: 0;
+  padding: 18px 20px;
+}
+
+/* App and Manage use the same summary-strip grammar: one quiet frame with
+   flat, separated cells instead of four floating cards. */
+.app-body .app-work-canvas .portal-metrics {
+  gap: 0;
+  margin-bottom: 20px;
+  overflow: hidden;
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--workspace-radius);
+  background: var(--workspace-surface);
+  box-shadow: var(--workspace-panel-shadow);
+}
+
+.app-body .app-work-canvas .portal-metrics > .portal-metric {
+  min-height: 0;
+  border: 0;
+  border-right: 1px solid var(--workspace-line-soft);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-body .app-work-canvas .portal-metrics > .portal-metric:last-child {
+  border-right: 0;
+}
+
+.app-body .app-work-canvas .portal-metrics .portal-metric-icon {
+  display: none;
+}
+
+.app-body .app-work-canvas .portal-metrics .portal-metric > span:not(.portal-metric-icon) {
+  color: var(--workspace-table-heading);
+  font: 700 .61rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.app-body .app-work-canvas .portal-metrics .portal-metric strong {
+  margin-top: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.app-body .app-work-canvas .portal-metrics .portal-metric small {
+  margin-top: 0;
+  color: var(--workspace-muted);
+  font-size: .62rem;
+  line-height: 1.2;
+}
+
+@media (max-width: 760px) {
+  .app-body .app-work-canvas .portal-metrics > .portal-metric {
+    border-right: 1px solid var(--workspace-line-soft);
+    border-bottom: 1px solid var(--workspace-line-soft);
+  }
+
+  .app-body .app-work-canvas .portal-metrics > .portal-metric:nth-child(even) {
+    border-right: 0;
+  }
+
+  .app-body .app-work-canvas .portal-metrics > .portal-metric:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
+
+/* A calm, useful steady state for workspaces with no open decisions. The
+   dashboard keeps showing operational context without manufacturing urgency. */
+.steady-state-dashboard {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.steady-state-dashboard__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 2px 2px;
+}
+
+.steady-state-dashboard__header h2 {
+  margin: 0;
+  color: var(--workspace-ink);
+  font-size: clamp(1.15rem, 1.4vw, 1.4rem);
+  letter-spacing: -.025em;
+}
+
+.steady-state-dashboard__header p {
+  max-width: 620px;
+  margin: 6px 0 0;
+  color: var(--workspace-muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.steady-state-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.steady-state-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.steady-state-card--wide {
+  grid-column: 1 / -1;
+}
+
+.steady-state-card .portal-panel-heading {
+  min-height: 66px;
+  padding: 16px 18px;
+}
+
+.steady-state-card .portal-panel-heading h3 {
+  margin: 0;
+  color: var(--workspace-ink);
+  font-size: .94rem;
+  letter-spacing: -.01em;
+}
+
+.manage-steady-state-card > header {
+  min-height: 66px;
+  padding: 16px 18px;
+}
+
+.manage-steady-state-card > header h3 {
+  margin: 0;
+  color: var(--workspace-ink);
+  font-size: .94rem;
+  letter-spacing: -.01em;
+}
+
+.manage-steady-state-card > header a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--manage-blue, var(--workspace-accent));
+  font-size: .72rem;
+  font-weight: 680;
+  text-decoration: none;
+}
+
+.manage-steady-state-card > header a:hover,
+.manage-steady-state-card > header a:focus-visible {
+  color: var(--workspace-accent);
+}
+
+.steady-state-card__icon {
+  flex: 0 0 auto;
+  color: var(--workspace-accent);
+}
+
+.steady-state-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0 18px;
+}
+
+.steady-state-facts div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 14px 12px 0;
+  border-right: 1px solid var(--workspace-line-soft);
+}
+
+.steady-state-facts div:not(:first-child) {
+  padding-left: 14px;
+}
+
+.steady-state-facts div:last-child {
+  border-right: 0;
+}
+
+.steady-state-facts dt {
+  color: var(--workspace-muted);
+  font-size: .68rem;
+  line-height: 1.3;
+}
+
+.steady-state-facts dd {
+  margin: 0;
+  color: var(--workspace-ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.steady-state-card__footnote,
+.steady-state-empty {
+  margin: 0;
+  padding: 12px 18px 16px;
+  color: var(--workspace-muted);
+  font-size: .72rem;
+  line-height: 1.45;
+}
+
+.steady-state-list {
+  display: grid;
+  padding: 0 18px 8px;
+}
+
+.steady-state-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--workspace-line-soft);
+  color: inherit;
+  text-decoration: none;
+}
+
+.steady-state-list a:last-child {
+  border-bottom: 0;
+}
+
+.steady-state-list a:hover strong,
+.steady-state-list a:focus-visible strong {
+  color: var(--workspace-accent);
+}
+
+.steady-state-list a > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.steady-state-list strong,
+.steady-state-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.steady-state-list strong {
+  color: var(--workspace-ink);
+  font-size: .76rem;
+  transition: color var(--workspace-motion-surface);
+}
+
+.steady-state-list small,
+.steady-state-list time {
+  color: var(--workspace-muted);
+  font-size: .68rem;
+}
+
+.steady-state-list time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.steady-state-timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0 18px 8px;
+  list-style: none;
+}
+
+.steady-state-timeline li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--workspace-line-soft);
+}
+
+.steady-state-timeline li:last-child {
+  border-bottom: 0;
+}
+
+.steady-state-timeline__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--workspace-accent);
+}
+
+.steady-state-timeline li > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.steady-state-timeline strong,
+.steady-state-timeline small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.steady-state-timeline strong {
+  color: var(--workspace-ink);
+  font-size: .76rem;
+}
+
+.steady-state-timeline small,
+.steady-state-timeline time {
+  color: var(--workspace-muted);
+  font-size: .68rem;
+}
+
+.steady-state-timeline time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.steady-state-spend {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px 18px;
+}
+
+.steady-state-spend strong {
+  color: var(--workspace-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.75rem;
+  letter-spacing: -.06em;
+}
+
+.steady-state-spend span,
+.steady-state-spend small {
+  color: var(--workspace-muted);
+  font-size: .72rem;
+}
+
+@media (max-width: 760px) {
+  .steady-state-dashboard__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .steady-state-dashboard__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .steady-state-card--wide {
+    grid-column: auto;
+  }
+
+  .steady-state-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .steady-state-facts div,
+  .steady-state-facts div:not(:first-child) {
+    padding: 11px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--workspace-line-soft);
+  }
+
+  .steady-state-facts div:last-child {
+    border-bottom: 0;
+  }
 }
 
 /* The record header joins directly to its tabs, so only its upper corners
@@ -12340,6 +12754,10 @@ button.workspace-notification-row:focus-visible {
 .workspace-experience-banner__progress span { display:block; height:100%; border-radius:inherit; background:#a8d927; transition:width 220ms ease-out; }
 .workspace-experience-banner--paid { grid-template-columns:auto minmax(0,1fr) auto auto; background:#fbfdff; }
 .workspace-experience-banner--paid .workspace-experience-banner__dismiss:hover,.workspace-experience-banner--paid .workspace-experience-banner__dismiss:focus-visible { border-color:#cbd8e8; color:#38558d; background:#eef3fb; }
+.workspace-experience-banner--paid > a { padding:6px 8px; border:1px solid transparent; border-radius:9px; color:#38558d; transition:color 160ms ease, background-color 160ms ease, border-color 160ms ease; }
+.workspace-experience-banner--paid > a svg { transition:transform 160ms ease; }
+.workspace-experience-banner--paid > a:hover,.workspace-experience-banner--paid > a:focus-visible { border-color:#cbd8e8; background:#eef3fb; color:#24457e; }
+.workspace-experience-banner--paid > a:hover svg,.workspace-experience-banner--paid > a:focus-visible svg { transform:translateX(2px); }
 .workspace-experience-banner a { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
 .workspace-experience-banner__lock { color:#8a9bb4; }
 .workspace-experience-banner__dismiss { display:grid; width:28px; height:28px; place-items:center; padding:0; border:1px solid transparent; border-radius:9px; color:#7b879b; background:transparent; cursor:pointer; }
@@ -12470,7 +12888,8 @@ button.workspace-notification-row:focus-visible {
    independent of page-level body classes so it also applies to authenticated
    routes rendered without a body theme class. */
 @media (max-width:760px) {
-  .app-main { min-width:0; padding-bottom:calc(82px + env(safe-area-inset-bottom)); }
+  .app-shell.sidebar-collapsed .app-main,
+  .app-main { min-width:0; margin-left:0; padding-bottom:calc(82px + env(safe-area-inset-bottom)); }
   .app-work-canvas { min-width:0; overflow:visible; }
   .app-work-canvas > .app-topbar {
     position:relative;
@@ -13278,8 +13697,12 @@ button.workspace-notification-row:focus-visible {
   display: grid;
   gap: 20px;
   justify-items: center;
-  margin: 36px auto 40px;
+  width: 100%;
   max-width: 860px;
+  margin: 36px auto 40px;
+  justify-self: center;
+  grid-column: 1 / -1;
+  place-items: center;
   text-align: center;
 }
 
@@ -13289,7 +13712,14 @@ button.workspace-notification-row:focus-visible {
 }
 
 .manage-dashboard-assistant__copy {
+  width: 100%;
   max-width: 560px;
+  text-align: center;
+}
+
+.manage-dashboard-assistant__conversation,
+.manage-dashboard-assistant__form {
+  width: 100%;
 }
 
 .manage-dashboard-assistant__copy h2 {

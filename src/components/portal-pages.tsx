@@ -587,6 +587,14 @@ function CommandCenter({ data }: { data: PortalData }) {
   const pendingApprovalCount = data.actions.filter((item) =>
     ["pending_approval", "draft"].includes(item.status),
   ).length;
+  const openOpportunities = data.opportunities.filter((item) =>
+    ["open", "under_review"].includes(item.status),
+  );
+  const activation = getActivationProgress(data);
+  const setupComplete = activation.documentCount >= 3 &&
+    activation.locationCount > 0 &&
+    activation.authoritativeReview &&
+    activation.monitoredCount > 0;
   return (
     <>
       <PageHeader
@@ -594,6 +602,34 @@ function CommandCenter({ data }: { data: PortalData }) {
         description={`A live operating view of ${data.organization.name}'s recurring costs.`}
       />
       <DashboardAssistant />
+      <section className="portal-panel portal-attention-panel">
+        <div className="portal-panel-heading">
+          <div>
+            <span className="portal-panel-eyebrow">Decision queue</span>
+            <h2>Needs attention</h2>
+            <p>Findings that still need a defensible next step.</p>
+          </div>
+          <span className="portal-panel-count">{underReviewCount} open</span>
+        </div>
+        {openOpportunities.length ? (
+          <div className="portal-list">
+            {openOpportunities.slice(0, 5).map((item) => (
+              <a href={`/app/findings/${item.id}`} className="portal-list-row" key={item.id}>
+                <span className={`priority-dot priority-${item.priority}`} />
+                <div className="grow">
+                  <strong>{item.title}</strong>
+                  <span>{item.vendorName} · {opportunityTrustLabel(item.trustState)} · {item.evidenceCount} evidence reference{item.evidenceCount === 1 ? "" : "s"}</span>
+                </div>
+                {item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? <strong className="money-value">{money(item.estimatedAnnualValue, true)}</strong> : <span className="money-value">Value not shown</span>}
+                <TrustBadge state={item.trustState} />
+                <Status value={item.status} />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <Empty title="All caught up" copy="There are no findings waiting for a decision. New review signals will appear here when Costivra finds something worth your attention." />
+        )}
+      </section>
       <div className="portal-metrics">
         <Metric
           label="Monitored spend"
@@ -620,44 +656,117 @@ function CommandCenter({ data }: { data: PortalData }) {
           icon={<CheckCircle2 />}
         />
       </div>
-      <ActivationChecklist data={data} />
-      <section className="portal-panel">
-        <div className="portal-panel-heading">
-          <div>
-            <h2>Priority work</h2>
-            <p>Highest-value findings that still require a decision.</p>
-          </div>
-        </div>
-        {data.opportunities.length ? (
-          <div className="portal-list">
-            {data.opportunities.slice(0, 5).map((item) => (
-              <a
-                href={`/app/findings/${item.id}`}
-                className="portal-list-row"
-                key={item.id}
-              >
-                <span className={`priority-dot priority-${item.priority}`} />
-                <div className="grow">
-                  <strong>{item.title}</strong>
-                  <span>
-                    {item.vendorName} · {opportunityTrustLabel(item.trustState)} · {item.evidenceCount} evidence reference
-                    {item.evidenceCount === 1 ? "" : "s"}
-                  </span>
-                </div>
-                {item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? <strong className="money-value">{money(item.estimatedAnnualValue, true)}</strong> : <span className="money-value">Value not shown</span>}
-                <TrustBadge state={item.trustState} />
-                <Status value={item.status} />
-              </a>
-            ))}
-          </div>
-        ) : (
-          <Empty
-            title="No findings yet"
-            copy="Upload current bills or contracts to begin detection."
-          />
-        )}
-      </section>
+      {setupComplete && underReviewCount === 0 && pendingApprovalCount === 0 ? <SteadyStateDashboard data={data} /> : <ActivationChecklist data={data} />}
     </>
+  );
+}
+
+function SteadyStateDashboard({ data }: { data: PortalData }) {
+  const activation = getActivationProgress(data);
+  const upcomingContracts = data.contracts
+    .filter((contract) => isUpcomingContract(contract))
+    .sort((a, b) => String(a.endDate ?? "").localeCompare(String(b.endDate ?? "")))
+    .slice(0, 4);
+  const recentEvents = data.auditEvents.slice(0, 5);
+  const latestDocument = [...data.documents]
+    .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+  const latestExpense = [...data.expenses]
+    .sort((a, b) => String(b.periodEnd).localeCompare(String(a.periodEnd)))[0];
+  const reviewCount = activation.needsReviewInvoices;
+  const monitoredCount = activation.monitoredCount;
+  const sourceCount = data.documents.length + data.invoices.length + data.contracts.length;
+
+  return (
+    <section className="steady-state-dashboard" aria-label="Workspace pulse">
+      <div className="steady-state-dashboard__header">
+        <div>
+          <span className="portal-panel-eyebrow">Workspace pulse</span>
+          <h2>Everything is up to date</h2>
+          <p>No decisions need your attention right now. Costivra will keep watching the records you have connected.</p>
+        </div>
+        <Link className="button button-quiet button-sm" href="/app/vendors">
+          View vendors <ArrowUpRight size={14} />
+        </Link>
+      </div>
+      <div className="steady-state-dashboard__grid">
+        <section className="portal-panel steady-state-card">
+          <header className="portal-panel-heading">
+            <div>
+              <span className="portal-panel-eyebrow">Monitoring health</span>
+              <h3>Sources are connected</h3>
+            </div>
+            <CheckCircle2 className="steady-state-card__icon" size={18} aria-hidden="true" />
+          </header>
+          <dl className="steady-state-facts">
+            <div><dt>Vendors monitored</dt><dd>{monitoredCount}</dd></div>
+            <div><dt>Source records</dt><dd>{sourceCount}</dd></div>
+            <div><dt>Waiting for review</dt><dd>{reviewCount}</dd></div>
+          </dl>
+          <p className="steady-state-card__footnote">{latestDocument ? `Last source updated ${date(latestDocument.updatedAt)}` : "Add a source to begin monitoring."}</p>
+        </section>
+        <section className="portal-panel steady-state-card">
+          <header className="portal-panel-heading">
+            <div>
+              <span className="portal-panel-eyebrow">Upcoming dates</span>
+              <h3>Renewals worth knowing</h3>
+            </div>
+            <CalendarClock className="steady-state-card__icon" size={18} aria-hidden="true" />
+          </header>
+          {upcomingContracts.length ? (
+            <div className="steady-state-list">
+              {upcomingContracts.map((contract) => (
+                <Link href={`/app/contracts/${contract.id}`} key={contract.id}>
+                  <span><strong>{contract.title}</strong><small>{contract.vendorName}</small></span>
+                  <time dateTime={contract.endDate ?? undefined}>{date(contract.endDate)}</time>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="steady-state-empty">No contract end dates fall within the next year.</p>
+          )}
+        </section>
+        <section className="portal-panel steady-state-card steady-state-card--wide">
+          <header className="portal-panel-heading">
+            <div>
+              <span className="portal-panel-eyebrow">Recent changes</span>
+              <h3>What changed in your workspace</h3>
+            </div>
+            <Link href="/app/settings?tab=activity" className="button button-quiet button-sm">Full history <ArrowUpRight size={14} /></Link>
+          </header>
+          {recentEvents.length ? (
+            <ol className="steady-state-timeline">
+              {recentEvents.map((event) => (
+                <li key={event.id}>
+                  <span className="steady-state-timeline__dot" aria-hidden="true" />
+                  <div><strong>{titleCase(event.action.replaceAll("_", " "))}</strong><small>{event.resourceType.replaceAll("_", " ")} · {event.actorName}</small></div>
+                  <time dateTime={event.createdAt}>{date(event.createdAt)}</time>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="steady-state-empty">New bills, reviews, and workspace changes will appear here.</p>
+          )}
+        </section>
+        <section className="portal-panel steady-state-card">
+          <header className="portal-panel-heading">
+            <div>
+              <span className="portal-panel-eyebrow">Spend movement</span>
+              <h3>Recorded costs, in context</h3>
+            </div>
+            <ReceiptText className="steady-state-card__icon" size={18} aria-hidden="true" />
+          </header>
+          {latestExpense ? (
+            <div className="steady-state-spend">
+              <strong>{money(latestExpense.amount, true)}</strong>
+              <span>{latestExpense.vendorName} · {date(latestExpense.periodEnd)}</span>
+              <small>{latestExpense.priorPeriodAmount != null ? `Prior period ${money(latestExpense.priorPeriodAmount, true)}` : "Prior period not recorded"}</small>
+            </div>
+          ) : (
+            <p className="steady-state-empty">Record another expense to see movement over time.</p>
+          )}
+        </section>
+      </div>
+    </section>
   );
 }
 
@@ -758,7 +867,7 @@ function Metric({
   icon: ReactNode;
 }) {
   return (
-    <article className="portal-metric">
+    <article className="portal-metric workspace-metric-card">
       <span className="portal-metric-icon">{icon}</span>
       <span>{label}</span>
       <strong>{value}</strong>

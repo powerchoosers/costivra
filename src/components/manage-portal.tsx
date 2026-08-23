@@ -411,21 +411,6 @@ function contactComposeContext(contact: ManageContact): ComposeContext {
   };
 }
 
-function SummaryMarker({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "blue" | "green" | "amber" | "slate";
-}) {
-  return (
-    <span className={`manage-summary-marker manage-summary-marker--${tone}`}>
-      <i aria-hidden="true" />
-      {label}
-    </span>
-  );
-}
-
 function OperatorAvatar({
   operator,
   large = false,
@@ -1802,6 +1787,7 @@ function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant
   const onboarding = data.accounts.filter(
     (account) => account.stage === "onboarding",
   ).length;
+  const hasUrgentWork = followUps > 0 || onboarding > 0;
 
   const selectedAccount =
     data.accounts.find((a) => a.id === selectedAccountId) ?? data.accounts[0];
@@ -1826,53 +1812,43 @@ function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant
 
   return (
     <>
-      <section className="manage-intro">
-        <div className="manage-intro-copy">
-          <h2>Client operations, clearly in view.</h2>
-          <p>One place to manage customers, outreach, and email.</p>
-        </div>
-      </section>
       <ManageOverviewAssistant onOpenAssistant={onOpenAssistant} />
       <ManageReferralReviewQueue />
       <section className="manage-summary" aria-label="CRM summary">
-        <div className="manage-summary-card">
+        <div className="manage-summary-card workspace-metric-card">
           <div className="manage-summary-meta">
-            <small>ALL ACCOUNTS</small>
-            <SummaryMarker label="Tracked" tone="blue" />
+            <small>CLIENTS</small>
           </div>
           <div className="manage-summary-value">
             <strong>{data.accounts.length}</strong>
-            <span>organizations monitored</span>
+            <span>organizations in view</span>
           </div>
         </div>
-        <div className="manage-summary-card">
+        <div className="manage-summary-card workspace-metric-card">
           <div className="manage-summary-meta">
             <small>ACTIVE</small>
-            <SummaryMarker label="Current" tone="green" />
           </div>
           <div className="manage-summary-value">
             <strong>{active}</strong>
-            <span>active accounts</span>
+            <span>current accounts</span>
           </div>
         </div>
-        <div className="manage-summary-card">
+        <div className="manage-summary-card workspace-metric-card">
           <div className="manage-summary-meta">
-            <small>NEEDS FOLLOW-UP</small>
-            <SummaryMarker label="Action queue" tone="amber" />
+            <small>OPEN WORK</small>
           </div>
           <div className="manage-summary-value">
             <strong>{followUps}</strong>
-            <span>open follow-ups</span>
+            <span>follow-ups to act on</span>
           </div>
         </div>
-        <div className="manage-summary-card">
+        <div className="manage-summary-card workspace-metric-card">
           <div className="manage-summary-meta">
             <small>ONBOARDING</small>
-            <SummaryMarker label="In progress" tone="slate" />
           </div>
           <div className="manage-summary-value">
             <strong>{onboarding}</strong>
-            <span>accounts being set up</span>
+            <span>accounts in setup</span>
           </div>
         </div>
       </section>
@@ -1913,7 +1889,7 @@ function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant
           contacts={accountContacts}
         />
       </div>
-      <div className="manage-lower-grid">
+      {!hasUrgentWork ? <ManageSteadyState data={data} /> : <div className="manage-lower-grid">
         <section className="manage-panel">
           <header>
             <div>
@@ -1954,8 +1930,94 @@ function Overview({ data, onOpenAssistant }: { data: ManageData; onOpenAssistant
             />
           )}
         </section>
-      </div>
+      </div>}
     </>
+  );
+}
+
+function ManageSteadyState({ data }: { data: ManageData }) {
+  const nextTouches = data.accounts
+    .filter((account) => account.nextFollowUpAt)
+    .sort((a, b) => String(a.nextFollowUpAt).localeCompare(String(b.nextFollowUpAt)))
+    .slice(0, 4);
+  const recentActivities = data.activities.slice(0, 5);
+  const contactedAccounts = data.accounts.filter((account) => account.lastContactedAt).length;
+  const assignedContacts = data.contacts.filter((contact) => contact.isPrimary).length;
+  const recordedDocuments = data.documents.length;
+
+  return (
+    <section className="steady-state-dashboard manage-steady-state" aria-label="Client operations pulse">
+      <div className="steady-state-dashboard__header">
+        <div>
+          <span className="portal-panel-eyebrow">Operations pulse</span>
+          <h2>Client work is current</h2>
+          <p>No follow-ups or onboarding steps are waiting right now. Keep relationships warm and use this view to spot the next useful touch.</p>
+        </div>
+        <Link className="button button-quiet button-sm" href="/manage/accounts">
+          View accounts <ArrowUpRight size={14} />
+        </Link>
+      </div>
+      <div className="steady-state-dashboard__grid">
+        <section className="manage-panel steady-state-card manage-steady-state-card">
+          <header>
+            <div>
+              <span className="portal-panel-eyebrow">Client health</span>
+              <h3>Coverage at a glance</h3>
+            </div>
+            <CheckCircle2 className="steady-state-card__icon" size={18} aria-hidden="true" />
+          </header>
+          <dl className="steady-state-facts">
+            <div><dt>Accounts contacted</dt><dd>{contactedAccounts}</dd></div>
+            <div><dt>Primary contacts</dt><dd>{assignedContacts}</dd></div>
+            <div><dt>Source records</dt><dd>{recordedDocuments}</dd></div>
+          </dl>
+          <p className="steady-state-card__footnote">Keep contact, account, and source records current so the next action is easy to see.</p>
+        </section>
+        <section className="manage-panel steady-state-card manage-steady-state-card">
+          <header>
+            <div>
+              <span className="portal-panel-eyebrow">Next client touches</span>
+              <h3>Stay ahead of the relationship</h3>
+            </div>
+            <CalendarClock className="steady-state-card__icon" size={18} aria-hidden="true" />
+          </header>
+          {nextTouches.length ? (
+            <div className="steady-state-list">
+              {nextTouches.map((account) => (
+                <Link href={`/manage/accounts/${account.id}`} key={account.id}>
+                  <span><strong>{account.name}</strong><small>{account.nextStep || "Scheduled client touch"}</small></span>
+                  <time dateTime={account.nextFollowUpAt ?? undefined}>{date(account.nextFollowUpAt)}</time>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="steady-state-empty">No future touches are scheduled. Add one when a client has a meaningful next step.</p>
+          )}
+        </section>
+        <section className="manage-panel steady-state-card steady-state-card--wide manage-steady-state-card">
+          <header>
+            <div>
+              <span className="portal-panel-eyebrow">Recent activity</span>
+              <h3>What changed in client operations</h3>
+            </div>
+            <Link href="/manage/activity">Full history <ArrowUpRight size={14} /></Link>
+          </header>
+          {recentActivities.length ? (
+            <ol className="steady-state-timeline">
+              {recentActivities.map((activity) => (
+                <li key={activity.id}>
+                  <span className="steady-state-timeline__dot" aria-hidden="true" />
+                  <div><strong>{activity.subject}</strong><small>{activity.organizationName} · {activity.actorName || pretty(activity.kind)}</small></div>
+                  <time dateTime={activity.occurredAt}>{date(activity.occurredAt)}</time>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="steady-state-empty">New notes, meetings, and client touches will appear here.</p>
+          )}
+        </section>
+      </div>
+    </section>
   );
 }
 
