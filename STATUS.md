@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 23, 2026 — Shared vendor search in bill upload
+
+- Bill upload now searches the shared vendor catalog, not only the current workspace's vendor relationships. Selecting a shared catalog vendor creates the tenant relationship through the existing authorized vendor endpoint before upload, so the bill remains correctly tenant-scoped.
+- The upload picker supports typing, category-aware filtering, a bounded result list, clearing the selection, and an empty-result state.
+- Validation: `git diff --check` passed. Direct TypeScript/ESLint processes did not complete in the local environment and were stopped; no passing result is claimed. Browser verification remains pending deployment of this change.
+
 ## August 23, 2026 — Known vendor creation after extraction
 
 - Added ENGIE to deterministic known-vendor identity resolution and removed the optional enrichment dependency for known identities. A successfully extracted ENGIE bill now creates or reuses the tenant vendor relationship even when public enrichment is unavailable.

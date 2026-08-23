@@ -106,6 +106,7 @@ export function DocumentUploadExperience({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [vendorId, setVendorId] = useState(presetVendor ?? "");
+  const [selectedVendorLabel, setSelectedVendorLabel] = useState<string | null>(null);
   const [vendorSearch, setVendorSearch] = useState("");
   const [vendorPickerOpen, setVendorPickerOpen] = useState(false);
   const [vendorPickerBusy, setVendorPickerBusy] = useState(false);
@@ -117,6 +118,7 @@ export function DocumentUploadExperience({
 
   const busy = flowState === "submitting";
   const selectedVendorName =
+    selectedVendorLabel ??
     vendors.find((vendor) => vendor.relationshipId === vendorId)?.name ??
     "Unassigned";
   const filteredCatalog = vendorCatalog
@@ -130,6 +132,7 @@ export function DocumentUploadExperience({
     const existing = vendors.find((vendor) => vendor.name.toLowerCase() === catalogVendor.name.toLowerCase());
     if (existing) {
       setVendorId(existing.relationshipId);
+      setSelectedVendorLabel(existing.name);
       setVendorPickerOpen(false);
       return;
     }
@@ -146,6 +149,7 @@ export function DocumentUploadExperience({
         throw new Error(typeof body.error === "string" ? body.error : "That vendor could not be added to this workspace.");
       }
       setVendorId(body.relationshipId);
+      setSelectedVendorLabel(catalogVendor.name);
       setVendorPickerOpen(false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "That vendor could not be selected.");
@@ -171,6 +175,7 @@ export function DocumentUploadExperience({
     setErrorMessage(null);
     setErrorCode(null);
     setVendorId(presetVendor ?? "");
+    setSelectedVendorLabel(null);
     setVendorSearch("");
     setVendorPickerOpen(false);
     setFlow(nextState);
@@ -183,6 +188,7 @@ export function DocumentUploadExperience({
     setErrorMessage(null);
     setErrorCode(null);
     setVendorId(presetVendor ?? "");
+    setSelectedVendorLabel(null);
     setVendorSearch("");
     setVendorPickerOpen(false);
     setFlow("idle");
@@ -277,7 +283,7 @@ export function DocumentUploadExperience({
         />
         {vendorPickerOpen && !busy && (
           <div className="document-upload-vendor-results" role="listbox" aria-label="Available vendors">
-            <button type="button" className="document-upload-vendor-clear" onClick={() => { setVendorId(""); setVendorSearch(""); setVendorPickerOpen(false); }}>No vendor selected</button>
+            <button type="button" className="document-upload-vendor-clear" onClick={() => { setVendorId(""); setSelectedVendorLabel(null); setVendorSearch(""); setVendorPickerOpen(false); }}>No vendor selected</button>
             {filteredCatalog.map((vendor) => (
               <button type="button" role="option" aria-selected={vendor.id === vendorId} key={vendor.id} onClick={() => void chooseVendor(vendor)} disabled={vendorPickerBusy}>
                 <strong>{vendor.name}</strong><small>{vendor.category}</small>
