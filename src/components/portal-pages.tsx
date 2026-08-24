@@ -5299,6 +5299,7 @@ function CreateModals({
             id: vendor.id,
             name: vendor.name,
             category: vendor.category,
+            aliases: vendor.aliases,
           }))}
           presetVendor={presetVendor}
           onBusyChange={setBusy}

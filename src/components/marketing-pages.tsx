@@ -35,6 +35,7 @@ import {
   ShieldAlert,
   Store,
   Upload,
+  UserCheck,
   Users,
   Warehouse,
   Zap,
@@ -267,6 +268,7 @@ const solutionSpecs: Record<string, PageSpec> = {
 
 export function MarketingPage({ path, plans }: { path: string; plans: PublicBillingPlan[] }) {
   if (path === "pricing") return <PricingPage plans={plans} />;
+  if (path === "free-bill-review") return <AdScanPage />;
   if (path === "scan") return <ScanPage />;
   if (path === "login" || path === "signup") return <AccountPage mode={path} plans={plans} />;
   if (path === "privacy") return <PrivacyPage />;
@@ -409,6 +411,39 @@ function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
 
 function ScanPage() {
   return <PageFrame><div className="detail-layout scan-layout"><header className="content-hero"><h1>Start with three current bills.</h1><p>Create a private Costivra workspace, then choose up to three software, telecom/internet, or commercial-energy documents. The original source stays attached while your review begins.</p><div className="scan-assurances"><p className="scan-assurance"><Check aria-hidden="true" size={17}/>Only the documents you choose</p><p className="scan-assurance"><Check aria-hidden="true" size={17}/>Private workspace for your organization</p><p className="scan-assurance"><Check aria-hidden="true" size={17}/>No vendor contact without approval</p></div></header><section className="panel scan-panel"><div className="panel-header"><h2>Start your 3-bill review</h2><span className="eyebrow">Account required before upload</span></div><div className="panel-body scan-panel-body"><ShieldCheck aria-hidden="true" size={34} style={{ color: "var(--blue)", marginBottom: 18 }}/><h2 style={{marginTop:0}}>Create your private workspace first.</h2><p className="muted" style={{lineHeight:1.65}}>Use a work email to create your organization workspace. After email confirmation, you can upload PDF, DOCX, text, PNG, or JPG records and see each document&apos;s status and next review step.</p><Link className="button button-primary" href="/signup?next=/app/documents" style={{width:"100%",marginTop:18}}>Create a private workspace <ArrowRight size={16}/></Link><Link className="button button-secondary" href="/login?next=/app/documents" style={{width:"100%",marginTop:10}}>I already have an account</Link></div></section></div></PageFrame>;
+}
+
+function AdScanPage() {
+  const signupHref = "/signup?next=/app/documents&source=free-bill-review";
+  return <PageFrame><div className="ad-scan-page">
+    <section className="ad-scan-hero" aria-labelledby="ad-scan-title">
+      <div className="ad-scan-hero-copy">
+        <span className="eyebrow">Free recurring-cost review</span>
+        <h1 id="ad-scan-title">Find the bills worth a closer look.</h1>
+        <p className="ad-scan-lede">Upload up to three current software, internet, or energy bills. Costivra shows what changed, what may be costing you, and what still needs a human check.</p>
+        <div className="hero-actions ad-scan-actions"><Link className="button button-primary" href={signupHref}>Review 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link><Link className="button button-secondary" href="#proof">See an example review</Link></div>
+        <div className="ad-scan-assurances" aria-label="Review assurances"><span><Check aria-hidden="true" size={16} />No payment card</span><span><FileLock2 aria-hidden="true" size={16} />Private workspace</span><span><UserCheck aria-hidden="true" size={16} />You approve outside action</span></div>
+      </div>
+      <div className="ad-scan-preview" aria-label="Illustrative source-linked finding">
+        <div className="ad-scan-preview-top"><span>Source-linked finding</span><span>Illustrative review</span></div>
+        <div className="ad-scan-preview-doc"><FileCheck2 aria-hidden="true" size={19} /><span>Acme_Pro_Invoice.pdf</span><small>Page 1 of 1</small></div>
+        <div className="ad-scan-preview-question"><span>Question to review</span><strong>14 unused software seats</strong><small>Potential value · $2,520 / year</small></div>
+        <div className="ad-scan-preview-table"><div><span>Invoice total</span><strong>$17,000.00</strong></div><div><span>Confidence</span><strong>88%</strong></div><div><span>What remains</span><strong>Seat count needs review</strong></div></div>
+        <div className="ad-scan-preview-note"><CircleAlert aria-hidden="true" size={17} /><span>Potential value is not verified savings. The source and calculation stay attached for your team to review.</span></div>
+      </div>
+    </section>
+
+    <section className="ad-scan-proof" id="proof" aria-labelledby="ad-scan-proof-title">
+      <div><span className="eyebrow">A useful first answer</span><h2 id="ad-scan-proof-title">From bill to decision in one contained review.</h2><p>You do not need to connect your entire inbox or hand Costivra control of your vendors. Start with documents you choose, then decide what deserves attention.</p></div>
+      <ol className="ad-scan-steps"><li><span>01</span><div><strong>Choose current bills</strong><p>Start with a recent bill or agreement that changed, renewed, or is difficult to explain.</p></div></li><li><span>02</span><div><strong>See the evidence</strong><p>Review the source, extracted facts, confidence, assumptions, and the question Costivra surfaced.</p></div></li><li><span>03</span><div><strong>Keep the decision</strong><p>Save, investigate, assign, or approve a bounded next step. No outside action happens without approval.</p></div></li></ol>
+    </section>
+
+    <section className="ad-scan-category-grid" aria-label="Supported starting points"><article><span>Software</span><h2>Unused seats and quiet renewals.</h2><p>Make subscriptions, owners, plan changes, and renewal timing easier to review.</p><Link href="/solutions/software">See software review <ArrowUpRight aria-hidden="true" size={16} /></Link></article><article><span>Telecom & internet</span><h2>Charges that deserve a question.</h2><p>Keep service, account, contract, and invoice evidence together before escalating a bill.</p><Link href="/solutions/telecom">See telecom review <ArrowUpRight aria-hidden="true" size={16} /></Link></article><article><span>Commercial energy</span><h2>Prepare the review without pressure.</h2><p>Organize invoice and agreement evidence while keeping advice, referral, and consent separate.</p><Link href="/solutions/energy">See energy review <ArrowUpRight aria-hidden="true" size={16} /></Link></article></section>
+
+    <section className="ad-scan-faq" aria-labelledby="ad-scan-faq-title"><div><span className="eyebrow">Before you begin</span><h2 id="ad-scan-faq-title">A clear review, with no hidden handoff.</h2></div><div className="ad-scan-faq-list"><details><summary>Is this a savings guarantee?</summary><p>No. Costivra identifies potential issues and keeps the supporting evidence visible. A result becomes verified only when later evidence supports the agreed method.</p></details><details><summary>Do I need to connect my inbox?</summary><p>No. Start by uploading only the documents you choose. Broader connections can be considered later for a specific workflow.</p></details><details><summary>Will Costivra contact my vendor?</summary><p>No outside action happens without the required human approval. You control what is investigated, shared, or approved.</p></details><details><summary>Why do I need an account before uploading?</summary><p>Your private workspace is created before document intake so your business bills do not pass through an unprotected public form.</p></details></div></section>
+
+    <section className="ad-scan-close"><div><span className="eyebrow">Start small. Keep the proof.</span><h2>Bring the bill you already have.</h2><p>Review up to three current documents free. No card, no broad inbox access, and no obligation to continue.</p></div><Link className="button button-primary" href={signupHref}>Review 3 bills free <ArrowRight aria-hidden="true" size={17} /></Link></section>
+  </div></PageFrame>;
 }
 
 function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[] }) {

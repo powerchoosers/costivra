@@ -30,6 +30,7 @@ type CatalogVendor = {
   id: string;
   name: string;
   category: string;
+  aliases: string[];
 };
 
 type UploadState =
@@ -161,6 +162,27 @@ export function DocumentUploadExperience({
     }
   }
 
+  async function chooseFile(file: File | null) {
+    if (busy) return;
+    setErrorMessage(null);
+    setErrorCode(null);
+    setSelectedFile(file);
+    setFlow(file ? "selected" : "idle");
+    if (!file || vendorId) return;
+
+    const fileText = file.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const matches = vendorCatalog
+      .flatMap((vendor) => [{ vendor, label: vendor.name }, ...vendor.aliases.map((alias) => ({ vendor, label: alias }))])
+      .filter(({ label }) => {
+        const normalizedLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        return normalizedLabel.length >= 3 && fileText.includes(normalizedLabel);
+      })
+      .sort((a, b) => b.label.length - a.label.length);
+    const best = matches[0]?.vendor;
+    const second = matches[1]?.vendor;
+    if (best && (!second || second.id === best.id)) await chooseVendor(best);
+  }
+
   const setFlow = (next: UploadState) => {
     setFlowState(next);
     onBusyChange?.(next === "submitting");
@@ -199,18 +221,10 @@ export function DocumentUploadExperience({
     setFlow("idle");
   };
 
-  const chooseFile = (file: File | null) => {
-    if (busy) return;
-    setErrorMessage(null);
-    setErrorCode(null);
-    setSelectedFile(file);
-    setFlow(file ? "selected" : "idle");
-  };
-
   const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     setDragging(false);
-    chooseFile(event.dataTransfer.files.item(0));
+    void chooseFile(event.dataTransfer.files.item(0));
   };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -333,7 +347,7 @@ export function DocumentUploadExperience({
           aria-label="Choose a bill file"
           required={!selectedFile}
           disabled={busy}
-          onChange={(event) => chooseFile(event.target.files?.item(0) ?? null)}
+          onChange={(event) => void chooseFile(event.target.files?.item(0) ?? null)}
         />
         {selectedFile ? (
           <div className="document-upload-attachment" role="group" aria-label={`Selected ${selectedFile.name}`}>

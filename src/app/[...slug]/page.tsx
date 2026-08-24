@@ -4,7 +4,7 @@ import { MarketingFooter, MarketingHeader } from "@/components/marketing-shell";
 import { getPublicBillingCatalog } from "@/lib/billing/catalog";
 
 const titles: Record<string, string> = {
-  product: "Product", solutions: "Solutions", "how-it-works": "How it works", pricing: "Pricing", security: "Security", integrations: "Integrations", industries: "Industries", about: "About", partners: "Partners", contact: "Contact", "case-studies": "Case studies", help: "Help center", status: "Status", scan: "Free Cost Leak Scan", login: "Sign in", signup: "Create account", privacy: "Privacy Policy", terms: "Terms of Service", "ucep-disclosure": "UCEP Relationship Disclosure",
+  product: "Product", solutions: "Solutions", "how-it-works": "How it works", pricing: "Pricing", security: "Security", integrations: "Integrations", industries: "Industries", about: "About", partners: "Partners", contact: "Contact", "case-studies": "Case studies", help: "Help center", status: "Status", scan: "Free Cost Leak Scan", "free-bill-review": "Review Your Business Bills Free | Costivra", login: "Sign in", signup: "Create account", privacy: "Privacy Policy", terms: "Terms of Service", "ucep-disclosure": "UCEP Relationship Disclosure",
   "solutions/software": "Software Subscription Monitoring | Costivra",
   "solutions/telecom": "Telecom & Connectivity Monitoring | Costivra",
   "solutions/energy": "Commercial Energy & Tariff Review | Costivra",
