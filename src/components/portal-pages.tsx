@@ -43,6 +43,7 @@ import {
 } from "@/lib/icons";
 import type { PortalApprovalPolicy, PortalContract, PortalData, PortalInvoice, PortalLocation, PortalTeamMember, PortalVendor } from "@/lib/portal/types";
 import { useToast } from "@/components/toast-provider";
+import { createClient } from "@/lib/supabase/client";
 import { useBillInspector } from "@/components/bill-inspector-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
@@ -4205,12 +4206,12 @@ function Settings({
   data: PortalData;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
   onInvite: () => void;
-  initialTab?: "organization" | "integrations" | "team" | "billing";
+  initialTab?: "organization" | "account" | "integrations" | "team" | "billing";
 }) {
   const [busy, setBusy] = useState(false);
   const searchParams = useSearchParams();
   const requestedTab = searchParams?.get("tab");
-  const tabFromUrl = requestedTab === "organization" || requestedTab === "integrations" || requestedTab === "team" || requestedTab === "billing"
+  const tabFromUrl = requestedTab === "organization" || requestedTab === "account" || requestedTab === "integrations" || requestedTab === "team" || requestedTab === "billing"
     ? requestedTab
     : null;
   const [tab, setTab] = useState(tabFromUrl ?? initialTab);
@@ -4244,6 +4245,7 @@ function Settings({
   };
   const settingsTabs = [
     { id: "organization", label: "Organization" },
+    { id: "account", label: "Account & login" },
     { id: "integrations", label: "Integrations" },
     { id: "team", label: "Team & approvals" },
     ...(["owner", "admin"].includes(data.currentUser.role)
@@ -4346,11 +4348,42 @@ function Settings({
         </section>
       )}
       </>}
+      {tab === "account" && <AccountLoginSettings data={data} />}
       {tab === "integrations" && <div className="settings-tab-panel"><Integrations data={data} run={run} embedded /></div>}
       {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} run={run} embedded /><ApprovalPolicyManager data={data} run={run} /></div>}
       {tab === "billing" && <BillingPanel />}
     </>
   );
+}
+
+function AccountLoginSettings({ data }: { data: PortalData }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [identityState, setIdentityState] = useState<{ microsoft: boolean; email: boolean } | null>(null);
+  useEffect(() => {
+    let active = true;
+    void createClient().auth.getUser().then(({ data: result }) => {
+      if (!active) return;
+      const providers = new Set((result.user?.identities ?? []).map((identity) => identity.provider));
+      setIdentityState({ microsoft: providers.has("azure"), email: providers.has("email") });
+    });
+    return () => { active = false; };
+  }, []);
+  const connectMicrosoft = async () => {
+    setBusy(true); setMessage(null);
+    const callback = new URL("/auth/callback", window.location.origin);
+    callback.searchParams.set("next", "/app/settings?tab=account");
+    const { error } = await createClient().auth.linkIdentity({ provider: "azure", options: { scopes: "email profile", redirectTo: callback.toString(), queryParams: { prompt: "select_account" } } });
+    if (error) setMessage(error.message);
+    setBusy(false);
+  };
+  const sendPasswordReset = async () => {
+    setBusy(true); setMessage(null);
+    const { error } = await createClient().auth.resetPasswordForEmail(data.currentUser.email, { redirectTo: `${window.location.origin}/confirm-recovery` });
+    setMessage(error ? error.message : "Password reset instructions sent to your email.");
+    setBusy(false);
+  };
+  return <section className="portal-panel settings-account-panel" aria-labelledby="account-login-settings-title"><header className="settings-section-header"><div><span className="eyebrow">Personal access</span><h2 id="account-login-settings-title">Account &amp; login</h2><p>Manage how you sign in to this customer workspace. Internal Manage agents use their separate staff access path.</p></div><ShieldCheck size={22} aria-hidden="true" /></header><div className="settings-account-list"><div><strong>Microsoft / Outlook</strong><span>{identityState?.microsoft ? "Connected to this account." : "Not connected yet."}</span></div><button type="button" className="button button-secondary" onClick={() => void connectMicrosoft()} disabled={busy || Boolean(identityState?.microsoft)}>{identityState?.microsoft ? "Connected" : busy ? "Opening…" : "Connect Microsoft"}</button><div><strong>Email and password</strong><span>{identityState?.email ? "Available as a fallback sign-in method." : "Managed by your identity provider."}</span></div><button type="button" className="button button-secondary" onClick={() => void sendPasswordReset()} disabled={busy || !identityState?.email}>{busy ? "Sending…" : "Reset password"}</button></div>{message && <p className="account-message" role="status">{message}</p>}</section>;
 }
 
 function BillingPanel() {

@@ -699,7 +699,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                   setNotificationsOpen(false);
                 }}
               >
-                <span className="app-operator-avatar" aria-hidden="true">{initials}</span>
+                {data.currentUser.avatarUrl ? <img className="app-operator-avatar" src={data.currentUser.avatarUrl} alt="" /> : <span className="app-operator-avatar" aria-hidden="true">{initials}</span>}
                 <span className="app-operator-copy">
                   <strong>{data.currentUser.fullName}</strong>
                   <small>{data.currentUser.role}</small>
@@ -708,7 +708,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
               {profileOpen && (
                 <div className="app-profile-menu" role="menu" aria-label="Account options">
                   <div className="app-profile-menu-heading">
-                    <span className="app-operator-avatar" aria-hidden="true">{initials}</span>
+                    {data.currentUser.avatarUrl ? <img className="app-operator-avatar" src={data.currentUser.avatarUrl} alt="" /> : <span className="app-operator-avatar" aria-hidden="true">{initials}</span>}
                     <span><strong>{data.currentUser.fullName}</strong><small>{data.currentUser.email}</small></span>
                   </div>
                   <button type="button" role="menuitem" className="is-danger" onClick={() => void signOut()}>

@@ -27,5 +27,13 @@ export async function GET(request: NextRequest) {
   );
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) return NextResponse.redirect(errorDestination);
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (user) {
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const candidateAvatar = [metadata.avatar_url, metadata.picture, metadata.photo].find((value): value is string => typeof value === "string" && value.startsWith("https://") && value.length <= 2048) ?? null;
+    const fullName = typeof metadata.full_name === "string" ? metadata.full_name.trim().slice(0, 160) : null;
+    await supabase.from("profiles").upsert({ id: user.id, email: user.email ?? "", ...(fullName ? { full_name: fullName } : {}), avatar_url: candidateAvatar }, { onConflict: "id" });
+  }
   return response;
 }

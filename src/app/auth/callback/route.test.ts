@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const exchangeCodeForSession = vi.hoisted(() => vi.fn());
+const getUser = vi.hoisted(() => vi.fn());
+const upsert = vi.hoisted(() => vi.fn());
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: vi.fn(() => ({ auth: { exchangeCodeForSession } })),
+  createServerClient: vi.fn(() => ({ auth: { exchangeCodeForSession, getUser }, from: () => ({ upsert }) })),
 }));
 
 import { GET } from "@/app/auth/callback/route";
 
 describe("OAuth callback", () => {
-  beforeEach(() => exchangeCodeForSession.mockReset());
+  beforeEach(() => { exchangeCodeForSession.mockReset(); getUser.mockReset(); upsert.mockReset(); getUser.mockResolvedValue({ data: { user: null } }); upsert.mockResolvedValue({ error: null }); });
 
   it("exchanges the authorization code and preserves only a safe workspace destination", async () => {
     exchangeCodeForSession.mockResolvedValue({ error: null });

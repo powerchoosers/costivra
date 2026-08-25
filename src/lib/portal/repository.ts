@@ -133,7 +133,7 @@ export async function getPortalData(): Promise<PortalData> {
     auditEventsResult,
   ] = await Promise.all([
     db.from("organizations").select("*").eq("id", organizationId).single(),
-    db.from("profiles").select("id,email,full_name").eq("id", userId).single(),
+    db.from("profiles").select("id,email,full_name,avatar_url").eq("id", userId).single(),
     db.from("locations").select("*").eq("organization_id", organizationId).order("name"),
     db.from("energy_meters").select("id,location_id,meter_identifier,service_identifier,account_number_last4,utility_territory,status,display_name,last_seen_at").eq("organization_id", organizationId).order("created_at"),
     db.from("vendors").select("id,canonical_name,category,website,search_aliases,logo_url").order("canonical_name"),
@@ -156,7 +156,7 @@ export async function getPortalData(): Promise<PortalData> {
     db.from("integrations").select("*").eq("organization_id", organizationId).order("display_name"),
     db.from("report_definitions").select("*").eq("organization_id", organizationId).order("name"),
     db.from("organization_memberships").select("*").eq("organization_id", organizationId),
-    db.from("profiles").select("id,email,full_name"),
+    db.from("profiles").select("id,email,full_name,avatar_url"),
     db.from("notifications").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
     db.from("inbound_email_addresses").select("id,local_part,domain,status,trusted_senders").eq("organization_id", organizationId).maybeSingle(),
     db.from("inbound_email_events").select("id,sender_address,subject,status,attachment_count,processed_attachment_count,error_message,received_at").eq("organization_id", organizationId).order("received_at", { ascending: false }).limit(12),
@@ -273,7 +273,7 @@ export async function getPortalData(): Promise<PortalData> {
       reviewThreshold: numberValue(organization.review_threshold), settings: (organization.settings as Record<string, boolean>) ?? {}, logoUrl: nullableString(organization.logo_url), isSampleWorkspace: Boolean(organization.is_sample_workspace),
     },
     currentUser: {
-      id: userId, email: stringValue(profile.email), fullName: stringValue(profile.full_name, stringValue(profile.email)), role: stringValue(membership.role),
+      id: userId, email: stringValue(profile.email), fullName: stringValue(profile.full_name, stringValue(profile.email)), role: stringValue(membership.role), avatarUrl: nullableString(profile.avatar_url),
     },
     locations: rows(locationsResult.data).map((location) => ({
       id: stringValue(location.id), name: stringValue(location.name), status: stringValue(location.status), address: (location.address as Record<string, string>) ?? null,

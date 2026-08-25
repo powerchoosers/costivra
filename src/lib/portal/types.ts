@@ -19,6 +19,7 @@ export type PortalUser = {
   email: string;
   fullName: string;
   role: string;
+  avatarUrl: string | null;
 };
 
 export type PortalVendor = {

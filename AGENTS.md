@@ -91,6 +91,13 @@ Initial supported categories are software subscriptions, telecom and internet, a
 - Use `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` only for browser-safe, authenticated client work. Before exposing any new table through the Data API, add a narrowly scoped RLS policy and tenant-isolation tests.
 - All future schema changes must be recorded as reviewed migrations and verified with Supabase security and performance advisors. Do not use the Luxor Event Space Supabase credentials against this project.
 
+### Microsoft / Outlook customer login
+
+- Customer-facing `/login` and `/signup` may use Supabase Auth's `azure` provider when `NEXT_PUBLIC_MICROSOFT_OAUTH_ENABLED=1`; internal Manage agents continue using the separate staff access path and must not inherit customer OAuth controls.
+- The Azure Entra application must use the approved audience, the Supabase callback `https://skfocjrykyvsaviyhdea.supabase.co/auth/v1/callback`, and at least the `email` and `profile` scopes. Keep the Azure client secret only in Supabase Auth/provider secrets; never commit it or expose it through `NEXT_PUBLIC_` variables.
+- The OAuth callback exchanges the code server-side, validates HTTPS avatar metadata, and stores the display-only `avatar_url` on the authenticated user's `profiles` row. Avatar URLs are not authorization data and must never be used in RLS or role checks.
+- Customer users can review connected identity providers and reset email-password access in `/app/settings?tab=account`. Do not add this customer control to Manage settings without an explicit staff-auth design review.
+
 ### AI provider
 
 - Costivra currently uses an OpenRouter-compatible server adapter in `src/lib/ai/openrouter.ts`. The server reads `OPEN_ROUTER_API_KEY` (the existing Luxor naming) or `OPENROUTER_API_KEY`; the key must never enter a browser bundle, commit, log, or error message.
