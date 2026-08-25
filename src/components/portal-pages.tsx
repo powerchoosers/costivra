@@ -1205,7 +1205,7 @@ function BillsWorkspace({
                     <td>{date(inv.dueDate)}</td>
                     <td>{inv.accountNumberLast4 ? `...${inv.accountNumberLast4}` : "Unassigned"}</td>
                     <td>{inv.locationName ?? "Not assigned"}</td>
-                    <td>
+                    <td className="bills-review-cell">
                       <Link className="button button-quiet button-sm bills-review-link" href={`/app/bills/${inv.id}`}>
                         Review <ChevronRight size={14} />
                       </Link>
@@ -1507,7 +1507,7 @@ function FindingsWorkspace({
                   const expense = data.expenses.find((candidate) => candidate.id === item.sourceExpenseId);
                   const sourceId = invoice?.id ?? expense?.invoiceId ?? expense?.documentId;
                   return <tr id={item.id} key={item.id}>
-                    <td><Link className="record-link" href={`/app/findings/${item.id}`}><strong>{item.title}</strong></Link><small>{item.summary}</small></td>
+                    <td><Link className="record-link" href={`/app/findings/${item.id}`} title={item.title}><strong>{item.title}</strong></Link><small>{item.summary}</small></td>
                     <td>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}><strong>{item.vendorName}</strong></Link> : <strong>{item.vendorName}</strong>}<small>{item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</small></td>
                     <td>{sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span className="workspace-secondary-text">Not linked</span>}</td>
                     <td><TrustBadge state={item.trustState} /></td><td>{item.evidenceCount} reference{item.evidenceCount === 1 ? "" : "s"}</td>

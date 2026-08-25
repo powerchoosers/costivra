@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useId } from "react";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from "@/lib/icons";
 
 export interface CostivraDatePickerProps {
+  ariaLabel?: string;
   name?: string;
   value?: string; // YYYY-MM-DD
   defaultValue?: string;
@@ -56,6 +57,7 @@ function formatDisplayDate(dateStr?: string): string {
 }
 
 export function CostivraDatePicker({
+  ariaLabel,
   name,
   value,
   defaultValue,
@@ -185,6 +187,7 @@ export function CostivraDatePicker({
         type="button"
         id={dateId}
         disabled={disabled}
+        aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}
@@ -214,7 +217,7 @@ export function CostivraDatePicker({
       </button>
 
       {isOpen && (
-        <div className="costivra-calendar-popover">
+        <div aria-label={ariaLabel ? `${ariaLabel} calendar` : "Choose date"} className="costivra-calendar-popover" role="dialog">
           <div className="costivra-calendar-header">
             <button
               type="button"

@@ -157,7 +157,7 @@ const evidenceData: Record<EvidenceCategory, EvidenceData> = {
 
 export function HomePage({ plans }: { plans: PublicBillingPlan[] }) {
   return (
-    <main className="paper-texture">
+    <main className="paper-texture marketing-motion-page">
       <section className="hero">
         <div className="container hero-inner">
           <div className="hero-copy">

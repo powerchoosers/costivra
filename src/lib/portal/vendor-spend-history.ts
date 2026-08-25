@@ -21,7 +21,9 @@ export type VendorSpendHistory = {
 
 type BuildOptions = {
   currency: string;
+  endDate?: string | null;
   limit?: number | null;
+  startDate?: string | null;
 };
 
 function validDate(value: string | null | undefined) {
@@ -100,7 +102,7 @@ function expensePoint(expense: PortalExpense, currency: string): VendorSpendHist
 export function buildVendorSpendHistory(
   invoices: readonly PortalInvoice[],
   expenses: readonly PortalExpense[],
-  { currency, limit = 12 }: BuildOptions,
+  { currency, endDate = null, limit = 12, startDate = null }: BuildOptions,
 ): VendorSpendHistory {
   const normalizedCurrency = currency.trim().toUpperCase();
   let excludedCurrencyCount = 0;
@@ -118,7 +120,13 @@ export function buildVendorSpendHistory(
 
   const sortPoints = (points: VendorSpendHistoryPoint[]) => points
     .sort((left, right) => left.date.localeCompare(right.date) || left.id.localeCompare(right.id));
-  const limited = (points: VendorSpendHistoryPoint[]) => limit == null ? points : points.slice(-Math.max(1, limit));
+  const limited = (points: VendorSpendHistoryPoint[]) => {
+    const ranged = points.filter((point) => (
+      (!startDate || point.date >= startDate)
+      && (!endDate || point.date <= endDate)
+    ));
+    return limit == null ? ranged : ranged.slice(-Math.max(1, limit));
+  };
 
   if (invoicePoints.length) {
     return {

@@ -89,9 +89,8 @@ const specs: Record<string, PageSpec> = {
     lede: "Choose a current bill. Costivra shows the source-backed question, and your team decides what to do next.",
     blocks: [
       { icon: Upload, title: "1. Choose current bills", copy: "Create a private workspace and add the supported bills or contracts you want reviewed." },
-      { icon: FileSearch, title: "2. Review the source-backed question", copy: "See what changed, what is uncertain, and the source document that supports the review." },
-      { icon: Users, title: "3. Choose the next step", copy: "Save, investigate, assign, export, or approve a bounded action. Costivra does not act outside your approval." },
-      { icon: CheckCircle2, title: "What happens later", copy: "Later bills, credits, or contract records can confirm or reject a possible result." },
+      { icon: FileSearch, title: "2. Review the evidence", copy: "See what changed, what is uncertain, and the source facts that support the review." },
+      { icon: UserCheck, title: "3. Decide what happens next", copy: "Save, investigate, assign, export, or approve a bounded next step. No outside action happens without approval, and later evidence confirms the result." },
     ],
     operating: { eyebrow: "What stays human", title: "Automation handles the record. People retain the decision.", copy: "Costivra can organize, compare, route, and prepare. Your team controls exceptions, approvals, vendor choices, and every consequential external action.", steps: [{ label: "System work", copy: "Collect facts, apply supported rules, prepare a clear case, and maintain the audit trail." }, { label: "Team judgment", copy: "Review uncertainty, approve scope, and decide whether the proposed next step is right." }, { label: "Proof of value", copy: "Use an agreed baseline and subsequent evidence before calling an outcome savings." }] },
     close: { title: "Review the process against a bill you already have.", copy: "Start with a small, contained review before connecting more systems or expanding to additional categories.", action: "Start with 3 bills", href: "/scan" },
@@ -293,7 +292,7 @@ export function MarketingPage({ path, plans }: { path: string; plans: PublicBill
   return spec ? <SpecPage spec={spec} /> : <NotFoundPage />;
 }
 
-function PageFrame({ children }: { children: React.ReactNode }) { return <main className="paper-texture"><div className="container content-page">{children}</div></main>; }
+function PageFrame({ children }: { children: React.ReactNode }) { return <main className="paper-texture marketing-motion-page"><div className="container content-page">{children}</div></main>; }
 
 function Reveal({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);

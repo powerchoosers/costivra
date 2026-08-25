@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -423,12 +423,12 @@ export function ManageAiDrawer({
 
               {(messages.length > 0 || sending || error) && (
               <AssistantConversationScroller className="assistant-thread manage-assistant-messages" itemCount={messages.length} isLoading={sending} conversationKey={activeSessionId ?? `new-${conversationRevision}`} key={conversationRevision}>
-                {messages.map((message) => message.role === "user" ? (
-                  <div className="assistant-message assistant-message--user" key={message.id}>
+                {messages.map((message, index) => message.role === "user" ? (
+                  <div className="assistant-message assistant-message--user" key={message.id} style={{ "--message-index": index } as CSSProperties}>
                     <div className="user-bubble">{message.content}</div>
                   </div>
                 ) : (
-                  <div className="assistant-message assistant-message--assistant" key={message.id}>
+                  <div className="assistant-message assistant-message--assistant" key={message.id} style={{ "--message-index": index } as CSSProperties}>
                     <div className="assistant-prose">
                       <div className="manage-assistant-message-heading">
                         <CostivraAssistantIcon size={20} aria-hidden="true" />

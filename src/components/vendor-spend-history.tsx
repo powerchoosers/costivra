@@ -3,17 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { BarChart3, CalendarClock, ChevronRight, ReceiptText } from "@/lib/icons";
+import { VendorHistoryRangePicker } from "@/components/vendor-history-range-picker";
 import type { PortalData } from "@/lib/portal/types";
 import { buildVendorSpendHistory, type VendorSpendHistoryPoint } from "@/lib/portal/vendor-spend-history";
+import { vendorHistoryPresetRange, type VendorHistoryRange } from "@/lib/portal/vendor-history-range";
 import { formatFinancialDate } from "@/lib/ui/date-format";
-
-type HistoryRange = "12" | "24" | "all";
-
-const rangeLimits: Record<HistoryRange, number | null> = {
-  "12": 12,
-  "24": 24,
-  all: null,
-};
 
 function money(value: number, currency: string) {
   return new Intl.NumberFormat("en-US", {
@@ -54,10 +48,21 @@ export function VendorSpendHistory({
   expenses: PortalData["expenses"];
   currency: string;
 }) {
-  const [range, setRange] = useState<HistoryRange>("12");
+  const fullHistory = useMemo(
+    () => buildVendorSpendHistory(invoices, expenses, { currency, limit: null }),
+    [currency, expenses, invoices],
+  );
+  const availableStart = fullHistory.points[0]?.date ?? null;
+  const latestRecordDate = fullHistory.points.at(-1)?.date ?? null;
+  const [range, setRange] = useState<VendorHistoryRange>(() => vendorHistoryPresetRange("12m", latestRecordDate));
   const history = useMemo(
-    () => buildVendorSpendHistory(invoices, expenses, { currency, limit: rangeLimits[range] }),
-    [currency, expenses, invoices, range],
+    () => buildVendorSpendHistory(invoices, expenses, {
+      currency,
+      endDate: range.endDate,
+      limit: null,
+      startDate: range.startDate,
+    }),
+    [currency, expenses, invoices, range.endDate, range.startDate],
   );
   const points = history.points;
   const absoluteMaximum = Math.max(...points.map((point) => Math.abs(point.amount)), 1);
@@ -73,14 +78,12 @@ export function VendorSpendHistory({
           <h2 id="vendor-spend-history-heading">Invoice charges over time</h2>
           <p>{sourceDescription(history.source)}</p>
         </div>
-        <label className="vendor-spend-history__range">
-          <span>History range</span>
-          <select value={range} onChange={(event) => setRange(event.target.value as HistoryRange)}>
-            <option value="12">Last 12 records</option>
-            <option value="24">Last 24 records</option>
-            <option value="all">All records</option>
-          </select>
-        </label>
+        <VendorHistoryRangePicker
+          availableStart={availableStart}
+          latestRecordDate={latestRecordDate}
+          onChange={setRange}
+          value={range}
+        />
       </header>
 
       {points.length ? (
@@ -156,8 +159,8 @@ export function VendorSpendHistory({
         <div className="vendor-spend-history__empty">
           <span className="vendor-spend-history__empty-icon" aria-hidden="true"><BarChart3 size={18} /></span>
           <div>
-            <strong>{invoices.length ? "No complete invoice history yet" : "No invoice history yet"}</strong>
-            <p>{history.missingDateCount || history.missingAmountCount ? "Some invoice records are missing a usable date or charge amount. Complete the source review to make them chartable." : sourceDescription(history.source)}</p>
+            <strong>{fullHistory.points.length ? "No records in this period" : invoices.length ? "No complete invoice history yet" : "No invoice history yet"}</strong>
+            <p>{fullHistory.points.length ? "Choose a wider history period or enter a different date range." : history.missingDateCount || history.missingAmountCount ? "Some invoice records are missing a usable date or charge amount. Complete the source review to make them chartable." : sourceDescription(history.source)}</p>
           </div>
         </div>
       )}

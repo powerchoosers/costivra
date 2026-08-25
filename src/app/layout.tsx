@@ -45,7 +45,7 @@ export const viewport: Viewport = { themeColor: "#f4f1e8", colorScheme: "light" 
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${sora.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth">
+    <html lang="en" className={`${sora.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth" data-workspace-scrollbar="">
       <body><SmoothScroll /><ToastProvider>{children}</ToastProvider></body>
     </html>
   );

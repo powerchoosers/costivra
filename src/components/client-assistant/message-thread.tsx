@@ -85,8 +85,14 @@ export function MessageThread() {
               {/* Render Hydrated Response Blocks */}
               {m.blocks && m.blocks.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-                  {m.blocks.map((block) => (
-                    <ResponseBlockRenderer key={block.id} block={block} />
+                  {m.blocks.map((block, blockIndex) => (
+                    <div
+                      className="assistant-response-block"
+                      key={block.id}
+                      style={{ "--assistant-card-index": blockIndex } as CSSProperties}
+                    >
+                      <ResponseBlockRenderer block={block} />
+                    </div>
                   ))}
                 </div>
               )}

@@ -98,6 +98,7 @@ import { RecordDangerDialog, DependencyPreview } from "@/components/records/reco
 import { recordDraftChanged } from "@/lib/records/draft-state";
 import { RecordChangeHistory, AuditHistoryItem } from "@/components/records/record-change-history";
 import { CostivraMark } from "@/components/brand";
+import { WorkspaceSidebarBrandToggle } from "@/components/workspace-sidebar-brand-toggle";
 import { CostivraAssistantIcon } from "@/components/assistant-icon";
 import { ManageInvoiceReview } from "@/components/manage-invoice-review";
 import { ManageIntakeOperations } from "@/components/manage-intake-operations";
@@ -1108,24 +1109,28 @@ export function ManagePortal({
         data-workspace-slot="rail"
       >
         <div className="manage-brand">
-          <Link href="/manage" title="Costivra Owner Operations" onClick={() => { setOptimisticHref("/manage"); handleManageNavSelect(); }}>
-            <span className="manage-brand-mark">
-              <CostivraMark size={34} />
-            </span>
-            <div className="manage-brand-copy" aria-hidden={sidebarIsCollapsed}>
-              <strong>Costivra</strong>
-              <small>OWNER OPERATIONS</small>
-            </div>
-          </Link>
           {sidebarViewport === "mobile" ? (
-            <button
-              className="workspace-close-button manage-mobile-close"
-              onClick={() => setMobileNav(false)}
-              aria-label="Close menu"
-            >
-              <X size={18} />
-            </button>
-          ) : null}
+            <>
+              <Link href="/manage" title="Costivra Owner Operations" onClick={() => { setOptimisticHref("/manage"); handleManageNavSelect(); }}>
+                <span className="manage-brand-mark"><CostivraMark size={34} /></span>
+                <div className="manage-brand-copy"><strong>Costivra</strong><small>OWNER OPERATIONS</small></div>
+              </Link>
+              <button className="workspace-close-button manage-mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu">
+                <X size={18} />
+              </button>
+            </>
+          ) : (
+            <WorkspaceSidebarBrandToggle
+              collapsed={sidebarIsCollapsed}
+              controlsId="manage-owner-sidebar"
+              eyebrow="OWNER OPERATIONS"
+              onToggle={() => {
+                clearSidebarTooltip();
+                if (!sidebarIsCollapsed) closeSearch();
+                setMobileNav((current) => !current);
+              }}
+            />
+          )}
         </div>
         <nav
           className="manage-primary-nav"
@@ -1333,23 +1338,6 @@ export function ManagePortal({
       >
         <header className="manage-topbar" data-workspace-slot="topbar">
           <div className="manage-topbar-leading">
-            <button
-              className="manage-menu"
-              onClick={() => {
-                if (sidebarViewport === "mobile") {
-                  openManageMobileMenu();
-                  return;
-                }
-                clearSidebarTooltip();
-                if (!sidebarIsCollapsed) closeSearch();
-                setMobileNav((current) => !current);
-              }}
-              aria-label={sidebarViewport === "mobile" ? "Open menu" : sidebarIsCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              aria-controls={sidebarViewport === "mobile" ? "manage-mobile-navigation" : "manage-owner-sidebar"}
-              aria-expanded={sidebarViewport === "mobile" ? manageMobileMenuOpen : !sidebarIsCollapsed}
-            >
-              <Menu size={20} />
-            </button>
           <div>
             <small>MANAGE</small>
             <h1>{pageTitle}</h1>
@@ -2145,7 +2133,7 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
       </div>
       <div className={`manage-dashboard-assistant__conversation${messages.length ? " is-active" : ""}`}>
         {messages.length > 0 && <AssistantConversationScroller className="manage-dashboard-assistant__thread" itemCount={messages.length} isLoading={sending} conversationKey={sessionId ?? "new"}>
-          {messages.map((message) => <div key={message.id} className={`manage-dashboard-assistant__message manage-dashboard-assistant__message--${message.role}`}><strong>{message.role === "assistant" ? "Costivra" : "You"}</strong><p>{message.content}</p>{message.sources && message.sources.length > 0 && <div className="manage-dashboard-assistant__sources"><span>Referenced records</span>{message.sources.slice(0, 4).map((source) => <a key={source.id} href={source.href}><strong>{source.label}</strong><small>{source.detail}</small></a>)}</div>}</div>)}
+          {messages.map((message, index) => <div key={message.id} className={`manage-dashboard-assistant__message manage-dashboard-assistant__message--${message.role}`} style={{ "--message-index": index } as CSSProperties}><strong>{message.role === "assistant" ? "Costivra" : "You"}</strong><p>{message.content}</p>{message.sources && message.sources.length > 0 && <div className="manage-dashboard-assistant__sources"><span>Referenced records</span>{message.sources.slice(0, 4).map((source) => <a key={source.id} href={source.href}><strong>{source.label}</strong><small>{source.detail}</small></a>)}</div>}</div>)}
           {sending && <p className="manage-dashboard-assistant__thinking">Costivra is reviewing client operations…</p>}
         </AssistantConversationScroller>}
         <form className="manage-dashboard-assistant__form" onSubmit={(event) => void submit(event)}>

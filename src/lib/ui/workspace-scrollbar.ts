@@ -177,13 +177,16 @@ function setScrollOffset(target: HTMLElement, axis: WorkspaceScrollbarAxis, offs
 }
 
 function getViewportStartInset(axis: WorkspaceScrollbarAxis) {
-  if (axis !== "y" || !window.matchMedia("(max-width: 760px)").matches) return OVERLAY_INSET;
+  if (axis !== "y") return OVERLAY_INSET;
 
   const header = document.querySelector<HTMLElement>(".marketing-header");
-  if (!header || window.getComputedStyle(header).position !== "fixed") return OVERLAY_INSET;
+  if (!header) return OVERLAY_INSET;
+
+  const position = window.getComputedStyle(header).position;
+  if (position !== "fixed" && position !== "sticky") return OVERLAY_INSET;
 
   const rect = header.getBoundingClientRect();
-  if (rect.top > 0 || rect.bottom <= 0) return OVERLAY_INSET;
+  if (rect.top > OVERLAY_INSET || rect.bottom <= 0) return OVERLAY_INSET;
 
   return Math.max(
     OVERLAY_INSET,

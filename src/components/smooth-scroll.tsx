@@ -129,8 +129,7 @@ export function SmoothScroll() {
     const scrollTimers = new Map<HTMLElement, { x?: number; y?: number }>();
     const scrollPositions = new WeakMap<HTMLElement, { left: number; top: number }>();
     const registerScrollbar = (target: HTMLElement) => {
-      if (!target.matches(NATIVE_SCROLL_SELECTOR)) return;
-      target.setAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE, "");
+      if (!target.matches(NATIVE_SCROLL_SELECTOR) || !target.hasAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE)) return;
       if (!scrollPositions.has(target)) {
         scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
       }
@@ -198,7 +197,6 @@ export function SmoothScroll() {
 
     // Scroll events do not bubble from nested panels, so capture them once at
     // the document rather than attaching a listener to every table instance.
-    document.documentElement.setAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE, "");
     document.querySelectorAll<HTMLElement>(NATIVE_SCROLL_SELECTOR).forEach(registerScrollbar);
     const scrollbarObserver = new MutationObserver((records) => {
       for (const record of records) {
@@ -241,7 +239,6 @@ export function SmoothScroll() {
         window.removeEventListener("scroll", activatePageScrollbar);
       }
       document.documentElement.classList.remove("is-scroll-y-active");
-      document.documentElement.removeAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE);
     };
   }, []);
 

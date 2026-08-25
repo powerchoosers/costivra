@@ -121,4 +121,20 @@ describe("buildVendorSpendHistory", () => {
 
     expect(history.points.map((point) => point.id)).toEqual(["invoice-2", "invoice-3"]);
   });
+
+  it("filters an inclusive custom date range before applying a record limit", () => {
+    const history = buildVendorSpendHistory([
+      invoice({ id: "invoice-1", invoiceDate: "2025-12-31" }),
+      invoice({ id: "invoice-2", invoiceDate: "2026-01-01" }),
+      invoice({ id: "invoice-3", invoiceDate: "2026-06-30" }),
+      invoice({ id: "invoice-4", invoiceDate: "2026-07-01" }),
+    ], [], {
+      currency: "USD",
+      endDate: "2026-06-30",
+      limit: null,
+      startDate: "2026-01-01",
+    });
+
+    expect(history.points.map((point) => point.id)).toEqual(["invoice-2", "invoice-3"]);
+  });
 });

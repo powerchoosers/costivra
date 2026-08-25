@@ -21,7 +21,6 @@ import {
   X,
 } from "@/lib/icons";
 import type { ReactNode } from "react";
-import { Brand } from "@/components/brand";
 import { CompanyLogo } from "@/components/company-logo";
 import { useToast } from "@/components/toast-provider";
 import type { PortalData } from "@/lib/portal/types";
@@ -37,6 +36,7 @@ import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/
 import { APP_SIDEBAR_PREFERENCE_KEY, appSidebarPreferenceCookie, parseAppSidebarPreference } from "@/lib/ui/workspace-preferences";
 import { WorkspaceExperienceBanner } from "@/components/workspace-experience-banner";
 import { WorkspaceOnboardingTour } from "@/components/workspace-onboarding-tour";
+import { WorkspaceSidebarBrandToggle } from "@/components/workspace-sidebar-brand-toggle";
 
 import type { ElementType } from "react";
 
@@ -595,9 +595,16 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
         <div className="fixed top-0 left-0 right-0 h-0.5 bg-blue-500 z-[9999] animate-pulse" />
       )}
       <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
-        <aside className="app-sidebar" data-workspace-slot="rail">
+        <aside className="app-sidebar" data-workspace-slot="rail" id="app-customer-sidebar">
           <div className="sidebar-brand-row">
-            <Brand light />
+            <WorkspaceSidebarBrandToggle
+              collapsed={sidebarCollapsed}
+              controlsId="app-customer-sidebar"
+              onToggle={() => {
+                clearSidebarTooltip();
+                setSidebarCollapsedOverride(!sidebarCollapsed);
+              }}
+            />
           </div>
           {workspaceIdentity}
           {globalSearch}
@@ -753,19 +760,6 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
             <div className="app-topbar" data-workspace-slot="topbar">
             {mobileUtilities}
             <div className="app-topbar-leading">
-              <button
-                className="app-topbar-expand-toggle"
-                type="button"
-                aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                aria-pressed={sidebarCollapsed}
-                onClick={() => {
-                  clearSidebarTooltip();
-                  setSidebarCollapsedOverride(!sidebarCollapsed);
-                }}
-              >
-                <List aria-hidden="true" size={18} />
-              </button>
-              <span className="app-topbar-divider" aria-hidden="true" />
               {appHeader.vendor && <CompanyLogo entity="vendor" id={appHeader.vendor.id} name={appHeader.vendor.name} className="app-topbar-record-logo" />}
               <div className="app-topbar-title">
                 <div className="app-topbar-title-row">

@@ -853,6 +853,75 @@
   max-width: 88%;
 }
 
+@keyframes assistant-bubble-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translate3d(0, 14px, 0) scale(.985);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+@keyframes assistant-copy-reveal {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    filter: blur(5px);
+    transform: translate3d(0, -5px, 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0);
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+/* Messages mount with one shared blur-to-focus entrance in the customer App,
+   Manage, and both drawers. Copy follows with a top-to-bottom reveal; React
+   rerenders do not restart either animation on an existing message node. */
+@media (prefers-reduced-motion: no-preference) {
+  .assistant-message,
+  .assistant-thinking,
+  .manage-dashboard-assistant__message,
+  .manage-dashboard-assistant__thinking {
+    transform-origin: top center;
+    animation: assistant-bubble-blur-in 420ms var(--assistant-ease, cubic-bezier(.23, 1, .32, 1)) both;
+    animation-delay: min(calc(var(--message-index, 0) * 28ms), 150ms);
+  }
+
+  .assistant-message > .user-bubble,
+  .assistant-message .assistant-prose > p,
+  .manage-dashboard-assistant__message > p {
+    transform-origin: top center;
+    animation: assistant-copy-reveal 520ms var(--assistant-ease, cubic-bezier(.23, 1, .32, 1)) backwards;
+    animation-delay: min(calc(90ms + var(--message-index, 0) * 28ms), 240ms);
+  }
+
+  .assistant-response-block {
+    animation: assistant-bubble-blur-in 400ms var(--assistant-ease, cubic-bezier(.23, 1, .32, 1)) backwards;
+    animation-delay: min(calc(80ms + var(--assistant-card-index, 0) * 48ms), 224ms);
+  }
+
+  .assistant-message :is(.manage-assistant-sources a, .assistant-card-link),
+  .manage-dashboard-assistant__sources a {
+    animation: assistant-bubble-blur-in 320ms var(--assistant-ease, cubic-bezier(.23, 1, .32, 1)) backwards;
+  }
+
+  .assistant-message :is(.manage-assistant-sources a, .assistant-card-link):nth-child(2),
+  .manage-dashboard-assistant__sources a:nth-child(2) { animation-delay: 110ms; }
+
+  .assistant-message :is(.manage-assistant-sources a, .assistant-card-link):nth-child(3),
+  .manage-dashboard-assistant__sources a:nth-child(3) { animation-delay: 145ms; }
+
+  .assistant-message :is(.manage-assistant-sources a, .assistant-card-link):nth-child(n+4),
+  .manage-dashboard-assistant__sources a:nth-child(n+4) { animation-delay: 180ms; }
+}
+
 .assistant-message--user {
   align-self: flex-end;
 }
@@ -2131,6 +2200,11 @@
   .assistant-drawer-surface,
   .assistant-fullscreen-surface,
   .assistant-card,
+  .assistant-message,
+  .assistant-thinking,
+  .assistant-response-block,
+  .assistant-message > .user-bubble,
+  .assistant-message .assistant-prose > p,
   .assistant-trigger-btn,
   .assistant-icon-btn,
   .assistant-rail,
@@ -2145,6 +2219,10 @@
   .assistant-surface.manage-assistant,
   .dashboard-assistant,
   .manage-dashboard-assistant,
+  .manage-dashboard-assistant__message,
+  .manage-dashboard-assistant__message > p,
+  .manage-dashboard-assistant__thinking,
+  .manage-dashboard-assistant__sources a,
   .manage-assistant-send,
   .manage-dashboard-assistant__send,
   .assistant-surface.manage-assistant .manage-assistant-sources a {
