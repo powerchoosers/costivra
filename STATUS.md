@@ -3151,3 +3151,9 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added a deliberate 24px sticky offset above the Findings detail Data quality rail so it no longer hugs or slips beneath the workspace header while scrolling; the rail height bound was reduced to preserve the bottom viewport margin. Mobile remains static. Validation: `git diff --check` passed.
 - Unified Manage/App scrollbar ownership: SmoothScroll now auto-enrolls legacy native scrollports in the shared workspace overlay, preventing blue browser-painted thumbs; remaining native fallbacks use the same lime/yellow workspace tokens. Updated the Costivra product-design skill to make this auto-enrollment and shared scrollbar contract explicit. Validation: Node `v24.19.0`; TypeScript passed; `git diff --check` passed.
 - Matched the Manage dashboard assistant composer to the customer App composer: focus-within now uses the shared accent ring, shell spacing matches the App geometry, and the send control uses the shared circular 38px treatment with the `Send` icon instead of `ArrowUpRight`. Validation: Node `v24.19.0`; TypeScript passed; `git diff --check` passed.
+## Direct mailbox authorization (in progress)
+
+- Added and applied service-only Supabase tables for tenant-scoped Gmail/Microsoft mailbox connections and short-lived OAuth/PKCE state.
+- Added AES-256-GCM token encryption helpers and tests. Production requires `INTEGRATION_TOKEN_ENCRYPTION_KEY`; no provider token is stored in plaintext or exposed to the browser.
+- Remaining work: OAuth callback routes, provider-specific sync adapters, vendor-scoped attachment rules, cron worker, provider consent configuration, and deployment env configuration.
+- OAuth start/callback/disconnect routes are now implemented with PKCE, state replay protection, encrypted tokens, scoped metadata responses, and audit events. Typecheck passes; provider credentials and the sync worker remain before production activation.

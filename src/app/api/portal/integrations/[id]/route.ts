@@ -8,10 +8,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const id = cleanUuid((await params).id);
     const { data: integration } = await db.from("integrations").select("id,provider,status").eq("id", id).eq("organization_id", organizationId).maybeSingle();
     if (!integration) return NextResponse.json({ error: "Integration not found." }, { status: 404 });
-    // These catalog records describe planned provider adapters. A status label
-    // must never impersonate OAuth authorization or a successful data sync.
-    // When a provider adapter is implemented, it needs its own OAuth callback,
-    // encrypted token storage, revocation, sync worker, and verification tests.
+    const provider = integration.provider === "gmail" ? "google_gmail" : integration.provider === "microsoft-365" ? "microsoft_graph" : null;
+    if (provider) {
+      const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || new URL(request.url).origin;
+      return NextResponse.json({ authorizationUrl: `${origin}/api/portal/integrations/mailbox/${provider}/start` });
+    }
     await db.from("audit_events").insert({
       organization_id: organizationId,
       actor_type: "user",
@@ -21,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       resource_id: id,
     });
     return NextResponse.json(
-      { error: `${integration.provider} setup is not available in-product yet. Email forwarding is the live automated intake path.` },
+      { error: `${integration.provider} setup is not available in-product yet.` },
       { status: 501 },
     );
   } catch (error) { return apiError(error); }
