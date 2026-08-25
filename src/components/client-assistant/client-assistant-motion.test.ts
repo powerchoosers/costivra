@@ -23,4 +23,13 @@ describe("shared assistant message motion", () => {
     expect(reducedMotionBlock).toContain(".manage-dashboard-assistant__message > p");
     expect(reducedMotionBlock).toContain("animation: none !important");
   });
+
+  it("keeps follow-up copy and its responsive arrow in one shared action row", () => {
+    expect(assistantCss).toMatch(/\.assistant-follow-up \{[\s\S]*display: inline-grid;[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto;/);
+    expect(assistantCss).toMatch(/\.assistant-follow-up:hover \.assistant-follow-up__arrow,[\s\S]*transform: translateX\(3px\);/);
+
+    const reducedMotionBlock = assistantCss.slice(assistantCss.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reducedMotionBlock).toContain(".assistant-follow-up__arrow");
+    expect(reducedMotionBlock).toContain("transform: none");
+  });
 });

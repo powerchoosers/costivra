@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { WorkspaceLoadingScreen } from "@/components/workspace-loading-screen";
 
 type WorkspaceInitialLoadProps = {
+  children: ReactNode;
   workspace: "app" | "manage";
 };
 
@@ -12,7 +13,7 @@ type WorkspaceInitialLoadProps = {
  * browser's first paint. Soft route changes preserve this component's hidden
  * state, so ordinary App and Manage navigation never replays the overlay.
  */
-export function WorkspaceInitialLoad({ workspace }: WorkspaceInitialLoadProps) {
+export function WorkspaceInitialLoad({ children, workspace }: WorkspaceInitialLoadProps) {
   const [phase, setPhase] = useState<"open" | "closing" | "closed">("open");
 
   useEffect(() => {
@@ -20,18 +21,28 @@ export function WorkspaceInitialLoad({ workspace }: WorkspaceInitialLoadProps) {
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  if (phase === "closed") return null;
-
   return (
-    <div
-      className={`workspace-initial-load${phase === "closing" ? " is-closing" : ""}`}
-      onAnimationEnd={(event) => {
-        if (event.currentTarget === event.target && phase === "closing") {
-          setPhase("closed");
-        }
-      }}
-    >
-      <WorkspaceLoadingScreen workspace={workspace} />
-    </div>
+    <>
+      {phase !== "closed" ? (
+        <div
+          className={`workspace-initial-load${phase === "closing" ? " is-closing" : ""}`}
+          data-phase={phase}
+          onAnimationEnd={(event) => {
+            if (phase === "closing" && event.animationName === "workspace-initial-load-out") {
+              setPhase("closed");
+            }
+          }}
+        >
+          <WorkspaceLoadingScreen workspace={workspace} />
+        </div>
+      ) : null}
+      <div
+        aria-hidden={phase === "closed" ? undefined : true}
+        className={`workspace-initial-load-content${phase === "closed" ? " is-ready" : ""}`}
+        data-workspace-entry={phase === "closed" ? "ready" : "waiting"}
+      >
+        {children}
+      </div>
+    </>
   );
 }

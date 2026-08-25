@@ -6,8 +6,9 @@ import { WorkspaceInitialLoad } from "@/components/workspace-initial-load";
 export default function ManageLayout({ children }: { children: ReactNode }) {
   return (
     <NavigationHistoryProvider scope="manage">
-      <WorkspaceInitialLoad workspace="manage" />
-      <ManageComposerProvider>{children}</ManageComposerProvider>
+      <WorkspaceInitialLoad workspace="manage">
+        <ManageComposerProvider>{children}</ManageComposerProvider>
+      </WorkspaceInitialLoad>
     </NavigationHistoryProvider>
   );
 }

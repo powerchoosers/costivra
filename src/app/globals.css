@@ -8315,15 +8315,33 @@ body.modal-open .app-topbar { filter: blur(7px); }
   z-index: 10000;
   inset: 0;
   background: var(--workspace-ground);
+  transform-origin: center;
 }
 
 .workspace-initial-load.is-closing {
   pointer-events: none;
-  animation: workspace-initial-load-out 220ms cubic-bezier(.23, 1, .32, 1) forwards;
+  animation: workspace-initial-load-out 420ms cubic-bezier(.23, 1, .32, 1) forwards;
 }
 
 @keyframes workspace-initial-load-out {
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0) scale(.992);
+  }
+}
+
+/* This wrapper is the shared handoff between the opening overlay and the
+   workspace. `display: contents` preserves both shell layouts while the
+   waiting state holds every route entrance on its first frame. */
+.workspace-initial-load-content { display: contents; }
+
+.workspace-initial-load-content:not(.is-ready) .motion-page,
+.workspace-initial-load-content:not(.is-ready) .motion-page * {
+  animation-play-state: paused;
 }
 
 .workspace-loading-screen {

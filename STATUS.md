@@ -1,5 +1,16 @@
 # Costivra Status
 
+## August 25, 2026 — Assistant follow-up action alignment
+
+- Rebuilt assistant follow-up suggestions as a shared two-column action so the label and arrow stay aligned in one row, with the arrow held on the right even when longer copy wraps. The arrow now moves 3 px to the right on pointer hover and keyboard focus, with a visible focus ring and no translation when reduced motion is requested.
+- Validation: Node `v24.19.0`; focused Vitest passed (1 file, 4 tests); TypeScript, focused ESLint, and `git diff --check` passed. Signed-in local browser QA confirmed the right-column arrow and hover transform on desktop, a wrapped 390×844 layout without horizontal overflow, and the reduced-motion fallback without console warnings or framework errors. No assistant prompt was submitted during QA.
+
+## August 25, 2026 — Sequenced workspace loading handoff
+
+- Made the shared App/Manage opening overlay the timing owner for initial workspace motion. Dashboard route animations now render paused from the server response, remain paused throughout the overlay, and begin only after the overlay's actual `workspace-initial-load-out` completion event removes the waiting state.
+- Replaced the abrupt 220 ms fade with a calmer 420 ms opacity, lift, and scale exit. The overlay stays mounted for the full exit, underlying workspace content remains hidden from assistive technology until the handoff completes, and soft navigation still does not replay the opening screen.
+- Preserved the existing reduced-motion path: the overlay exit collapses to 1 ms and the nonessential loading trace/progress motion remains disabled. Validation: Node `v24.19.0`; focused Vitest passed (1 file, 4 tests); TypeScript, focused ESLint, and `git diff --check` passed. The Browser plugin loaded the signed-in local App successfully, but repeated hard-reload timing capture failed because the browser connection timed out during navigation; no visual timing claim is made from that failed capture.
+
 ## August 25, 2026 — Assistant bubble and top-to-bottom copy reveal
 
 - Replaced the assistant's generic whole-card entrance with a dedicated shared message-motion contract: each user or Costivra message now blurs into focus while its copy follows with a smooth top-to-bottom reveal. The same selectors cover the customer dashboard, customer drawer, Manage dashboard, and Manage drawer; response cards and source links retain the same visual language.

@@ -137,22 +137,16 @@ export function MessageThread() {
 
               {/* Follow-up Suggestions */}
               {m.followUps && m.followUps.length > 0 && (
-                <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div className="assistant-follow-ups">
                   {m.followUps.map((f) => (
                     <button
+                      className="assistant-follow-up"
                       key={f}
                       type="button"
                       onClick={() => sendMessage(f)}
-                      style={{
-                        fontSize: "0.78rem",
-                        padding: "4px 10px",
-                        borderRadius: 14,
-                        border: "1px solid var(--assistant-border)",
-                        background: "#ffffff",
-                        cursor: "pointer",
-                      }}
                     >
-                      {f} <ArrowRight size={10} style={{ marginLeft: 2 }} />
+                      <span>{f}</span>
+                      <ArrowRight aria-hidden="true" className="assistant-follow-up__arrow" size={13} />
                     </button>
                   ))}
                 </div>

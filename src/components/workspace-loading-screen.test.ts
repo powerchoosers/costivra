@@ -1,8 +1,14 @@
-import { createElement } from "react";
+import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { WorkspaceInitialLoad } from "@/components/workspace-initial-load";
 import { WorkspaceLoadingScreen } from "@/components/workspace-loading-screen";
+
+const workspaceCss = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+const StaticWorkspaceInitialLoad = WorkspaceInitialLoad as ComponentType<{
+  workspace: "app" | "manage";
+}>;
 
 describe("WorkspaceLoadingScreen", () => {
   it.each([
@@ -23,10 +29,25 @@ describe("WorkspaceLoadingScreen", () => {
 
   it("places the opening screen in the persistent workspace overlay", () => {
     const html = renderToStaticMarkup(
-      createElement(WorkspaceInitialLoad, { workspace: "app" }),
+      createElement(
+        StaticWorkspaceInitialLoad,
+        { workspace: "app" },
+        createElement("div", { className: "motion-page" }, "Dashboard"),
+      ),
     );
 
     expect(html).toContain('class="workspace-initial-load"');
+    expect(html).toContain('data-phase="open"');
     expect(html).toContain("Opening your workspace");
+    expect(html).toContain('class="workspace-initial-load-content"');
+    expect(html).toContain('data-workspace-entry="waiting"');
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain("Dashboard");
+  });
+
+  it("holds route motion until the overlay exit animation completes", () => {
+    expect(workspaceCss).toContain("animation: workspace-initial-load-out 420ms");
+    expect(workspaceCss).toMatch(/\.workspace-initial-load-content:not\(\.is-ready\) \.motion-page[\s\S]*animation-play-state: paused/);
+    expect(workspaceCss).toContain("@media (prefers-reduced-motion: reduce)");
   });
 });
