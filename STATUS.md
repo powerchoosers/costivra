@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 25, 2026 — Unified assistant expansion and reflow motion
+
+- Replaced the App and Manage dashboard chats' non-interpolable `auto`/fractional row switch with one shared 340 ms height expansion. The composer now rides the expanding frame, newly mounted conversation content settles into the created space, and everything below the chat moves continuously instead of jumping.
+- Unified App and Manage drawer/fullscreen geometry around a 320 ms surface transition. Drawer width, history rail, inspector column, mobile scrim, welcome state, citations, attachments, errors, follow-ups, and composer growth now use the shared motion language. New messages scroll into view smoothly when the reader is already following the conversation; initial session positioning remains immediate.
+- Removed the customer drawer's duplicated close timeout and complete its exit from the actual animation event. Manage resets its drawer-only state from the real opacity transition, and reduced-motion users receive immediate layout changes with content animation removed.
+- Validation: Node `v24.19.0`; focused Vitest passed (1 file, 8 tests); TypeScript, focused ESLint, production build, and `git diff --check` passed. Browser QA covered the App dashboard, Manage dashboard, App drawer, and Manage drawer at desktop and 390×844. Measured dashboard entry/expanded heights were 86→388.8 px for App and 56→388.8 px for Manage; the Manage drawer was captured mid-open at 77% opacity before settling. Both mobile drawers rendered a 389.6 px conversation canvas with zero horizontal overflow and no console warnings/errors. Emulated reduced motion returned no dashboard/column transition and no welcome animation. No assistant prompt was submitted during QA.
+
 ## August 25, 2026 — Assistant follow-up action alignment
 
 - Rebuilt assistant follow-up suggestions as a shared two-column action so the label and arrow stay aligned in one row, with the arrow held on the right even when longer copy wraps. The arrow now moves 3 px to the right on pointer hover and keyboard focus, with a visible focus ring and no translation when reduced motion is requested.

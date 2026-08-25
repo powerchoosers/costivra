@@ -435,6 +435,10 @@
   transition: grid-template-columns var(--assistant-motion-surface) var(--assistant-ease);
 }
 
+.assistant-main-container > .assistant-rail { grid-column: 1; }
+.assistant-main-container > .assistant-canvas { grid-column: 2; }
+.assistant-main-container > .assistant-inspector-panel { grid-column: 3; }
+
 .assistant-surface[data-mode="fullscreen"] .assistant-main-container,
 .assistant-fullscreen-surface .assistant-main-container {
   grid-template-columns: var(--assistant-rail-width, 280px) minmax(0, 1fr) var(--assistant-inspector-width, 0px);
@@ -445,6 +449,7 @@
 }
 
 .assistant-main-container--history .assistant-rail {
+  grid-column: 1;
   width: 100%;
 }
 

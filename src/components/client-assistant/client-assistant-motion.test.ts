@@ -45,6 +45,7 @@ describe("shared assistant message motion", () => {
   it("coordinates drawer resizing, rail movement, and newly mounted chat content", () => {
     expect(assistantCss).toMatch(/\.assistant-surface,[\s\S]*transition: width var\(--assistant-motion-surface\)/);
     expect(assistantCss).toMatch(/\.assistant-main-container \{[\s\S]*transition: grid-template-columns var\(--assistant-motion-surface\)/);
+    expect(assistantCss).toContain(".assistant-main-container > .assistant-canvas { grid-column: 2; }");
     expect(assistantCss).toContain("@keyframes assistant-content-settle-in");
     expect(assistantCss).toContain(".assistant-inspector-panel");
   });
