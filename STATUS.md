@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 25, 2026 — Assistant bubble and top-to-bottom copy reveal
+
+- Replaced the assistant's generic whole-card entrance with a dedicated shared message-motion contract: each user or Costivra message now blurs into focus while its copy follows with a smooth top-to-bottom reveal. The same selectors cover the customer dashboard, customer drawer, Manage dashboard, and Manage drawer; response cards and source links retain the same visual language.
+- Moved the message keyframes into the shared assistant stylesheet so the behavior no longer depends on a workspace-page keyframe owned elsewhere. Existing message nodes do not reanimate during ordinary rerenders, and `prefers-reduced-motion` removes both the bubble and copy animations.
+- Validation: Node `v24.19.0`; focused Vitest passed (1 file, 3 tests); TypeScript, focused ESLint, and `git diff --check` passed. Signed-in local browser QA captured the active 420 ms bubble blur and 520 ms copy reveal mid-animation, confirmed their fully settled state, and verified the reduced-motion result reports `animation-name: none`. Desktop and 390×844 customer drawer checks had no framework overlay, console warnings/errors, or horizontal overflow. Manage loaded successfully with the same shared assistant stylesheet and selector contract; no Manage prompt was submitted during QA, so a newly generated Manage response was not visually exercised.
+
 ## August 24, 2026 — Shared assistant message and card motion
 
 - Added one shared blur-to-focus entrance contract for newly inserted assistant messages, thinking states, response cards, follow-up links, and referenced-record rows. The customer App dashboard and drawer now reuse the same motion as the Manage dashboard and Manage drawer instead of allowing response content to appear abruptly.
