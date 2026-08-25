@@ -2156,7 +2156,7 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
               aria-label="Ask Costivra about client operations"
             />
             <button type="submit" className="manage-dashboard-assistant__send" aria-label="Send question" disabled={sending || question.trim().length < 2}>
-              {sending ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <ArrowUpRight size={17} aria-hidden="true" />}
+              {sending ? <LoaderCircle className="spin" size={16} aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
             </button>
           </AssistantComposerShell>
         </form>
