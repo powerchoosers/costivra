@@ -404,7 +404,6 @@ function PricingPage({ plans }: { plans: PublicBillingPlan[] }) {
           <li><span>03</span><div><h3>Keep your options</h3><p>You retain control of vendors, advisors, external sharing, and all consequential approvals regardless of plan.</p></div></li>
         </ol>
       </section>
-      <p className="muted" style={{ marginTop: 30, lineHeight: 1.6 }}>Pilot pricing is a product concept and may change before commercial launch. Performance or referral fees, when used, require separate clear terms. No performance fee is charged until a customer accepts the baseline, verification method, result, and applicable fee terms.</p>
     </PageFrame>
   );
 }

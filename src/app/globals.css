@@ -761,6 +761,18 @@ textarea:focus-visible {
 }
 .account-password-field { position: relative; }
 .account-password-field input { padding-right: 48px !important; }
+.account-password-field::after {
+  content: "••••••••••";
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+.account-password-field:has(input:focus)::after,
+.account-password-field:has(input:valid)::after { display: none; }
 .account-password-toggle { position: absolute; top: 50%; right: 8px; display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 9px; color: #64748b; background: transparent; cursor: pointer; transform: translateY(-50%); transition: color .16s ease, background .16s ease; }
 .account-password-toggle:hover { color: var(--blue-dark); background: #f1f5fb; }
 .account-password-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
@@ -7104,7 +7116,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .pricing-free-start .button-primary:hover { color: #16210a; background: #c6ef3b; }
 .pricing-free-start .button-secondary { border-color: #617695; color: #eef4fc; background: transparent; }
 .pricing-free-start .button-secondary:hover { border-color: #d7ff4d; color: #d7ff4d; background: rgba(215, 255, 77, .05); }
-.pricing-free-start-facts { display: grid; align-content: center; border-top: 1px solid rgba(213, 225, 244, .22); }
+.pricing-free-start-facts { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); align-content: stretch; border-top: 1px solid rgba(213, 225, 244, .22); }
 .pricing-free-start-facts div { display: grid; grid-template-columns: 105px 1fr; gap: 14px; padding: 17px 0; border-bottom: 1px solid rgba(213, 225, 244, .22); }
 .pricing-free-start-facts strong { color: #d7ff4d; font-size: .88rem; }
 .pricing-free-start-facts span { color: #b9c7dc; font-size: .82rem; line-height: 1.45; }
