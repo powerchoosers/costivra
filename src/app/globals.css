@@ -661,9 +661,9 @@ textarea:focus-visible {
   margin-top: 26px;
 }
 .account-provider {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   min-height: 50px;
   border: 1px solid #d8d6cf;
@@ -671,9 +671,9 @@ textarea:focus-visible {
   padding: 0 13px;
   color: var(--ink-soft);
   background: #fff;
-  text-align: left;
-  opacity: .72;
-  cursor: not-allowed;
+  text-align: center;
+  opacity: 1;
+  cursor: pointer;
 }
 .account-provider-icon {
   display: grid;
