@@ -129,7 +129,12 @@ export function SmoothScroll() {
     const scrollTimers = new Map<HTMLElement, { x?: number; y?: number }>();
     const scrollPositions = new WeakMap<HTMLElement, { left: number; top: number }>();
     const registerScrollbar = (target: HTMLElement) => {
-      if (!target.matches(NATIVE_SCROLL_SELECTOR) || !target.hasAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE)) return;
+      if (!target.matches(NATIVE_SCROLL_SELECTOR)) return;
+      // Keep legacy Manage/App scrollports on the same overlay contract even
+      // when an older route has not yet added the opt-in attribute in markup.
+      if (!target.hasAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE)) {
+        target.setAttribute(WORKSPACE_SCROLLBAR_ATTRIBUTE, "");
+      }
       if (!scrollPositions.has(target)) {
         scrollPositions.set(target, { left: target.scrollLeft, top: target.scrollTop });
       }

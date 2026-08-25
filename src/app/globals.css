@@ -408,8 +408,8 @@ textarea:focus-visible {
 .app-body { min-height: 100vh; background-color:#f7f8fa; background-image:radial-gradient(rgba(16,24,40,.025) 0.65px,transparent 0.65px),linear-gradient(180deg,rgba(255,255,255,.5),transparent 40%); background-size:6px 6px,100% 100%; }
 .app-body ::-webkit-scrollbar { width:6px; height:6px; }
 .app-body ::-webkit-scrollbar-track { background:transparent; }
-.app-body ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:99px; }
-.app-body ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+.app-body ::-webkit-scrollbar-thumb { background:var(--workspace-scroll-thumb, #d4ff5a); border-radius:99px; }
+.app-body ::-webkit-scrollbar-thumb:hover { background:var(--workspace-scroll-thumb-hover, #b5db41); }
 .app-shell { display: grid; min-height: 100vh; grid-template-columns: 235px minmax(0, 1fr); }
 .app-sidebar { position: sticky; top: 0; display: flex; height: 100vh; flex-direction: column; color: #edf2ef; background: #071313; padding: 20px 14px; border-right: 1px solid rgba(255,255,255,.08); }
 .app-sidebar .logo { padding: 0 10px 24px; font-size: 1.1rem; letter-spacing: .08em; text-transform: uppercase; }
@@ -2275,8 +2275,8 @@ html { scroll-padding-top: 92px; }
 .manage-app { min-height:100vh; background-color:#f7f8fa; background-image:radial-gradient(rgba(16,24,40,.025) 0.65px,transparent 0.65px),linear-gradient(180deg,rgba(255,255,255,.5),transparent 40%); background-size:6px 6px,100% 100%; color:var(--manage-ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 .manage-app ::-webkit-scrollbar { width:6px; height:6px; }
 .manage-app ::-webkit-scrollbar-track { background:transparent; }
-.manage-app ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
-.manage-app ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+.manage-app ::-webkit-scrollbar-thumb { background:var(--workspace-scroll-thumb, #d4ff5a); border-radius:999px; }
+.manage-app ::-webkit-scrollbar-thumb:hover { background:var(--workspace-scroll-thumb-hover, #b5db41); }
 .manage-app *, .manage-app *::before, .manage-app *::after, .manage-compose-window, .manage-compose-window *, .manage-compose-window *::before, .manage-compose-window *::after { box-sizing:border-box; }
 .manage-compose-window { color:var(--manage-ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 .manage-sidebar { position:fixed; inset:0 auto 0 0; z-index:70; width:238px; display:flex; flex-direction:column; background:var(--manage-navy); color:#fff; border-right:1px solid #172233; transition:width 220ms cubic-bezier(.23,1,.32,1),transform 220ms cubic-bezier(.23,1,.32,1),box-shadow 220ms ease; }
@@ -4397,9 +4397,9 @@ body:has(.manage-sidebar.is-collapsed) { --manage-floating-back-left:104px; }
 .manage-record-layout { display: grid; grid-template-columns: 257px minmax(0,1fr); gap: 18px; align-items: start; }
 .manage-record-layout--right-rail { grid-template-columns: minmax(0,1fr) 302px; }
 .manage-record-rail { position: sticky; top: 94px; display: grid; gap: 14px; }
-.manage-record-right-rail { max-height: calc(100vh - 112px); overflow-y: auto; padding-right: 3px; scrollbar-width: thin; scrollbar-color: #c9d3e0 transparent; }
+.manage-record-right-rail { max-height: calc(100vh - 112px); overflow-y: auto; padding-right: 3px; scrollbar-width: thin; scrollbar-color: var(--workspace-scroll-thumb) transparent; }
 .manage-record-right-rail::-webkit-scrollbar { width: 6px; }
-.manage-record-right-rail::-webkit-scrollbar-thumb { border-radius: 99px; background: #c9d3e0; }
+.manage-record-right-rail::-webkit-scrollbar-thumb { border-radius: 99px; background: var(--workspace-scroll-thumb); }
 .manage-record-rail > section { padding: 17px 17px 15px; border: 1px solid #e0e6ed; border-radius: 16px; background: rgba(255,255,255,.86); }
 .manage-record-rail > section > span { display: block; margin-bottom: 11px; color: #8995a6; font-size: .61rem; font-weight: 760; letter-spacing: .09em; text-transform: uppercase; }
 .manage-record-rail dl { display: grid; gap: 0; margin: 0; }
