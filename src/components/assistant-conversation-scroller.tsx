@@ -70,12 +70,10 @@ export function AssistantConversationScroller({
       clientHeight: scrollport.clientHeight,
     });
 
-    if (
-      !initializedRef.current
-      || conversationChanged
-      || (messageCountChanged && (followLatestRef.current || nearBottom))
-    ) {
+    if (!initializedRef.current || conversationChanged) {
       window.requestAnimationFrame(() => scrollToLatest("auto"));
+    } else if (messageCountChanged && (followLatestRef.current || nearBottom)) {
+      window.requestAnimationFrame(() => scrollToLatest());
     } else if (messageCountChanged) {
       setHasNewMessages(true);
       setShowJumpButton(true);

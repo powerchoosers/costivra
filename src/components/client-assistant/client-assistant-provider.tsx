@@ -145,6 +145,7 @@ type ContextValue = {
   openDrawer: () => void;
   openFullscreen: () => void;
   closeAssistant: () => void;
+  finishClosing: () => void;
   toggleHistory: () => void;
   toggleFullscreenHistory: () => void;
   openInspector: (blockId: string) => void;
@@ -411,11 +412,17 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
 
   const closeAssistant = useCallback(() => {
     dispatch({ type: "SET_PHASE", phase: "closing" });
-    setTimeout(() => {
-      dispatch({ type: "SET_MODE", mode: "closed" });
-      dispatch({ type: "SET_PHASE", phase: "closed" });
-    }, 240);
   }, []);
+
+  const finishClosing = useCallback(() => {
+    dispatch({ type: "SET_MODE", mode: "closed" });
+    dispatch({ type: "SET_PHASE", phase: "closed" });
+  }, []);
+
+  useEffect(() => {
+    if (state.phase !== "closing" || typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) finishClosing();
+  }, [finishClosing, state.phase]);
 
   const toggleHistory = useCallback(() => {
     dispatch({ type: "TOGGLE_HISTORY" });
@@ -444,6 +451,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         openDrawer,
         openFullscreen,
         closeAssistant,
+        finishClosing,
         toggleHistory,
         toggleFullscreenHistory,
         openInspector,

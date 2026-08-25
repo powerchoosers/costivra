@@ -207,15 +207,6 @@ export function ManageAiDrawer({
     onClose();
   }
 
-  useEffect(() => {
-    if (open) return;
-    const resetTimer = window.setTimeout(() => {
-      setMode("drawer");
-      setLiveSuggestionsCollapsed(false);
-    }, 280);
-    return () => window.clearTimeout(resetTimer);
-  }, [open]);
-
   async function sendQuestion(question: string, file: File | null = attachmentFile) {
     const cleanQuestion = question.trim();
     if (cleanQuestion.length < 2 || sending) return;
@@ -327,6 +318,12 @@ export function ManageAiDrawer({
         data-history={liveSuggestionsCollapsed ? "collapsed" : "open"}
         aria-label="Ask Costivra"
         aria-hidden={!open}
+        onTransitionEnd={(event) => {
+          if (!open && event.target === event.currentTarget && event.propertyName === "opacity") {
+            setMode("drawer");
+            setLiveSuggestionsCollapsed(false);
+          }
+        }}
       >
         <AssistantWorkspaceHeader
           subtitle={`Grounded in ${contextLabel}`}

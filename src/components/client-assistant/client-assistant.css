@@ -34,6 +34,9 @@
   --assistant-radius-card: var(--workspace-panel-radius, 16px);
   --assistant-radius-surface: var(--workspace-radius, 20px);
   --assistant-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --assistant-motion-layout: 340ms;
+  --assistant-motion-surface: 320ms;
+  --assistant-motion-content: 240ms;
 }
 
 /* Trigger Button Controls */
@@ -137,26 +140,39 @@
 .dashboard-assistant__conversation,
 .manage-dashboard-assistant__conversation {
   display: grid;
-  grid-template-rows: auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   width: min(100%, 760px);
   min-width: 0;
-  min-height: 64px;
-  transition: min-height 240ms var(--assistant-ease), grid-template-rows 240ms var(--assistant-ease);
+  height: 86px;
+  min-height: 0;
+  overflow: clip;
+  transition: height var(--assistant-motion-layout) var(--assistant-ease);
 }
 
 .manage-dashboard-assistant__conversation {
   width: min(100%, 720px);
+  height: 56px;
 }
 
 .dashboard-assistant__conversation.is-active,
 .manage-dashboard-assistant__conversation.is-active {
-  grid-template-rows: minmax(0, 1fr) auto;
-  min-height: min(54vh, 520px);
+  height: min(54vh, 520px);
 }
 
 .dashboard-assistant__conversation > .assistant-conversation-scroller,
 .manage-dashboard-assistant__conversation > .assistant-conversation-scroller {
   min-height: 0;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--assistant-motion-content) var(--assistant-ease), transform var(--assistant-motion-content) var(--assistant-ease);
+}
+
+@starting-style {
+  .dashboard-assistant__conversation.is-active > .assistant-conversation-scroller,
+  .manage-dashboard-assistant__conversation.is-active > .assistant-conversation-scroller {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .dashboard-assistant__conversation .assistant-thread,
@@ -268,11 +284,17 @@
   flex-direction: column;
   overflow: hidden;
   animation: assistantSlideIn 280ms var(--assistant-ease) both;
+  transition: width var(--assistant-motion-surface) var(--assistant-ease), border-color var(--assistant-motion-surface) var(--assistant-ease), border-radius var(--assistant-motion-surface) var(--assistant-ease), box-shadow var(--assistant-motion-surface) var(--assistant-ease), background-color var(--assistant-motion-surface) var(--assistant-ease);
+}
+
+.manage-dashboard-assistant--active {
+  justify-items: center;
+  text-align: center;
 }
 
 .assistant-surface[data-phase="closing"],
 .assistant-drawer-surface[data-phase="closing"] {
-  animation: assistantDrawerOut 240ms var(--assistant-ease) forwards;
+  animation: assistantDrawerOut 280ms var(--assistant-ease) forwards;
 }
 
 .assistant-fullscreen-surface,
@@ -290,12 +312,12 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: assistantFullscreenIn 240ms ease-out both;
+  animation: none;
 }
 
 .assistant-fullscreen-surface[data-phase="closing"],
 .assistant-surface[data-mode="fullscreen"][data-phase="closing"] {
-  animation: assistantFullscreenOut 220ms ease-in forwards;
+  animation: assistantFullscreenOut 280ms var(--assistant-ease) forwards;
 }
 
 @keyframes assistantSlideIn {
@@ -306,11 +328,6 @@
 @keyframes assistantDrawerOut {
   from { transform: translateX(0); opacity: 1; }
   to { transform: translateX(100%); opacity: 0; }
-}
-
-@keyframes assistantFullscreenIn {
-  from { opacity: 0; transform: scale(0.99); }
-  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes assistantFullscreenOut {
@@ -409,18 +426,26 @@
 
 /* Workspace Main Container & Layout Columns */
 .assistant-main-container {
-  display: flex;
+  display: grid;
+  grid-template-columns: 0 minmax(0, 1fr) 0;
   flex: 1;
   min-height: 0;
   overflow: hidden;
   background: var(--assistant-surface);
+  transition: grid-template-columns var(--assistant-motion-surface) var(--assistant-ease);
 }
 
 .assistant-surface[data-mode="fullscreen"] .assistant-main-container,
 .assistant-fullscreen-surface .assistant-main-container {
-  display: grid;
   grid-template-columns: var(--assistant-rail-width, 280px) minmax(0, 1fr) var(--assistant-inspector-width, 0px);
-  transition: grid-template-columns 260ms var(--assistant-ease);
+}
+
+.assistant-main-container--history {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.assistant-main-container--history .assistant-rail {
+  width: 100%;
 }
 
 .assistant-surface[data-mode="fullscreen"][data-history="collapsed"] .assistant-main-container {
@@ -643,6 +668,31 @@
   margin: 0 auto;
   width: 100%;
   overflow-y: auto;
+}
+
+@starting-style {
+  .assistant-surface[data-mode="fullscreen"] .assistant-rail:not(.is-collapsed) {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .assistant-welcome,
+  .assistant-conversation-scroller,
+  .assistant-attachment-chip,
+  .assistant-citations,
+  .assistant-missing-information,
+  .assistant-follow-ups,
+  .manage-assistant-error,
+  .manage-dashboard-assistant__error {
+    animation: assistant-content-settle-in var(--assistant-motion-content) var(--assistant-ease) both;
+  }
+}
+
+@keyframes assistant-content-settle-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .assistant-welcome-mark {
@@ -958,6 +1008,43 @@
   margin-top: 14px;
 }
 
+.assistant-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.assistant-citation {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--assistant-border);
+  border-radius: 8px;
+  color: var(--assistant-accent);
+  background: var(--assistant-surface-subtle);
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition: border-color 160ms var(--assistant-ease), color 160ms var(--assistant-ease), background-color 160ms var(--assistant-ease), transform 160ms var(--assistant-ease);
+}
+
+a.assistant-citation:hover,
+a.assistant-citation:focus-visible {
+  border-color: var(--workspace-control-line-hover, #b9cbe3);
+  background: var(--assistant-accent-soft);
+  transform: translateY(-1px);
+}
+
+a.assistant-citation:focus-visible {
+  outline: 2px solid var(--assistant-accent);
+  outline-offset: 2px;
+}
+
+.assistant-citation--muted {
+  color: var(--assistant-muted);
+}
+
 .assistant-follow-up {
   display: inline-grid;
   max-width: 100%;
@@ -1088,7 +1175,7 @@
   overflow-y: hidden;
   background: transparent;
   color: var(--assistant-text);
-  transition: height var(--workspace-motion-fast, 180ms var(--assistant-ease));
+  transition: height 220ms var(--assistant-ease);
 }
 
 .assistant-composer-textarea::placeholder {
@@ -1119,10 +1206,55 @@
   outline-offset: 2px;
 }
 
+.assistant-send {
+  transition: background-color 160ms var(--assistant-ease), color 160ms var(--assistant-ease), opacity 160ms var(--assistant-ease), transform 160ms var(--assistant-ease), box-shadow 160ms var(--assistant-ease);
+}
+
+.assistant-send:hover:not(:disabled),
+.assistant-send:focus-visible:not(:disabled) {
+  box-shadow: 0 5px 12px rgba(29, 78, 216, 0.22);
+  transform: translateY(-1px);
+}
+
 .assistant-attachment-tray {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.assistant-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--assistant-border);
+  border-radius: 8px;
+  color: var(--assistant-accent);
+  background: var(--assistant-accent-soft);
+  font-size: 0.78rem;
+}
+
+.assistant-attachment-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-attachment-chip > button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms var(--assistant-ease), transform 140ms var(--assistant-ease);
+}
+
+.assistant-attachment-chip > button:hover,
+.assistant-attachment-chip > button:focus-visible {
+  color: var(--assistant-accent-hover);
+  transform: scale(1.08);
 }
 
 .assistant-attachment-chip button:focus-visible {
@@ -1552,6 +1684,16 @@
   padding: 18px 16px;
   display: flex;
   flex-direction: column;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity var(--assistant-motion-content) var(--assistant-ease), transform var(--assistant-motion-surface) var(--assistant-ease);
+}
+
+@starting-style {
+  .assistant-inspector-panel {
+    opacity: 0;
+    transform: translateX(12px);
+  }
 }
 
 .assistant-inspector-header {
@@ -1576,7 +1718,7 @@
   opacity: 0;
   pointer-events: none;
   transform: translateX(100%);
-  transition: transform 280ms var(--assistant-ease), opacity var(--workspace-motion-fast, 180ms var(--assistant-ease));
+  transition: transform var(--assistant-motion-surface) var(--assistant-ease), opacity var(--assistant-motion-surface) var(--assistant-ease), width var(--assistant-motion-surface) var(--assistant-ease), border-color var(--assistant-motion-surface) var(--assistant-ease), border-radius var(--assistant-motion-surface) var(--assistant-ease), box-shadow var(--assistant-motion-surface) var(--assistant-ease), background-color var(--assistant-motion-surface) var(--assistant-ease);
 }
 
 .assistant-surface.manage-assistant.is-open {
@@ -1590,11 +1732,11 @@
   max-width: none;
   z-index: 1000;
   transform: none;
-  transition: opacity var(--workspace-motion-fast, 180ms var(--assistant-ease));
+  transition: transform var(--assistant-motion-surface) var(--assistant-ease), opacity var(--assistant-motion-surface) var(--assistant-ease), width var(--assistant-motion-surface) var(--assistant-ease), border-color var(--assistant-motion-surface) var(--assistant-ease), border-radius var(--assistant-motion-surface) var(--assistant-ease), box-shadow var(--assistant-motion-surface) var(--assistant-ease), background-color var(--assistant-motion-surface) var(--assistant-ease);
 }
 
 .assistant-surface.manage-assistant.assistant-fullscreen-surface.is-open {
-  animation: assistantFullscreenIn 240ms var(--assistant-ease) both;
+  animation: none;
 }
 
 .assistant-surface.manage-assistant .manage-assistant-body {
@@ -1931,6 +2073,10 @@
 }
 
 @media (max-width: 720px) {
+  .manage-assistant-scrim {
+    transition: opacity var(--assistant-motion-surface) var(--assistant-ease);
+  }
+
   .assistant-surface,
   .assistant-drawer-surface {
     width: 100vw;
@@ -1983,7 +2129,7 @@
 
   .dashboard-assistant__conversation.is-active,
   .manage-dashboard-assistant__conversation.is-active {
-    min-height: min(58vh, 460px);
+    height: min(58vh, 460px);
   }
 
   .assistant-jump-latest {
@@ -2259,11 +2405,20 @@
   .assistant-message,
   .assistant-thinking,
   .assistant-response-block,
+  .assistant-conversation-scroller,
+  .assistant-welcome,
+  .assistant-citations,
+  .assistant-citation,
+  .assistant-attachment-chip,
+  .assistant-attachment-chip > button,
+  .assistant-missing-information,
+  .assistant-follow-ups,
   .assistant-message > .user-bubble,
   .assistant-message .assistant-prose > p,
   .assistant-trigger-btn,
   .assistant-icon-btn,
   .assistant-rail,
+  .assistant-inspector-panel,
   .assistant-session-row,
   .assistant-history-row,
   .assistant-history-search-input,
@@ -2273,8 +2428,10 @@
   .assistant-follow-up__arrow,
   .assistant-composer-shell,
   .assistant-composer-textarea,
+  .assistant-send,
   .assistant-card-link,
   .assistant-surface.manage-assistant,
+  .manage-assistant-scrim,
   .dashboard-assistant,
   .manage-dashboard-assistant,
   .manage-dashboard-assistant__message,
@@ -2291,6 +2448,7 @@
 
   .dashboard-assistant__conversation,
   .manage-dashboard-assistant__conversation,
+  .assistant-main-container,
   .assistant-jump-latest {
     transition: none !important;
   }

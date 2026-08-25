@@ -9,7 +9,7 @@ import { X } from "@/lib/icons";
 import "./client-assistant.css";
 
 export function ClientAssistantSurface() {
-  const { state, closeInspector } = useClientAssistant();
+  const { state, closeInspector, finishClosing } = useClientAssistant();
 
   if (state.mode === "closed" && state.phase === "closed") return null;
 
@@ -28,6 +28,15 @@ export function ClientAssistantSurface() {
       data-history={showHistoryRail ? "open" : "collapsed"}
       data-inspector={state.inspectorOpen ? "open" : "closed"}
       aria-label="Ask Costivra"
+      onAnimationEnd={(event) => {
+        if (
+          event.target === event.currentTarget
+          && state.phase === "closing"
+          && ["assistantDrawerOut", "assistantFullscreenOut"].includes(event.animationName)
+        ) {
+          finishClosing();
+        }
+      }}
     >
       <AssistantHeader />
       <div className={`assistant-main-container${showHistoryOnly ? " assistant-main-container--history" : ""}`}>

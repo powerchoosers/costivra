@@ -62,16 +62,6 @@ export function AssistantComposer({
             <div
               key={a.clientUploadId}
               className="assistant-attachment-chip"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "4px 8px",
-                borderRadius: 6,
-                background: "var(--assistant-accent-soft)",
-                fontSize: "0.78rem",
-                color: "var(--assistant-accent)",
-              }}
             >
               <span>{a.filename}</span>
               {a.status === "uploading" ? (
@@ -80,7 +70,7 @@ export function AssistantComposer({
                 <button
                   type="button"
                   onClick={() => removeAttachment(a.clientUploadId)}
-                  style={{ border: "none", background: "none", cursor: "pointer", color: "inherit", padding: 0 }}
+                  aria-label={`Remove ${a.filename}`}
                 >
                   <X size={12} />
                 </button>
@@ -121,6 +111,7 @@ export function AssistantComposer({
         />
 
         <button
+          className="assistant-send"
           type="button"
           onClick={handleSend}
           disabled={!canSend || state.sending}
@@ -136,7 +127,6 @@ export function AssistantComposer({
             justifyContent: "center",
             cursor: !canSend || state.sending ? "not-allowed" : "pointer",
             flexShrink: 0,
-            transition: "all 160ms ease",
           }}
           title="Send prompt"
         >
