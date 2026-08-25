@@ -15,6 +15,8 @@ type WorkspaceScrollbarThumbInput = {
   scrollSize: number;
   scrollOffset: number;
   inset?: number;
+  startInset?: number;
+  endInset?: number;
   minThumbSize?: number;
 };
 
@@ -75,11 +77,13 @@ export function getWorkspaceScrollbarThumbMetrics({
   scrollSize,
   scrollOffset,
   inset = 4,
+  startInset = inset,
+  endInset = inset,
   minThumbSize = 28,
 }: WorkspaceScrollbarThumbInput): WorkspaceScrollbarThumbMetrics | null {
   const maxScroll = scrollSize - viewportSize;
-  const trackOffset = viewportOffset + inset;
-  const trackSize = Math.max(0, viewportSize - inset * 2);
+  const trackOffset = viewportOffset + startInset;
+  const trackSize = Math.max(0, viewportSize - startInset - endInset);
 
   if (
     !Number.isFinite(viewportOffset)
@@ -172,6 +176,21 @@ function setScrollOffset(target: HTMLElement, axis: WorkspaceScrollbarAxis, offs
   else target.scrollTop = offset;
 }
 
+function getViewportStartInset(axis: WorkspaceScrollbarAxis) {
+  if (axis !== "y" || !window.matchMedia("(max-width: 760px)").matches) return OVERLAY_INSET;
+
+  const header = document.querySelector<HTMLElement>(".marketing-header");
+  if (!header || window.getComputedStyle(header).position !== "fixed") return OVERLAY_INSET;
+
+  const rect = header.getBoundingClientRect();
+  if (rect.top > 0 || rect.bottom <= 0) return OVERLAY_INSET;
+
+  return Math.max(
+    OVERLAY_INSET,
+    Math.min(window.innerHeight - OVERLAY_INSET, rect.bottom + OVERLAY_INSET),
+  );
+}
+
 function getAxisLayout(target: HTMLElement, axis: WorkspaceScrollbarAxis): AxisLayout | null {
   const scrollElement = getScrollElement(target);
   const isViewport = isViewportScrollport(target);
@@ -191,6 +210,7 @@ function getAxisLayout(target: HTMLElement, axis: WorkspaceScrollbarAxis): AxisL
     scrollSize,
     scrollOffset: getScrollOffset(target, axis),
     inset: OVERLAY_INSET,
+    startInset: isViewport ? getViewportStartInset(axis) : OVERLAY_INSET,
   });
 
   if (!metrics) return null;

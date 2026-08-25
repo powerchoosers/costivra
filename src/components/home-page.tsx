@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
@@ -346,15 +347,17 @@ function HeroReviewPreview() {
           <div className="hero-tour-sidebar">
             <div className="hero-tour-wordmark"><CostivraMark size={16} /> <span>Costivra</span></div>
             <span className="hero-tour-workspace-label">Workspace</span>
-            <div className={`hero-tour-nav-item${activeStage === 0 ? " active" : ""}`}><FileText aria-hidden="true" size={12} /> Bills <small>12</small></div>
-            <div className={`hero-tour-nav-item${activeStage === 1 ? " active" : ""}`}><CircleAlert aria-hidden="true" size={12} /> Findings <small>{activeStage > 0 ? "1" : "—"}</small></div>
-            <div className={`hero-tour-nav-item${activeStage === 2 ? " active" : ""}`}><UserCheck aria-hidden="true" size={12} /> Actions</div>
+            <div className="hero-tour-nav-list" style={{ "--active-stage": activeStage } as CSSProperties}>
+              <div className={`hero-tour-nav-item${activeStage === 0 ? " active" : ""}`}><FileText aria-hidden="true" size={12} /> Bills <small>12</small></div>
+              <div className={`hero-tour-nav-item${activeStage === 1 ? " active" : ""}`}><CircleAlert aria-hidden="true" size={12} /> Findings <small>{activeStage > 0 ? "1" : "—"}</small></div>
+              <div className={`hero-tour-nav-item${activeStage === 2 ? " active" : ""}`}><UserCheck aria-hidden="true" size={12} /> Actions</div>
+            </div>
             <div className="hero-tour-sidebar-bottom"><ShieldCheck aria-hidden="true" size={12} /> Private workspace</div>
           </div>
           <div className="hero-tour-content">
-            <div className="hero-tour-content-top"><div><span className="hero-tour-kicker">{activeStage === 0 ? "Bills" : activeStage === 1 ? "Finding detail" : "Action review"}</span><strong>{activeStage === 0 ? "Your uploaded bills" : activeStage === 1 ? "Monthly circuit charge increased" : "Choose what happens next"}</strong></div><span className="hero-tour-avatar">LP</span></div>
+            <div className="hero-tour-content-top"><div key={`hero-tour-heading-${activeStage}`} className="hero-tour-content-heading"><span className="hero-tour-kicker">{activeStage === 0 ? "Bills" : activeStage === 1 ? "Finding detail" : "Action review"}</span><strong>{activeStage === 0 ? "Your uploaded bills" : activeStage === 1 ? "Monthly circuit charge increased" : "Choose what happens next"}</strong></div><span className="hero-tour-avatar"><Image src="/images/fictional-finance-leader-avatar-256.png" alt="" width={56} height={56} sizes="28px" /></span></div>
             {activeStage === 0 ? (
-              <div className="hero-tour-bills-view"><div className="hero-tour-page-intro"><div><h3>Recent bills</h3><p>Selected source files stay linked to their findings.</p></div><span ref={targetRef} className={`hero-tour-primary ${targetClassName}`} aria-hidden="true"><Upload size={12} /> Upload bill</span></div><div className="hero-tour-table"><div className="hero-tour-table-head"><span>Document</span><span>Vendor</span><span>Status</span><span /></div><div className="hero-tour-table-row"><FileText aria-hidden="true" size={13} /><span>May internet bill.pdf</span><span>AT&amp;T Business</span><em>Ready</em><ArrowRight aria-hidden="true" size={12} /></div><div className="hero-tour-table-row muted"><FileText aria-hidden="true" size={13} /><span>Acme software invoice.pdf</span><span>Acme Software</span><em>Reviewed</em><ArrowRight aria-hidden="true" size={12} /></div></div><div className="hero-tour-callout"><ShieldCheck aria-hidden="true" size={13} /><span>Upload selected documents. Costivra keeps the source and evidence together.</span></div></div>
+              <div className="hero-tour-bills-view"><div className="hero-tour-page-intro"><div><h3>Recent bills</h3><p>Selected source files stay linked to their findings.</p></div><span ref={targetRef} className={`hero-tour-primary ${targetClassName}`} aria-hidden="true"><Upload size={12} /> Upload bill</span></div><div className="hero-tour-table"><div className="hero-tour-table-head"><span aria-hidden="true" /><span>Document</span><span>Vendor</span><span>Status</span><span aria-hidden="true" /></div><div className="hero-tour-table-row"><FileText aria-hidden="true" size={13} /><span>May internet bill.pdf</span><span>AT&amp;T Business</span><em>Ready</em><ArrowRight aria-hidden="true" size={12} /></div><div className="hero-tour-table-row muted"><FileText aria-hidden="true" size={13} /><span>Acme software invoice.pdf</span><span>Acme Software</span><em>Reviewed</em><ArrowRight aria-hidden="true" size={12} /></div></div><div className="hero-tour-callout"><ShieldCheck aria-hidden="true" size={13} /><span>Upload selected documents. Costivra keeps the source and evidence together.</span></div></div>
             ) : activeStage === 1 ? (
               <div className="hero-tour-finding-view"><div className="hero-tour-breadcrumb">Bills <ArrowRight aria-hidden="true" size={10} /> May internet bill <ArrowRight aria-hidden="true" size={10} /> Finding</div><div className="hero-tour-finding-grid"><div className="hero-tour-paper"><div className="hero-tour-paper-heading"><FileText aria-hidden="true" size={13} /><span>AT&amp;T Business</span><small>Page 2 of 2</small></div><div className="hero-tour-paper-line" /><div className="hero-tour-paper-line short" /><div className="hero-tour-paper-highlight"><span>Monthly circuit charge</span><strong>$1,510.00</strong></div><div className="hero-tour-paper-line" /><div className="hero-tour-paper-line medium" /></div><div className="hero-tour-finding-card"><span className="hero-tour-finding-status"><CircleAlert aria-hidden="true" size={12} /> Review needed</span><h3>Monthly circuit charge increased</h3><p>Current bill: <strong>$1,510 / mo</strong><br />Previous bill: $1,310 / mo</p><div className="hero-tour-potential"><span>Potential annual impact</span><strong>+$2,400</strong><small>Not verified · source linked</small></div><span ref={targetRef} className={`hero-tour-secondary ${targetClassName}`} aria-hidden="true">View evidence <ArrowRight size={11} /></span></div></div></div>
             ) : (
@@ -365,12 +368,14 @@ function HeroReviewPreview() {
         </div>
       </div>
       <div className="hero-product-controls">
-        <div className="hero-product-stage-controls" role="tablist" aria-label="Product walkthrough steps">
-          {[{ label: "Upload", icon: Upload }, { label: "Review", icon: CircleAlert }, { label: "Decide", icon: UserCheck }].map(({ label, icon: Icon }, index) => (
-            <button key={label} type="button" role="tab" aria-selected={activeStage === index} className={activeStage === index ? "active" : ""} onClick={() => selectStage(index)}>
-              <Icon aria-hidden="true" size={13} />{label}
-            </button>
-          ))}
+        <div className="hero-product-stage-controls">
+          <div className="hero-product-tabs" role="tablist" aria-label="Product walkthrough steps" style={{ "--active-stage": activeStage } as CSSProperties}>
+            {[{ label: "Upload", icon: Upload }, { label: "Review", icon: CircleAlert }, { label: "Decide", icon: UserCheck }].map(({ label, icon: Icon }, index) => (
+              <button key={label} type="button" role="tab" aria-selected={activeStage === index} className={activeStage === index ? "active" : ""} onClick={() => selectStage(index)}>
+                <Icon aria-hidden="true" size={13} />{label}
+              </button>
+            ))}
+          </div>
           <button type="button" className="hero-product-play" onClick={togglePlayback} aria-label={isPlaying ? "Pause product walkthrough" : "Play product walkthrough"}>
             {isPlaying ? <Pause aria-hidden="true" size={13} /> : <Play aria-hidden="true" size={13} />}
           </button>

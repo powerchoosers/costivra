@@ -43,6 +43,24 @@ describe("getWorkspaceScrollbarThumbMetrics", () => {
       (metrics?.trackOffset ?? 0) + (metrics?.trackSize ?? 0),
     );
   });
+
+  it("supports a fixed-header inset without shortening the bottom inset", () => {
+    const metrics = getWorkspaceScrollbarThumbMetrics({
+      viewportOffset: 0,
+      viewportSize: 800,
+      scrollSize: 3_200,
+      scrollOffset: 0,
+      startInset: 76,
+      endInset: 4,
+    });
+
+    expect(metrics).toMatchObject({
+      offset: 76,
+      trackOffset: 76,
+      trackSize: 720,
+      size: 180,
+    });
+  });
 });
 
 describe("getNextVerticalScrollTop", () => {
