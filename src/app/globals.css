@@ -674,6 +674,17 @@ textarea:focus-visible {
   text-align: center;
   opacity: 1;
   cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.account-provider:hover {
+  border-color: #7c9cff;
+  background: #f7f9ff;
+  box-shadow: 0 8px 18px rgba(49, 92, 255, .12);
+  transform: translateY(-1px);
+}
+.account-provider:focus-visible {
+  outline: 3px solid rgba(49, 92, 255, .24);
+  outline-offset: 2px;
 }
 .account-provider-icon {
   display: grid;
