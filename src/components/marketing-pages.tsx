@@ -603,15 +603,15 @@ function AccountPage({ mode, plans }: { mode: string; plans: PublicBillingPlan[]
     }
     const next = searchParams?.get("next");
     const safeNext = next?.startsWith("/app") || next?.startsWith("/manage") ? next : null;
-    const confirmationParams = new URLSearchParams({ confirmed: "1" });
+    const confirmationParams = new URLSearchParams({ type: "signup", next: safeNext ?? "/app/documents" });
     if (selectedPlan) confirmationParams.set("plan", selectedPlan.key);
     if (selectedPlan) confirmationParams.set("interval", selectedBillingInterval);
     if (safeNext) confirmationParams.set("next", safeNext);
     const result = signup
-      ? await client.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/login?${confirmationParams.toString()}`, data: { full_name: String(form.get("fullName") ?? "").trim(), company_name: String(form.get("companyName") ?? "").trim() } } })
+      ? await client.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/auth/confirm?${confirmationParams.toString()}`, data: { full_name: String(form.get("fullName") ?? "").trim(), company_name: String(form.get("companyName") ?? "").trim() } } })
       : await client.auth.signInWithPassword({ email, password });
     if (result.error) { setMessage(result.error.message); setBusy(false); return; }
-    if (signup && !result.data.session) { setMessageTone("info"); setMessage(freeSignup ? "Check your email to confirm your account, then sign in to upload your first three bills." : "Check your email to confirm your account, then sign in."); setBusy(false); return; }
+    if (signup && !result.data.session) { setMessageTone("info"); setMessage(freeSignup ? "Check your email to confirm your account. We’ll take you straight to your first three-bill review." : "Check your email to confirm your account. We’ll take you straight to your workspace."); setBusy(false); return; }
     const requestedDestination = safeNext ?? (selectedPlan
       ? `/app/settings?tab=billing&plan=${encodeURIComponent(selectedPlan.key)}&interval=${selectedBillingInterval}`
       : null);

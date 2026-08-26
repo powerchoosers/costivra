@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { isExplicitRecoveryConfirmation } from "@/lib/auth/recovery";
+import { validAccessDestination } from "@/lib/auth/access";
 
 const RECOVERY_SETUP_COOKIE = "costivra-recovery-setup";
 
@@ -17,6 +18,14 @@ function markRecoverySetupRequired(response: NextResponse) {
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const tokenHash = requestUrl.searchParams.get("token_hash");
+  const type = requestUrl.searchParams.get("type");
+  const signupNext = validAccessDestination(requestUrl.searchParams.get("next")) ?? "/app/documents";
+  if (type === "signup" && tokenHash) {
+    const response = NextResponse.redirect(new URL(`/access?next=${encodeURIComponent(signupNext)}`, requestUrl.origin));
+    const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { cookies: { getAll: () => request.cookies.getAll(), setAll: (cookiesToSet) => cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options)) } });
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "signup" });
+    return error ? NextResponse.redirect(new URL(`/login?error=confirmation_failed&next=${encodeURIComponent(signupNext)}`, requestUrl.origin)) : response;
+  }
   const destination = new URL("/set-password?mode=recovery", requestUrl.origin);
   const errorDestination = new URL("/set-password?mode=recovery&error=invalid_link", requestUrl.origin);
 
