@@ -1,5 +1,13 @@
 # Costivra Status
 
+## August 26, 2026 — Customer mailbox authorization controls
+
+- Replaced the stale roadmap-only Gmail and Microsoft 365 cards with live read-only mailbox authorization controls. Connected accounts now show the provider email, first/last sync state, least-privilege boundary, and an explicit disconnect action.
+- Added an owner/admin vendor-rule builder beside each connected mailbox. A customer must choose an existing vendor and provide an approved sender domain, sender address, or subject matcher before Costivra may import attachments; unmatched messages remain in the provider mailbox.
+- Deployed commit `a4826b2` to Vercel production. Deployment `dpl_5eZybgRVtcVyEpeHGXGjKg49e3ek` is `READY` on `costivra.ai`, and the post-deploy runtime-error scan was clean.
+- Prepared a local, ignored WebM reviewer-video assembler and verified that it produces a playable binary from captured browser frames. The final Gmail verification recording is waiting on the Google account's phone challenge before the real OAuth consent and synthetic invoice-import footage can be captured.
+- Validation: Node `v24.19.0`; TypeScript passed; focused ESLint passed; full Vitest passed (222 files, 933 passed, 6 skipped); production build passed (62 routes); and `git diff --check` passed.
+
 ## August 25, 2026 — Bounded external-effect recovery
 
 - Added one deterministic retry policy for the existing external-side-effect ledger. An effect now retries automatically only when it failed before provider acceptance is known, is classified safe to retry, and remains below the three-retry limit.
