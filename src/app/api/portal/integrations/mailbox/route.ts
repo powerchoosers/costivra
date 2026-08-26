@@ -19,9 +19,12 @@ export async function DELETE(request: Request) {
     const db = createServerSupabaseClient();
     const id = new URL(request.url).searchParams.get("id");
     if (!id) return NextResponse.json({ error: "Connection id is required." }, { status: 400 });
-    const { error } = await db.from("mailbox_oauth_connections").update({ status: "revoked", disconnected_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id).eq("organization_id", organizationId);
+    const { data: connection, error: lookupError } = await db.from("mailbox_oauth_connections").select("id,provider").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+    if (lookupError) throw new Error(lookupError.message);
+    if (!connection) return NextResponse.json({ error: "Mailbox connection was not found." }, { status: 404 });
+    const { error } = await db.from("mailbox_oauth_connections").delete().eq("id", id).eq("organization_id", organizationId);
     if (error) throw new Error(error.message);
-    await db.from("audit_events").insert({ organization_id: organizationId, actor_type: "user", actor_id: userId, action: "mailbox.disconnected", resource_type: "mailbox_oauth_connection", resource_id: id });
+    await db.from("audit_events").insert({ organization_id: organizationId, actor_type: "user", actor_id: userId, action: "mailbox.disconnected", resource_type: "mailbox_oauth_connection", resource_id: id, metadata: { provider: connection.provider, stored_tokens_deleted: true } });
     return NextResponse.json({ disconnected: true });
   } catch (error) { return apiError(error); }
 }

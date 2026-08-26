@@ -4172,6 +4172,9 @@ function Integrations({
                 </header>
                 <h2>{item.displayName}</h2>
                 <p>{item.description}</p>
+                {provider === "google_gmail" && <small className="integration-privacy-notice">
+                  Gmail access is read-only. Costivra checks sender and subject details against rules you create, then imports only matching attachments for private bill review. Disconnecting deletes the stored connection tokens and stops future access. <Link href="/privacy#google-account-and-gmail-data">How Google data is handled</Link>
+                </small>}
                 {mailboxLoading && provider ? <small>Checking connection…</small> : connection ? <>
                   <div className="mailbox-connection-summary">
                     <span><CheckCircle2 size={15} /> Read-only mailbox connected</span>

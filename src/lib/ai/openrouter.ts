@@ -60,6 +60,10 @@ export async function generateJson({
       model: process.env.OPENROUTER_MODEL ?? "openai/gpt-4.1-mini",
       messages,
       ...(plugins ? { plugins } : {}),
+      provider: {
+        data_collection: "deny",
+        zdr: true,
+      },
       response_format: { type: "json_object" },
       temperature: Math.min(1, Math.max(0, temperature)),
       max_tokens: maxTokens,

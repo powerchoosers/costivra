@@ -65,5 +65,11 @@ describe("generateJson OpenRouter key configuration", () => {
       Authorization: "Bearer sk-or-test-key",
       "Content-Type": "application/json",
     });
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      provider: {
+        data_collection: "deny",
+        zdr: true,
+      },
+    });
   });
 });

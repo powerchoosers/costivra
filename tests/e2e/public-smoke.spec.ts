@@ -50,6 +50,16 @@ test("sign-in keeps unconfigured workspace providers honest", async ({ page }) =
   expect(failures).toEqual([]);
 });
 
+test("privacy policy discloses Google user-data controls", async ({ page }) => {
+  const failures = failOnConsoleErrors(page);
+  await page.goto("/privacy");
+  await expect(page.getByText("Effective August 26, 2026", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Google account and Gmail data" })).toBeVisible();
+  await expect(page.getByText("Costivra cannot send, modify, label, move, or delete your Gmail messages.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Google API Services User Data Policy" })).toHaveAttribute("href", "https://developers.google.com/terms/api-services-user-data-policy");
+  expect(failures).toEqual([]);
+});
+
 test("inbound email worker rejects public requests", async ({ request }) => {
   const response = await request.get("/api/cron/inbound-email");
   expect([401, 404]).toContain(response.status());
