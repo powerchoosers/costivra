@@ -33,7 +33,7 @@ export async function refreshMailboxAccessToken(provider: MailboxProvider, refre
 }
 
 export async function listMatchingMailboxMessages(input: { provider: MailboxProvider; accessTokenCiphertext: string; refreshTokenCiphertext: string; rules: MailboxRule[]; cursor?: string | null }) {
-  let accessToken = decryptMailboxToken(input.accessTokenCiphertext);
+  const accessToken = decryptMailboxToken(input.accessTokenCiphertext);
   if (input.provider === "google_gmail") {
     const query = input.cursor ? `after:${input.cursor}` : "newer_than:7d";
     const list = await providerFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=${encodeURIComponent(`${query} has:attachment`)}`, accessToken);

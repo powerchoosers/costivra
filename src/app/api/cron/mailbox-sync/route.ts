@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       if (!rules?.length) continue;
       let accessToken = decryptMailboxToken(connection.access_token_ciphertext);
       let listed;
-      try { listed = await listMatchingMailboxMessages({ provider: connection.provider as MailboxProvider, accessTokenCiphertext: connection.access_token_ciphertext, refreshTokenCiphertext: connection.refresh_token_ciphertext, rules, cursor: connection.sync_cursor }); } catch (firstError) {
+      try { listed = await listMatchingMailboxMessages({ provider: connection.provider as MailboxProvider, accessTokenCiphertext: connection.access_token_ciphertext, refreshTokenCiphertext: connection.refresh_token_ciphertext, rules, cursor: connection.sync_cursor }); } catch {
         const refreshed = await refreshMailboxAccessToken(connection.provider as MailboxProvider, decryptMailboxToken(connection.refresh_token_ciphertext));
         accessToken = refreshed.access_token;
         listed = await listMatchingMailboxMessages({ provider: connection.provider as MailboxProvider, accessTokenCiphertext: (await import("@/lib/integrations/mailbox-token-crypto")).encryptMailboxToken(accessToken), refreshTokenCiphertext: connection.refresh_token_ciphertext, rules, cursor: connection.sync_cursor });
