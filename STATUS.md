@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 26, 2026 — Connection-first mailbox intake hierarchy
+
+- Made Gmail/Outlook mailbox connection the recommended first path in customer Integrations settings, with manual forwarding clearly labeled as the secondary alternative.
+- Reordered the rendered settings sections, clarified the vendor monitoring intake-method copy, and aligned marketing, homepage, and free-review FAQ language with the same connection-first choice.
+- Validation: Node `v24.19.0`; TypeScript passed; focused ESLint passed; production build passed (62 routes); and `git diff --check` passed.
+
 ## August 26, 2026 — Customer mailbox authorization controls
 
 - Replaced the stale roadmap-only Gmail and Microsoft 365 cards with live read-only mailbox authorization controls. Connected accounts now show the provider email, first/last sync state, least-privilege boundary, and an explicit disconnect action.

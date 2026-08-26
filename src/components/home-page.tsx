@@ -50,7 +50,7 @@ const trust = [
   [UserCheck, "Human approval", "Consequential outside actions require the configured approval."],
   [FileCheck2, "Source-linked findings", "Material claims remain connected to evidence and calculation details."],
   [ClipboardList, "Audit history", "Decisions, corrections, approvals, and outside effects are recorded."],
-  [Upload, "No broad inbox access required", "Begin with selected uploads and controlled forwarding."],
+  [Upload, "Scoped inbox access", "Connect Gmail or Outlook for matching bills, or use controlled forwarding instead."],
 ] as const;
 
 type EvidenceCategory = "software" | "telecom" | "energy";

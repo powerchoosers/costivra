@@ -115,7 +115,7 @@ const specs: Record<string, PageSpec> = {
     title: "Connect the systems that hold your recurring costs.",
     lede: "Start with private document upload, then connect the email, accounting, billing, or advisor systems that support a specific workflow. Each connection has a defined purpose and data boundary.",
     blocks: [
-      { icon: Mail, title: "Microsoft 365 and Gmail", copy: "Connect an approved mailbox or use a forwarding rule. Costivra reads attachments only for the vendors and matching rules your organization authorizes, and the connection can be revoked at any time." },
+      { icon: Mail, title: "Microsoft 365 and Gmail", copy: "Connect your approved mailbox first for focused, automatic bill intake. If you prefer not to connect it, use a forwarding rule instead. Costivra reads attachments only for the vendors and matching rules your organization authorizes, and access can be revoked at any time." },
       { icon: Landmark, title: "QuickBooks and Xero", copy: "Reconcile vendor, bill, and payment records without turning accounting software into a model tool." },
       { icon: CircleDollarSign, title: "Stripe", copy: "Support subscriptions and approved performance-fee billing with a clear verification record." },
       { icon: Handshake, title: "Expert partners", copy: "Share only consented evidence packages with the advisor or specialist selected by the customer." },
@@ -415,7 +415,7 @@ function AdScanPage() {
   const signupHref = "/signup?next=/app/documents&source=free-bill-review";
   const reviewQuestions = [
     ["Is this a savings guarantee?", "No. Costivra identifies potential issues and keeps the supporting evidence visible. A result becomes verified only when later evidence supports the agreed method."],
-    ["Do I need to connect my inbox?", "No. Start by uploading only the documents you choose. Broader connections can be considered later for a specific workflow."],
+    ["Do I need to connect my inbox?", "No. You can start with selected uploads or a forwarding address. For ongoing monitoring, connect Gmail or Outlook from Settings → Integrations, then choose the vendor rules Costivra may use."],
     ["Will Costivra contact my vendor?", "No outside action happens without the required human approval. You control what is investigated, shared, or approved."],
     ["Why do I need an account before uploading?", "Your private workspace is created before document intake so your business bills do not pass through an unprotected public form."],
   ] as const;

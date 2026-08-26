@@ -3885,24 +3885,24 @@ function Integrations({
     (item) => item.status === "quarantined",
   );
   return (
-    <>
+    <div className="integrations-page-stack">
       {!embedded && <PageHeader
         title="Integrations"
-        description="Connect the systems that supply Costivra with trusted, organization-owned records."
+        description="Connect Gmail or Outlook first for focused, automatic bill intake. Use forwarding when a direct mailbox connection is not the right fit."
       />}
-      <section className="email-intake portal-panel">
+      <section className="email-intake integrations-manual-option portal-panel">
         <div className="email-intake-header">
           <div className="email-intake-title">
             <span className="email-intake-icon">
               <Mail />
             </span>
             <div>
-              <span className="eyebrow">AUTOMATIC DOCUMENT INTAKE</span>
-              <h2>Forward bills and contracts from work email</h2>
+              <span className="eyebrow">SECONDARY INTAKE OPTION</span>
+              <h2>Use manual forwarding instead</h2>
               <p>
-                Give vendors this workspace address or create a forwarding rule
-                in your current mailbox. Approved attachments become private,
-                traceable Costivra records.
+                If you do not want to connect a mailbox, give vendors this workspace
+                address or create a forwarding rule in your current mailbox. Approved
+                attachments become private, traceable Costivra records.
               </p>
             </div>
           </div>
@@ -3940,7 +3940,7 @@ function Integrations({
             )}
             <div className="email-intake-layout">
               <div className="email-intake-setup">
-                <h3>Set up in three steps</h3>
+                <h3>Set up forwarding in three steps</h3>
                 <ol>
                   <li>
                     <span>1</span>
@@ -4140,12 +4140,14 @@ function Integrations({
         )}
       </section>
       {providerIntegrations.length > 0 && (
-        <>
+        <section className="integrations-mailbox-primary">
           <div className="portal-section-heading">
-            <h2>Other connections</h2>
+            <span className="eyebrow">RECOMMENDED INTAKE</span>
+            <h2>Connect Gmail or Outlook</h2>
             <p>
-              Authorize read-only access, choose the vendors Costivra may
-              monitor, and revoke access whenever you want.
+              Authorize read-only access, choose the vendors Costivra may monitor,
+              and revoke access whenever you want. Costivra imports only messages
+              that match the rules you create.
             </p>
           </div>
           <div className="portal-card-grid">
@@ -4226,9 +4228,9 @@ function Integrations({
               </article>;
             })}
           </div>
-        </>
+        </section>
       )}
-    </>
+    </div>
   );
 }
 
@@ -5581,7 +5583,7 @@ function CreateModals({
       <PortalModal
         open={kind === "monitor"}
         title={`Monitor ${selectedVendor?.name ?? "vendor"}`}
-        description="Set up automatic bill forwarding or manual forwarding rules for this vendor."
+        description="Choose how Costivra should receive this vendor’s bills. Connecting Gmail or Outlook is recommended; forwarding and uploads remain available when you need them."
         onClose={close}
       >
         <form onSubmit={submit(`/api/portal/vendors/${selectedVendor?.relationshipId ?? ""}/monitoring`, "Vendor monitoring updated.")}>
@@ -5593,7 +5595,7 @@ function CreateModals({
               required={true}
             />
             <SelectField
-              label="Forwarding method"
+              label="Bill intake method"
               name="sourceMethod"
               options={[
                 { value: "email_forwarding", label: "Automatic Email Rule (Gmail / Outlook)" },

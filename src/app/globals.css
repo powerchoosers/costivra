@@ -2180,6 +2180,9 @@ html { scroll-padding-top: 92px; }
 }
 
 /* Customer-managed email intake */
+.integrations-page-stack { display:flex; flex-direction:column; gap:0; }
+.integrations-mailbox-primary { order:1; }
+.integrations-manual-option { order:2; margin-top:30px; }
 .email-intake { border-radius:20px; }
 .email-intake-header { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; border-bottom:1px solid #e7ebf0; padding:24px; }
 .email-intake-title { display:flex; align-items:flex-start; gap:16px; }
