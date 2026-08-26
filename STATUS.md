@@ -1,5 +1,10 @@
 # Costivra Status
 
+## August 26, 2026 — Microsoft OAuth branding saved
+
+- Saved the Microsoft Entra app branding as `Costivra`, with `https://costivra.ai`, `/terms`, and `/privacy` links, and selected the verified `costivra.ai` publisher domain.
+- Microsoft Publisher Verification remains pending because it requires associating a verified Partner Center account and MPN ID; no MPN ID was available to enter.
+
 ## August 26, 2026 — Connection-first mailbox intake hierarchy
 
 - Made Gmail/Outlook mailbox connection the recommended first path in customer Integrations settings, with manual forwarding clearly labeled as the secondary alternative.
