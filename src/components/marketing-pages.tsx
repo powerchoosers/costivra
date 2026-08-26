@@ -115,7 +115,7 @@ const specs: Record<string, PageSpec> = {
     title: "Connect the systems that hold your recurring costs.",
     lede: "Start with private document upload, then connect the email, accounting, billing, or advisor systems that support a specific workflow. Each connection has a defined purpose and data boundary.",
     blocks: [
-      { icon: Mail, title: "Microsoft 365 and Gmail", copy: "Use an approved forwarding rule today. Direct mailbox authorization remains a planned, separately consented connection." },
+      { icon: Mail, title: "Microsoft 365 and Gmail", copy: "Forward selected vendor messages to your private workspace address, or authorize a scoped mailbox connection when it is enabled for your workspace. You control the vendors Costivra may monitor and can revoke access." },
       { icon: Landmark, title: "QuickBooks and Xero", copy: "Reconcile vendor, bill, and payment records without turning accounting software into a model tool." },
       { icon: CircleDollarSign, title: "Stripe", copy: "Support subscriptions and approved performance-fee billing with a clear verification record." },
       { icon: Handshake, title: "Expert partners", copy: "Share only consented evidence packages with the advisor or specialist selected by the customer." },

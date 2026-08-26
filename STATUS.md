@@ -3157,3 +3157,8 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added AES-256-GCM token encryption helpers and tests. Production requires `INTEGRATION_TOKEN_ENCRYPTION_KEY`; no provider token is stored in plaintext or exposed to the browser.
 - Remaining work: OAuth callback routes, provider-specific sync adapters, vendor-scoped attachment rules, cron worker, provider consent configuration, and deployment env configuration.
 - OAuth start/callback/disconnect routes are now implemented with PKCE, state replay protection, encrypted tokens, scoped metadata responses, and audit events. Typecheck passes; provider credentials and the sync worker remain before production activation.
+## Mailbox integration copy
+
+- Removed the public "direct mailbox authorization is planned" wording. The integrations page now explains forwarding and scoped mailbox authorization with workspace enablement, vendor controls, and revocation.
+- Updated the deployed Supabase Gmail and Microsoft 365 integration descriptions and added a forward migration recording the change.
+- Validation: `pnpm typecheck`, focused ESLint for `src/components/marketing-pages.tsx`, and `git diff --check` passed.
