@@ -3155,8 +3155,11 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 
 - Added and applied service-only Supabase tables for tenant-scoped Gmail/Microsoft mailbox connections and short-lived OAuth/PKCE state.
 - Added AES-256-GCM token encryption helpers and tests. Production requires `INTEGRATION_TOKEN_ENCRYPTION_KEY`; no provider token is stored in plaintext or exposed to the browser.
-- Remaining work: OAuth callback routes, provider-specific sync adapters, vendor-scoped attachment rules, cron worker, provider consent configuration, and deployment env configuration.
 - OAuth start/callback/disconnect routes are now implemented with PKCE, state replay protection, encrypted tokens, scoped metadata responses, and audit events. Typecheck passes; provider credentials and the sync worker remain before production activation.
+- Added dedicated Google Gmail and Microsoft Outlook mailbox OAuth applications with the production Costivra callback URLs. Gmail API plus `gmail.readonly` and Microsoft Graph delegated `Mail.Read` are configured. Provider client credentials and the 32-byte token-encryption key are stored as Vercel secrets for Production and Preview; a new deployment is required before the runtime sees them.
+- Google remains in Testing because the OAuth brand configuration is incomplete and the restricted Gmail scope requires Google's verification path for general users. Microsoft also warns that this new multitenant app needs a verified publisher before broad end-user consent. These provider-review items remain launch gates for mailbox authorization; existing manual upload and approved forwarding paths are unaffected.
+- Updated `/scan` to lead with Google/Microsoft as the quickest secure-account path and removed email-confirmation language from the pre-signup step. The integrations page now describes the enabled vendor-scoped mailbox connection and revocation boundary without calling it planned.
+- Validation: Node `v24.19.0`; TypeScript passed; focused mailbox token-crypto tests passed (1 file, 2 tests); full ESLint passed with three existing `<img>` warnings and no errors.
 ## Mailbox integration copy
 
 - Removed the public "direct mailbox authorization is planned" wording. The integrations page now explains forwarding and scoped mailbox authorization with workspace enablement, vendor controls, and revocation.
