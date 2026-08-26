@@ -107,7 +107,7 @@ export async function sendLifecycleEmail(db: SupabaseClient, input: SendLifecycl
 
   const result = await sendTransactionalEmail({ to: input.recipientEmail.trim().toLowerCase(), subject: content.subject, text: content.text, html: content.html, idempotencyKey });
   if (!result.ok) {
-    await db.from("external_side_effects").update({ status: "failed", last_error: result.error, updated_at: new Date().toISOString() }).eq("id", claim.id);
+    await db.from("external_side_effects").update({ status: "failed", failure_class: "safe_retry", last_error: result.error, updated_at: new Date().toISOString() }).eq("id", claim.id);
     return { sent: false, reason: result.error, deliveryStatus: "failed" };
   }
   await db.from("external_side_effects").update({ status: "sent", provider_reference: result.providerId, completed_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq("id", claim.id);

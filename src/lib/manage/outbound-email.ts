@@ -9,6 +9,7 @@ import {
   normalizeSubject,
   safeSnippet,
 } from "@/lib/manage/mail";
+import { decideExternalEffectRetry } from "@/lib/workflows/external-effect-retry";
 import { createSequenceUnsubscribeToken } from "@/lib/manage/sequences/unsubscribe";
 
 type Db = Awaited<ReturnType<typeof requireInternalOperator>>["db"];
@@ -125,7 +126,13 @@ export async function sendOutboundEmail(
         duplicate: true,
       };
     }
-    if (origin === "sequence" && existing.status === "failed" && !existing.provider_reference && existing.failure_class !== "provider_ambiguous") {
+    const retryDecision = decideExternalEffectRetry({
+      status: String(existing.status),
+      providerReference: existing.provider_reference,
+      failureClass: existing.failure_class,
+      retryCount: existing.retry_count,
+    });
+    if (origin === "sequence" && retryDecision.retryable) {
       const { data: retried, error: retryError } = await input.db
         .from("external_side_effects")
         .update({ status: "pending", failure_class: null, last_error: null, retry_count: Number(existing.retry_count ?? 0) + 1, updated_at: new Date().toISOString() })

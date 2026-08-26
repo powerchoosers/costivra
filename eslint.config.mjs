@@ -10,6 +10,7 @@ export default defineConfig([
     ".git/**",
     ".agents/**",
     ".next/**",
+    ".next-*/**",
     "out/**",
     "coverage/**",
     "next-env.d.ts",

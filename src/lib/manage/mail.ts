@@ -81,6 +81,7 @@ export function deliveryFailureLedgerUpdate(
   return {
     status: providerId ? "sent" : "failed",
     provider_reference: providerId,
+    failure_class: providerId ? "provider_ambiguous" : "safe_retry",
     completed_at: providerId ? now : null,
     last_error: providerId
       ? `Provider accepted the email; local mailbox persistence needs reconciliation. ${errorMessage.slice(0, 700)}`

@@ -84,6 +84,7 @@ describe("owner CRM mail policy", () => {
     );
     expect(update.status).toBe("sent");
     expect(update.provider_reference).toBe("resend-message-id");
+    expect(update.failure_class).toBe("provider_ambiguous");
     expect(update.last_error).toContain("needs reconciliation");
   });
 
@@ -95,5 +96,6 @@ describe("owner CRM mail policy", () => {
     );
     expect(update.status).toBe("failed");
     expect(update.completed_at).toBeNull();
+    expect(update.failure_class).toBe("safe_retry");
   });
 });

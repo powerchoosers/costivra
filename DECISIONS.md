@@ -2277,3 +2277,31 @@ Retain an optional bounded `sourceKey` on every parsed energy service row and co
 ## Consequences
 
 Reviewers can connect a meter row to the exact source evidence and distinguish a shared-address multi-meter relationship from a new physical site. Automatic identity changes are attributable without logging full document contents or secrets. Existing live records remain unchanged until a controlled re-extraction or new upload exercises the path.
+
+# 2026-08-25 — Govern document intake through bounded specialist contracts
+
+## Context
+
+Document intake already had safe primitives—malware scanning, schema validation, evidence persistence, deterministic reconciliation, and human-review routing—but its model call and quality decision were embedded directly in one intake function. That made it difficult to prove each specialist's authority, limit, configuration version, and trace without treating the whole intake path as an unrestricted agent.
+
+## Decision
+
+Introduce a shared governed-agent contract that validates a specialist's identity, allowed and prohibited actions, contract and instruction versions, model configuration version, tenant/document scope, maximum steps, token budget, timeout, retry policy, side-effect prohibition, and escalation conditions. The first governed workflow has two specialists: a single-step Document Extraction Agent that returns source-backed candidate facts only, and a deterministic Document Data Quality Agent that routes low-confidence, incomplete-evidence, non-reconciling, or review-required records to human review. Intake remains the workflow owner: it persists records, runs deterministic calculations, and writes only safe trace metadata to the append-only audit event.
+
+## Consequences
+
+Extraction and data-quality decisions now have independent, reviewable contracts without changing the existing financial, authorization, or side-effect boundaries. Neither agent can calculate savings, approve work, mutate records directly, or communicate externally. This is deliberately a first vertical slice rather than a premature twelve-agent framework; opportunity and action-planning specialists can use the same contract once their workflow boundaries are implemented.
+
+# 2026-08-25 — Retry external effects only when provider acceptance is absent
+
+## Context
+
+Costivra already records idempotency keys, provider references, failure classes, and retry counts for outbound effects. The legacy claim path could nevertheless reclaim any failed row, including one with a provider reference. Retrying such a row risks duplicate external communication after an ambiguous local failure.
+
+## Decision
+
+Use one deterministic retry policy for lifecycle and sequence email effects. Automatic retry is allowed only for a failed row with no provider reference, an explicitly safe (or legacy-unclassified) failure, and fewer than three retries. Effects with a provider reference, a `provider_ambiguous`, permanent, stopped, or exhausted failure are held for reconciliation or human review. The retry count is advanced atomically when the claim is reclaimed.
+
+## Consequences
+
+Costivra remains on the existing Supabase and Vercel-based execution model with no new service or hosting cost. A transient provider rejection can recover automatically, while a potentially accepted request cannot be resent merely because local persistence or a worker failed. Operators must resolve held rows through the existing recovery workflow before creating any new effect.

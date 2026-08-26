@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { decideExternalEffectRetry } from "@/lib/workflows/external-effect-retry";
 
 type SideEffectClaimInput = {
   organizationId: string;
@@ -17,6 +18,8 @@ type SideEffectRow = {
   status: string;
   provider_reference?: string | null;
   request_hash?: string | null;
+  failure_class?: string | null;
+  retry_count?: number | null;
 };
 
 export type SideEffectClaimResult =
@@ -30,9 +33,10 @@ const completedStatuses = new Set(["sent", "accepted", "delivered"]);
  * Claim a side effect before making an external call.
  *
  * INSERT is intentionally used instead of upsert: only the request that wins
- * the unique idempotency key may call the provider. Failed rows can be
- * reclaimed with a compare-and-set update; an in-flight approved row is left
- * alone so a concurrent worker cannot send it twice.
+ * the unique idempotency key may call the provider. Only explicitly safe,
+ * bounded failures can be reclaimed. An in-flight row, a provider reference,
+ * or an ambiguous provider outcome is left for reconciliation so a concurrent
+ * worker cannot send it twice.
  */
 export async function claimExternalSideEffect(
   db: SupabaseClient,
@@ -55,7 +59,7 @@ export async function claimExternalSideEffect(
       sanitized_request_metadata: input.sanitizedRequestMetadata ?? {},
       updated_at: now,
     })
-    .select("id,status,provider_reference,request_hash")
+    .select("id,status,provider_reference,request_hash,failure_class,retry_count")
     .single();
 
   if (!insert.error && insert.data) {
@@ -89,12 +93,20 @@ export async function claimExternalSideEffect(
     };
   }
 
-  if (existing.status === "failed") {
+  const retryDecision = decideExternalEffectRetry({
+    status: existing.status,
+    providerReference: existing.provider_reference,
+    failureClass: existing.failure_class,
+    retryCount: existing.retry_count,
+  });
+  if (retryDecision.retryable) {
+    const retryCount = Math.max(0, Number(existing.retry_count ?? 0)) + 1;
     const retry = await db
       .from("external_side_effects")
-      .update({ status: "approved", last_error: null, updated_at: now })
+      .update({ status: "approved", last_error: null, retry_count: retryCount, updated_at: now })
       .eq("id", existing.id)
       .eq("status", "failed")
+      .is("provider_reference", null)
       .select("id")
       .maybeSingle();
     if (!retry.error && retry.data) {
