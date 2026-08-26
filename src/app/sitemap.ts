@@ -6,7 +6,7 @@ const routes = [
   "/industries/hospitality", "/industries/car-washes", "/industries/assisted-living", "/industries/restaurants",
   "/industries/fitness", "/industries/manufacturing", "/industries/education", "/industries/nonprofits",
   "/industries/property-management", "/industries/retail", "/case-studies", "/scan", "/about", "/partners",
-  "/contact", "/help", "/status", "/privacy", "/terms", "/ucep-disclosure",
+  "/contact", "/help", "/status", "/privacy", "/terms",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

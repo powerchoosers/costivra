@@ -7,7 +7,7 @@ const defaultQuestions = [
   ["What does Costivra connect to?", "The first release supports secure document upload for recurring bills and contracts. Email, accounting, and vendor connections will be added through scoped integrations as each workflow is validated."],
   ["Does Costivra take action automatically?", "Not by default. Costivra prepares bounded actions and routes them through your approval policy. External emails, referrals, cancellations, vendor changes, and payment-related actions always require the appropriate authorization."],
   ["How are savings verified?", "Potential value and verified value are kept separate. Verification compares an approved baseline with post-action bills or credits, applies deterministic calculations, and records the evidence and assumptions."],
-  ["What is the relationship with UCEP?", "UCEP is an optional energy-review partner. Costivra does not automatically send energy leads. Customers can export a review package to any advisor or explicitly consent to a disclosed UCEP referral."],
+  ["How do partner referrals work?", "Costivra does not automatically send referrals. You can export a review package to an advisor you choose or request an introduction to one of Costivra’s available partners. Nothing is shared without your approval."],
 ] as const;
 
 type FaqQuestion = readonly [question: string, answer: string];

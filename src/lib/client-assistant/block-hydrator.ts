@@ -326,7 +326,7 @@ export async function hydrateAssistantBlocks(
               options: [
                 { id: "keep", label: "Keep the review in Costivra", detail: "Save the evidence and decide later.", action: "save" },
                 { id: "export", label: "Export for an advisor", detail: "Choose an advisor and share only the records you approve.", action: "export" },
-                { id: "ucep", label: "Request a disclosed partner review", detail: "Review the relationship disclosure before requesting an optional UCEP review.", action: "disclosure", href: "/ucep-disclosure" },
+                { id: "partner", label: "Request a partner review", detail: "Choose whether to request an introduction to one of Costivra’s available partners.", action: "partner_referral" },
               ],
             },
           });

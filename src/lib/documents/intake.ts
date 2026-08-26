@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
-import { analyzeDocument, analyzeImageDocument, analyzeScannedPdf } from "@/lib/ai/document-intelligence";
+import { runDocumentDataQualityAgent } from "@/lib/ai/document-data-quality-agent";
+import { runDocumentExtractionAgent } from "@/lib/ai/document-extraction-agent";
+import { agentTraceFromError, safeAgentTraceMetadata, type GovernedAgentTrace } from "@/lib/ai/governed-agent";
 import { createContractRecordFromExtraction } from "@/lib/documents/contract-record";
 import { createInvoiceRecordFromExtraction } from "@/lib/documents/invoice-record";
 import { persistDetectedServiceLocation, type DetectedServiceLocationResolution } from "@/lib/domain/service-location";
@@ -216,6 +218,7 @@ export async function processDocumentBuffer(input: {
   let extracted = { text: "", pageCount: null as number | null };
   let inputMode: DocumentExtractionInputMode = "native_text";
   let intelligence;
+  let extractionTrace: GovernedAgentTrace | null = null;
   try {
     try {
       extracted = await extractDocumentText(input.buffer, input.mimeType);
@@ -231,12 +234,21 @@ export async function processDocumentBuffer(input: {
     const imageMimeType = input.mimeType === "image/png" || input.mimeType === "image/jpeg" ? input.mimeType : null;
     inputMode = isImage ? "image_vision" : usedPdfOcr ? "pdf_ocr" : "native_text";
     if (!hasNativeText && !usedPdfOcr && !isImage) throw new Error("No readable text was found in this document.");
-    intelligence = isImage
-      ? await analyzeImageDocument({ documentName: input.filename, mimeType: imageMimeType!, buffer: input.buffer })
-      : usedPdfOcr
-        ? await analyzeScannedPdf({ documentName: input.filename, buffer: input.buffer, pageCount: extracted.pageCount })
-        : await analyzeDocument({ documentName: input.filename, mimeType: input.mimeType, extractedText: extracted.text, pageCount: extracted.pageCount });
+    const extractionRun = await runDocumentExtractionAgent({
+      organizationId: input.organizationId,
+      documentId: input.documentId,
+      documentName: input.filename,
+      mimeType: isImage ? imageMimeType! : input.mimeType,
+      inputMode,
+      extractedText: extracted.text,
+      pageCount: extracted.pageCount,
+      buffer: input.buffer,
+      traceId: input.requestId,
+    });
+    intelligence = extractionRun.output;
+    extractionTrace = extractionRun.trace;
   } catch (analysisError) {
+    extractionTrace = agentTraceFromError(analysisError) ?? extractionTrace;
     const failureCode = classifyDocumentExtractionFailure(analysisError, inputMode);
     const summary = documentExtractionReviewSummary(failureCode);
     const { error: failureVersionError } = await input.db.from("document_extraction_versions").insert({
@@ -254,7 +266,18 @@ export async function processDocumentBuffer(input: {
     if (failureVersionError) throw failureVersionError;
     const { error: failureUpdateError } = await input.db.from("documents").update({ status: "needs_review", extraction_summary: summary, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
     if (failureUpdateError) throw failureUpdateError;
-    const { error: failureAuditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId, safe_metadata: input.requestId ? { request_id: input.requestId } : {} });
+    const { error: failureAuditError } = await input.db.from("audit_events").insert({
+      organization_id: input.organizationId,
+      actor_type: input.actorType,
+      actor_id: input.actorId || null,
+      action: input.auditAction,
+      resource_type: "document",
+      resource_id: input.documentId,
+      safe_metadata: {
+        ...(input.requestId ? { request_id: input.requestId } : {}),
+        governed_agents: safeAgentTraceMetadata([extractionTrace]),
+      },
+    });
     if (failureAuditError) throw failureAuditError;
     return { duplicate: false as const, documentId: input.documentId, status: "needs_review" as const, warning: summary, failureCode, sha256: input.sha256 };
   }
@@ -357,15 +380,35 @@ export async function processDocumentBuffer(input: {
       locationIds: contractLocationPersistence.locationIds,
       locationResolutions: contractLocationPersistence.resolutions,
     });
-    const finalStatus = intelligence.confidence < .75
-      || omittedEvidenceCount > 0
-      || invoiceRecord?.reviewStatus === "needs_review"
-      || contractRecord?.needsReview === true
-      ? "needs_review"
-      : "ready";
+    const dataQualityRun = await runDocumentDataQualityAgent({
+      organizationId: input.organizationId,
+      documentId: input.documentId,
+      traceId: input.requestId ? `${input.requestId}:quality` : undefined,
+      assessmentInput: {
+        classification: intelligence.classification,
+        confidence: intelligence.confidence,
+        omittedEvidenceCount,
+        evidenceReferenceCount: evidenceReferences.length,
+        invoiceRecord,
+        contractRecord,
+      },
+    });
+    const finalStatus = dataQualityRun.output.requiresReview ? "needs_review" : "ready";
     const { error: documentUpdateError } = await input.db.from("documents").update({ page_count: extracted.pageCount, document_type: intelligence.classification, extraction_summary: intelligence.summary, status: finalStatus, updated_at: new Date().toISOString() }).eq("id", input.documentId).eq("organization_id", input.organizationId);
     if (documentUpdateError) throw documentUpdateError;
-    const { error: auditError } = await input.db.from("audit_events").insert({ organization_id: input.organizationId, actor_type: input.actorType, actor_id: input.actorId || null, action: input.auditAction, resource_type: "document", resource_id: input.documentId, safe_metadata: input.requestId ? { request_id: input.requestId } : {} });
+    const { error: auditError } = await input.db.from("audit_events").insert({
+      organization_id: input.organizationId,
+      actor_type: input.actorType,
+      actor_id: input.actorId || null,
+      action: input.auditAction,
+      resource_type: "document",
+      resource_id: input.documentId,
+      safe_metadata: {
+        ...(input.requestId ? { request_id: input.requestId } : {}),
+        governed_agents: safeAgentTraceMetadata([extractionTrace, dataQualityRun.trace]),
+        data_quality_issue_codes: dataQualityRun.output.issueCodes,
+      },
+    });
     if (auditError) throw auditError;
     return { duplicate: false as const, documentId: input.documentId, extractionVersionId: version.id as string, invoiceRecord, contractRecord, status: finalStatus, sha256: input.sha256 };
   }

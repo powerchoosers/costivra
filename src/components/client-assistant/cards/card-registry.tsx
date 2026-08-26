@@ -590,7 +590,7 @@ function EnergyReviewPathCard({ payload }: { payload: Record<string, unknown> })
         body: JSON.stringify({
           action: "start",
           destinationSlug: "ucep-energy-review",
-          purpose: "Request an optional disclosed commercial energy review.",
+          purpose: "Request an optional commercial energy review from a selected partner.",
           requestedScope: { includeSourceDocuments: false, includeExtractedFields: true, includeFinancialAmounts: false },
           sourceContext: { vendorRelationshipId: payload.vendorRelationshipId ?? null },
         }),
@@ -627,7 +627,7 @@ function EnergyReviewPathCard({ payload }: { payload: Record<string, unknown> })
   return (
     <AssistantCardShell icon={<Building2 size={18} />} label="Energy review" title={String(payload.title)} subtitle="Customer-controlled next step">
       <p className="card-helper-note">{String(payload.message)}</p>
-      {state === "idle" && <div className="card-actions-list"><button type="button" className="card-action-row card-action-row--button" onClick={() => void startRequest()}><span><strong>Request the disclosed partner review</strong><small className="muted">Costivra will show the disclosure before anything is shared.</small></span><ArrowRight size={14} /></button><Link className="card-action-row" href="/ucep-disclosure"><span><strong>Read the relationship disclosure</strong><small className="muted">See the relationship and your alternatives.</small></span><ExternalLink size={14} /></Link></div>}
+      {state === "idle" && <div className="card-actions-list"><button type="button" className="card-action-row card-action-row--button" onClick={() => void startRequest()}><span><strong>Request a partner review</strong><small className="muted">Choose an available partner and approve the exact records to share.</small></span><ArrowRight size={14} /></button></div>}
       {state === "loading" && <p className="card-helper-note">Preparing the consent record…</p>}
       {state === "consent" && disclosure && <div className="card-consent-box"><strong>Before you continue</strong><p>{disclosure}</p><small>Disclosure version: {disclosureVersion ?? "recorded"}</small><div className="card-consent-actions"><button type="button" className="card-action-button card-action-button--primary" onClick={() => void decide(true)}>I understand and want to request this review</button><button type="button" className="card-action-button" onClick={() => void decide(false)}>Decline</button></div></div>}
       {state === "consented" && <p className="card-helper-note">Your consent is recorded and the request is awaiting authorized review. Nothing has been shared externally, and no supplier enrollment or rate commitment has been made.</p>}

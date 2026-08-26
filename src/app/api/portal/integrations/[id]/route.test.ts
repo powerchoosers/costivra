@@ -41,7 +41,7 @@ describe("PATCH /api/portal/integrations/[id]", () => {
 
     expect(response.status).toBe(501);
     await expect(response.json()).resolves.toEqual({
-      error: "quickbooks setup is not available in-product yet. Email forwarding is the live automated intake path.",
+      error: "quickbooks setup is not available in-product yet.",
     });
     expect(auditInsert).toHaveBeenCalledWith(expect.objectContaining({
       action: "integration.setup_requested",

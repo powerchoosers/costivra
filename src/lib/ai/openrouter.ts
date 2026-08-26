@@ -42,11 +42,13 @@ export async function generateJson({
   maxTokens = 1_200,
   temperature = 0,
   plugins,
+  signal,
 }: {
   messages: OpenRouterMessage[];
   maxTokens?: number;
   temperature?: number;
   plugins?: Array<{ id: "file-parser"; pdf: { engine: "mistral-ocr" | "cloudflare-ai" | "native" } }>;
+  signal?: AbortSignal;
 }): Promise<unknown> {
   const response = await fetch(OPENROUTER_URL, {
     method: "POST",
@@ -62,7 +64,7 @@ export async function generateJson({
       temperature: Math.min(1, Math.max(0, temperature)),
       max_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: signal ?? AbortSignal.timeout(45_000),
   });
 
   const payload = (await response.json().catch(() => null)) as OpenRouterResponse | null;

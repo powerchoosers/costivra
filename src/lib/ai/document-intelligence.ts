@@ -483,7 +483,7 @@ export function parseDocumentIntelligence(value: unknown): DocumentIntelligence 
  * AI output is never authoritative: invoice math and record readiness are
  * determined separately by deterministic code and human review policy.
  */
-export async function analyzeDocument(input: AnalysisInput): Promise<DocumentIntelligence> {
+export async function analyzeDocument(input: AnalysisInput & { signal?: AbortSignal }): Promise<DocumentIntelligence> {
   if (!input.documentName.trim() || !input.mimeType.trim() || !input.extractedText.trim()) {
     throw new Error("A document name, MIME type, and extracted text are required.");
   }
@@ -506,12 +506,13 @@ export async function analyzeDocument(input: AnalysisInput): Promise<DocumentInt
         }),
       },
     ],
+    signal: input.signal,
   });
 
   return parseDocumentIntelligence(response);
 }
 
-export async function analyzeScannedPdf(input: { documentName: string; buffer: Buffer; pageCount?: number | null }): Promise<DocumentIntelligence> {
+export async function analyzeScannedPdf(input: { documentName: string; buffer: Buffer; pageCount?: number | null; signal?: AbortSignal }): Promise<DocumentIntelligence> {
   if (!input.documentName.trim() || !input.buffer.length) throw new Error("A PDF name and content are required.");
   const requestedEngine = process.env.OPENROUTER_PDF_ENGINE ?? "mistral-ocr";
   const engine = requestedEngine === "cloudflare-ai" || requestedEngine === "native" ? requestedEngine : "mistral-ocr";
@@ -528,6 +529,7 @@ export async function analyzeScannedPdf(input: { documentName: string; buffer: B
         ],
       },
     ],
+    signal: input.signal,
   });
   return parseDocumentIntelligence(response);
 }
@@ -535,7 +537,7 @@ export async function analyzeScannedPdf(input: { documentName: string; buffer: B
 export async function analyzeImageDocument(input: {
   documentName: string;
   mimeType: "image/png" | "image/jpeg";
-} & { buffer: Buffer }): Promise<DocumentIntelligence> {
+} & { buffer: Buffer; signal?: AbortSignal }): Promise<DocumentIntelligence> {
   if (!input.documentName.trim() || !input.buffer.length) throw new Error("An image name and content are required.");
   const response = await generateJson({
     maxTokens: 4_000,
@@ -549,6 +551,7 @@ export async function analyzeImageDocument(input: {
         ],
       },
     ],
+    signal: input.signal,
   });
   return parseDocumentIntelligence(response);
 }

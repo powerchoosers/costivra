@@ -110,7 +110,7 @@ const columns = [
   { title: "Product", links: [["How it works", "/how-it-works"], ["Solutions", "/solutions"], ["Software", "/solutions/software"], ["Telecom", "/solutions/telecom"], ["Energy", "/solutions/energy"], ["Insurance & Benefits (planned)", "/solutions/insurance"], ["Facilities (planned)", "/solutions/facilities"], ["Pricing", "/pricing"]] },
   { title: "Company", links: [["About", "/about"], ["Case studies", "/case-studies"], ["Partners", "/partners"], ["Contact", "/contact"]] },
   { title: "Resources", links: [["Start with 3 bills", "/scan"], ["Help center", "/help"], ["Security", "/security"], ["System status", "/status"]] },
-  { title: "Legal", links: [["Privacy", "/privacy"], ["Terms", "/terms"], ["UCEP disclosure", "/ucep-disclosure"]] },
+  { title: "Legal", links: [["Privacy", "/privacy"], ["Terms", "/terms"]] },
 ] as const;
 
 export function MarketingFooter() {
