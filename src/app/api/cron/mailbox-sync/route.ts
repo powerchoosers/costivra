@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       let ingested = 0;
       for (const message of listed.messages) for (const attachment of message.attachments) {
         if (!DOCUMENT_MIME_TYPES.has(attachment.contentType) || attachment.size <= 0 || attachment.size > 20 * 1024 * 1024) continue;
-        const buffer = await downloadMailboxAttachment({ provider: connection.provider as MailboxProvider, accessToken, messageId: message.providerMessageId, attachmentId: attachment.id });
+        const buffer = await downloadMailboxAttachment({ provider: connection.provider as MailboxProvider, accessToken, messageId: message.providerMessageId, attachmentId: attachment.id, inlineData: attachment.inlineData });
         const scan = await scanFileForMalware({ buffer, filename: attachment.filename, mimeType: attachment.contentType });
         if (scan.status !== "clean") continue;
         await ingestDocumentBuffer({ db, organizationId: connection.organization_id, actorType: "service", actorId: null, filename: attachment.filename, mimeType: attachment.contentType, buffer, sourceType: "email_forwarding", auditAction: "document.received_by_authorized_mailbox", malwareScan: scan, requestId: `mailbox-sync:${connection.id}` });
