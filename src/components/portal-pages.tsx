@@ -3696,12 +3696,151 @@ function Integrations({
   embedded?: boolean;
 }) {
   const [sender, setSender] = useState("");
+  const [mailboxConnections, setMailboxConnections] = useState<Array<{
+    id: string;
+    provider: "google_gmail" | "microsoft_graph";
+    provider_email: string;
+    status: string;
+    granted_scopes: string[];
+    last_synced_at: string | null;
+    last_error_code: string | null;
+  }>>([]);
+  const [mailboxRules, setMailboxRules] = useState<Array<{
+    id: string;
+    mailbox_connection_id: string;
+    organization_vendor_id: string;
+    sender_domains: string[];
+    sender_addresses: string[];
+    subject_terms: string[];
+    enabled: boolean;
+  }>>([]);
+  const [mailboxLoading, setMailboxLoading] = useState(true);
+  const [mailboxBusy, setMailboxBusy] = useState<string | null>(null);
+  const [ruleDrafts, setRuleDrafts] = useState<Record<string, {
+    vendorId: string;
+    senderDomain: string;
+    senderAddress: string;
+    subjectTerms: string;
+  }>>({});
   const toast = useToast();
   const intake = data.emailIntake;
   const canManage = ["owner", "admin"].includes(data.currentUser.role);
   const providerIntegrations = data.integrations.filter(
     (item) => item.provider !== "resend_inbound",
   );
+  const mailboxProvider = (provider: string) =>
+    provider === "gmail"
+      ? "google_gmail"
+      : provider === "microsoft-365"
+        ? "microsoft_graph"
+        : null;
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      api("/api/portal/integrations/mailbox"),
+      api("/api/portal/integrations/mailbox/rules"),
+    ]).then(([connectionPayload, rulePayload]) => {
+      if (cancelled) return;
+      setMailboxConnections((connectionPayload as { connections?: typeof mailboxConnections }).connections ?? []);
+      setMailboxRules((rulePayload as { rules?: typeof mailboxRules }).rules ?? []);
+    }).catch((error: unknown) => {
+      if (cancelled) return;
+      toast.error(
+        "Mailbox connections couldn’t be loaded",
+        error instanceof Error ? error.message : "Try refreshing the page.",
+      );
+    }).finally(() => {
+      if (!cancelled) setMailboxLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
+  const beginMailboxConnection = async (integrationId: string, provider: string) => {
+    const mappedProvider = mailboxProvider(provider);
+    if (!mappedProvider) return;
+    setMailboxBusy(mappedProvider);
+    try {
+      const payload = await api(`/api/portal/integrations/${integrationId}`, {
+        method: "PATCH",
+      }) as { authorizationUrl?: string };
+      if (!payload.authorizationUrl) throw new Error("The authorization link was not returned.");
+      window.location.assign(payload.authorizationUrl);
+    } catch (error) {
+      setMailboxBusy(null);
+      toast.error(
+        "Connection couldn’t start",
+        error instanceof Error ? error.message : "Try again.",
+      );
+    }
+  };
+  const disconnectMailbox = async (connectionId: string, provider: string) => {
+    setMailboxBusy(provider);
+    try {
+      await api(`/api/portal/integrations/mailbox?id=${encodeURIComponent(connectionId)}`, {
+        method: "DELETE",
+      });
+      setMailboxConnections((current) => current.filter((item) => item.id !== connectionId));
+      setMailboxRules((current) => current.filter((item) => item.mailbox_connection_id !== connectionId));
+      toast.success("Mailbox access revoked.");
+    } catch (error) {
+      toast.error(
+        "Mailbox couldn’t be disconnected",
+        error instanceof Error ? error.message : "Try again.",
+      );
+    } finally {
+      setMailboxBusy(null);
+    }
+  };
+  const updateRuleDraft = (connectionId: string, next: Partial<{ vendorId: string; senderDomain: string; senderAddress: string; subjectTerms: string }>) => {
+    setRuleDrafts((current) => ({
+      ...current,
+      [connectionId]: {
+        vendorId: current[connectionId]?.vendorId ?? data.vendors[0]?.relationshipId ?? "",
+        senderDomain: current[connectionId]?.senderDomain ?? "",
+        senderAddress: current[connectionId]?.senderAddress ?? "",
+        subjectTerms: current[connectionId]?.subjectTerms ?? "",
+        ...next,
+      },
+    }));
+  };
+  const saveMailboxRule = async (connectionId: string) => {
+    const draft = ruleDrafts[connectionId] ?? {
+      vendorId: data.vendors[0]?.relationshipId ?? "",
+      senderDomain: "",
+      senderAddress: "",
+      subjectTerms: "",
+    };
+    if (!draft.vendorId || ![draft.senderDomain, draft.senderAddress, draft.subjectTerms].some((value) => value.trim())) {
+      toast.error("Choose a vendor and add at least one sender or subject matcher.");
+      return;
+    }
+    setMailboxBusy(connectionId);
+    try {
+      const payload = await api("/api/portal/integrations/mailbox/rules", {
+        method: "POST",
+        body: {
+          mailboxConnectionId: connectionId,
+          organizationVendorId: draft.vendorId,
+          senderDomains: draft.senderDomain.split(",").map((value) => value.trim()).filter(Boolean),
+          senderAddresses: draft.senderAddress.split(",").map((value) => value.trim()).filter(Boolean),
+          subjectTerms: draft.subjectTerms.split(",").map((value) => value.trim()).filter(Boolean),
+        },
+      }) as { rule: (typeof mailboxRules)[number] };
+      setMailboxRules((current) => [
+        payload.rule,
+        ...current.filter((item) => item.id !== payload.rule.id),
+      ]);
+      toast.success("Automatic bill matching is active for this vendor.");
+    } catch (error) {
+      toast.error(
+        "Vendor rule couldn’t be saved",
+        error instanceof Error ? error.message : "Try again.",
+      );
+    } finally {
+      setMailboxBusy(null);
+    }
+  };
   const intakeOperation = (operation: string, email?: string, eventId?: string) =>
     run(
       () =>
@@ -4005,36 +4144,84 @@ function Integrations({
           <div className="portal-section-heading">
             <h2>Other connections</h2>
             <p>
-              Planned provider adapters are shown for roadmap clarity. They do
-              not claim to be connected until authorization and verified sync
-              are implemented.
+              Authorize read-only access, choose the vendors Costivra may
+              monitor, and revoke access whenever you want.
             </p>
           </div>
           <div className="portal-card-grid">
-            {providerIntegrations.map((item) => (
-              <article className="portal-card integration-card" key={item.id}>
+            {providerIntegrations.map((item) => {
+              const provider = mailboxProvider(item.provider);
+              const connection = provider
+                ? mailboxConnections.find((candidate) => candidate.provider === provider && candidate.status === "connected")
+                : undefined;
+              const existingRules = connection
+                ? mailboxRules.filter((rule) => rule.mailbox_connection_id === connection.id && rule.enabled)
+                : [];
+              const draft = connection ? ruleDrafts[connection.id] ?? {
+                vendorId: data.vendors[0]?.relationshipId ?? "",
+                senderDomain: "",
+                senderAddress: "",
+                subjectTerms: "",
+              } : null;
+              return <article className="portal-card integration-card mailbox-integration-card" key={item.id}>
                 <header>
                   <div className="integration-symbol">
                     {item.displayName.slice(0, 2).toUpperCase()}
                   </div>
-                  <Status value={item.status} />
+                  <Status value={connection ? "connected" : provider ? "available" : item.status} />
                 </header>
                 <h2>{item.displayName}</h2>
                 <p>{item.description}</p>
-                <small>
-                  {item.lastSyncedAt
-                    ? `Last synchronized ${date(item.lastSyncedAt)}`
-                    : "No live synchronization is configured"}
-                </small>
+                {mailboxLoading && provider ? <small>Checking connection…</small> : connection ? <>
+                  <div className="mailbox-connection-summary">
+                    <span><CheckCircle2 size={15} /> Read-only mailbox connected</span>
+                    <strong>{connection.provider_email}</strong>
+                    <small>{connection.last_synced_at ? `Last checked ${date(connection.last_synced_at)}` : "Waiting for the first secure mailbox check"}</small>
+                  </div>
+                  <div className="mailbox-rule-builder">
+                    <div>
+                      <strong>Only import matching vendor bills</strong>
+                      <small>Messages without an approved match remain in your mailbox and are not imported.</small>
+                    </div>
+                    {data.vendors.length ? <>
+                      <label>
+                        <span>Vendor</span>
+                        <select value={draft?.vendorId ?? ""} onChange={(event) => updateRuleDraft(connection.id, { vendorId: event.target.value })}>
+                          {data.vendors.map((vendor) => <option key={vendor.relationshipId} value={vendor.relationshipId}>{vendor.name}</option>)}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Sender domain</span>
+                        <input value={draft?.senderDomain ?? ""} onChange={(event) => updateRuleDraft(connection.id, { senderDomain: event.target.value })} placeholder="vendor.com" />
+                      </label>
+                      <label>
+                        <span>Exact sender email</span>
+                        <input type="email" value={draft?.senderAddress ?? ""} onChange={(event) => updateRuleDraft(connection.id, { senderAddress: event.target.value })} placeholder="billing@vendor.com" />
+                      </label>
+                      <label>
+                        <span>Subject contains</span>
+                        <input value={draft?.subjectTerms ?? ""} onChange={(event) => updateRuleDraft(connection.id, { subjectTerms: event.target.value })} placeholder="invoice, monthly bill" />
+                      </label>
+                      <button className="button button-primary" type="button" disabled={mailboxBusy === connection.id} onClick={() => void saveMailboxRule(connection.id)}>
+                        {mailboxBusy === connection.id ? <LoaderCircle className="spin" size={15} /> : <Check size={15} />} Save vendor rule
+                      </button>
+                    </> : <small>Add a vendor relationship before creating an automatic mailbox rule.</small>}
+                    {existingRules.length > 0 && <small>{existingRules.length} active vendor rule{existingRules.length === 1 ? "" : "s"}</small>}
+                  </div>
+                </> : <small>No mailbox access has been granted.</small>}
                 <footer>
-                  <span className="integration-availability">
-                    {item.status === "restricted"
-                      ? "Requires a reviewed consent workflow"
-                      : "Planned · not connected"}
-                  </span>
+                  {provider ? connection ? <>
+                    <span className="integration-availability">Read email and attachments only · no send, delete, or modify access</span>
+                    <button className="button button-quiet" type="button" disabled={mailboxBusy === provider} onClick={() => void disconnectMailbox(connection.id, provider)}>Disconnect</button>
+                  </> : <>
+                    <span className="integration-availability">You approve access on the provider’s consent screen</span>
+                    <button className="button button-primary" type="button" disabled={mailboxLoading || mailboxBusy === provider} onClick={() => void beginMailboxConnection(item.id, item.provider)}>
+                      {mailboxBusy === provider ? <LoaderCircle className="spin" size={15} /> : <Mail size={15} />} Connect {item.provider === "gmail" ? "Gmail" : "Outlook"}
+                    </button>
+                  </> : <span className="integration-availability">Setup is not available in-product yet.</span>}
                 </footer>
-              </article>
-            ))}
+              </article>;
+            })}
           </div>
         </>
       )}
