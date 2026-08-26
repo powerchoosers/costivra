@@ -1,4 +1,5 @@
 import { decryptMailboxToken, encryptMailboxToken, type MailboxProvider } from "@/lib/integrations/mailbox-oauth";
+export type { MailboxProvider } from "@/lib/integrations/mailbox-oauth";
 
 export type MailboxRule = { sender_domains: string[]; sender_addresses: string[]; subject_terms: string[] };
 export type MailboxMessage = { providerMessageId: string; sender: string; subject: string; receivedAt: string; attachments: Array<{ id: string; filename: string; contentType: string; size: number }> };
@@ -61,6 +62,17 @@ export async function listMatchingMailboxMessages(input: { provider: MailboxProv
     messages.push({ providerMessageId: String(row.id), sender, subject: String(row.subject ?? ""), receivedAt: String(row.receivedDateTime ?? new Date().toISOString()), attachments });
   }
   return { messages: filterMatchingMessages(messages, input.rules), cursor: typeof list["@odata.deltaLink"] === "string" ? list["@odata.deltaLink"] : input.cursor ?? null };
+}
+
+export async function downloadMailboxAttachment(input: { provider: MailboxProvider; accessToken: string; messageId: string; attachmentId: string }) {
+  if (input.provider === "google_gmail") {
+    const body = await providerFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(input.messageId)}/attachments/${encodeURIComponent(input.attachmentId)}`, input.accessToken);
+    const encoded = typeof body.data === "string" ? body.data.replace(/-/g, "+").replace(/_/g, "/") : "";
+    return Buffer.from(encoded, "base64");
+  }
+  const body = await providerFetch(`https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(input.messageId)}/attachments/${encodeURIComponent(input.attachmentId)}`, input.accessToken);
+  const encoded = typeof body.contentBytes === "string" ? body.contentBytes : "";
+  return Buffer.from(encoded, "base64");
 }
 
 export { encryptMailboxToken };
