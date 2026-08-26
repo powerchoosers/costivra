@@ -3190,3 +3190,10 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Removed the public "direct mailbox authorization is planned" wording. The integrations page now explains forwarding and scoped mailbox authorization with workspace enablement, vendor controls, and revocation.
 - Updated the deployed Supabase Gmail and Microsoft 365 integration descriptions and added a forward migration recording the change.
 - Validation: `pnpm typecheck`, focused ESLint for `src/components/marketing-pages.tsx`, and `git diff --check` passed.
+
+## Google verification-video readiness
+
+- Reproduced the production Google sign-in failure and confirmed from Supabase Auth logs that Google rejected the configured client secret as invalid. Rotated the Costivra web-login client secret in Google Cloud, saved the replacement only in Supabase Auth, and verified the complete production Google sign-in reaches `/app/integrations`.
+- Added and applied `provision_mailbox_oauth_integrations` so every current organization has exactly one Gmail and one Microsoft 365 integration entry and every future organization receives both through a trigger. Production read-back confirmed one row per provider for all 13 organizations.
+- Added and applied explicit browser-deny policies to the service-only OAuth connection and PKCE-state tables. Supabase's security advisor now reports `lints: []`; pre-existing project-wide performance advisories remain outside this slice.
+- Production browser verification confirms enabled `Connect Gmail` and `Connect Outlook` controls in a real customer workspace. The Gmail flow reaches Google's restricted `gmail.readonly` permission screen. Final consent, synthetic test-document ingestion, video assembly, upload, and Google review submission remain pending explicit user approval at their respective external-action boundaries.
