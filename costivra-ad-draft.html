@@ -1,0 +1,134 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200, height=627">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .paper-texture {
+            background-color: #f4f1e8;
+            background-image: radial-gradient(#d1d1cf 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+        }
+
+        .blueprint-line {
+            stroke: #101616;
+            stroke-width: 0.5;
+            opacity: 0.15;
+        }
+
+        .recovery-path {
+            stroke: #315cff;
+            stroke-width: 2;
+            stroke-dasharray: 4 4;
+        }
+
+        .data-dot {
+            fill: #101616;
+        }
+
+        .data-dot-active {
+            fill: #315cff;
+        }
+    </style>
+</head>
+<body>
+    <div class="w-[1200px] h-[627px] overflow-hidden relative paper-texture text-[#101616] p-[64px] flex flex-row" data-sd-id="1">
+        
+        <!-- Left Side: Typography (58%) -->
+        <div class="w-[58%] h-full flex flex-col justify-between z-10" data-sd-id="2">
+            <div data-sd-id="3">
+                <!-- Logo Section -->
+                <div class="flex items-center gap-3 mb-16" data-sd-id="4">
+                    <img src="https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/14713994-2ac8-4a6d-8375-9fe945cefda4/brand-assets/costivra-primary-mark/costivra-circuit-mark-cropped.png" alt="Costivra Mark" class="h-8 w-auto mix-blend-multiply" data-sd-id="5">
+                    <span class="text-2xl font-bold tracking-tight text-[#101616]" data-sd-id="6">Costivra</span>
+                </div>
+
+                <!-- Content -->
+                <p class="text-sm font-semibold tracking-[0.2em] text-[#315cff] mb-6 uppercase" data-sd-id="7">
+                    Operating Margin, Made Visible
+                </p>
+                
+                <h1 class="text-[64px] font-bold leading-[1.05] tracking-tighter mb-8" data-sd-id="8">
+                    Find the leaks.<br>Recover the margin.
+                </h1>
+                
+                <p class="text-xl text-[#101616]/70 max-w-[500px] leading-relaxed font-['Inter']" data-sd-id="9">
+                    Costivra turns recurring-expense documents into evidence-backed actions your team can approve and verify.
+                </p>
+            </div>
+
+            <!-- CTA -->
+            <div class="mt-auto" data-sd-id="10">
+                <div class="inline-flex items-center text-xl font-bold text-[#315cff] hover:gap-2 transition-all cursor-default" data-sd-id="11">
+                    See where margin is leaking →
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Evidence Diagram (42%) -->
+        <div class="w-[42%] h-full relative" data-sd-id="12">
+            <div class="absolute inset-0 flex items-center justify-center" data-sd-id="13">
+                <svg width="400" height="500" viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg" class="opacity-80" data-sd-id="14">
+                    <!-- Vertical Evidence Lines -->
+                    <line x1="40" y1="0" x2="40" y2="500" class="blueprint-line"></line>
+                    <line x1="160" y1="0" x2="160" y2="500" class="blueprint-line"></line>
+                    <line x1="280" y1="0" x2="280" y2="500" class="blueprint-line"></line>
+                    
+                    <!-- Document Rows -->
+                    <rect x="0" y="100" width="400" height="40" fill="#101616" fill-opacity="0.03"></rect>
+                    <rect x="0" y="180" width="400" height="40" fill="#101616" fill-opacity="0.03"></rect>
+                    <rect x="0" y="260" width="400" height="40" fill="#101616" fill-opacity="0.03"></rect>
+                    <rect x="0" y="340" width="400" height="40" fill="#101616" fill-opacity="0.03"></rect>
+
+                    <!-- Data Points -->
+                    <circle cx="40" cy="120" r="3" class="data-dot"></circle>
+                    <circle cx="160" cy="120" r="3" class="data-dot"></circle>
+                    <circle cx="280" cy="120" r="3" class="data-dot"></circle>
+
+                    <circle cx="40" cy="200" r="3" class="data-dot"></circle>
+                    <circle cx="160" cy="200" r="3" class="data-dot-active"></circle>
+                    <circle cx="280" cy="200" r="3" class="data-dot"></circle>
+
+                    <circle cx="40" cy="280" r="3" class="data-dot"></circle>
+                    <circle cx="160" cy="280" r="3" class="data-dot-active"></circle>
+                    <circle cx="280" cy="280" r="3" class="data-dot"></circle>
+
+                    <circle cx="40" cy="360" r="3" class="data-dot"></circle>
+                    <circle cx="160" cy="360" r="3" class="data-dot-active"></circle>
+                    <circle cx="280" cy="360" r="3" class="data-dot"></circle>
+
+                    <!-- Recovered Margin Path -->
+                    <path d="M 160 80 L 160 180 L 220 200 L 280 200" class="recovery-path" fill="none"></path>
+                    <path d="M 160 200 L 160 420" class="recovery-path" fill="none"></path>
+                    
+                    <!-- Highlighted Box -->
+                    <rect x="140" y="190" width="40" height="20" rx="2" stroke="#315cff" stroke-width="1" fill="white"></rect>
+                </svg>
+            </div>
+
+            <!-- Bottom Metadata -->
+            <div class="absolute bottom-0 right-0 text-sm font-medium tracking-widest text-[#101616]/40 font-['Inter']" data-sd-id="15">
+                costivra.ai
+            </div>
+        </div>
+
+        <!-- Subtle Canvas Grain -->
+        <div class="absolute inset-0 pointer-events-none opacity-[0.03] mix-blend-multiply" data-sd-id="16">
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" data-sd-id="17">
+              <filter id="noiseFilter">
+                <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"></feTurbulence>
+              </filter>
+              <rect width="100%" height="100%" filter="url(#noiseFilter)"></rect>
+            </svg>
+        </div>
+    </div>
+
+</body></html>

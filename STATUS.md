@@ -1,12 +1,12 @@
 # Costivra Status
 
-## August 27, 2026 — Microsoft Partner enrollment submitted
+## August 27, 2026 — Microsoft Partner enrollment active
 
 - Created the Costivra organizational Microsoft account `l.patterson@Costivra.onmicrosoft.com` through Microsoft's business signup flow and completed email verification.
 - Submitted enrollment for the Microsoft AI Cloud Partner Program using the Costivra legal entity and primary contact details. The billing account setup required a payment method; Microsoft stated that the card is not charged unless a purchase is made.
-- Partner Center currently reports that enrollment submission is in progress. Microsoft may request additional business-verification documentation before activating the account.
-- The resulting Partner Global ID/MPN ID is not available yet. Microsoft publisher verification for the Costivra Entra application therefore remains pending until enrollment completes and the ID can be associated.
-- Current blocker/next action: leave the Partner Center submission to process; if Microsoft requests documentation, provide it through Partner Center. After activation, associate the Partner Global ID with the Entra app and re-check the verified-publisher status.
+- Partner Center now shows the enrollment as active and lists Partner Global ID `7152601` and Partner Location ID `7152602` for Costivra, TX, US.
+- Microsoft publisher verification for the Costivra Entra application remains the next step: associate the Partner Global ID with the Entra app and re-check the verified-publisher status.
+- The new Costivra work account can authenticate to Partner Center and the Costivra tenant. The existing Entra OAuth app is owned in the original default tenant, where the new work account is not an application owner; publisher verification still requires resolving that tenant association or registering/associating the app in the Partner-enrolled tenant.
 
 ## August 26, 2026 — Microsoft OAuth branding saved
 
