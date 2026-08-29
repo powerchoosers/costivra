@@ -13683,6 +13683,100 @@ button.workspace-notification-row:focus-visible {
   .manage-shell-v2 .manage-sidebar { z-index:80; }
   .manage-shell-v2 .manage-nav-scrim { z-index:70; }
   .manage-shell-v2 .manage-page { min-width:0; overflow-x:hidden; padding:18px 14px calc(30px + env(safe-area-inset-bottom)); }
+
+  /* Contacts use a real table on larger screens, but the full-width table is
+     not a usable phone interaction. Keep the semantic table in the DOM and
+     turn each row into a compact record card: identity, account, selection,
+     and the primary mail action remain available without horizontal scroll. */
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-table .manage-table-wrap {
+    min-height:0;
+    overflow:visible;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table {
+    width:100%;
+    min-width:0;
+    border-collapse:separate;
+    border-spacing:0 9px;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table thead {
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    clip:rect(0 0 0 0);
+    clip-path:inset(50%);
+    white-space:nowrap;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody tr {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    gap:5px 10px;
+    padding:12px 12px 12px 10px;
+    border:1px solid var(--workspace-line, #dfe5ee);
+    border-radius:14px;
+    background:var(--workspace-surface, #fff);
+    box-shadow:var(--workspace-panel-shadow, 0 4px 14px rgba(16,24,40,.04));
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td {
+    min-width:0;
+    padding:0;
+    border:0;
+    background:transparent;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:first-child {
+    grid-column:2;
+    grid-row:1;
+    justify-self:end;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(2) {
+    grid-column:1;
+    grid-row:1;
+    min-width:0;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(3) {
+    grid-column:1;
+    grid-row:2;
+    overflow:hidden;
+    color:var(--workspace-muted, #6b7890);
+    font-size:.64rem;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(3) a,
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(3) strong {
+    overflow:hidden;
+    max-width:100%;
+    color:var(--workspace-muted, #6b7890);
+    font-size:.64rem;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(4),
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(5),
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(6) {
+    display:none;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody td:nth-child(7) {
+    grid-column:2;
+    grid-row:2;
+    justify-self:end;
+  }
+
+  .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) .manage-contact-data-table tbody tr.is-selected {
+    border-color:#b9cdef;
+    box-shadow:inset 0 0 0 1px rgba(33,85,199,.14), var(--workspace-panel-shadow, 0 4px 14px rgba(16,24,40,.04));
+  }
 }
 
 /* The customer shell owns the app classes directly; keep this final override
@@ -13700,6 +13794,14 @@ button.workspace-notification-row:focus-visible {
     flex:0 0 auto !important;
     align-items:center;
     overflow:visible;
+    padding-top:max(12px, env(safe-area-inset-top));
+  }
+  /* The fixed bottom dock sits above the browser's home-indicator area. Keep
+     the route scrollport's final content clear of both layers on notched
+     phones and portrait tablets with gesture navigation. */
+  .app-work-canvas > .app-content,
+  .app-work-canvas > .app-content-table-page {
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
   }
   .app-work-canvas > .app-topbar .app-mobile-utilities { min-width:0; align-items:center; }
   .app-work-canvas > .app-topbar .app-mobile-organization { flex:0 1 132px; min-width:0; }
@@ -14500,6 +14602,19 @@ button.workspace-notification-row:focus-visible {
   .app-body .app-work-canvas .record-context-brief__analysis { width: 100%; justify-content: center; }
   .app-body .app-work-canvas .record-context-brief dd { overflow-wrap: anywhere; white-space: normal; }
   .app-body .app-work-canvas .record-detail-layout > aside { grid-template-columns: 1fr; }
+
+  /* Long vendor, invoice, and finding names are common on narrow screens.
+     Let the identity column yield to the status instead of allowing the
+     header to create horizontal overflow. */
+  .app-body .app-work-canvas .record-detail-header > div { min-width: 0; }
+  .app-body .app-work-canvas .record-title-row { align-items: flex-start; flex-wrap: wrap; gap: 10px 12px; }
+  .app-body .app-work-canvas .record-title-row h1 { min-width: 0; overflow-wrap: anywhere; }
+  .app-body .app-work-canvas .record-header-state { min-width: 0; justify-content: flex-start; }
+
+  /* Section hints and long headings should stack as a deliberate mobile
+     hierarchy, rather than squeeze each other into a clipped row. */
+  .app-body .app-work-canvas .record-section-heading { display: grid; gap: 4px; }
+  .app-body .app-work-canvas .record-section-heading > div { min-width: 0; }
 }
 
 @media (max-width: 760px) {
