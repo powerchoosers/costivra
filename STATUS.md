@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 29, 2026 — Unified Command Center composer geometry
+
+- Brought the Manage overview’s inline composer onto the same 760px, 86px idle-frame contract as the customer Command Center, including the outer composer container, shell geometry, and focus treatment. This removes the previous 56px clipped Manage frame.
+- Kept Manage’s client-scoped assistant behavior and full-history action intact, and added the same textarea auto-resize behavior used in the customer composer.
+- Validation: focused assistant motion test passed (8 tests); TypeScript completed without reported errors; `git diff --check` passed. Pushed commit `b858365` to `main`.
+
 ## August 29, 2026 — Mailbox connection card refinement
 
 - Replaced the Gmail and Microsoft 365 monogram placeholders with their provider marks in the corresponding consent actions, removed the duplicate card monograms, and aligned each availability badge with its provider name.
