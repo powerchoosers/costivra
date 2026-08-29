@@ -20,6 +20,10 @@ export default defineConfig({
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile-chromium", use: { ...devices["Pixel 5"] } },
     {
+      name: "tablet-chromium",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 1180 } },
+    },
+    {
       name: "auth-1440x900",
       testMatch: /authenticated-workspace\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },

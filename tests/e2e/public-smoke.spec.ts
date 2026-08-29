@@ -92,6 +92,26 @@ test("mobile navigation opens without shifting or clipping the page", async ({ p
   expect(failures).toEqual([]);
 });
 
+test("tablet navigation opens as a full-height drawer without page overflow", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "tablet-chromium", "Tablet-only interaction");
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const openButton = page.getByRole("button", { name: /open navigation/i });
+  await expect(openButton).toBeVisible();
+  await openButton.click();
+  const navigation = page.getByRole("navigation", { name: "Mobile navigation" });
+  await expect(navigation).toBeVisible();
+  await expect(navigation).toHaveCSS("position", "fixed");
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+  const geometry = await page.evaluate(() => ({
+    width: document.documentElement.clientWidth,
+    drawerWidth: document.querySelector<HTMLElement>("#mobile-navigation")?.getBoundingClientRect().width ?? 0,
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }));
+  expect(geometry.drawerWidth).toBe(geometry.width);
+  expect(geometry.overflow).toBeLessThanOrEqual(1);
+});
+
 test("mobile scan page stacks the intake story and workspace panel", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile-only layout");
   const failures = failOnConsoleErrors(page);
