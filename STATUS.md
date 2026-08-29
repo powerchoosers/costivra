@@ -1,5 +1,13 @@
 # Costivra Status
 
+## August 29, 2026 — Mail reading-workspace redesign
+
+- Reworked the fixed Manage Mail frame around reading density. Desktop now uses a compact toolbar, sender header, and one-line evidence/context strip so the message viewer owns the available height while the message list, reader, and contact context remain separate scroll surfaces.
+- Added an intentional tablet-portrait layout that keeps reader context compact, and a phone-specific single-pane frame with message-only scrolling, touch-safe padding, and a message viewport sized against the dynamic browser height.
+- The Mail page itself remains non-scrollable: its lower panel edge stays in view. The existing link-before-reply context remains visible and no email content, consent, or authorization behavior changed.
+- Design research: reviewed web and iOS email-reader references through Mobbin, including [Notion Mail](https://mobbin.com/screens/bb6aa516-50ce-4b33-90e4-a944bed414fb), [Front](https://mobbin.com/screens/a25fd5f3-a74a-4abc-b5f5-11b38cb684fa), and [Superhuman Mail](https://mobbin.com/screens/a290fbce-8900-4285-b670-af77f2a6b51e).
+- Validation: Node `v24.19.0`; TypeScript completed without reported errors; focused ESLint passed; `git diff --check` passed. Responsive browser verification will follow the deployment.
+
 ## August 29, 2026 — Manage rail hover-preview labels
 
 - Corrected the compact Manage rail’s temporary hover state: it now receives the same visual open class as a deliberately expanded rail, so labels and group headings render during the two-second hover preview instead of leaving an empty wide panel.

@@ -11662,6 +11662,91 @@ button.workspace-notification-row:focus-visible {
     flex: 1 1 auto;
   }
 
+  /* Mail is primarily a reading surface. Keep operational context available,
+     but compress its chrome so the message body receives the usable height. */
+  .manage-shell-v2 .manage-mail-list > header,
+  .manage-shell-v2 .manage-reader-tools {
+    height: 48px;
+  }
+
+  .manage-shell-v2 .manage-reader-heading {
+    min-height: 62px;
+    padding: 11px 18px;
+  }
+
+  .manage-shell-v2 .manage-reader-heading h2 {
+    font-size: .92rem;
+  }
+
+  .manage-shell-v2 .manage-mail-thread-decision {
+    grid-template-columns: minmax(210px, 1fr) minmax(250px, .72fr);
+    align-items: center;
+    gap: 14px;
+    min-height: 62px;
+    padding: 9px 18px;
+  }
+
+  .manage-shell-v2 .manage-mail-thread-decision .workspace-decision-summary__copy > span {
+    display: none;
+  }
+
+  .manage-shell-v2 .manage-mail-thread-decision .workspace-decision-summary__copy p {
+    display: -webkit-box;
+    margin-top: 3px;
+    overflow: hidden;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .manage-shell-v2 .manage-mail-thread-decision .workspace-decision-summary__facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .manage-shell-v2 .manage-mail-thread-decision .workspace-decision-summary__facts > div {
+    padding-left: 9px;
+  }
+
+  .manage-shell-v2 .manage-mail-thread-decision .workspace-decision-summary__facts dd {
+    margin-top: 2px;
+    -webkit-line-clamp: 1;
+  }
+
+  .manage-shell-v2 .manage-message-stack {
+    padding: 10px 14px 12px;
+  }
+
+  .manage-shell-v2 .manage-message.is-open {
+    border-color: var(--workspace-control-line);
+  }
+
+  .manage-shell-v2 .manage-message-summary {
+    padding: 10px 13px;
+  }
+
+  .manage-shell-v2 .manage-message-content {
+    padding: 0 48px;
+  }
+
+  .manage-shell-v2 .manage-message.is-open .manage-message-content {
+    padding-bottom: 12px;
+  }
+
+  .manage-shell-v2 .manage-message-viewer-tools {
+    margin: 8px 0 6px;
+  }
+
+  .manage-shell-v2 .manage-message-viewer {
+    min-height: 280px;
+    height: min(620px, calc(100dvh - 330px));
+  }
+
+  .manage-shell-v2 .manage-reader-reply {
+    min-height: 50px;
+    padding: 6px 14px;
+  }
+
   .manage-shell-v2 .manage-page--accounts:not(.manage-page--detail),
   .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) {
     display: flex;
@@ -11687,6 +11772,61 @@ button.workspace-notification-row:focus-visible {
   .manage-shell-v2 .manage-page--accounts .manage-record-workspace > .manage-account-table,
   .manage-shell-v2 .manage-page--contacts .manage-record-workspace > .manage-account-table {
     min-height: 0;
+  }
+}
+
+/* Tablet portrait keeps the current conversation front and center. The reader
+   shares a compact decision strip instead of inheriting desktop-only height. */
+@media (min-width: 781px) and (max-width: 1199px) {
+  .manage-shell-v2 .manage-mail-thread-decision {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .manage-shell-v2 .manage-mail-thread-decision .workspace-decision-summary__facts {
+    max-width: 430px;
+  }
+}
+
+/* On phones, Mail becomes one focused pane at a time. The fixed outer frame
+   remains stable while the selected conversation, not the document, scrolls. */
+@media (max-width: 780px) {
+  .manage-shell-v2 .manage-page--mail {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .manage-shell-v2 .manage-page--mail > .manage-mail-page,
+  .manage-shell-v2 .manage-mail-shell {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .manage-shell-v2 .manage-mail-shell {
+    height: auto;
+  }
+
+  .manage-shell-v2 .manage-reader-heading {
+    padding: 13px 14px;
+  }
+
+  .manage-shell-v2 .manage-message-stack {
+    padding: 10px;
+  }
+
+  .manage-shell-v2 .manage-message-content {
+    padding: 0 13px;
+  }
+
+  .manage-shell-v2 .manage-message-viewer {
+    min-height: 300px;
+    height: calc(100dvh - 340px);
+  }
+
+  .manage-shell-v2 .manage-reader-reply {
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   }
 }
 
