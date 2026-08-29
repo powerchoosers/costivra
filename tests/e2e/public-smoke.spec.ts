@@ -74,6 +74,10 @@ test("mobile navigation opens without shifting or clipping the page", async ({ p
   test.skip(!testInfo.project.name.startsWith("mobile"), "Mobile-only interaction");
   const failures = failOnConsoleErrors(page);
   await page.goto("/");
+  // The marketing shell is client-hydrated; wait for its initial bundles before
+  // exercising the menu so this assertion reflects an interactive page, not
+  // the brief SSR-only window during a cold browser start.
+  await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: /open navigation/i }).click();
   const navigation = page.getByRole("navigation", { name: "Mobile navigation" });
   await expect(navigation).toBeVisible();
