@@ -21,6 +21,7 @@ import { useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isDocumentDownloadableStatus } from "@/lib/documents/access";
 import { useToast } from "@/components/toast-provider";
+import { WorkspaceTableBulkActions } from "@/components/ui/workspace-table-bulk-actions";
 import { formatFinancialDate } from "@/lib/ui/date-format";
 
 export type RecordFile = {
@@ -221,29 +222,52 @@ export function RecordFilesWorkspace({
 
           {filteredFiles.length ? (
             view === "list" ? (
-              <div className="record-files-workspace__table" role="table" aria-label="Files" data-workspace-scrollbar="">
-                <div className="record-files-workspace__table-head" role="row">
-                  <span role="columnheader">Name</span>
-                  <span role="columnheader">Type</span>
-                  <span role="columnheader">Added</span>
-                  <span role="columnheader">Status</span>
-                  <span className="sr-only" role="columnheader">Actions</span>
-                </div>
-                {filteredFiles.map((file) => (
-                  <div className={`record-files-workspace__file-row${selectedFile?.id === file.id ? " is-selected" : ""}`} role="row" key={file.id}>
-                    <div role="cell" className="record-files-workspace__file-primary"><button type="button" onClick={() => selectFile(file.id)} aria-label={`Inspect ${file.name}`}>
-                      <span className="record-files-workspace__file-icon"><FileTypeIcon file={file} /></span>
-                      <span className="record-files-workspace__file-name"><strong>{file.name}</strong><small>{file.contextLabel || [formatBytes(file.byteSize), file.pageCount ? `${file.pageCount} pages` : null].filter(Boolean).join(" · ") || "Private source file"}</small></span>
-                    </button></div>
-                    <span role="cell" className="record-files-workspace__type">{fileTypeLabel(file)}</span>
-                    <span role="cell" className="record-files-workspace__date">{formatDate(file.createdAt)}</span>
-                    <span role="cell"><span className={`record-files-workspace__status status-${file.status}`}>{formatStatus(file.status)}</span></span>
-                    <span role="cell" className="record-files-workspace__actions">
-                      {recordFileCanOpen(file) ? <a href={file.href!} aria-label={`Open ${file.name}`} title="Open secure file"><Download aria-hidden="true" /></a> : <span aria-label={`${file.name} is not available to open`} title={file.sourceAvailable === false ? "The original file reached its retention limit; extracted records remain available." : "Available after security and processing checks"}><FileClock aria-hidden="true" /></span>}
-                    </span>
+              <WorkspaceTableBulkActions
+                rows={filteredFiles}
+                rowId={(file) => file.id}
+                rowLabel={(file) => file.name}
+                filename="costivra-file-manifest.csv"
+                hrefForRow={(file) => recordFileCanOpen(file) ? file.href! : null}
+                exportColumns={[
+                  { label: "File", value: (file) => file.name },
+                  { label: "Type", value: (file) => fileTypeLabel(file) },
+                  { label: "Linked record", value: (file) => file.contextLabel },
+                  { label: "Added", value: (file) => file.createdAt },
+                  { label: "Status", value: (file) => formatStatus(file.status) },
+                  { label: "Size", value: (file) => formatBytes(file.byteSize) },
+                  { label: "Pages", value: (file) => file.pageCount },
+                  { label: "Evidence links", value: (file) => file.evidenceCount },
+                ]}
+              >
+                {({ HeaderSelector, RowSelector, actionBar, selectedIds }) => <>
+                  <div className="record-files-workspace__table" role="table" aria-label="Files" data-workspace-scrollbar="">
+                    <div className="record-files-workspace__table-head" role="row">
+                      <span className="workspace-bulk-selection-cell" role="columnheader"><HeaderSelector /></span>
+                      <span role="columnheader">Name</span>
+                      <span role="columnheader">Type</span>
+                      <span role="columnheader">Added</span>
+                      <span role="columnheader">Status</span>
+                      <span className="sr-only" role="columnheader">Actions</span>
+                    </div>
+                    {filteredFiles.map((file) => (
+                      <div className={`record-files-workspace__file-row${selectedFile?.id === file.id ? " is-selected" : ""}${selectedIds.has(file.id) ? " is-bulk-selected" : ""}`} role="row" key={file.id}>
+                        <span role="cell" className="workspace-bulk-selection-cell"><RowSelector row={file} /></span>
+                        <div role="cell" className="record-files-workspace__file-primary"><button type="button" onClick={() => selectFile(file.id)} aria-label={`Inspect ${file.name}`}>
+                          <span className="record-files-workspace__file-icon"><FileTypeIcon file={file} /></span>
+                          <span className="record-files-workspace__file-name"><strong>{file.name}</strong><small>{file.contextLabel || [formatBytes(file.byteSize), file.pageCount ? `${file.pageCount} pages` : null].filter(Boolean).join(" · ") || "Private source file"}</small></span>
+                        </button></div>
+                        <span role="cell" className="record-files-workspace__type">{fileTypeLabel(file)}</span>
+                        <span role="cell" className="record-files-workspace__date">{formatDate(file.createdAt)}</span>
+                        <span role="cell"><span className={`record-files-workspace__status status-${file.status}`}>{formatStatus(file.status)}</span></span>
+                        <span role="cell" className="record-files-workspace__actions">
+                          {recordFileCanOpen(file) ? <a href={file.href!} aria-label={`Open ${file.name}`} title="Open secure file"><Download aria-hidden="true" /></a> : <span aria-label={`${file.name} is not available to open`} title={file.sourceAvailable === false ? "The original file reached its retention limit; extracted records remain available." : "Available after security and processing checks"}><FileClock aria-hidden="true" /></span>}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                  {actionBar}
+                </>}
+              </WorkspaceTableBulkActions>
             ) : (
               <div className="record-files-workspace__grid" aria-label="Files as cards">
                 {filteredFiles.map((file) => (
