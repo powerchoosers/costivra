@@ -1,6 +1,6 @@
 import "server-only";
 
-import { normalizeVendorName, normalizeDomain, normalizeCategorySlug, resolveKnownVendorIdentity } from "./normalize";
+import { identityTermsOverlap, normalizeVendorName, normalizeDomain, normalizeCategorySlug, resolveKnownVendorIdentity } from "./normalize";
 import { validateVendorCandidatePolicy } from "./candidate-policy";
 import { OpenRouterVendorEnrichmentProvider, type VendorEnrichmentCandidate } from "./enrichment-provider";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -139,22 +139,22 @@ export async function resolveVendorAndCategory(
   }
 
   // 2. Exact organization relationship match
-  {
-    const { data: orgVendors } = await db
-      .from("organization_vendors")
-      .select("id, vendor_id, vendors(id, canonical_name, normalized_name, category, search_aliases)")
-      .eq("organization_id", organizationId);
+  const { data: orgVendors, error: organizationVendorsError } = await db
+    .from("organization_vendors")
+    .select("id, vendor_id, vendors(id, canonical_name, normalized_name, category, search_aliases)")
+    .eq("organization_id", organizationId);
+  if (organizationVendorsError) throw organizationVendorsError;
 
-    if (orgVendors && orgVendors.length > 0) {
-      for (const ov of orgVendors) {
-        const v = ov.vendors as unknown as {
-          id: string;
-          canonical_name?: string;
-          normalized_name?: string;
-          category?: string | null;
-          search_aliases?: string[] | null;
-        } | null;
-        if (!v) continue;
+  if (orgVendors && orgVendors.length > 0) {
+    for (const ov of orgVendors) {
+      const v = ov.vendors as unknown as {
+        id: string;
+        canonical_name?: string;
+        normalized_name?: string;
+        category?: string | null;
+        search_aliases?: string[] | null;
+      } | null;
+      if (!v) continue;
 
         const normalizedCanonical = normalizeVendorName(v.canonical_name ?? "");
         const knownCanonical = resolveKnownVendorIdentity(v.canonical_name ?? "");
@@ -163,40 +163,49 @@ export async function resolveVendorAndCategory(
           (a) => normalizeVendorName(a) === normalizedMatchName,
         );
 
-        if (
-          normalizedCanonical === normalizedMatchName ||
-          (knownCanonical && normalizeVendorName(knownCanonical.canonicalName) === normalizedMatchName) ||
-          (normalizedNorm && normalizedNorm === normalizedMatchName) ||
-          aliasMatch
-        ) {
-          if (knownIdentity || resolvedCategoryHint) {
-            await updateKnownRelationshipLabels(db, organizationId, ov.id, knownIdentity, resolvedCategoryHint);
-          }
-          return {
-            vendorId: v.id,
-            organizationVendorId: ov.id,
-            matchStatus: "exact",
-            confidence: 0.98,
-            resolutionMethod: "organization_exact_name_match",
-            categoryName: resolvedCategoryHint ?? v.category ?? null,
-            categoryId: null,
-            isCandidate: false,
-            needsReview: false,
-          };
+      if (
+        normalizedCanonical === normalizedMatchName ||
+        (knownCanonical && normalizeVendorName(knownCanonical.canonicalName) === normalizedMatchName) ||
+        (normalizedNorm && normalizedNorm === normalizedMatchName) ||
+        aliasMatch
+      ) {
+        if (knownIdentity || resolvedCategoryHint) {
+          await updateKnownRelationshipLabels(db, organizationId, ov.id, knownIdentity, resolvedCategoryHint);
         }
+        return {
+          vendorId: v.id,
+          organizationVendorId: ov.id,
+          matchStatus: "exact",
+          confidence: 0.98,
+          resolutionMethod: "organization_exact_name_match",
+          categoryName: resolvedCategoryHint ?? v.category ?? null,
+          categoryId: null,
+          isCandidate: false,
+          needsReview: false,
+        };
       }
     }
   }
 
   // 3. Exact global catalog match — select only canonical_name (no name column)
   {
-    const { data: catalogVendors } = await db
-      .from("vendors")
-      .select("id, canonical_name, normalized_name, category, catalog_status, search_aliases")
-      .or(
-        `canonical_name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName},normalized_name.eq.${normalizedMatchName}`,
-      )
-      .limit(5);
+    const catalogFields = "id, canonical_name, normalized_name, category, catalog_status, search_aliases";
+    const [{ data: directCatalogVendors, error: directCatalogError }, { data: aliasCatalogVendors, error: aliasCatalogError }] = await Promise.all([
+      db
+        .from("vendors")
+        .select(catalogFields)
+        .or(
+          `canonical_name.ilike.${extractedName},normalized_name.eq.${normalizedExtractedName},normalized_name.eq.${normalizedMatchName}`,
+        )
+        .limit(5),
+      // `search_aliases` is a curated catalog field. Querying it directly is
+      // what prevents a known alias from falling through to enrichment.
+      db.from("vendors").select(catalogFields).contains("search_aliases", [extractedName]).limit(5),
+    ]);
+    if (directCatalogError) throw directCatalogError;
+    if (aliasCatalogError) throw aliasCatalogError;
+    const catalogVendors = [...(directCatalogVendors ?? []), ...(aliasCatalogVendors ?? [])]
+      .filter((vendor, index, values) => values.findIndex((candidate) => candidate.id === vendor.id) === index);
 
     // Also check alias array for the catalog
     const catalogMatch = (catalogVendors ?? []).find(
@@ -209,8 +218,39 @@ export async function resolveVendorAndCategory(
         ),
     );
 
-    if (catalogMatch && catalogVendors && catalogVendors.length <= 2) {
+    if (catalogMatch && catalogVendors.length <= 2) {
       const v = catalogMatch;
+      const linkedRelationships = findAliasLinkedOrganizationRelationships(orgVendors ?? [], catalogVendors);
+      if (linkedRelationships.length === 1) {
+        const relationship = linkedRelationships[0];
+        const relationshipVendor = relationship.vendors as unknown as { id: string; category?: string | null } | null;
+        if (relationshipVendor) {
+          return {
+            vendorId: relationshipVendor.id,
+            organizationVendorId: relationship.id,
+            matchStatus: "exact",
+            confidence: 0.98,
+            resolutionMethod: "organization_catalog_alias_match",
+            categoryName: resolvedCategoryHint ?? relationshipVendor.category ?? null,
+            categoryId: null,
+            isCandidate: false,
+            needsReview: false,
+          };
+        }
+      }
+      if (linkedRelationships.length > 1) {
+        return {
+          vendorId: null,
+          organizationVendorId: null,
+          matchStatus: "ambiguous",
+          confidence: 0,
+          resolutionMethod: "multiple_organization_catalog_alias_matches",
+          categoryName: resolvedCategoryHint ?? null,
+          categoryId: null,
+          isCandidate: false,
+          needsReview: true,
+        };
+      }
       const orgRelId = await ensureOrganizationRelationship(db, organizationId, v.id);
       return {
         vendorId: v.id,
@@ -443,6 +483,43 @@ export async function resolveVendorAndCategory(
     isCandidate,
     needsReview: true, // Candidates always require human review
   };
+}
+
+type OrganizationVendorWithIdentity = {
+  id: string;
+  vendors: unknown;
+};
+
+type CatalogVendorWithIdentity = {
+  id: string;
+  canonical_name?: string | null;
+  normalized_name?: string | null;
+  search_aliases?: string[] | null;
+};
+
+function findAliasLinkedOrganizationRelationships(
+  relationships: OrganizationVendorWithIdentity[],
+  catalogVendors: CatalogVendorWithIdentity[],
+): OrganizationVendorWithIdentity[] {
+  const catalogIdentities = catalogVendors.map((vendor) => ({
+    canonicalName: vendor.canonical_name,
+    normalizedName: vendor.normalized_name,
+    aliases: vendor.search_aliases,
+  }));
+  return relationships.filter((relationship) => {
+    const vendor = relationship.vendors as {
+      canonical_name?: string | null;
+      normalized_name?: string | null;
+      search_aliases?: string[] | null;
+    } | null;
+    if (!vendor) return false;
+    const identity = {
+      canonicalName: vendor.canonical_name,
+      normalizedName: vendor.normalized_name,
+      aliases: vendor.search_aliases,
+    };
+    return catalogIdentities.some((catalogIdentity) => identityTermsOverlap(identity, catalogIdentity));
+  });
 }
 
 async function ensureOrganizationRelationship(

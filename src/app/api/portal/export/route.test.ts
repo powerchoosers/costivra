@@ -20,23 +20,19 @@ describe("workspace export", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
-  it("returns a private, downloadable structured export", async () => {
+  it("returns a private, downloadable accounting workbook", async () => {
     requirePortalContext.mockResolvedValue({ role: "owner", organizationId: "org-1" });
     getPortalData.mockResolvedValue({
       organization: { id: "org-1", name: "Northstar" },
       documents: [{ id: "doc-1", originalFilename: "invoice.pdf" }],
+      locations: [], energyMeters: [], vendors: [], vendorContacts: [], vendorCatalog: [], expenseAccounts: [], expenses: [], contracts: [], invoices: [], invoiceLineItems: [], opportunities: [], actions: [], approvalPolicies: [], savings: [], integrations: [], inboundEmailEvents: [], reports: [], team: [], notifications: [], auditEvents: [], evidenceReferences: [],
     });
     const response = await GET();
-    const payload = await response.json();
+    const bytes = new Uint8Array(await response.arrayBuffer());
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-disposition")).toMatch(/^attachment; filename="costivra-workspace-\d{4}-\d{2}-\d{2}\.json"$/);
+    expect(response.headers.get("content-disposition")).toMatch(/^attachment; filename="costivra-accounting-workbook-\d{4}-\d{2}-\d{2}\.xlsx"$/);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(payload).toMatchObject({
-      format: "costivra-workspace-export",
-      version: 1,
-      organizationId: "org-1",
-      data: { organization: { id: "org-1" } },
-    });
-    expect(JSON.stringify(payload)).not.toContain("storage_path");
+    expect(response.headers.get("content-type")).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    expect(Array.from(bytes.slice(0, 2))).toEqual([0x50, 0x4b]);
   });
 });

@@ -1,5 +1,33 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-08-29 — Export a tenant-scoped accounting workbook instead of raw JSON
+
+### Context
+
+The customer Settings export exposed a raw JSON archive. It preserved structured data but did not give an accounting manager a practical reporting surface, reconciliation-oriented columns, or a usable handoff to Excel.
+
+### Decision
+
+Replace the customer export with a server-generated `.xlsx` accounting workbook. The workbook has a Reporting sheet with formula-backed operating totals, category concentration, and a current-data chart, followed by scoped source sheets for vendor, expense, invoice, contract, opportunity, action, evidence, and audit records. Formulas and labels keep estimated opportunity value distinct from verified savings. The endpoint remains owner/admin-only, private/no-store, and excludes original source-file bytes.
+
+### Consequences
+
+Customers can download a point-in-time, accounting-oriented workbook without granting broader data access or creating a new reporting system of record. The workbook is intentionally an export, not a live accounting integration: the report refreshes when a new export is generated, and the chart is a current-export snapshot. The runtime uses `exceljs` because the packaged authoring tool is not a deployable registry dependency for the Vercel application.
+
+## 2026-08-29 — Resolve catalog aliases before creating vendor relationships
+
+### Context
+
+Invoice uploads can express the same supplier using a legal name, trade name, legacy brand, or shortened bill-header label. The existing resolver checked an organization's direct names and aliases, but did not query catalog aliases before falling through to enrichment. That could create two tenant-scoped vendor relationships for one supplier when separate uploads used different labels.
+
+### Decision
+
+Treat catalog aliases as deterministic identity evidence. The resolver now checks both direct catalog fields and the curated alias array before enrichment, then compares the matched catalog identity with the tenant's existing vendor identities. One linked relationship is reused; multiple linked relationships are marked ambiguous for human review; no arbitrary relationship is selected. The existing unique `(organization_id, vendor_id)` constraint continues to protect exact concurrent reuse.
+
+### Consequences
+
+Known aliases reuse one customer vendor relationship across uploads and mailbox intake without exposing any cross-tenant data. Where catalog identity evidence conflicts, Costivra preserves uncertainty and routes review rather than creating or silently merging records. Unknown vendors still require the existing bounded enrichment and candidate-review controls.
+
 ## 2026-08-21 — Model service locations separately from energy meters
 
 ### Context

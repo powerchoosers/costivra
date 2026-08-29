@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/portal/http";
 import { getPortalData, requirePortalContext } from "@/lib/portal/repository";
+import { createAccountingWorkbook } from "@/lib/portal/accounting-workbook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,22 +16,15 @@ export async function GET() {
       );
     }
     const data = await getPortalData();
-    const generatedAt = new Date().toISOString();
-    const filenameDate = generatedAt.slice(0, 10);
-    const payload = {
-      format: "costivra-workspace-export",
-      version: 1,
-      generatedAt,
-      organizationId: context.organizationId,
-      notice: "This export contains structured workspace records and file metadata. Original source-file bytes are not included.",
-      data,
-    };
-    return new NextResponse(`${JSON.stringify(payload, null, 2)}\n`, {
+    const generatedAt = new Date();
+    const filenameDate = generatedAt.toISOString().slice(0, 10);
+    const workbook = await createAccountingWorkbook(data, generatedAt);
+    return new NextResponse(workbook, {
       status: 200,
       headers: {
         "Cache-Control": "private, no-store",
-        "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="costivra-workspace-${filenameDate}.json"`,
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="costivra-accounting-workbook-${filenameDate}.xlsx"`,
         "X-Content-Type-Options": "nosniff",
       },
     });

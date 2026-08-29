@@ -48,6 +48,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useBillInspector } from "@/components/bill-inspector-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
+import { SkeletonBlock } from "@/components/ui/skeletons";
 import { WorkspaceDecisionSummary, WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { SettingsHub, type SettingsHubItem } from "@/components/ui/settings-hub";
 import { formatMoneyInput } from "@/lib/vendors/spend";
@@ -4680,11 +4681,11 @@ function Settings({
         <section className="portal-panel settings-data-export">
           <div>
             <span>Data portability</span>
-            <h2>Workspace export</h2>
-            <p>Download the structured records, evidence references, decisions, and audit history available to your organization. Private source-file bytes are not bundled into this export.</p>
+            <h2>Accounting workbook</h2>
+            <p>Download a reporting-ready spreadsheet with a summary of spend and category concentration, plus the underlying vendor, invoice, contract, opportunity, evidence, and audit records. Private source-file bytes are not included.</p>
           </div>
           <a className="button button-secondary" href="/api/portal/export" download>
-            <Download size={16} /> Download JSON
+            <Download size={16} /> Download workbook
           </a>
         </section>
       )}
@@ -4730,7 +4731,23 @@ function AccountLoginSettings({ data }: { data: PortalData }) {
     setMessage(error ? error.message : "Password reset instructions sent to your email.");
     setBusy(false);
   };
-  return <section className="portal-panel settings-account-panel" aria-labelledby="account-login-settings-title"><header className="settings-section-header"><div><span className="eyebrow">Personal access</span><h2 id="account-login-settings-title">Account &amp; login</h2><p>Manage how you sign in to this customer workspace. Internal Manage agents use their separate staff access path.</p></div><ShieldCheck size={22} aria-hidden="true" /></header><div className="settings-account-list"><div><strong>Microsoft / Outlook</strong><span>{identityState?.microsoft ? "Connected to this account." : "Not connected yet."}</span></div><button type="button" className="button button-secondary" onClick={() => void connectMicrosoft()} disabled={busy || Boolean(identityState?.microsoft)}>{identityState?.microsoft ? "Connected" : busy ? "Opening…" : "Connect Microsoft"}</button><div><strong>Email and password</strong><span>{identityState?.email ? "Available as a fallback sign-in method." : "Managed by your identity provider."}</span></div><button type="button" className="button button-secondary" onClick={() => void sendPasswordReset()} disabled={busy || !identityState?.email}>{busy ? "Sending…" : "Reset password"}</button></div>{message && <p className="account-message" role="status">{message}</p>}</section>;
+  return <section className="portal-panel settings-account-panel" aria-labelledby="account-login-settings-title">
+    <header className="settings-section-header settings-account-header">
+      <div>
+        <span>Personal access</span>
+        <h2 id="account-login-settings-title">Account &amp; login</h2>
+        <p>Manage how you sign in to this customer workspace. Internal Manage agents use their separate staff access path.</p>
+      </div>
+      <ShieldCheck size={21} aria-hidden="true" />
+    </header>
+    <div className="settings-account-list">
+      <div><strong>Microsoft / Outlook</strong><span>{identityState?.microsoft ? "Connected to this account." : "Not connected yet."}</span></div>
+      <button type="button" className="button button-secondary" onClick={() => void connectMicrosoft()} disabled={busy || Boolean(identityState?.microsoft)}>{identityState?.microsoft ? "Connected" : busy ? "Opening…" : "Connect Microsoft"}</button>
+      <div><strong>Email and password</strong><span>{identityState?.email ? "Available as a fallback sign-in method." : "Managed by your identity provider."}</span></div>
+      <button type="button" className="button button-secondary" onClick={() => void sendPasswordReset()} disabled={busy || !identityState?.email}>{busy ? "Sending…" : "Reset password"}</button>
+    </div>
+    {message && <p className="account-message" role="status">{message}</p>}
+  </section>;
 }
 
 function BillingPanel() {
@@ -4781,15 +4798,29 @@ function BillingPanel() {
   };
   const formatPlanPrice = (plan: { amountCents?: number | null; currency?: string; interval?: string }) => plan.amountCents == null ? "Custom" : `${new Intl.NumberFormat("en-US", { style: "currency", currency: plan.currency || "USD", maximumFractionDigits: 0 }).format(plan.amountCents / 100)} / ${plan.interval || "month"}`;
   const checkoutPlans = status?.plans?.filter((plan) => plan.checkoutEnabled) ?? [];
+  const isLoadingStatus = status === null && error === null;
   return <section className="portal-panel settings-billing-panel" aria-labelledby="billing-settings-title">
     <div className="settings-section-header"><div><span className="eyebrow">Subscription</span><h2 id="billing-settings-title">Costivra billing</h2><p>Choose a plan through Stripe. Your workspace becomes active only after Stripe confirms the subscription.</p></div><CircleDollarSign size={22} aria-hidden="true" /></div>
     {error && <p role="alert" className="form-error">{error}</p>}
      {billingOutcome === "success" && !current && <p className="form-note" role="status">Checkout returned successfully. Stripe is still confirming the subscription; this page will show the plan once the signed webhook is processed.</p>}
      {billingOutcome === "success" && current && <p className="form-note" role="status">Subscription confirmed: {current.plan_key} is {current.status}.</p>}
      {billingOutcome === "cancelled" && <p className="form-note" role="status">Checkout was cancelled. No subscription or access change was applied.</p>}
-     {status?.setupReasons?.length ? <div className="form-note" role="status"><strong>Checkout setup still needs:</strong><ul>{status.setupReasons.map((reason) => <li key={reason}>{setupReasonLabel(reason)}</li>)}</ul></div> : null}
-    {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.billing_source === "complimentary" ? "Complimentary access granted by Costivra. No payment method is required." : current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span>{current.billing_source !== "complimentary" && <button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button>}</div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><CostivraSelect id="billing-plan" aria-label="Plan" value={planKey} onChange={setPlanKey} options={checkoutPlans.map((plan) => ({ value: plan.key, label: `${plan.name} · ${formatPlanPrice(plan)}` }))} />{requestedPlan && <p className="form-note" role="status">Your selected plan is ready. Review it, then continue to secure checkout.</p>}<button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
+    {isLoadingStatus ? <BillingStatusSkeleton /> : <>
+      {status?.setupReasons?.length ? <div className="form-note" role="status"><strong>Checkout setup still needs:</strong><ul>{status.setupReasons.map((reason) => <li key={reason}>{setupReasonLabel(reason)}</li>)}</ul></div> : null}
+      {current ? <div className="settings-billing-current"><strong>{current.plan_key} · {current.status}</strong><span>{current.billing_source === "complimentary" ? "Complimentary access granted by Costivra. No payment method is required." : current.cancel_at_period_end ? "Cancels at the end of the current period." : "Renews through Stripe."}</span>{current.billing_source !== "complimentary" && <button type="button" className="button button-secondary" onClick={() => void openPortal()} disabled={busy}>{busy ? "Opening…" : "Manage billing"}</button>}</div> : <div className="settings-billing-choose"><label htmlFor="billing-plan">Plan</label><CostivraSelect id="billing-plan" aria-label="Plan" value={planKey} onChange={setPlanKey} options={checkoutPlans.map((plan) => ({ value: plan.key, label: `${plan.name} · ${formatPlanPrice(plan)}` }))} />{requestedPlan && <p className="form-note" role="status">Your selected plan is ready. Review it, then continue to secure checkout.</p>}<button type="button" className="button button-primary" onClick={() => void startCheckout()} disabled={busy || !checkoutReady}>{busy ? "Opening checkout…" : checkoutReady ? "Continue to secure checkout" : "Checkout setup pending"}</button><small>Enterprise plans are handled with a written agreement rather than self-serve checkout.</small></div>}
+    </>}
   </section>;
+}
+
+function BillingStatusSkeleton() {
+  return <div className="settings-billing-skeleton" aria-busy="true">
+    <span className="sr-only" role="status">Checking subscription status…</span>
+    <div className="settings-billing-skeleton__plan">
+      <SkeletonBlock width="28%" height="1rem" />
+      <SkeletonBlock width="68%" height="0.78rem" />
+    </div>
+    <SkeletonBlock width="132px" height="40px" borderRadius="10px" />
+  </div>;
 }
 
 function ApprovalPolicyManager({
@@ -5639,6 +5670,7 @@ function CreateModals({
       </PortalModal>
       <PortalModal
         open={kind === "invite"}
+        className="portal-modal--invite-member"
         title="Invite team member"
         description="They will receive a secure Supabase invitation email."
         onClose={close}

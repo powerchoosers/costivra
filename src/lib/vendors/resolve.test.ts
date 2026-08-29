@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeVendorName, normalizeDomain, normalizeCategorySlug, resolveKnownVendorIdentity } from "./normalize";
+import { identityTermsOverlap, normalizeVendorName, normalizeDomain, normalizeCategorySlug, resolveKnownVendorIdentity } from "./normalize";
 import { validateVendorCandidatePolicy } from "./candidate-policy";
 
 describe("Vendor Discovery and Normalization Suite", () => {
@@ -40,5 +40,22 @@ describe("Vendor Discovery and Normalization Suite", () => {
     if (valid.allowed) {
       expect(valid.cleanName).toBe("Datadog");
     }
+  });
+
+  it("treats catalog aliases as the same vendor identity", () => {
+    expect(identityTermsOverlap(
+      {
+        canonicalName: "Reliant Energy",
+        aliases: ["Reliant Energy Retail", "Reliant Energy"],
+      },
+      {
+        canonicalName: "Reliant",
+        aliases: ["Reliant Energy", "NRG Reliant"],
+      },
+    )).toBe(true);
+    expect(identityTermsOverlap(
+      { canonicalName: "Acme Telecom" },
+      { canonicalName: "Acme Waste" },
+    )).toBe(false);
   });
 });

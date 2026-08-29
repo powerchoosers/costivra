@@ -22,6 +22,7 @@ const NATIVE_SCROLL_SELECTOR = [
   ".app-global-results",
   ".manage-global-results",
   ".workspace-notification-popover__list",
+  ".costivra-select-popover",
   ".manage-compose-recipient-results",
   ".manage-mail-list > div",
   ".manage-sequence-mail-view",

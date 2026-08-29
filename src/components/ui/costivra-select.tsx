@@ -217,6 +217,7 @@ export function CostivraSelect({
             focusedIndex >= 0 ? `${selectId}-option-${focusedIndex}` : undefined
           }
           className="costivra-select-popover"
+          data-workspace-scrollbar=""
         >
           {options.map((opt, index) => {
             const isSelected = opt.value === selectedValue;

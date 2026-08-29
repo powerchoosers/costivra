@@ -96,6 +96,33 @@ export type KnownVendorIdentity = {
   categoryName: string;
 };
 
+export type VendorIdentityRecord = {
+  canonicalName?: string | null;
+  normalizedName?: string | null;
+  aliases?: string[] | null;
+};
+
+/**
+ * Returns the normalized names by which a vendor may be identified. Keeping
+ * this deterministic prevents a document extractor from creating a new
+ * tenant relationship just because two catalog entries share an alias.
+ */
+export function vendorIdentityTerms(record: VendorIdentityRecord): Set<string> {
+  return new Set(
+    [record.canonicalName, record.normalizedName, ...(record.aliases ?? [])]
+      .map((value) => normalizeVendorName(value ?? ""))
+      .filter(Boolean),
+  );
+}
+
+export function identityTermsOverlap(
+  left: VendorIdentityRecord,
+  right: VendorIdentityRecord,
+): boolean {
+  const leftTerms = vendorIdentityTerms(left);
+  return [...vendorIdentityTerms(right)].some((term) => leftTerms.has(term));
+}
+
 export function resolveKnownVendorIdentity(rawName: string): KnownVendorIdentity | null {
   const normalized = normalizeVendorName(rawName);
   if (normalized === "engie" || normalized.startsWith("engie energy")) {
