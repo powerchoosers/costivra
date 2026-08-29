@@ -115,6 +115,7 @@ import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
 import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { WorkspaceDecisionSummary, WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
+import { SettingsHub, type SettingsHubItem } from "@/components/ui/settings-hub";
 import { GlobalBackControl, shouldRenderManagePageBack, useNavigationLabel } from "@/components/navigation-history";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
@@ -1473,7 +1474,7 @@ export function ManagePortal({
             node.scrollTop = nextScrollTop;
           }}
         >
-          {shouldRenderManagePageBack(section, hasDedicatedRecordBack) && (
+          {section !== "mail" && shouldRenderManagePageBack(section, hasDedicatedRecordBack) && (
             section === "outreach" ? (
               sequenceOutreachTab ? null : <div className="manage-outreach-context-row">
                 <GlobalBackControl className="manage-global-back" />
@@ -5446,63 +5447,31 @@ function SettingsPage({
     ? Math.min(100, Math.round((apolloSettings.leadCredits.used / apolloSettings.leadCredits.limit) * 100))
     : 0;
 
+  const settingsItems: SettingsHubItem<typeof activeSettingsTab>[] = [
+    { id: "general", group: "Profile & communication", title: "Profile, email & alerts", description: "Photo, email signature, live notifications, and sending identities.", keywords: ["avatar", "signature", "mailbox", "sound", "email"] },
+    ...(data.operator.role === "owner" ? [
+      { id: "billing" as const, group: "Business controls", title: "Billing & pricing", description: "Costivra plans and Stripe price catalog.", keywords: ["stripe", "plan", "price", "subscription"] },
+      { id: "enrichment" as const, group: "System & providers", title: "Provider health", description: "Apollo usage and production readiness.", keywords: ["apollo", "credits", "retention", "readiness", "integration"] },
+    ] : []),
+  ];
+  const selectSettings = (next: typeof activeSettingsTab) => {
+    setActiveSettingsTab(next);
+    if (next === "enrichment" && !apolloSettings && !loadingApolloSettings) void loadApolloSettings();
+  };
+
   return (
     <div className="manage-settings-layout">
       <section className="manage-page-heading">
         <div>
-          <p>Your profile and Costivra communication setup.</p>
+          <p>Find the correct Costivra operator or owner control without hunting through tabs.</p>
           <h2>Settings</h2>
         </div>
       </section>
-      <div className="manage-panel manage-settings-tabs" role="tablist" aria-label="Settings sections">
-        <button
-          type="button"
-          role="tab"
-          id="manage-settings-general-tab"
-          aria-selected={activeSettingsTab === "general"}
-          aria-controls="manage-settings-general-panel"
-          className={activeSettingsTab === "general" ? "active" : undefined}
-          onClick={() => setActiveSettingsTab("general")}
-        >
-          General
-        </button>
-        {data.operator.role === "owner" && (
-          <button
-            type="button"
-            role="tab"
-            id="manage-settings-billing-tab"
-            aria-selected={activeSettingsTab === "billing"}
-            aria-controls="manage-settings-billing-panel"
-            className={activeSettingsTab === "billing" ? "active" : undefined}
-            onClick={() => setActiveSettingsTab("billing")}
-          >
-            Billing &amp; pricing
-          </button>
-        )}
-        {data.operator.role === "owner" && (
-          <button
-            type="button"
-            role="tab"
-            id="manage-settings-enrichment-tab"
-            aria-selected={activeSettingsTab === "enrichment"}
-            aria-controls="manage-settings-enrichment-panel"
-            className={activeSettingsTab === "enrichment" ? "active" : undefined}
-            onClick={() => {
-              setActiveSettingsTab("enrichment");
-              if (!apolloSettings && !loadingApolloSettings) void loadApolloSettings();
-            }}
-          >
-            Enrichment
-          </button>
-        )}
-      </div>
+      <SettingsHub ariaLabel="Manage settings" items={settingsItems} value={activeSettingsTab} onValueChange={selectSettings}>
       {activeSettingsTab === "billing" ? (
         <BillingCatalogSettings />
       ) : activeSettingsTab === "general" ? (
         <div
-          id="manage-settings-general-panel"
-          role="tabpanel"
-          aria-labelledby="manage-settings-general-tab"
           className="manage-settings-tab-panel"
         >
       <section className="manage-panel manage-settings-profile" aria-labelledby="profile-settings-title">
@@ -5674,9 +5643,6 @@ function SettingsPage({
         </div>
       ) : (
         <section
-          id="manage-settings-enrichment-panel"
-          role="tabpanel"
-          aria-labelledby="manage-settings-enrichment-tab"
           className="manage-panel manage-settings-enrichment"
           aria-busy={loadingApolloSettings}
         >
@@ -5782,6 +5748,7 @@ function SettingsPage({
           </div>
         </section>
       )}
+      </SettingsHub>
     </div>
   );
 }
@@ -5855,7 +5822,7 @@ function BillingCatalogSettings() {
   }
 
   return (
-    <section id="manage-settings-billing-panel" role="tabpanel" aria-labelledby="manage-settings-billing-tab" className="manage-panel manage-settings-enrichment">
+    <section className="manage-panel manage-settings-enrichment">
       <header className="manage-settings-enrichment-heading">
         <div>
           <span className="manage-settings-kicker">Owner controls</span>

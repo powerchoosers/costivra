@@ -6,7 +6,8 @@
 - Added an intentional tablet-portrait layout that keeps reader context compact, and a phone-specific single-pane frame with message-only scrolling, touch-safe padding, and a message viewport sized against the dynamic browser height.
 - The Mail page itself remains non-scrollable: its lower panel edge stays in view. The existing link-before-reply context remains visible and no email content, consent, or authorization behavior changed.
 - Design research: reviewed web and iOS email-reader references through Mobbin, including [Notion Mail](https://mobbin.com/screens/bb6aa516-50ce-4b33-90e4-a944bed414fb), [Front](https://mobbin.com/screens/a25fd5f3-a74a-4abc-b5f5-11b38cb684fa), and [Superhuman Mail](https://mobbin.com/screens/a290fbce-8900-4285-b670-af77f2a6b51e).
-- Validation: Node `v24.19.0`; TypeScript completed without reported errors; focused ESLint passed; `git diff --check` passed. Responsive browser verification will follow the deployment.
+- Removed the redundant page-level **Back to Mail** row from message-detail routes; the reader toolbar retains the direct back-to-list action. In the signed-in local desktop check (908×838), the message stack increased from about 231px to 359px while the outer Mail frame remained non-scrollable and its lower edge stayed visible. The browser connection timed out during the tablet capture, so tablet/mobile visual confirmation remains pending despite their scoped responsive styles.
+- Validation: Node `v24.19.0`; TypeScript completed without reported errors; focused ESLint passed; `git diff --check` passed.
 
 ## August 29, 2026 — Manage rail hover-preview labels
 
