@@ -39,6 +39,11 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1024, height: 768 } },
     },
     {
+      name: "auth-820x1180",
+      testMatch: /authenticated-workspace\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 1180 } },
+    },
+    {
       name: "auth-390x844",
       testMatch: /authenticated-workspace\.spec\.ts/,
       use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } },
