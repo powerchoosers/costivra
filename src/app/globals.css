@@ -14030,7 +14030,13 @@ button.workspace-notification-row:focus-visible {
 .manage-mobile-drawer__footer > *:hover,
 .manage-mobile-drawer__footer > *:focus-visible { outline:0; border-color:var(--workspace-line-soft, #edf0f5); background:var(--workspace-subtle-hover, #f7f9fc); }
 .manage-mobile-drawer__footer { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:10px; border-top:1px solid var(--workspace-line-soft, #edf0f5); }
-.manage-mobile-drawer__footer button { justify-content:flex-start; color:#9a3d35; }
+.manage-mobile-drawer__footer button {
+  width:max-content;
+  max-width:100%;
+  justify-self:end;
+  justify-content:flex-end;
+  color:#9a3d35;
+}
 .manage-mobile-drawer__footer button .manage-operator-avatar { width:30px; height:30px; flex:0 0 30px; }
 .manage-mobile-drawer__footer button > span { display:grid; min-width:0; gap:2px; }
 .manage-mobile-drawer__footer button strong { overflow:hidden; color:var(--workspace-ink,#1f2b42); font-size:.74rem; text-overflow:ellipsis; white-space:nowrap; }
