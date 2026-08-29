@@ -193,6 +193,19 @@ function TrustBadge({ state }: { state: PortalData["opportunities"][number]["tru
   return <WorkspaceStatusBadge className={`portal-status trust-${state}`}>{opportunityTrustLabel(state)}</WorkspaceStatusBadge>;
 }
 
+function opportunityValueDisplay(item: PortalData["opportunities"][number]) {
+  if (item.monetaryClaimAllowed && item.estimatedAnnualValue != null) {
+    return { label: money(item.estimatedAnnualValue, true), isMoney: true };
+  }
+
+  // Unknown financial value must remain visibly unknown. The queue still needs
+  // to say what is missing, rather than presenting an empty monetary claim.
+  return {
+    label: item.evidenceCount === 0 ? "Evidence needed" : "Estimate unavailable",
+    isMoney: false,
+  };
+}
+
 function SampleWorkspaceBanner() {
   return (
     <div className="portal-sample-banner" role="note">
@@ -621,7 +634,12 @@ function CommandCenter({ data }: { data: PortalData }) {
                   <strong>{item.title}</strong>
                   <span>{item.vendorName} · {opportunityTrustLabel(item.trustState)} · {item.evidenceCount} evidence reference{item.evidenceCount === 1 ? "" : "s"}</span>
                 </div>
-                {item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? <strong className="money-value">{money(item.estimatedAnnualValue, true)}</strong> : <span className="money-value">Value not shown</span>}
+                {(() => {
+                  const value = opportunityValueDisplay(item);
+                  return value.isMoney
+                    ? <strong className="money-value">{value.label}</strong>
+                    : <span className="money-value money-value--pending">{value.label}</span>;
+                })()}
                 <TrustBadge state={item.trustState} />
                 <Status value={item.status} />
               </a>
@@ -1511,7 +1529,12 @@ function FindingsWorkspace({
                     <td>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}><strong>{item.vendorName}</strong></Link> : <strong>{item.vendorName}</strong>}<small>{item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</small></td>
                     <td>{sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span className="workspace-secondary-text">Not linked</span>}</td>
                     <td><TrustBadge state={item.trustState} /></td><td>{item.evidenceCount} reference{item.evidenceCount === 1 ? "" : "s"}</td>
-                    <td><strong>{item.monetaryClaimAllowed && item.estimatedAnnualValue != null ? money(item.estimatedAnnualValue) : "Not shown"}</strong></td>
+                    <td>{(() => {
+                      const value = opportunityValueDisplay(item);
+                      return value.isMoney
+                        ? <strong>{value.label}</strong>
+                        : <span className="workspace-secondary-text">{value.label}</span>;
+                    })()}</td>
                     <td><Status value={item.status} /></td><td><CostivraSelect aria-label={`Update ${item.title} status`} value={item.status} variant="badge" size="sm" onChange={(newStatus) => void update(item.id, newStatus)} options={findingStatusOptions(item)} /></td>
                   </tr>;
                 })}
@@ -5510,7 +5533,7 @@ function CreateModals({
         side
         className="portal-modal--upload"
         title="Upload source document"
-        description="PDF, DOCX, text, PNG, or JPG up to 20 MB. Every file passes a security scan before extraction."
+        description="PDF, DOCX, text, PNG, or JPG up to 20 MB. Every file passes a security scan before extraction. Your original stays private to this workspace; Costivra never contacts a vendor without your approval."
         onClose={close}
         onClosed={handleUploadModalClosed}
       >

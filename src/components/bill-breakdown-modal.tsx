@@ -511,6 +511,7 @@ function BillBreakdownContent({
       : data.marketBenchmark.variancePercentage > 0
         ? "is-above"
       : "is-below";
+  const marketComparisonHeading = marketPosition ?? "Cost comparison needs more detail";
   const priorBillIncreased = (data?.priorRecordedBill?.changeAmount ?? 0) > 0;
 
   return (
@@ -704,7 +705,7 @@ function BillBreakdownContent({
               <div className="bill-breakdown-card-heading">
                 <div>
                   <span className="bill-breakdown-label">Cost position</span>
-                  <h3>{marketPosition ?? "Market comparison not ready"}</h3>
+                  <h3>{marketComparisonHeading}</h3>
                 </div>
                 <TrendingUp size={18} />
               </div>
@@ -724,7 +725,7 @@ function BillBreakdownContent({
                 <div className="bill-breakdown-unavailable">
                   <CircleHelp size={20} />
                   <div>
-                    <strong>{data.marketBenchmark.benchmarkStatus === "quote_required" ? "A live quote is required" : "More bill detail is needed"}</strong>
+                    <strong>{data.marketBenchmark.benchmarkStatus === "quote_required" ? "A live quote is required" : "No price conclusion yet"}</strong>
                     <p>{data.marketBenchmark.benchmarkStatus === "quote_required" ? "Public benchmarks are not comparable enough for this service. Review current quotes with the same scope and commercial terms." : "Costivra will not estimate a market position from an invoice total alone. It needs service, location, usage, term, and comparable-offer details."}</p>
                     {marketRequirements.length > 0 ? (
                       <p className="bill-breakdown-market-requirements">

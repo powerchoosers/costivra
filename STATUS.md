@@ -1,5 +1,15 @@
 # Costivra Status
 
+## August 29, 2026 — Bill-analysis launch clarity pass
+
+- Reframed the header intake flow around the actual customer job: the primary action is now **Analyze bill**, with staged, source-honest progress for securing the file, extracting charges, and preparing a reconciled human review. The chooser is now keyboard-safe and rejects empty, oversized, unsupported, or multi-file selections before an upload begins.
+- Kept the existing private-storage and approval boundary visible in the upload dialog: originals remain private to the workspace and Costivra does not contact vendors without customer approval. A retry action now preserves a selected file after a retryable upload failure.
+- Replaced the Command Center and Findings-table `Value not shown` dead end with **Evidence needed** or **Estimate unavailable**. Monetary amounts still render only when the existing customer-visible claim policy permits them.
+- Clarified Bill Breakdown's unavailable-comparison state as **Cost comparison needs more detail** and **No price conclusion yet**. This preserves the existing evidence-first rule: no market or savings conclusion appears without a valid comparison.
+- Made the free-review limit a single, specific continuation choice: customers who complete their three included bill reviews are directed to choose a paid plan for continued review and monitoring.
+- Validation: Node `v24.19.0`; focused ESLint for the three changed components passed. The repository's current `pnpm typecheck` fails before it reaches this change because eight existing source modules are absent (including `workspace-initial-load`, `vendor-history-range-picker`, and governed document-agent modules); this also makes production-build and local browser verification unavailable. `git diff --check` could not run because this local checkout's Git object database cannot read `c9f98f20c911d04b5ae2f09196bc33c9fad46d1d`; production source and deployment history must be verified from a healthy clone before release.
+- Known launch work: no privacy-safe client product-analytics interface exists yet. Funnel events must be server-authorized, organization-scoped, allowlisted, and must never contain filenames, vendors, document content, or financial facts. Authenticated desktop and mobile browser QA of this changed flow remains required.
+
 ## August 27, 2026 — Microsoft Partner enrollment active
 
 - Created the Costivra organizational Microsoft account `l.patterson@Costivra.onmicrosoft.com` through Microsoft's business signup flow and completed email verification.

@@ -46,21 +46,34 @@ type UploadStage = "uploading" | "analyzing" | "finalizing";
 
 const stageCopy: Record<UploadStage, { title: string; detail: string }> = {
   uploading: {
-    title: "Reading your bill",
+    title: "Securing your bill",
     detail:
-      "Costivra is securely checking the file and preparing the extracted record.",
+      "Your original stays private to this workspace while Costivra checks the file before extraction.",
   },
   analyzing: {
-    title: "Reading your bill",
+    title: "Extracting charges",
     detail:
-      "Costivra is securely checking the file and preparing the extracted record.",
+      "Costivra is structuring the charges and keeping each material fact linked to its source.",
   },
   finalizing: {
-    title: "Reading your bill",
+    title: "Preparing your review",
     detail:
-      "Costivra is securely checking the file and preparing the extracted record.",
+      "Costivra is reconciling the record and identifying what needs a human review. It will not invent a savings claim.",
   },
 };
+
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const allowedFileExtensions = new Set(["pdf", "docx", "txt", "png", "jpg", "jpeg"]);
+
+function uploadSelectionError(file: File) {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!file.size) return "Choose a bill file that contains data.";
+  if (file.size > MAX_UPLOAD_BYTES) return "Choose a bill file smaller than 20 MB.";
+  if (!allowedFileExtensions.has(extension)) {
+    return "Choose a PDF, DOCX, TXT, PNG, or JPG bill file.";
+  }
+  return null;
+}
 
 function fileExtension(file: File) {
   return file.name.split(".").pop()?.toUpperCase() || "FILE";
@@ -166,6 +179,16 @@ export function DocumentUploadExperience({
     if (busy) return;
     setErrorMessage(null);
     setErrorCode(null);
+    if (file) {
+      const selectionError = uploadSelectionError(file);
+      if (selectionError) {
+        clearSelectedFile();
+        setFlow("error");
+        setErrorCode("INVALID_FILE_SELECTION");
+        setErrorMessage(selectionError);
+        return;
+      }
+    }
     setSelectedFile(file);
     setFlow(file ? "selected" : "idle");
     if (!file || vendorId) return;
@@ -221,9 +244,16 @@ export function DocumentUploadExperience({
     setFlow("idle");
   };
 
-  const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragging(false);
+    if (event.dataTransfer.files.length !== 1) {
+      clearSelectedFile();
+      setFlow("error");
+      setErrorCode("INVALID_FILE_SELECTION");
+      setErrorMessage("Choose one bill file at a time.");
+      return;
+    }
     void chooseFile(event.dataTransfer.files.item(0));
   };
 
@@ -329,7 +359,7 @@ export function DocumentUploadExperience({
         )}
       </div>
 
-      <label
+      <div
         className={`document-upload-dropzone${dragging ? " is-dragging" : ""}${selectedFile ? " has-file" : ""}`}
         onDragEnter={(event) => {
           event.preventDefault();
@@ -341,6 +371,7 @@ export function DocumentUploadExperience({
       >
         <input
           ref={inputRef}
+          className="document-upload-input"
           type="file"
           name="file"
           accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,image/png,image/jpeg"
@@ -369,9 +400,7 @@ export function DocumentUploadExperience({
                   <button
                     type="button"
                     className="document-upload-change"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
+                    onClick={() => {
                       inputRef.current?.click();
                     }}
                   >
@@ -385,9 +414,7 @@ export function DocumentUploadExperience({
                 type="button"
                 className="document-upload-remove"
                 aria-label={`Remove ${selectedFile.name}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
+                onClick={() => {
                   chooseFile(null);
                 }}
               >
@@ -396,15 +423,20 @@ export function DocumentUploadExperience({
             ) : null}
           </div>
         ) : (
-          <div className="document-upload-empty">
+          <button
+            type="button"
+            className="document-upload-empty"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
             <span className="document-upload-cloud" aria-hidden="true">
               <UploadCloud size={26} />
             </span>
             <strong>Choose or drop a bill</strong>
             <span>PDF, DOCX, TXT, PNG, or JPG · 20 MB maximum</span>
-          </div>
+          </button>
         )}
-      </label>
+      </div>
 
       {activeStage ? (
         <div className="document-upload-progress" role="status" aria-live="polite">
@@ -419,22 +451,23 @@ export function DocumentUploadExperience({
             </div>
             <ol className="document-upload-status-nodes" aria-label="Upload preparation steps">
               <li className={stage === "uploading" ? "is-current" : ""}>Secure upload</li>
-              <li className={stage === "analyzing" ? "is-current" : ""}>Security and integrity check</li>
-              <li className={stage === "finalizing" ? "is-current" : ""}>Reading bill details</li>
+              <li className={stage === "analyzing" ? "is-current" : ""}>Extract charges</li>
+              <li className={stage === "finalizing" ? "is-current" : ""}>Prepare review</li>
             </ol>
           </div>
         </div>
       ) : errorCode === "FREE_REVIEW_LIMIT_REACHED" ? (
         <div className="document-upload-upgrade-state" role="status">
           <span className="document-upload-upgrade-mark"><ShieldCheck size={22} /></span>
-          <strong>Your free review is complete.</strong>
-          <p>You’ve reached the three-bill limit. Subscribe to keep analyzing bills, retain the full evidence history, and unlock ongoing monitoring.</p>
-          <Link className="button button-primary" href="/pricing?from=free-review">See paid plans <UploadCloud size={15} /></Link>
+          <strong>Your three included bill reviews are complete.</strong>
+          <p>Continue with paid monitoring to analyze new bills, retain the full evidence history, and turn future changes into review-ready opportunities.</p>
+          <Link className="button button-primary" href="/pricing?from=free-review">Choose a plan to continue reviewing <UploadCloud size={15} /></Link>
         </div>
       ) : errorMessage ? (
         <div className="document-upload-error" role="alert">
-          <strong>{flowState === "error" && !selectedFile ? "File blocked by the security check" : "Upload could not be completed"}</strong>
+          <strong>{errorCode === "INVALID_FILE_SELECTION" ? "Choose a supported bill file" : flowState === "error" && !selectedFile ? "File blocked by the security check" : "Upload could not be completed"}</strong>
           <span>{errorMessage}</span>
+          {selectedFile ? <button type="submit" className="document-upload-retry">Try the same file again</button> : null}
         </div>
       ) : selectedFile ? (
         <div className="document-upload-ready-note">
@@ -461,7 +494,7 @@ export function DocumentUploadExperience({
           disabled={busy || !selectedFile}
         >
           {busy ? <LoaderCircle className="spin" size={16} /> : <UploadCloud size={16} />}
-          {busy ? "Reading your bill…" : "Upload bill"}
+          {busy ? "Preparing review…" : "Analyze bill"}
         </button>
       </div>
 
@@ -479,10 +512,10 @@ export function DocumentUploadExperience({
         .document-upload-vendor-results button:hover, .document-upload-vendor-results button[aria-selected="true"] { background: #f0f4ff; }
         .document-upload-vendor-results small, .document-upload-vendor-empty { color: #6b7280; font-size: 11px; }
         .document-upload-vendor-clear { border-bottom: 1px solid rgba(15, 23, 42, .08) !important; color: #5b6473 !important; }
-        .document-upload-dropzone { position: relative; display: block; min-height: 148px; border: 1px dashed rgba(15, 23, 42, .22); border-radius: 18px; background: linear-gradient(145deg, #fbfdff 0%, #f4f7ff 100%); cursor: pointer; overflow: hidden; transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
+        .document-upload-dropzone { position: relative; display: block; min-height: 148px; border: 1px dashed rgba(15, 23, 42, .22); border-radius: 18px; background: linear-gradient(145deg, #fbfdff 0%, #f4f7ff 100%); overflow: hidden; transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
         .document-upload-dropzone:hover, .document-upload-dropzone:focus-within, .document-upload-dropzone.is-dragging { border-color: rgba(0, 47, 167, .55); box-shadow: 0 18px 45px rgba(15, 44, 104, .1); transform: translateY(-1px); }
-        .document-upload-dropzone input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-        .document-upload-empty { min-height: 148px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: #475569; text-align: center; padding: 24px; }
+        .document-upload-input { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+        .document-upload-empty { width: 100%; min-height: 148px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 0; color: #475569; background: transparent; text-align: center; padding: 24px; cursor: pointer; }
         .document-upload-empty strong { color: #0f172a; font-size: .98rem; }
         .document-upload-empty span:last-child { font-size: .8rem; }
         .document-upload-cloud { width: 50px; height: 50px; display: inline-flex; align-items: center; justify-content: center; border-radius: 16px; color: #002fa7; background: rgba(0, 47, 167, .08); box-shadow: inset 0 0 0 1px rgba(0, 47, 167, .08); }
@@ -514,6 +547,8 @@ export function DocumentUploadExperience({
         .document-upload-ready-note { display: flex; align-items: center; gap: 8px; color: #1f6b48; font-size: .8rem; }
         .document-upload-error { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid rgba(180, 50, 35, .2); border-radius: 13px; color: #7f1d1d; background: rgba(254, 226, 226, .62); font-size: .78rem; line-height: 1.45; }
         .document-upload-error strong { font-size: .82rem; }
+        .document-upload-retry { width: max-content; margin-top: 5px; border: 0; padding: 0; color: #8f261c; background: transparent; font: 700 .76rem/1.3 inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+        .document-upload-retry:hover, .document-upload-retry:focus-visible { color: #5f1711; }
         .document-upload-upgrade-state { display:grid; gap:8px; padding:17px; border:1px solid #d5e5aa; border-radius:16px; color:#405b12; background:#fbfff2; }
         .document-upload-upgrade-mark { display:grid; width:40px; height:40px; place-items:center; border-radius:13px; color:#52770b; background:#efffc9; }
         .document-upload-upgrade-state strong { color:#365707; font-size:.9rem; }
