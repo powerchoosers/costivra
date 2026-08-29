@@ -18,7 +18,10 @@ describe("accounting workbook export", () => {
     const output = await createAccountingWorkbook(data(), new Date("2026-08-29T00:00:00.000Z"));
     expect(Array.from(output.slice(0, 2))).toEqual([0x50, 0x4b]);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(output);
+    // ExcelJS's Node typings lag the Node 24 generic Buffer type; the runtime
+    // accepts the same bytes as an ArrayBuffer, so keep this test type-safe
+    // without changing the production export contract.
+    await workbook.xlsx.load(output as unknown as ArrayBuffer);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toContain("Reporting");
     expect(workbook.getWorksheet("Vendors")?.getCell("A2").value).toBe("Northwind Energy");
     expect(workbook.getWorksheet("Reporting")?.getCell("B6").value).toMatchObject({ formula: "SUM('Vendors'!C2:C2)" });
