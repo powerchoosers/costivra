@@ -14132,10 +14132,12 @@ button.workspace-notification-row:focus-visible {
   .manage-mobile-drawer { display:none; }
 }
 
-/* Portrait tablets use the same touch-first navigation model as phones. The
-   content remains a single viewport-bound surface while the bottom dock and
-   More sheet replace the desktop side rail. */
-@media (min-width:781px) and (max-width:1050px) {
+/* Tablets use the same touch-first navigation model as phones. The content
+   remains a single viewport-bound surface while the bottom dock and More
+   sheet replace the desktop side rail. Include landscape iPads (which can be
+   1180px wide) and coarse-pointer tablets beyond the portrait breakpoint. */
+@media (min-width:781px) and (max-width:1199px),
+       (min-width:781px) and (hover:none) and (pointer:coarse) {
   .app-body .app-shell,
   .app-body .app-shell.sidebar-collapsed {
     display:block;
