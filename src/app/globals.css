@@ -14154,6 +14154,23 @@ button.workspace-notification-row:focus-visible {
   .app-body .app-work-canvas > :is(.app-content, .app-content-table-page) {
     padding-bottom:calc(96px + env(safe-area-inset-bottom));
   }
+  .app-body .app-work-canvas > .app-content-table-page {
+    height:calc(100dvh - 66px);
+    min-height:0;
+    overflow:hidden;
+  }
+  .app-body .app-content-table-page .vendor-directory {
+    min-height:0;
+    display:flex;
+    flex:1 1 auto;
+    flex-direction:column;
+  }
+  .app-body .app-content-table-page .vendor-table-wrap {
+    min-height:0;
+    flex:1 1 auto;
+    overflow:auto;
+    overscroll-behavior:contain;
+  }
   .app-body .app-mobile-nav {
     position:fixed;
     z-index:70;
