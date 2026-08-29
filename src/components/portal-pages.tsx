@@ -3342,6 +3342,21 @@ function AccountDetailSheet({
         .find((group) => group.invoices.some((invoice) => invoice.id === fallbackInvoice.id))?.invoices ?? [fallbackInvoice]
       : [];
   const accountContracts = data.contracts.filter((c) => c.expenseAccountId === accountId);
+  const contractByEndDate = [...accountContracts].sort((left, right) => (right.endDate ?? "").localeCompare(left.endDate ?? ""));
+  // An auto-renewing or not-yet-expired agreement is the most useful term to
+  // show first. A historical expired term is only used when no current term is
+  // recorded for this exact account.
+  const accountTerm = contractByEndDate.find((contract) => contract.autoRenews || !isExpiredContract(contract)) ?? contractByEndDate[0] ?? null;
+  const serviceHasEnded = Boolean(account?.serviceEndDate && account.serviceEndDate < new Date().toISOString().slice(0, 10));
+  const accountTermFact = accountTerm
+    ? accountTerm.endDate
+      ? isExpiredContract(accountTerm) && !accountTerm.autoRenews
+        ? { label: "Contract status", value: `Out of contract since ${date(accountTerm.endDate)}` }
+        : { label: "Contract end", value: `${date(accountTerm.endDate)}${accountTerm.autoRenews ? " · Auto-renews" : ""}` }
+      : { label: "Contract end", value: accountTerm.autoRenews ? "Auto-renews · end date not recorded" : "Not recorded" }
+    : account?.serviceEndDate
+      ? { label: "Service end", value: serviceHasEnded ? `Service ended ${date(account.serviceEndDate)}` : date(account.serviceEndDate) }
+      : { label: "Contract status", value: "No linked contract" };
   const accountOpportunities = data.opportunities.filter((o) => o.expenseAccountId === accountId);
   const canWrite = data.currentUser.role !== "viewer";
   const accountCategory = account?.category ?? fallbackInvoice?.expenseCategory ?? "General";
@@ -3378,7 +3393,7 @@ function AccountDetailSheet({
             <div><dt>Masked reference</dt><dd>{maskedRef}</dd></div>
             <div><dt>Location</dt><dd>{location?.name ?? account?.locationName ?? fallbackInvoice?.locationName ?? "Unassigned"}</dd></div>
             <div><dt>Service start</dt><dd>{account?.serviceStartDate ? date(account.serviceStartDate) : "Not recorded"}</dd></div>
-            <div><dt>Service end</dt><dd>{account?.serviceEndDate ? date(account.serviceEndDate) : "Active / ongoing"}</dd></div>
+            <div><dt>{accountTermFact.label}</dt><dd>{accountTermFact.value}</dd></div>
             <div><dt>Monitoring scope</dt><dd>Managed at the vendor relationship</dd></div>
           </dl>
         </section>
