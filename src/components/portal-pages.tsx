@@ -49,6 +49,7 @@ import { useBillInspector } from "@/components/bill-inspector-provider";
 import { CostivraSelect, SelectOption } from "@/components/ui/costivra-select";
 import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { WorkspaceDecisionSummary, WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
+import { SettingsHub, type SettingsHubItem } from "@/components/ui/settings-hub";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { formatFinancialDate } from "@/lib/ui/date-format";
 import { PortalRecordDetail, resolveRecordDetailCurrency } from "@/components/portal-record-detail";
@@ -4422,6 +4423,7 @@ function Settings({
   initialTab?: "organization" | "account" | "integrations" | "team" | "billing";
 }) {
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams?.get("tab");
   const tabFromUrl = requestedTab === "organization" || requestedTab === "account" || requestedTab === "integrations" || requestedTab === "team" || requestedTab === "billing"
@@ -4456,28 +4458,26 @@ function Settings({
       setBusy(false);
     }
   };
-  const settingsTabs = [
-    { id: "organization", label: "Organization" },
-    { id: "account", label: "Account & login" },
-    { id: "integrations", label: "Integrations" },
-    { id: "team", label: "Team & approvals" },
+  const settingsItems: SettingsHubItem<typeof tab>[] = [
+    { id: "organization", group: "Workspace", title: "Organization details", description: "Profile, locations, alerts, and data export.", keywords: ["company", "currency", "timezone", "renewal", "digest", "location", "export"] },
+    { id: "account", group: "People & security", title: "Account & login", description: "Sign-in methods and password recovery.", keywords: ["microsoft", "outlook", "password", "identity", "security"] },
+    { id: "integrations", group: "Connections", title: "Mail intake & integrations", description: "Email forwarding, mailboxes, and vendor rules.", keywords: ["gmail", "outlook", "email", "forwarding", "inbox", "vendors"] },
+    { id: "team", group: "People & security", title: "Team & approvals", description: "Workspace access and consequential-action policies.", keywords: ["invite", "member", "role", "approval", "policy"] },
     ...(["owner", "admin"].includes(data.currentUser.role)
-      ? [{ id: "billing", label: "Billing" }]
+      ? [{ id: "billing" as const, group: "Plan", title: "Billing", description: "Plan, subscription, and secure Stripe billing.", keywords: ["plan", "subscription", "payment", "stripe", "invoice"] }]
       : []),
   ];
+  const selectSettings = (next: typeof tab) => {
+    setTab(next);
+    router.replace(`/app/settings?tab=${next}`, { scroll: false });
+  };
   return (
     <>
       <PageHeader
         title="Settings"
-        description="Organization profile, alert preferences, and review thresholds."
+        description="Find the right workspace, access, connection, or plan control in one place."
       />
-      <WorkspaceViewTabs
-        activeId={tab}
-        ariaLabel="Settings sections"
-        onChange={(id) => setTab(id as typeof tab)}
-        selectionMode="pressed"
-        tabs={settingsTabs}
-      />
+      <SettingsHub ariaLabel="Customer settings" items={settingsItems} value={tab} onValueChange={selectSettings}>
       {tab === "organization" && <>
       <form className="portal-panel settings-form" onSubmit={submit}>
         <div className="form-grid">
@@ -4565,6 +4565,7 @@ function Settings({
       {tab === "integrations" && <div className="settings-tab-panel"><Integrations data={data} run={run} embedded /></div>}
       {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} run={run} embedded /><ApprovalPolicyManager data={data} run={run} /></div>}
       {tab === "billing" && <BillingPanel />}
+      </SettingsHub>
     </>
   );
 }

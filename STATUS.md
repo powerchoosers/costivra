@@ -1,5 +1,13 @@
 # Costivra Status
 
+## August 29, 2026 — Searchable settings hubs
+
+- Replaced the top-tab settings navigation in both customer App and Manage with a responsive, grouped directory and a keyboard-focusable **Search settings** field. Search covers plain-language names, descriptions, and common task words without exposing owner-only controls to other roles.
+- Preserved working settings flows: organization profile, locations, alerts, data export, account sign-in, integrations, team and approval policies, billing, Manage profile/email/sound preferences, mailbox identities, provider status, and owner readiness controls. Customer directory choices update the existing deep-link URL.
+- Tightened the organization-settings boundary: only the supported alert preferences can be persisted, timezones must be valid, and review thresholds must be finite and non-negative.
+- Follow-up visual QA flattened the extra search-directory card, removed the duplicate native clear affordance, and kept the Manage **Replace photo** action at a stable single-line desktop width.
+- Validation: Node `v24.19.0`; TypeScript, focused ESLint, `pnpm build`, and `git diff --check` passed. Browser QA on authenticated local data confirmed both desktop hubs, customer settings search, Manage directory, and the Manage mobile layout. No settings mutation was submitted during QA.
+
 ## August 29, 2026 — Mail reading-workspace redesign
 
 - Reworked the fixed Manage Mail frame around reading density. Desktop now uses a compact toolbar, sender header, and one-line evidence/context strip so the message viewer owns the available height while the message list, reader, and contact context remain separate scroll surfaces.
