@@ -1364,9 +1364,6 @@ export function ManagePortal({
           </div>
           <div className="manage-topbar-center">{globalSearchControl}</div>
           <div className="workspace-header-action-group manage-header-action-group">
-            <button className={`workspace-mobile-search-trigger manage-mobile-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="manage-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
-              <Search aria-hidden="true" size={17} />
-            </button>
             <div className="manage-top-actions">
               <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
             {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
@@ -1435,6 +1432,10 @@ export function ManagePortal({
               </button>
               )}
             </div>
+            <span className="manage-mobile-search-divider" aria-hidden="true" />
+            <button className={`workspace-mobile-search-trigger manage-mobile-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="manage-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
+              <Search aria-hidden="true" size={17} />
+            </button>
           </div>
         </header>
         {(searchFocused || searchClosing) && (

@@ -14054,6 +14054,7 @@ button.workspace-notification-row:focus-visible {
   cursor:pointer;
   transition:border-color .18s ease, box-shadow .18s ease, color .18s ease, background-color .18s ease;
 }
+.manage-mobile-search-divider { display:none; }
 .workspace-mobile-search-trigger:hover { color:#214ca8; border-color:#b8c7df; }
 .workspace-mobile-search-trigger.is-open {
   color:#214ca8;
@@ -14251,7 +14252,19 @@ button.workspace-notification-row:focus-visible {
     overflow:hidden;
     padding-bottom:82px;
   }
-  .manage-shell-v2 .manage-topbar { min-height:72px; }
+  .manage-shell-v2 .manage-topbar {
+    min-height:72px;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:0 12px;
+  }
+  .manage-shell-v2 .manage-header-action-group {
+    display:flex;
+    grid-column:2;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+  }
+  .manage-shell-v2 .manage-top-actions { width:auto; flex:0 0 auto; }
   .manage-shell-v2 .manage-page { min-width:0; }
   .manage-shell-v2 .manage-page--mail { height:calc(100dvh - 72px); }
   /* Keep the portrait-tablet header calm: search remains one tap away in the
@@ -14259,6 +14272,16 @@ button.workspace-notification-row:focus-visible {
      actions for a single row. Desktop keeps the persistent search field. */
   .manage-shell-v2 .manage-topbar-center { display:none; }
   .manage-shell-v2 .manage-mobile-search-trigger { display:grid; }
+  .manage-shell-v2 .manage-mobile-search-divider {
+    display:block;
+    width:1px;
+    height:24px;
+    flex:0 0 1px;
+    margin:0 2px;
+    background:var(--workspace-line,#dfe5ee);
+  }
+  .manage-shell-v2 .workspace-mobile-search-overlay { display:block; }
+  .manage-shell-v2 .workspace-mobile-search-sheet { display:flex; }
   .manage-mobile-nav {
     position:fixed;
     z-index:75;
@@ -14419,6 +14442,7 @@ button.workspace-notification-row:focus-visible {
   .app-mobile-utility-search { display:contents; }
   .manage-shell-v2 .manage-topbar { grid-template-areas:"leading actions"; height:auto !important; min-height:0 !important; }
   .manage-mobile-search-trigger { flex:0 0 38px; }
+  .manage-mobile-search-divider { display:none; }
 }
 
 /* Close controls are intentionally quiet until interaction. One shared
