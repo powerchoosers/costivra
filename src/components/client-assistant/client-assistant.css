@@ -149,11 +149,6 @@
   transition: height var(--assistant-motion-layout) var(--assistant-ease);
 }
 
-.manage-dashboard-assistant__conversation {
-  width: min(100%, 720px);
-  height: 56px;
-}
-
 .dashboard-assistant__conversation.is-active,
 .manage-dashboard-assistant__conversation.is-active {
   height: min(54vh, 520px);
@@ -185,9 +180,9 @@
   display: grid;
   justify-items: center;
   gap: 22px;
-  min-height: 218px;
+  min-height: 248px;
   margin: 4px 0 28px;
-  padding: 25px 20px 16px;
+  padding: 28px 20px 18px;
 }
 
 .manage-dashboard-assistant__copy {
@@ -199,7 +194,7 @@
   margin: 0;
   color: var(--assistant-text);
   font-family: var(--font-space-grotesk, Inter, ui-sans-serif, system-ui, sans-serif);
-  font-size: clamp(1.45rem, 2.2vw, 2rem);
+  font-size: clamp(1.5rem, 2.4vw, 2.15rem);
   font-weight: 500;
   letter-spacing: -0.045em;
   line-height: 1.08;
@@ -208,12 +203,12 @@
 .manage-dashboard-assistant p {
   margin: 9px 0 0;
   color: var(--assistant-muted);
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   line-height: 1.45;
 }
 
 .manage-dashboard-assistant__form {
-  width: min(100%, 720px);
+  width: min(100%, 760px);
 }
 
 .manage-dashboard-assistant__conversation .manage-dashboard-assistant__form {
@@ -230,8 +225,8 @@
 }
 
 .manage-dashboard-assistant__form .assistant-composer-shell:focus-within {
-  border-color: var(--assistant-accent);
-  box-shadow: 0 0 0 3px var(--assistant-accent-soft), var(--workspace-panel-shadow, 0 1px 2px rgba(16, 24, 40, 0.035), 0 8px 20px -10px rgba(16, 24, 40, 0.12));
+  border-color: var(--workspace-control-line-hover, #b9cbe3);
+  box-shadow: 0 0 0 3px rgba(36, 86, 200, 0.11), var(--workspace-panel-shadow, 0 1px 2px rgba(16, 24, 40, 0.035), 0 8px 20px -10px rgba(16, 24, 40, 0.12));
 }
 
 .manage-dashboard-assistant__send {

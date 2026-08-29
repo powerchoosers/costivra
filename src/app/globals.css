@@ -14403,16 +14403,12 @@ button.workspace-notification-row:focus-visible {
 /* Inline Manage assistant: keep the first question quiet and centered, then
    let the conversation grow without turning the dashboard into a drawer. */
 .manage-dashboard-assistant {
-  display: grid;
-  gap: 20px;
-  justify-items: center;
+  gap: 22px;
   width: 100%;
-  max-width: 860px;
-  margin: 36px auto 40px;
+  max-width: none;
+  margin: 4px 0 28px;
   justify-self: center;
   grid-column: 1 / -1;
-  place-items: center;
-  text-align: center;
 }
 
 .manage-dashboard-assistant--active {
@@ -14422,25 +14418,20 @@ button.workspace-notification-row:focus-visible {
 
 .manage-dashboard-assistant__copy {
   width: 100%;
-  max-width: 560px;
-  text-align: center;
+  max-width: 680px;
 }
 
 .manage-dashboard-assistant__conversation,
 .manage-dashboard-assistant__form {
-  width: 100%;
+  width: min(100%, 760px);
 }
 
 .manage-dashboard-assistant__copy h2 {
-  margin: 0;
-  color: var(--ink, #17233a);
-  font-size: clamp(1.35rem, 2vw, 1.8rem);
-  letter-spacing: -0.03em;
+  font-size: clamp(1.5rem, 2.4vw, 2.15rem);
 }
 
 .manage-dashboard-assistant__copy p {
-  margin: 8px 0 0;
-  color: var(--muted, #687b99);
+  font-size: 0.88rem;
 }
 
 .manage-dashboard-assistant__thread {

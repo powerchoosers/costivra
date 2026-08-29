@@ -89,6 +89,7 @@ import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
 import { createClient } from "@/lib/supabase/client";
 import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
 import { AssistantConversationScroller } from "@/components/assistant-conversation-scroller";
+import { resizeAssistantComposer } from "@/lib/ui/assistant-composer";
 import { getMotionSafeScrollBehavior } from "@/lib/ui/motion";
 import { useToast } from "@/components/toast-provider";
 import { RecordOverflowMenu } from "@/components/records/record-overflow-menu";
@@ -2136,7 +2137,7 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
           {messages.map((message, index) => <div key={message.id} className={`manage-dashboard-assistant__message manage-dashboard-assistant__message--${message.role}`} style={{ "--message-index": index } as CSSProperties}><strong>{message.role === "assistant" ? "Costivra" : "You"}</strong><p>{message.content}</p>{message.sources && message.sources.length > 0 && <div className="manage-dashboard-assistant__sources"><span>Referenced records</span>{message.sources.slice(0, 4).map((source) => <a key={source.id} href={source.href}><strong>{source.label}</strong><small>{source.detail}</small></a>)}</div>}</div>)}
           {sending && <p className="manage-dashboard-assistant__thinking">Costivra is reviewing client operations…</p>}
         </AssistantConversationScroller>}
-        <form className="manage-dashboard-assistant__form" onSubmit={(event) => void submit(event)}>
+        <form className="assistant-composer-wrap dashboard-assistant__composer manage-dashboard-assistant__form" onSubmit={(event) => void submit(event)}>
           <AssistantComposerShell>
             <AssistantIconButton label="Open full Ask Costivra history" onClick={() => onOpenAssistant(question.trim() || undefined, sessionId)}>
               <CostivraAssistantIcon size={18} />
@@ -2144,7 +2145,10 @@ function ManageOverviewAssistant({ onOpenAssistant }: { onOpenAssistant: (questi
             <textarea
               className="assistant-composer-textarea"
               value={question}
-              onChange={(event) => setQuestion(event.target.value.slice(0, 2_000))}
+              onChange={(event) => {
+                setQuestion(event.target.value.slice(0, 2_000));
+                resizeAssistantComposer(event.currentTarget);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();

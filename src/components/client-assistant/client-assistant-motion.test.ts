@@ -37,7 +37,8 @@ describe("shared assistant message motion", () => {
 
   it("uses one interpolable dashboard expansion that smoothly pushes following content", () => {
     expect(assistantCss).toMatch(/\.dashboard-assistant__conversation,[\s\S]*height: 86px;[\s\S]*transition: height var\(--assistant-motion-layout\)/);
-    expect(assistantCss).toMatch(/\.manage-dashboard-assistant__conversation \{[\s\S]*height: 56px;/);
+    expect(assistantCss).not.toMatch(/\.manage-dashboard-assistant__conversation \{[\s\S]*height: 56px;/);
+    expect(assistantCss).toMatch(/\.dashboard-assistant__conversation,[\s\S]*\.manage-dashboard-assistant__conversation \{[\s\S]*width: min\(100%, 760px\);[\s\S]*height: 86px;/);
     expect(assistantCss).toMatch(/\.dashboard-assistant__conversation\.is-active,[\s\S]*height: min\(54vh, 520px\);/);
     expect(assistantCss).not.toContain("grid-template-rows: auto");
   });
