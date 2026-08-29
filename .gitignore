@@ -13,7 +13,6 @@
 
 # local environment
 .env*
-!.env.example
 
 # local tooling
 *.tsbuildinfo
