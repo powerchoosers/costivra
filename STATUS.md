@@ -1,5 +1,12 @@
 # Costivra Status
 
+## August 29, 2026 — Shared workspace rail shortcuts
+
+- Added one shared desktop-rail interaction contract for both customer App and Manage. Clicking a non-interactive area of a collapsed or expanded rail now toggles the saved rail preference without interfering with links, controls, inputs, or keyboard behavior.
+- A collapsed desktop rail now previews open only after a continuous two-second hover. The preview is deliberately non-persistent: leaving the rail or selecting a navigation/control target closes it, while an explicit blank-area or brand-toggle click remains the only way to keep it open.
+- Mobile navigation is unchanged; it does not receive the desktop hover or blank-rail shortcut.
+- Validation: Node `v24.19.0`; TypeScript completed without reported errors; focused ESLint passed with the two pre-existing App avatar `<img>` advisories; `git diff --check` passed. Browser verification is pending authenticated local access.
+
 ## August 29, 2026 — Unified Command Center composer geometry
 
 - Brought the Manage overview’s inline composer onto the same 760px, 86px idle-frame contract as the customer Command Center, including the outer composer container, shell geometry, and focus treatment. This removes the previous 56px clipped Manage frame.

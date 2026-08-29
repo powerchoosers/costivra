@@ -125,6 +125,7 @@ import { sequenceTaskOriginLabel } from "@/lib/manage/task-origin";
 import { groupRecordedSpend, type SpendInterval } from "@/lib/manage/vendor-costs";
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 import { MANAGE_SIDEBAR_PREFERENCE_KEY, manageSidebarPreferenceCookie, parseSidebarPreference, resolveManageRailOpen, shouldPersistManageRailPreference, type ManageSidebarViewport } from "@/lib/ui/workspace-preferences";
+import { useWorkspaceSidebarRail } from "@/lib/ui/workspace-sidebar-rail";
 import {
   buildRecipientCandidates,
   isRecipientEmail,
@@ -823,17 +824,7 @@ export function ManagePortal({
   }, []);
 
   const sidebarUsesRail = sidebarViewport !== "mobile";
-  const sidebarIsCollapsed = sidebarUsesRail && !mobileNav;
-
-  const showSidebarTooltip = useCallback((label: string, element: HTMLElement) => {
-    if (!sidebarIsCollapsed) return;
-    if (sidebarTooltipCloseTimerRef.current !== null) {
-      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
-      sidebarTooltipCloseTimerRef.current = null;
-    }
-    const rect = element.getBoundingClientRect();
-    setSidebarTooltip({ label, left: rect.right + 2, top: rect.top + rect.height / 2 });
-  }, [sidebarIsCollapsed]);
+  const sidebarPreferenceIsCollapsed = sidebarUsesRail && !mobileNav;
 
   const clearSidebarTooltip = useCallback(() => {
     setSidebarTooltip((current) => {
@@ -848,6 +839,29 @@ export function ManagePortal({
       sidebarTooltipCloseTimerRef.current = null;
     }, 190);
   }, []);
+
+  const {
+    isPreviewOpen: manageSidebarPreviewOpen,
+    onClickCapture: onManageSidebarClickCapture,
+    onPointerEnter: onManageSidebarPointerEnter,
+    onPointerLeave: onManageSidebarPointerLeave,
+  } = useWorkspaceSidebarRail({
+    enabled: sidebarUsesRail,
+    isCollapsed: sidebarPreferenceIsCollapsed,
+    onToggle: () => setMobileNav((current) => !current),
+    onPreviewOpen: clearSidebarTooltip,
+  });
+  const sidebarIsCollapsed = sidebarPreferenceIsCollapsed && !manageSidebarPreviewOpen;
+
+  const showSidebarTooltip = useCallback((label: string, element: HTMLElement) => {
+    if (!sidebarIsCollapsed) return;
+    if (sidebarTooltipCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
+      sidebarTooltipCloseTimerRef.current = null;
+    }
+    const rect = element.getBoundingClientRect();
+    setSidebarTooltip({ label, left: rect.right + 2, top: rect.top + rect.height / 2 });
+  }, [sidebarIsCollapsed]);
 
   useEffect(() => {
     if (!manageMobileMenuOpen && !manageMobileMenuClosing) return;
@@ -1108,6 +1122,9 @@ export function ManagePortal({
           sidebarIsCollapsed ? " is-collapsed" : ""
         }`}
         data-workspace-slot="rail"
+        onClickCapture={onManageSidebarClickCapture}
+        onPointerEnter={onManageSidebarPointerEnter}
+        onPointerLeave={onManageSidebarPointerLeave}
       >
         <div className="manage-brand">
           {sidebarViewport === "mobile" ? (

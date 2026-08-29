@@ -34,6 +34,7 @@ import { WorkspaceNotificationCenter, WorkspaceStatusBadge, WorkspaceUtilityButt
 import { isWorkspaceRouteActive } from "@/lib/ui/workspace-shell";
 import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
 import { APP_SIDEBAR_PREFERENCE_KEY, appSidebarPreferenceCookie, parseAppSidebarPreference } from "@/lib/ui/workspace-preferences";
+import { useWorkspaceSidebarRail } from "@/lib/ui/workspace-sidebar-rail";
 import { WorkspaceExperienceBanner } from "@/components/workspace-experience-banner";
 import { WorkspaceOnboardingTour } from "@/components/workspace-onboarding-tour";
 import { WorkspaceSidebarBrandToggle } from "@/components/workspace-sidebar-brand-toggle";
@@ -306,16 +307,6 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarTooltipCloseTimerRef = useRef<number | null>(null);
 
-  const showSidebarTooltip = useCallback((label: string, element: HTMLElement) => {
-    if (!sidebarCollapsed) return;
-    if (sidebarTooltipCloseTimerRef.current !== null) {
-      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
-      sidebarTooltipCloseTimerRef.current = null;
-    }
-    const rect = element.getBoundingClientRect();
-    setSidebarTooltip({ label, left: rect.right + 2, top: rect.top + rect.height / 2 });
-  }, [sidebarCollapsed]);
-
   const clearSidebarTooltip = useCallback(() => {
     setSidebarTooltip((current) => {
       if (!current || current.closing) return current;
@@ -329,6 +320,29 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
       sidebarTooltipCloseTimerRef.current = null;
     }, 190);
   }, []);
+
+  const {
+    isPreviewOpen: appSidebarPreviewOpen,
+    onClickCapture: onAppSidebarClickCapture,
+    onPointerEnter: onAppSidebarPointerEnter,
+    onPointerLeave: onAppSidebarPointerLeave,
+  } = useWorkspaceSidebarRail({
+    enabled: true,
+    isCollapsed: sidebarCollapsed,
+    onToggle: () => setSidebarCollapsedOverride(!sidebarCollapsed),
+    onPreviewOpen: clearSidebarTooltip,
+  });
+  const sidebarIsCollapsed = sidebarCollapsed && !appSidebarPreviewOpen;
+
+  const showSidebarTooltip = useCallback((label: string, element: HTMLElement) => {
+    if (!sidebarIsCollapsed) return;
+    if (sidebarTooltipCloseTimerRef.current !== null) {
+      window.clearTimeout(sidebarTooltipCloseTimerRef.current);
+      sidebarTooltipCloseTimerRef.current = null;
+    }
+    const rect = element.getBoundingClientRect();
+    setSidebarTooltip({ label, left: rect.right + 2, top: rect.top + rect.height / 2 });
+  }, [sidebarIsCollapsed]);
 
   useEffect(() => () => {
     if (sidebarTooltipCloseTimerRef.current !== null) {
@@ -594,11 +608,18 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
       {(isNavPending || optimisticHref !== null) && (
         <div className="fixed top-0 left-0 right-0 h-0.5 bg-blue-500 z-[9999] animate-pulse" />
       )}
-      <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
-        <aside className="app-sidebar" data-workspace-slot="rail" id="app-customer-sidebar">
+      <div className={`app-shell${sidebarIsCollapsed ? " sidebar-collapsed" : ""}`}>
+        <aside
+          className="app-sidebar"
+          data-workspace-slot="rail"
+          id="app-customer-sidebar"
+          onClickCapture={onAppSidebarClickCapture}
+          onPointerEnter={onAppSidebarPointerEnter}
+          onPointerLeave={onAppSidebarPointerLeave}
+        >
           <div className="sidebar-brand-row">
             <WorkspaceSidebarBrandToggle
-              collapsed={sidebarCollapsed}
+              collapsed={sidebarIsCollapsed}
               controlsId="app-customer-sidebar"
               onToggle={() => {
                 clearSidebarTooltip();
@@ -660,7 +681,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
               ))}
             </nav>
           </div>
-          {sidebarTooltip && sidebarCollapsed && (
+          {sidebarTooltip && sidebarIsCollapsed && (
             <div
               className={`app-sidebar-tooltip${sidebarTooltip.closing ? " is-closing" : ""}`}
               aria-hidden="true"
