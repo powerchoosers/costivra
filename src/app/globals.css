@@ -14254,6 +14254,11 @@ button.workspace-notification-row:focus-visible {
   .manage-shell-v2 .manage-topbar { min-height:72px; }
   .manage-shell-v2 .manage-page { min-width:0; }
   .manage-shell-v2 .manage-page--mail { height:calc(100dvh - 72px); }
+  /* Keep the portrait-tablet header calm: search remains one tap away in the
+     shared focused sheet instead of competing with the page title and utility
+     actions for a single row. Desktop keeps the persistent search field. */
+  .manage-shell-v2 .manage-topbar-center { display:none; }
+  .manage-shell-v2 .manage-mobile-search-trigger { display:grid; }
   .manage-mobile-nav {
     position:fixed;
     z-index:75;
