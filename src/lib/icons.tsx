@@ -80,6 +80,7 @@ import {
   ListNumbers as PhosphorListNumbers,
   LockKey as PhosphorLockKey,
   MapPin as PhosphorMapPin,
+  MicrosoftOutlookLogo as PhosphorMicrosoftOutlookLogo,
   Minus as PhosphorMinus,
   Paperclip as PhosphorPaperclip,
   PaperPlaneTilt as PhosphorPaperPlaneTilt,
@@ -263,6 +264,7 @@ export const Menu = adaptIcon(PhosphorList);
 export const MessageCircle = adaptIcon(PhosphorChatCircle);
 export const MessageSquare = adaptIcon(PhosphorChat);
 export const MessageSquareText = adaptIcon(PhosphorChatText);
+export const MicrosoftOutlookLogo = adaptIcon(PhosphorMicrosoftOutlookLogo);
 export const Minimize2 = adaptIcon(PhosphorArrowsIn);
 export const Minus = adaptIcon(PhosphorMinus);
 export const MoreHorizontal = adaptIcon(PhosphorDotsThree);

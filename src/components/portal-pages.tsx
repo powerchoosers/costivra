@@ -30,6 +30,7 @@ import {
   LoaderCircle,
   Mail,
   MapPin,
+  MicrosoftOutlookLogo,
   Pause,
   Pencil,
   Plus,
@@ -4189,13 +4190,10 @@ function Integrations({
                 subjectTerms: "",
               } : null;
               return <article className="portal-card integration-card mailbox-integration-card" key={item.id}>
-                <header>
-                  <div className="integration-symbol">
-                    {item.displayName.slice(0, 2).toUpperCase()}
-                  </div>
+                <header className="mailbox-integration-heading">
+                  <h2>{item.displayName}</h2>
                   <Status value={connection ? "connected" : provider ? "available" : item.status} />
                 </header>
-                <h2>{item.displayName}</h2>
                 <p>{item.description}</p>
                 {provider === "google_gmail" && <small className="integration-privacy-notice">
                   Gmail access is read-only. Costivra checks sender and subject details against rules you create, then imports only matching attachments for private bill review. Disconnecting deletes the stored connection tokens and stops future access. <Link href="/privacy#google-account-and-gmail-data">How Google data is handled</Link>
@@ -4244,7 +4242,7 @@ function Integrations({
                   </> : <>
                     <span className="integration-availability">You approve access on the provider’s consent screen</span>
                     <button className="button button-primary" type="button" disabled={mailboxLoading || mailboxBusy === provider} onClick={() => void beginMailboxConnection(item.id, item.provider)}>
-                      {mailboxBusy === provider ? <LoaderCircle className="spin" size={15} /> : <Mail size={15} />} Connect {item.provider === "gmail" ? "Gmail" : "Outlook"}
+                      {mailboxBusy === provider ? <LoaderCircle className="spin" size={15} /> : provider === "google_gmail" ? <GoogleMailboxLogo /> : <MicrosoftOutlookLogo className="mailbox-connect-provider-logo mailbox-connect-provider-logo--outlook" size={17} />} Connect {item.provider === "gmail" ? "Gmail" : "Outlook"}
                     </button>
                   </> : <span className="integration-availability">Setup is not available in-product yet.</span>}
                 </footer>
@@ -4569,6 +4567,11 @@ function Settings({
       {tab === "billing" && <BillingPanel />}
     </>
   );
+}
+
+function GoogleMailboxLogo() {
+  // Official Google mark, used only to identify the provider at the consent action.
+  return <svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" className="mailbox-connect-provider-logo"><path fill="#4285F4" d="M21.35 12.27c0-.76-.07-1.49-.22-2.2H12v4.16h5.23a4.47 4.47 0 0 1-1.94 2.94v2.45h3.15c1.84-1.69 2.91-4.18 2.91-7.35Z"/><path fill="#34A853" d="M12 21.8c2.63 0 4.84-.87 6.45-2.37l-3.15-2.45c-.87.58-1.98.92-3.3.92-2.54 0-4.69-1.72-5.46-4.03H3.29v2.53A9.74 9.74 0 0 0 12 21.8Z"/><path fill="#FBBC05" d="M6.54 13.87A5.86 5.86 0 0 1 6.23 12c0-.65.11-1.28.31-1.87V7.6H3.29A9.8 9.8 0 0 0 2.25 12c0 1.58.38 3.08 1.04 4.4l3.25-2.53Z"/><path fill="#EA4335" d="M12 6.1c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.84 3.17 14.63 2.2 12 2.2a9.74 9.74 0 0 0-8.71 5.4l3.25 2.53C7.31 7.82 9.46 6.1 12 6.1Z"/></svg>;
 }
 
 function AccountLoginSettings({ data }: { data: PortalData }) {
