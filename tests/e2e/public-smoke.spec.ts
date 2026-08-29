@@ -93,7 +93,7 @@ test("mobile navigation opens without shifting or clipping the page", async ({ p
 });
 
 test("tablet navigation opens as a full-height drawer without page overflow", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "tablet-chromium", "Tablet-only interaction");
+  test.skip(testInfo.project.name !== "tablet-chromium", "Portrait tablet marketing interaction");
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   const openButton = page.getByRole("button", { name: /open navigation/i });
