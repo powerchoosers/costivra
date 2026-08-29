@@ -1118,7 +1118,7 @@ export function ManagePortal({
       )}
       <aside
         id="manage-owner-sidebar"
-        className={`manage-sidebar${mobileNav ? " is-open" : ""}${
+        className={`manage-sidebar${mobileNav || manageSidebarPreviewOpen ? " is-open" : ""}${
           sidebarIsCollapsed ? " is-collapsed" : ""
         }`}
         data-workspace-slot="rail"

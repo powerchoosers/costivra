@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 29, 2026 — Manage rail hover-preview labels
+
+- Corrected the compact Manage rail’s temporary hover state: it now receives the same visual open class as a deliberately expanded rail, so labels and group headings render during the two-second hover preview instead of leaving an empty wide panel.
+- The state remains temporary and does not change the stored rail preference.
+- Validation: Node `v24.19.0`; TypeScript completed without reported errors; focused ESLint passed; `git diff --check` passed.
+
 ## August 29, 2026 — Fixed Manage mail workspace frame
 
 - Removed the Mail page itself from the shared scroll-surface enrollment. On desktop, Mail now uses the same fixed operating-workspace frame as the table views: the page chrome and lower panel edge remain visible while only the conversation list and reader scroll.
