@@ -114,6 +114,42 @@ type ApiOptions = {
   body?: BodyInit | Record<string, unknown>;
 };
 
+let sideSheetScrollLockCount = 0;
+let sideSheetScrollPosition = 0;
+let savedBodyScrollStyles: Pick<CSSStyleDeclaration, "position" | "top" | "width" | "overflow"> | null = null;
+let savedDocumentOverflow = "";
+
+function lockPageBehindSideSheet() {
+  if (sideSheetScrollLockCount === 0) {
+    sideSheetScrollPosition = window.scrollY;
+    savedBodyScrollStyles = {
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+      overflow: document.body.style.overflow,
+    };
+    savedDocumentOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${sideSheetScrollPosition}px`;
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+  }
+  sideSheetScrollLockCount += 1;
+
+  return () => {
+    sideSheetScrollLockCount = Math.max(0, sideSheetScrollLockCount - 1);
+    if (sideSheetScrollLockCount !== 0 || !savedBodyScrollStyles) return;
+    document.body.style.position = savedBodyScrollStyles.position;
+    document.body.style.top = savedBodyScrollStyles.top;
+    document.body.style.width = savedBodyScrollStyles.width;
+    document.body.style.overflow = savedBodyScrollStyles.overflow;
+    document.documentElement.style.overflow = savedDocumentOverflow;
+    window.scrollTo({ top: sideSheetScrollPosition, behavior: "auto" });
+    savedBodyScrollStyles = null;
+  };
+}
+
 async function api(url: string, options: ApiOptions = {}) {
   const body =
     options.body && !(options.body instanceof FormData)
@@ -281,6 +317,7 @@ function PortalModal({
         : null;
     const bodyWasLocked = document.body.classList.contains("modal-open");
     document.body.classList.add("modal-open");
+    const releaseSideSheetScroll = side ? lockPageBehindSideSheet() : null;
     const focusTimer = window.requestAnimationFrame(() => {
       const initial = dialogRef.current?.querySelector<HTMLElement>(
         ".portal-modal-body input:not([type='hidden']), .portal-modal-body select, .portal-modal-body textarea, .portal-modal-body button, .portal-modal-body [href]",
@@ -318,10 +355,11 @@ function PortalModal({
     return () => {
       window.cancelAnimationFrame(focusTimer);
       document.removeEventListener("keydown", key);
+      releaseSideSheetScroll?.();
       if (!bodyWasLocked) document.body.classList.remove("modal-open");
       previousFocusRef.current?.focus();
     };
-  }, [mounted]);
+  }, [mounted, side]);
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(
     <div

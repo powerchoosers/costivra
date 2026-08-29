@@ -5363,7 +5363,7 @@ body:has(.manage-sidebar.is-collapsed) { --manage-floating-back-left:104px; }
 @media (max-width: 760px) {
   .portal-page-header-action { width: auto; align-self: flex-end; }
 }
-.portal-modal-layer--side { align-items: stretch; justify-content: flex-end; padding: 72px 0 0; background: rgba(11,16,26,.14); backdrop-filter: blur(3px); }
+.portal-modal-layer--side { align-items: stretch; justify-content: flex-end; overflow: hidden; padding: 72px 0 0; background: rgba(11,16,26,.14); backdrop-filter: blur(3px); }
 body.modal-open .app-topbar { filter: blur(7px); }
 .portal-modal-layer--side .portal-modal--side { width: min(560px, calc(100vw - 24px)); height: 100%; max-height: none; border-radius: 18px 0 0 0; border-right: 0; animation: portal-sidepanel-in 280ms cubic-bezier(.23,1,.32,1) both; }
 .portal-modal-layer--side .portal-modal--upload { height: min(520px, calc(100dvh - 92px)); align-self: flex-end; }
