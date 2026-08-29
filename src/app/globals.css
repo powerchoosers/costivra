@@ -13411,6 +13411,9 @@ button.workspace-notification-row:focus-visible {
   }
 
   .app-body .app-mobile-drawer-signout {
+    display:flex;
+    align-items:center;
+    gap:10px;
     width: 100%;
     margin-top: 14px;
     border: 1px solid var(--workspace-control-line);
@@ -13424,6 +13427,10 @@ button.workspace-notification-row:focus-visible {
     text-align: left;
     cursor: pointer;
   }
+  .app-body .app-mobile-drawer-signout .app-operator-avatar { width:32px; height:32px; flex:0 0 32px; }
+  .app-body .app-mobile-drawer-signout > span:last-child { display:grid; gap:2px; min-width:0; }
+  .app-body .app-mobile-drawer-signout strong { color:var(--workspace-ink); font-size:.78rem; }
+  .app-body .app-mobile-drawer-signout small { color:var(--workspace-muted); font-size:.68rem; }
 
   .app-body .app-mobile-drawer-signout:hover,
   .app-body .app-mobile-drawer-signout:focus-visible {
@@ -14020,6 +14027,10 @@ button.workspace-notification-row:focus-visible {
   .manage-mobile-drawer__footer > *:focus-visible { outline:0; border-color:var(--workspace-line-soft, #edf0f5); background:var(--workspace-subtle-hover, #f7f9fc); }
   .manage-mobile-drawer__footer { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:10px; border-top:1px solid var(--workspace-line-soft, #edf0f5); }
   .manage-mobile-drawer__footer button { justify-content:flex-start; color:#9a3d35; }
+  .manage-mobile-drawer__footer button .manage-operator-avatar { width:30px; height:30px; flex:0 0 30px; }
+  .manage-mobile-drawer__footer button > span { display:grid; min-width:0; gap:2px; }
+  .manage-mobile-drawer__footer button strong { overflow:hidden; color:var(--workspace-ink,#1f2b42); font-size:.74rem; text-overflow:ellipsis; white-space:nowrap; }
+  .manage-mobile-drawer__footer button small { color:var(--workspace-muted,#6b7890); font-size:.65rem; }
   @keyframes manage-mobile-drawer-overlay-in { from { opacity:0; } to { opacity:1; } }
   @keyframes manage-mobile-drawer-overlay-out { from { opacity:1; } to { opacity:0; } }
   @keyframes manage-mobile-drawer-in { from { opacity:0; transform:translateY(12px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
@@ -14119,6 +14130,131 @@ button.workspace-notification-row:focus-visible {
   .manage-mobile-nav,
   .manage-mobile-drawer-overlay,
   .manage-mobile-drawer { display:none; }
+}
+
+/* Portrait tablets use the same touch-first navigation model as phones. The
+   content remains a single viewport-bound surface while the bottom dock and
+   More sheet replace the desktop side rail. */
+@media (min-width:781px) and (max-width:1050px) {
+  .app-body .app-shell,
+  .app-body .app-shell.sidebar-collapsed {
+    display:block;
+    min-height:100dvh;
+  }
+  .app-body .app-sidebar { display:none; }
+  .app-body .app-main { margin:0; padding-bottom:82px; }
+  .app-body .app-work-canvas { min-height:100dvh; border-radius:0; }
+  .app-body .app-work-canvas > .app-topbar {
+    position:sticky;
+    top:0;
+    z-index:20;
+    min-height:66px;
+    padding:0 22px;
+  }
+  .app-body .app-work-canvas > :is(.app-content, .app-content-table-page) {
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+  .app-body .app-mobile-nav {
+    position:fixed;
+    z-index:70;
+    right:16px;
+    bottom:max(12px, env(safe-area-inset-bottom));
+    left:16px;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:5px;
+    align-items:stretch;
+    padding:6px;
+    border:1px solid var(--workspace-line,#dfe5ee);
+    border-radius:16px;
+    color:var(--workspace-muted,#6b7890);
+    background:rgba(255,255,255,.97);
+    box-shadow:0 14px 36px rgba(15,23,42,.15);
+    backdrop-filter:blur(16px);
+  }
+  .app-body .app-mobile-nav :is(a,button) {
+    display:flex;
+    min-width:0;
+    min-height:54px;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:4px;
+    padding:0 6px;
+    border:1px solid transparent;
+    border-radius:11px;
+    color:var(--workspace-muted,#6b7890);
+    background:transparent;
+    font:650 .66rem/1.1 Inter,ui-sans-serif,system-ui,sans-serif;
+    text-decoration:none;
+    cursor:pointer;
+  }
+  .app-body .app-mobile-nav :is(a,button).active,
+  .app-body .app-mobile-nav :is(a,button):hover,
+  .app-body .app-mobile-nav :is(a,button):focus-visible {
+    border-color:#d6e2f8;
+    color:var(--workspace-control-ink-active,#315bbb);
+    background:var(--workspace-accent-soft,#eef3ff);
+    outline:0;
+  }
+  .app-body .app-mobile-drawer-overlay { position:fixed; inset:0; z-index:85; display:block; background:var(--workspace-overlay,rgba(15,23,42,.42)); backdrop-filter:blur(3px); }
+  .app-body .app-mobile-drawer {
+    position:fixed;
+    z-index:86;
+    right:16px;
+    bottom:calc(84px + env(safe-area-inset-bottom));
+    left:16px;
+    display:block;
+    max-height:calc(100dvh - 112px);
+    overflow-y:auto;
+    border:1px solid var(--workspace-line,#dfe5ee);
+    border-radius:18px;
+    padding:18px;
+    color:var(--workspace-ink,#1f2b42);
+    background:var(--workspace-surface,#fff);
+    box-shadow:0 24px 64px rgba(15,23,42,.2);
+  }
+  .app-body .app-mobile-drawer-signout { margin-top:16px; }
+
+  .manage-shell-v2 {
+    height:100dvh;
+    min-height:0;
+    overflow:hidden;
+  }
+  .manage-shell-v2 .manage-sidebar { display:none; }
+  .manage-shell-v2 .manage-main,
+  .manage-shell-v2 .manage-main.is-collapsed {
+    width:100%;
+    max-width:100%;
+    height:100dvh;
+    min-height:0;
+    margin:0;
+    overflow:hidden;
+    padding-bottom:82px;
+  }
+  .manage-shell-v2 .manage-topbar { min-height:72px; }
+  .manage-shell-v2 .manage-page { min-width:0; }
+  .manage-shell-v2 .manage-page--mail { height:calc(100dvh - 72px); }
+  .manage-mobile-nav {
+    position:fixed;
+    z-index:75;
+    right:16px;
+    bottom:max(12px, env(safe-area-inset-bottom));
+    left:16px;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:5px;
+    align-items:stretch;
+    padding:6px;
+    border:1px solid var(--workspace-line,#dfe5ee);
+    border-radius:16px;
+    background:rgba(255,255,255,.97);
+    box-shadow:0 14px 36px rgba(15,23,42,.15);
+    backdrop-filter:blur(16px);
+  }
+  .manage-mobile-nav :is(a,button) { min-height:54px; font-size:.66rem; }
+  .manage-mobile-drawer-overlay { position:fixed; inset:0; z-index:84; display:block; }
+  .manage-mobile-drawer { right:16px; bottom:calc(84px + env(safe-area-inset-bottom)); left:16px; max-height:calc(100dvh - 112px); }
 }
 
 /* Shared mobile header contract: one context/search row, then one page/action

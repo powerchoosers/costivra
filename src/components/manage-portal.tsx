@@ -1659,8 +1659,9 @@ export function ManagePortal({
                 <span>{settingsNav[0]}</span>
               </Link>
               <button type="button" onClick={() => void signOut()}>
+                <OperatorAvatar operator={data.operator} />
+                <span><strong>{data.operator.fullName}</strong><small>Sign out</small></span>
                 <ArrowLeft aria-hidden="true" size={17} />
-                <span>Sign out</span>
               </button>
             </footer>
           </section>

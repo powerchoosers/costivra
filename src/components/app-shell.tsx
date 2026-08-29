@@ -951,7 +951,8 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                   className="app-mobile-drawer-signout"
                   onClick={() => void signOut()}
                 >
-                  Sign out
+                  {data.currentUser.avatarUrl ? <img className="app-operator-avatar" src={data.currentUser.avatarUrl} alt="" /> : <span className="app-operator-avatar" aria-hidden="true">{initials}</span>}
+                  <span><strong>{data.currentUser.fullName}</strong><small>Sign out</small></span>
                 </button>
               </div>
             </>
