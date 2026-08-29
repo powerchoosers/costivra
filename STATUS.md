@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 29, 2026 — Fixed Manage mail workspace frame
+
+- Removed the Mail page itself from the shared scroll-surface enrollment. On desktop, Mail now uses the same fixed operating-workspace frame as the table views: the page chrome and lower panel edge remain visible while only the conversation list and reader scroll.
+- Mobile keeps its purpose-built mail layout and its existing reader/list transitions.
+- Validation: Node `v24.19.0`; TypeScript completed without reported errors; focused ESLint passed; `git diff --check` passed. Production browser confirmation will follow the deployment.
+
 ## August 29, 2026 — Shared workspace rail shortcuts
 
 - Added one shared desktop-rail interaction contract for both customer App and Manage. Clicking a non-interactive area of a collapsed or expanded rail now toggles the saved rail preference without interfering with links, controls, inputs, or keyboard behavior.

@@ -2416,7 +2416,7 @@ html { scroll-padding-top: 92px; }
 .manage-full { width:100%; }
 .manage-page { width:100%; max-width:1660px; margin:0 auto; padding:28px; }
 .manage-page--accounts, .manage-page--contacts { height:calc(100dvh - 72px); overflow:hidden; }
-.manage-page--mail { height:calc(100dvh - 72px); overflow:hidden; }
+.manage-page--mail { height:calc(100dvh - 72px); overscroll-behavior:none; overflow:hidden; }
 .manage-page--detail { height:auto; min-height:calc(100dvh - 72px); overflow:visible; padding-bottom:48px; }
 .manage-intro, .manage-page-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:22px; }
 .manage-intro>.manage-intro-copy { display:block; }
@@ -11648,6 +11648,20 @@ button.workspace-notification-row:focus-visible {
    Record-detail routes keep the shell's native page scrollport so wheel input
    and the shared scrollbar overlay stay smooth and visible. */
 @media (min-width: 781px) {
+  /* Mail is a fixed operating workspace. Its list and reader own scroll, so
+     the surrounding page chrome and panel edge always remain in view. */
+  .manage-shell-v2 .manage-page--mail {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .manage-shell-v2 .manage-page--mail > .manage-mail-page {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
   .manage-shell-v2 .manage-page--accounts:not(.manage-page--detail),
   .manage-shell-v2 .manage-page--contacts:not(.manage-page--detail) {
     display: flex;

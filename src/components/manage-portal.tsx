@@ -1453,9 +1453,9 @@ export function ManagePortal({
         )}
         <div
           key={pathname}
-          data-workspace-scrollbar=""
+          data-workspace-scrollbar={section === "mail" ? undefined : ""}
           className={`manage-page manage-page--${section}${manageRecordDetailRoute ? " manage-page--detail" : ""} motion-page`}
-          onWheelCapture={manageRecordDetailRoute ? undefined : (event) => {
+          onWheelCapture={manageRecordDetailRoute || section === "mail" ? undefined : (event) => {
             const node = event.currentTarget;
             const target = event.target as HTMLElement;
             if (
