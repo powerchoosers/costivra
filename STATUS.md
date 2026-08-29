@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 29, 2026 — Mailbox connection card refinement
+
+- Replaced the Gmail and Microsoft 365 monogram placeholders with their provider marks in the corresponding consent actions, removed the duplicate card monograms, and aligned each availability badge with its provider name.
+- Pushed commit `bedc6bb` to `main`. Local development is available at `http://localhost:3000`; the authenticated settings view requires a local sign-in before visual verification can continue.
+- Validation: focused ESLint passed; `git diff --check` passed.
+
 ## August 29, 2026 — Bill-analysis launch clarity pass
 
 - Reframed the header intake flow around the actual customer job: the primary action is now **Analyze bill**, with staged, source-honest progress for securing the file, extracting charges, and preparing a reconciled human review. The chooser is now keyboard-safe and rejects empty, oversized, unsupported, or multi-file selections before an upload begins.
