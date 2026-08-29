@@ -2837,6 +2837,21 @@ export function VendorDetail({
         </div>
       </div>
 
+      <WorkspaceDecisionSummary
+        ariaLabel="Vendor relationship next step"
+        className="vendor-decision-summary"
+        eyebrow="Relationship attention"
+        description={vendorNextStep.description}
+        facts={[
+          { label: "Monitoring", value: monitoringState.label },
+          { label: "Latest charge", value: latestRecordedPoint ? vendorMoney(latestRecordedPoint.amount) : "Not recorded" },
+          { label: "Bills awaiting review", value: pendingReviewCount ? `${pendingReviewCount} ${pendingReviewCount === 1 ? "bill" : "bills"}` : "None" },
+          { label: "Open work", value: openWorkCount ? `${openWorkCount} item${openWorkCount === 1 ? "" : "s"}` : "None" },
+        ]}
+        heading={vendorNextStep.heading}
+        actions={primaryActionControl}
+      />
+
       <div className="vendor-detail-navigation-row">
         <WorkspaceViewTabs
           activeId={activeTab}
@@ -2847,20 +2862,6 @@ export function VendorDetail({
           tabs={vendorTabs}
         />
       </div>
-
-      <WorkspaceDecisionSummary
-        ariaLabel="Vendor relationship next step"
-        className="vendor-decision-summary"
-        eyebrow="Relationship attention"
-        description={vendorNextStep.description}
-        facts={[
-          { label: "Monitoring", value: monitoringState.label },
-          { label: "Bills awaiting review", value: pendingReviewCount ? `${pendingReviewCount} ${pendingReviewCount === 1 ? "bill" : "bills"}` : "None" },
-          { label: "Open work", value: openWorkCount ? `${openWorkCount} item${openWorkCount === 1 ? "" : "s"}` : "None" },
-        ]}
-        heading={vendorNextStep.heading}
-        actions={primaryActionControl}
-      />
 
       {activeTab === "overview" && (
         <div className="vendor-detail-stack">
@@ -2895,12 +2896,6 @@ export function VendorDetail({
 
           <div className="vendor-overview-support-grid">
             <div className="vendor-overview-support-grid__main">
-              <VendorRelationshipContacts
-                relationshipId={vendor.relationshipId}
-                contacts={vendorContacts}
-                canWrite={canWrite}
-              />
-
               {/* Value summary */}
               <section className="portal-panel workspace-value-summary">
                 <h2>Value Summary</h2>
@@ -2925,6 +2920,12 @@ export function VendorDetail({
                   <ShieldCheck aria-hidden="true" size={14} /> {potentialFindings.length ? "Potential value is an estimate based on linked evidence and a deterministic calculation. Verified value is proven by later invoice evidence." : "Costivra will show potential value only after a finding has linked evidence and a deterministic calculation."}
                 </p>
               </section>
+
+              <VendorRelationshipContacts
+                relationshipId={vendor.relationshipId}
+                contacts={vendorContacts}
+                canWrite={canWrite}
+              />
             </div>
 
             <div className="vendor-overview-support-grid__rail">

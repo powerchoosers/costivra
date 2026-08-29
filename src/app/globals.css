@@ -14358,6 +14358,102 @@ button.workspace-notification-row:focus-visible {
   margin: 0;
 }
 
+/* Client record IDs use one decision-and-proof stage before their supporting
+   fields. Entity modifiers change content, while this shared frame keeps the
+   customer-facing reading order consistent across bills, findings, and terms. */
+.app-body .app-work-canvas .record-workspace-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, .85fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.app-body .app-work-canvas .record-workspace-stage__decision {
+  min-width: 0;
+}
+
+.app-body .app-work-canvas .record-workspace-stage__decision > .workspace-decision-summary,
+.app-body .app-work-canvas .record-workspace-stage__decision > .savings-review-panel {
+  height: 100%;
+  margin: 0;
+}
+
+.app-body .app-work-canvas .record-context-brief {
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  border: 1px solid var(--workspace-line);
+  border-radius: var(--workspace-panel-radius);
+  padding: 19px 20px;
+  background: var(--workspace-surface);
+  box-shadow: var(--workspace-panel-shadow);
+}
+
+.app-body .app-work-canvas .record-context-brief header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app-body .app-work-canvas .record-context-brief header > div { min-width: 0; }
+.app-body .app-work-canvas .record-context-brief header span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--workspace-table-heading);
+  font-size: .62rem;
+  font-weight: 760;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.app-body .app-work-canvas .record-context-brief h2 {
+  margin: 0;
+  color: var(--workspace-ink);
+  font-size: .92rem;
+  letter-spacing: -.012em;
+}
+
+.app-body .app-work-canvas .record-context-brief > p {
+  margin: 0;
+  color: var(--workspace-muted);
+  font-size: .74rem;
+  line-height: 1.48;
+}
+
+.app-body .app-work-canvas .record-context-brief dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 1px 0 0;
+  border-top: 1px solid var(--workspace-line-soft);
+}
+
+.app-body .app-work-canvas .record-context-brief dl > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 11px 8px 0 0;
+}
+
+.app-body .app-work-canvas .record-context-brief dl > div:nth-child(even) { padding-left: 10px; border-left: 1px solid var(--workspace-line-soft); }
+.app-body .app-work-canvas .record-context-brief dt { color: var(--workspace-table-heading); font-size: .61rem; font-weight: 720; letter-spacing: .055em; text-transform: uppercase; }
+.app-body .app-work-canvas .record-context-brief dd { margin: 0; overflow: hidden; color: var(--workspace-ink); font-size: .76rem; font-weight: 650; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.app-body .app-work-canvas .record-context-brief__analysis { min-height: 31px; flex: 0 0 auto; padding: 6px 9px; font-size: .67rem; white-space: nowrap; }
+
+@media (max-width: 1100px) {
+  .app-body .app-work-canvas .record-workspace-stage { grid-template-columns: 1fr; }
+  .app-body .app-work-canvas .record-detail-layout { grid-template-columns: 1fr; }
+  .app-body .app-work-canvas .record-detail-layout > aside { position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: none; overflow: visible; }
+}
+
+@media (max-width: 760px) {
+  .app-body .app-work-canvas .record-context-brief { padding: 17px; }
+  .app-body .app-work-canvas .record-context-brief header { display: grid; }
+  .app-body .app-work-canvas .record-context-brief__analysis { width: 100%; justify-content: center; }
+  .app-body .app-work-canvas .record-detail-layout > aside { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 760px) {
   .app-body .app-work-canvas .vendor-scope-context .vendor-detail-actions {
     width: 100%;
