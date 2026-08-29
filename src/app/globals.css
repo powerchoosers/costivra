@@ -9523,6 +9523,41 @@ body.modal-open .app-topbar { filter: blur(7px); }
   transform: none;
 }
 
+/* Shared table selection controls keep high-volume review work local to the table.
+   They never imply a bulk state change; the available actions are export and handoff. */
+.app-body .app-work-canvas .workspace-bulk-selection-column { width: 44px; }
+.app-body .app-work-canvas .workspace-bulk-selection-cell { width: 44px; padding-inline: 10px; text-align: center; }
+.workspace-bulk-row-selector,
+.workspace-bulk-header-selector { width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--workspace-control-line); border-radius: 6px; background: var(--workspace-surface); color: transparent; cursor: pointer; transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast); }
+.workspace-bulk-row-selector:hover,
+.workspace-bulk-header-selector:hover { border-color: var(--workspace-control-line-hover); background: var(--workspace-control-surface-active); box-shadow: 0 2px 5px rgba(15, 23, 42, .045); }
+.workspace-bulk-row-selector.is-checked,
+.workspace-bulk-header-selector.is-all,
+.workspace-bulk-header-selector.is-some { border-color: var(--workspace-accent); background: var(--workspace-accent); color: #fff; }
+.workspace-bulk-header-selector span { font-size: .8rem; font-weight: 800; line-height: 1; }
+.workspace-bulk-row-selector:focus-visible,
+.workspace-bulk-header-selector:focus-visible,
+.workspace-bulk-action-bar button:focus-visible { outline: 0; box-shadow: var(--workspace-focus-ring); }
+.app-body .app-work-canvas .portal-table tr:has(.workspace-bulk-row-selector.is-checked) > td { background: #f5f8ff; }
+.workspace-bulk-action-bar { display: inline-flex; align-items: center; gap: 9px; margin: 10px 12px 12px; padding: 4px 7px 4px 9px; border: 1px solid #cbd7f4; border-radius: 10px; background: rgba(255, 255, 255, .98); box-shadow: var(--workspace-panel-shadow); animation: costivra-popover-rise .2s cubic-bezier(.23, 1, .32, 1) both; }
+.workspace-bulk-action-bar > strong { min-width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: #fff; background: var(--workspace-accent); font-size: .62rem; font-weight: 750; }
+.workspace-bulk-action-bar > span { color: var(--workspace-ink); font-size: .65rem; font-weight: 680; white-space: nowrap; }
+.workspace-bulk-action-bar > div { display: flex; gap: 6px; }
+.workspace-bulk-action-bar button { min-height: 28px; display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid var(--workspace-control-line); border-radius: 7px; background: var(--workspace-surface); color: var(--workspace-control-ink); font-size: .62rem; font-weight: 680; cursor: pointer; white-space: nowrap; transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), color var(--workspace-motion-fast); }
+.workspace-bulk-action-bar button:hover { border-color: var(--workspace-control-line-hover); color: var(--workspace-control-ink-active); background: var(--workspace-control-surface-active); }
+.workspace-bulk-action-bar .workspace-bulk-clear { width: 28px; justify-content: center; padding: 0; border-color: transparent; }
+.workspace-bulk-action-bar .workspace-bulk-clear:hover { color: #b42318; background: #fff1f0; }
+
+@media (max-width: 780px) {
+  .workspace-bulk-action-bar { align-items: flex-start; flex-wrap: wrap; max-width: calc(100% - 24px); }
+  .workspace-bulk-action-bar > div { width: 100%; }
+  .workspace-bulk-action-bar > div > button:not(.workspace-bulk-clear) { flex: 1; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-bulk-action-bar { animation: none; }
+}
+
 .manage-app :is(.manage-button, .manage-icon-button, input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus-visible,
 .app-body .app-work-canvas :is(.button:not(.button-dark), input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus-visible {
   border-color: var(--workspace-accent);

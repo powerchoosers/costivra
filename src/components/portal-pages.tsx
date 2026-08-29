@@ -78,6 +78,7 @@ import { recordDraftChanged } from "@/lib/records/draft-state";
 import { opportunityTrustLabel } from "@/lib/domain/opportunity-trust";
 import { getPlainLanguageReviewReasons, resolveBillsView } from "@/lib/portal/bills-workspace";
 import { PageBreadcrumbs, PageScopeIndicator } from "@/components/page-scope-indicator";
+import { WorkspaceTableBulkActions } from "@/components/ui/workspace-table-bulk-actions";
 import { getLegacyWorkspaceRedirect } from "@/lib/portal/scope-routing";
 import { getChronologicalBillDocumentIds } from "@/lib/portal/bill-chronology";
 import {
@@ -1191,9 +1192,25 @@ function BillsWorkspace({
         <section className="portal-panel bills-directory">
           {filteredReviewInvoices.length ? (
             <div className="bills-table-wrap">
+              <WorkspaceTableBulkActions
+                rows={filteredReviewInvoices}
+                rowId={(invoice) => invoice.id}
+                rowLabel={(invoice) => `${invoice.vendorName} ${invoice.invoiceNumber ?? "bill"}`}
+                filename="costivra-bills-review.csv"
+                hrefForRow={(invoice) => `/app/bills/${invoice.id}`}
+                exportColumns={[
+                  { label: "Vendor", value: (invoice) => invoice.vendorName },
+                  { label: "Invoice", value: (invoice) => invoice.invoiceNumber },
+                  { label: "Amount due", value: (invoice) => invoice.amountDue },
+                  { label: "Due date", value: (invoice) => invoice.dueDate },
+                  { label: "Review status", value: (invoice) => invoice.reviewStatus },
+                ]}
+              >
+                {({ HeaderSelector, RowSelector, actionBar }) => <>
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
+                    <th className="workspace-bulk-selection-cell"><HeaderSelector /></th>
                     <th>Vendor</th>
                     <th>Bill / Invoice</th>
                     <th>Billing Period</th>
@@ -1211,6 +1228,7 @@ function BillsWorkspace({
                 const reasons = getPlainLanguageReviewReasons(inv, doc?.status);
                 return (
                   <tr key={inv.id}>
+                    <td className="workspace-bulk-selection-cell"><RowSelector row={inv} /></td>
                     <td>
                       {inv.vendorId ? <Link className="record-link" href={`/app/vendors/${inv.vendorId}`} title={`Open ${inv.vendorName} workspace`}><strong>{inv.vendorName}</strong></Link> : <strong>{inv.vendorName}</strong>}
                     </td>
@@ -1236,6 +1254,9 @@ function BillsWorkspace({
               })}
                 </tbody>
               </table>
+              {actionBar}
+                </>}
+              </WorkspaceTableBulkActions>
             </div>
           ) : (
             <Empty title="Nothing needs review" copy="All current bills have cleared the available checks." />
@@ -1251,9 +1272,26 @@ function BillsWorkspace({
         <section className="portal-panel bills-directory">
           {filteredAllInvoices.length ? (
             <div className="bills-table-wrap">
+              <WorkspaceTableBulkActions
+                rows={filteredAllInvoices}
+                rowId={(invoice) => invoice.id}
+                rowLabel={(invoice) => `${invoice.vendorName} ${invoice.invoiceNumber ?? "bill"}`}
+                filename="costivra-bills.csv"
+                hrefForRow={(invoice) => `/app/bills/${invoice.id}`}
+                exportColumns={[
+                  { label: "Vendor", value: (invoice) => invoice.vendorName },
+                  { label: "Invoice", value: (invoice) => invoice.invoiceNumber },
+                  { label: "Billing period", value: (invoice) => displayPeriod(invoice.servicePeriodStart, invoice.servicePeriodEnd) },
+                  { label: "Amount due", value: (invoice) => invoice.amountDue },
+                  { label: "Due date", value: (invoice) => invoice.dueDate },
+                  { label: "Review status", value: (invoice) => invoice.reviewStatus },
+                ]}
+              >
+                {({ HeaderSelector, RowSelector, actionBar }) => <>
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
+                    <th className="workspace-bulk-selection-cell"><HeaderSelector /></th>
                     <th>Vendor</th>
                     <th>Invoice / Bill</th>
                     <th>Billing Period</th>
@@ -1268,6 +1306,7 @@ function BillsWorkspace({
                 <tbody>
                   {filteredAllInvoices.map((inv) => (
                     <tr key={inv.id}>
+                      <td className="workspace-bulk-selection-cell"><RowSelector row={inv} /></td>
                       <td>
                         {inv.vendorId ? (
                           <Link
@@ -1299,6 +1338,9 @@ function BillsWorkspace({
                   ))}
                 </tbody>
               </table>
+              {actionBar}
+                </>}
+              </WorkspaceTableBulkActions>
             </div>
           ) : (
             <Empty
@@ -1330,9 +1372,26 @@ function BillsWorkspace({
           </div>
           {filteredExpenses.length ? (
             <div className="bills-table-wrap">
+              <WorkspaceTableBulkActions
+                rows={filteredExpenses}
+                rowId={(expense) => expense.id}
+                rowLabel={(expense) => `${expense.vendorName} spend record`}
+                filename="costivra-spend-ledger.csv"
+                hrefForRow={(expense) => expense.invoiceId || expense.documentId ? `/app/bills/${expense.invoiceId ?? expense.documentId}` : null}
+                exportColumns={[
+                  { label: "Vendor", value: (expense) => expense.vendorName },
+                  { label: "Category", value: (expense) => expense.category },
+                  { label: "Period end", value: (expense) => expense.periodEnd },
+                  { label: "Amount", value: (expense) => expense.amount },
+                  { label: "Prior period amount", value: (expense) => expense.priorPeriodAmount },
+                  { label: "Status", value: (expense) => expense.status },
+                ]}
+              >
+                {({ HeaderSelector, RowSelector, actionBar }) => <>
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
+                    <th className="workspace-bulk-selection-cell"><HeaderSelector /></th>
                     <th>Vendor</th>
                     <th>Category</th>
                     <th>Period</th>
@@ -1345,6 +1404,7 @@ function BillsWorkspace({
                 <tbody>
                   {filteredExpenses.map((exp) => (
                     <tr key={exp.id}>
+                      <td className="workspace-bulk-selection-cell"><RowSelector row={exp} /></td>
                       <td>
                         {exp.vendorId ? (
                           <Link className="record-link" href={`/app/vendors/${exp.vendorId}`}>
@@ -1376,6 +1436,9 @@ function BillsWorkspace({
                   ))}
                 </tbody>
               </table>
+              {actionBar}
+                </>}
+              </WorkspaceTableBulkActions>
             </div>
           ) : (
             <Empty title="No normalized spend yet" copy="Approved bills will appear here after review." />
@@ -1516,17 +1579,34 @@ function FindingsWorkspace({
       <section className="portal-panel vendor-directory findings-directory">
         {filtered.length ? (
           <div className="table-wrap vendor-table-wrap">
+            <WorkspaceTableBulkActions
+              rows={filtered}
+              rowId={(finding) => finding.id}
+              rowLabel={(finding) => finding.title}
+              filename="costivra-findings.csv"
+              hrefForRow={(finding) => `/app/findings/${finding.id}`}
+              exportColumns={[
+                { label: "Finding", value: (finding) => finding.title },
+                { label: "Vendor", value: (finding) => finding.vendorName },
+                { label: "Category", value: (finding) => finding.category },
+                { label: "Evidence references", value: (finding) => finding.evidenceCount },
+                { label: "Estimated annual value", value: (finding) => finding.estimatedAnnualValue },
+                { label: "Status", value: (finding) => finding.status },
+              ]}
+            >
+              {({ HeaderSelector, RowSelector, actionBar }) => <>
             <table className="portal-table vendor-table findings-table">
               <colgroup>
-                <col className="findings-col-title" /><col className="findings-col-vendor" /><col className="findings-col-source" /><col className="findings-col-trust" /><col className="findings-col-evidence" /><col className="findings-col-value" /><col className="findings-col-status" /><col className="findings-col-action" />
+                <col className="workspace-bulk-selection-column" /><col className="findings-col-title" /><col className="findings-col-vendor" /><col className="findings-col-source" /><col className="findings-col-trust" /><col className="findings-col-evidence" /><col className="findings-col-value" /><col className="findings-col-status" /><col className="findings-col-action" />
               </colgroup>
-              <thead><tr><th>Finding</th><th>Vendor &amp; scope</th><th>Source bill</th><th>Trust</th><th>Evidence</th><th>Potential annual value</th><th>Status</th><th><span className="sr-only">Update status</span></th></tr></thead>
+              <thead><tr><th className="workspace-bulk-selection-cell"><HeaderSelector /></th><th>Finding</th><th>Vendor &amp; scope</th><th>Source bill</th><th>Trust</th><th>Evidence</th><th>Potential annual value</th><th>Status</th><th><span className="sr-only">Update status</span></th></tr></thead>
               <tbody>
                 {filtered.map((item) => {
                   const invoice = data.invoices.find((candidate) => candidate.documentId === item.sourceDocumentId);
                   const expense = data.expenses.find((candidate) => candidate.id === item.sourceExpenseId);
                   const sourceId = invoice?.id ?? expense?.invoiceId ?? expense?.documentId;
                   return <tr id={item.id} key={item.id}>
+                    <td className="workspace-bulk-selection-cell"><RowSelector row={item} /></td>
                     <td><Link className="record-link" href={`/app/findings/${item.id}`} title={item.title}><strong>{item.title}</strong></Link><small>{item.summary}</small></td>
                     <td>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}><strong>{item.vendorName}</strong></Link> : <strong>{item.vendorName}</strong>}<small>{item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</small></td>
                     <td>{sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span className="workspace-secondary-text">Not linked</span>}</td>
@@ -1542,6 +1622,9 @@ function FindingsWorkspace({
                 })}
               </tbody>
             </table>
+            {actionBar}
+              </>}
+            </WorkspaceTableBulkActions>
           </div>
         ) : (
           <Empty
@@ -1610,9 +1693,27 @@ function Contracts({ data }: { data: PortalData }) {
       <section className="portal-panel">
         {rows.length ? (
           <div className="table-wrap">
+            <WorkspaceTableBulkActions
+              rows={rows}
+              rowId={(contract) => contract.id}
+              rowLabel={(contract) => contract.title}
+              filename="costivra-contracts.csv"
+              hrefForRow={(contract) => `/app/contracts/${contract.id}`}
+              exportColumns={[
+                { label: "Contract", value: (contract) => contract.title },
+                { label: "Vendor", value: (contract) => contract.vendorName },
+                { label: "Category", value: (contract) => contract.category },
+                { label: "Annual value", value: (contract) => contract.annualValue },
+                { label: "End date", value: (contract) => contract.endDate },
+                { label: "Notice period days", value: (contract) => contract.noticePeriodDays },
+                { label: "Status", value: (contract) => contract.status },
+              ]}
+            >
+              {({ HeaderSelector, RowSelector, actionBar }) => <>
             <table className="portal-table">
               <thead>
                 <tr>
+                  <th className="workspace-bulk-selection-cell"><HeaderSelector /></th>
                   <th>Contract</th>
                   <th>Vendor</th>
                   <th>Account / location</th>
@@ -1625,6 +1726,7 @@ function Contracts({ data }: { data: PortalData }) {
               <tbody>
                 {rows.map((item) => (
                   <tr key={item.id}>
+                    <td className="workspace-bulk-selection-cell"><RowSelector row={item} /></td>
                     <td>
                       <Link className="record-link" href={`/app/contracts/${item.id}`}><strong>{item.title}</strong></Link>
                       <small>{item.category}</small>
@@ -1647,6 +1749,9 @@ function Contracts({ data }: { data: PortalData }) {
                 ))}
               </tbody>
             </table>
+            {actionBar}
+              </>}
+            </WorkspaceTableBulkActions>
           </div>
         ) : (
           <Empty
@@ -2176,8 +2281,26 @@ function Vendors({ data }: { data: PortalData }) {
       <section className="portal-panel vendor-directory">
         {filteredAndSorted.length ? (
           <div className="table-wrap vendor-table-wrap">
+            <WorkspaceTableBulkActions
+              rows={filteredAndSorted}
+              rowId={({ vendor }) => vendor.id}
+              rowLabel={({ vendor }) => vendor.name}
+              filename="costivra-vendors.csv"
+              hrefForRow={({ vendor }) => `/app/vendors/${vendor.id}`}
+              exportColumns={[
+                { label: "Vendor", value: ({ vendor }) => vendor.name },
+                { label: "Category", value: ({ vendor }) => vendor.category },
+                { label: "Annualized spend", value: ({ vendor }) => vendor.annualizedSpend },
+                { label: "Accounts", value: ({ accountsCount }) => accountsCount },
+                { label: "Monitoring", value: ({ vendor }) => vendor.monitoringState },
+                { label: "Relationship", value: ({ vendor }) => vendor.relationshipStatus },
+                { label: "Next contract end", value: ({ nextContractEnd }) => nextContractEnd },
+              ]}
+            >
+              {({ HeaderSelector, RowSelector, actionBar }) => <>
             <table className="portal-table vendor-table">
               <colgroup>
+                <col className="workspace-bulk-selection-column" />
                 <col className="vendor-col-name" />
                 <col className="vendor-col-category" />
                 <col className="vendor-col-spend" />
@@ -2191,6 +2314,7 @@ function Vendors({ data }: { data: PortalData }) {
               </colgroup>
               <thead>
                 <tr>
+                  <th className="workspace-bulk-selection-cell"><HeaderSelector /></th>
                   <th>Vendor</th>
                   <th>Category</th>
                   <th>Annualized spend</th>
@@ -2209,6 +2333,7 @@ function Vendors({ data }: { data: PortalData }) {
                 {filteredAndSorted.map(({ vendor, details, accountsCount, latestExpense, nextContractEnd }: typeof enrichedVendors[number]) => {
                   return (
                     <tr key={vendor.id}>
+                      <td className="workspace-bulk-selection-cell"><RowSelector row={{ vendor, details, accountsCount, latestExpense, nextContractEnd }} /></td>
                       <td>
                         <Link
                           className="vendor-name-cell"
@@ -2272,6 +2397,9 @@ function Vendors({ data }: { data: PortalData }) {
                 })}
               </tbody>
             </table>
+            {actionBar}
+              </>}
+            </WorkspaceTableBulkActions>
           </div>
         ) : (
           <Empty
