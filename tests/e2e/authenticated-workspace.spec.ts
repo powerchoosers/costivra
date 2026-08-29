@@ -1112,6 +1112,18 @@ test.describe("authenticated customer workspace", () => {
       await expect(page.locator(".app-sidebar")).toBeHidden();
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
+      await page.getByRole("button", { name: "Toggle navigation menu" }).click();
+      const appNavigation = page.getByRole("dialog", { name: "Navigation menu" });
+      await expect(appNavigation).toBeVisible();
+      await expect(appNavigation.locator(".app-mobile-drawer-signout")).toContainText("Sign out");
+      await expect(appNavigation.locator(".app-operator-avatar")).toBeVisible();
+      await appNavigation.getByRole("button", { name: "Close menu" }).click();
+      await expect(appNavigation).toBeHidden();
+
+      await page.goto("/app/bills");
+      await expect(page.getByRole("heading", { name: /Bills/i }).first()).toBeVisible({ timeout: 30_000 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
       const staff = await fixture.admin.from("internal_staff_users").insert({
         user_id: fixture.userId,
         role: "owner",
@@ -1164,6 +1176,8 @@ test.describe("authenticated customer workspace", () => {
       await expect(manageNavigation).toBeVisible();
       await expect(manageNavigation.getByRole("link", { name: "Mail", exact: true })).toBeVisible();
       await expect(manageNavigation.getByRole("link", { name: "Operations", exact: true })).toBeVisible();
+      await expect(manageNavigation.locator(".manage-mobile-drawer__footer")).toContainText("Sign out");
+      await expect(manageNavigation.locator(".manage-operator-avatar")).toBeVisible();
       await manageNavigation.getByRole("button", { name: "Close menu" }).click();
       await expect(manageNavigation).toBeHidden();
 
