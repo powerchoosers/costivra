@@ -1105,6 +1105,13 @@ test.describe("authenticated customer workspace", () => {
       await expect(banner).toHaveAttribute("aria-hidden", "true");
       await expect(page.locator(".workspace-mobile-search-overlay")).toHaveCount(0);
 
+      // Portrait iPad follows the same touch-first navigation model as phone.
+      await page.setViewportSize({ width: 820, height: 1180 });
+      await page.goto("/app");
+      await expect(page.locator(".app-mobile-nav")).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator(".app-sidebar")).toBeHidden();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+
       const staff = await fixture.admin.from("internal_staff_users").insert({
         user_id: fixture.userId,
         role: "owner",
@@ -1115,6 +1122,9 @@ test.describe("authenticated customer workspace", () => {
       await page.goto("/manage");
       await expect(page.getByRole("heading", { name: "Client operations" })).toBeVisible({ timeout: 30_000 });
       await expect(page.locator(".manage-topbar")).toBeVisible();
+      await expect(page.locator(".manage-mobile-nav")).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator(".manage-sidebar")).toBeHidden();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
       const manageHeaderGeometry = await page.locator(".manage-topbar").evaluate((header) => {
         const rectFor = (selector: string) => {
