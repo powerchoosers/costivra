@@ -4326,6 +4326,10 @@ function ContactContextRail({
             <dd>{account ? <Link href={`/manage/accounts/${account.id}`}>{account.name}</Link> : contact.organizationName}</dd>
           </div>
           <div>
+            <dt>Title</dt>
+            <dd>{contact.title || "Not recorded"}</dd>
+          </div>
+          <div>
             <dt>Email</dt>
             <dd>
               <button type="button" className="manage-contact-email" onClick={() => onCompose(contact)}>
@@ -4426,6 +4430,14 @@ function ContactDetailPage({
     );
 
   const contactAccount = data.accounts.find((account) => account.id === contact.organizationId);
+  const contactAccountProfile = contactAccount?.enrichment;
+  const contactProfileSummary =
+    contactAccountProfile?.shortDescription ||
+    (contactAccount?.industry
+      ? `${contactAccount.name} is recorded in the ${contactAccount.industry} industry.`
+      : contactAccount
+        ? `This contact is linked to ${contactAccount.name}. Add the account website or a short internal note to make the relationship easier to recognize at a glance.`
+        : "Link this contact to an account to add a concise relationship summary.");
   const contactDraftDirty = recordDraftChanged({ fullName: contact.fullName, email: contact.email, phone: contact.phone ?? "", title: contact.title ?? "", organizationId: contact.organizationId, isPrimary: contact.isPrimary, status: contact.status }, { fullName, email, phone, title, organizationId, isPrimary, status }, ["fullName", "email", "phone", "title", "organizationId", "isPrimary", "status"]);
   const allAccountActivities = data.activities.filter((item) => item.organizationId === contact.organizationId);
   const contactSpecificActivities = allAccountActivities.filter((item) => item.contactId === contact.id);
@@ -4738,74 +4750,30 @@ function ContactDetailPage({
           <div className="manage-record-layout manage-record-layout--right-rail">
             <main className="manage-record-main">
               <section className="manage-record-profile">
-              <div>
-                <span>Relationship context</span>
-                <h3>Contact record</h3>
-                <p>
-                  The structured CRM fields below remain the source of truth. External profile enrichment is not enabled
-                  until Costivra has a purpose-specific data-sharing consent flow.
-                </p>
-              </div>
-
-              {/* Editable Field Rows with zero layout shift */}
-              <div className="manage-record-profile-fields">
-                <EditableFieldRow
-                  label="Full Name"
-                  value={contact.fullName}
-                  input={{ kind: "text" }}
-                  onSave={async (v) => {
-                    await api(`/api/manage/contacts/${contact.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ fullName: String(v), expectedUpdatedAt: contact.updatedAt }),
-                    });
-                    toast.success("Name updated.");
-                    router.refresh();
-                  }}
-                />
-                <EditableFieldRow
-                  label="Email"
-                  value={contact.email}
-                  input={{ kind: "text" }}
-                  onSave={async (v) => {
-                    await api(`/api/manage/contacts/${contact.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email: String(v), expectedUpdatedAt: contact.updatedAt }),
-                    });
-                    toast.success("Email updated.");
-                    router.refresh();
-                  }}
-                />
-                <EditableFieldRow
-                  label="Phone"
-                  value={contact.phone}
-                  input={{ kind: "phone" }}
-                  onSave={async (v) => {
-                    await api(`/api/manage/contacts/${contact.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ phone: String(v), expectedUpdatedAt: contact.updatedAt }),
-                    });
-                    toast.success("Phone updated.");
-                    router.refresh();
-                  }}
-                />
-                <EditableFieldRow
-                  label="Job Title"
-                  value={contact.title}
-                  input={{ kind: "text" }}
-                  onSave={async (v) => {
-                    await api(`/api/manage/contacts/${contact.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ title: String(v), expectedUpdatedAt: contact.updatedAt }),
-                    });
-                    toast.success("Job title updated.");
-                    router.refresh();
-                  }}
-                />
-              </div>
+                <div>
+                  <span>Company profile</span>
+                  <h3>Short description</h3>
+                  <p>{contactProfileSummary}</p>
+                </div>
+                {contactAccountProfile && (
+                  <div className="manage-record-profile-data">
+                    <dl>
+                      {contactAccountProfile.name && contactAccountProfile.name.toLowerCase() !== contactAccount?.name.toLowerCase() && (
+                        <div><dt>Apollo name</dt><dd>{contactAccountProfile.name}</dd></div>
+                      )}
+                      <div><dt>Profile status</dt><dd>{pretty(contactAccountProfile.status)}</dd></div>
+                      {contactAccountProfile.foundedYear != null && <div><dt>Founded</dt><dd>{contactAccountProfile.foundedYear}</dd></div>}
+                      {contactAccountProfile.employeeCount != null && <div><dt>Team size</dt><dd>{contactAccountProfile.employeeCount.toLocaleString()}</dd></div>}
+                      {contactAccountProfile.fetchedAt && <div><dt>Updated</dt><dd>{date(contactAccountProfile.fetchedAt)}</dd></div>}
+                    </dl>
+                    {contactAccountProfile.technologies.length > 0 && (
+                      <div className="manage-record-profile-field">
+                        <span>Technologies</span>
+                        <TechnologyList technologies={contactAccountProfile.technologies} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
 
               <section className="manage-panel manage-record-overview-panel">
