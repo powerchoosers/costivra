@@ -14103,6 +14103,8 @@ button.workspace-notification-row:focus-visible {
 .workspace-mobile-search-sheet__header { display:flex; align-items:center; gap:8px; padding:12px; border-bottom:1px solid #edf1f5; }
 .workspace-mobile-search-sheet__input-wrap { display:flex; flex:1; align-items:center; gap:8px; min-width:0; height:42px; padding:0 12px; border:1px solid #bccae0; border-radius:12px; background:#f8fafc; color:#52637c; box-shadow:0 0 0 3px rgba(49,91,187,.08); }
 .workspace-mobile-search-sheet__input-wrap input { display:block !important; width:100%; min-width:0; border:0; outline:0; background:transparent; color:#172033; font-size:.9rem; }
+.manage-app .workspace-mobile-search-sheet .workspace-mobile-search-sheet__input-wrap input:focus,
+.manage-app .workspace-mobile-search-sheet .workspace-mobile-search-sheet__input-wrap input:focus-visible { border-color:transparent; outline:0; box-shadow:none; }
 .workspace-mobile-search-sheet__close { display:grid; place-items:center; width:42px; min-width:42px; height:42px; padding:0; border:1px solid #dce3eb; border-radius:12px; background:#fff; color:#52637c; cursor:pointer; }
 .workspace-mobile-search-sheet__close:hover { color:#172033; border-color:#aebdd2; }
 .workspace-mobile-search-results { position:static !important; inset:auto !important; width:auto !important; max-height:none !important; overflow:auto; padding:4px 8px 10px; border:0 !important; border-radius:0 !important; box-shadow:none !important; animation:workspace-mobile-search-results-in .2s ease both; }
