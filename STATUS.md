@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 29, 2026 — App table selection and identity columns
+
+- Restored the Manage Accounts table pattern across App Vendors, Bills & Spend, Contracts, and Findings: selection plus the primary identity column stay anchored while the remaining columns scroll horizontally.
+- Moved App bulk-action bars outside the horizontal table scrollport so their placement matches Manage Accounts, and added vendor identity marks to bill, contract, and finding rows.
+- Validation: Node `v24.19.0`; TypeScript passed; focused ESLint passed; `git diff --check` passed. Local browser QA confirmed sticky leading columns, icons, and bulk-bar placement on all four routes. Full release gates and production deployment were not run.
+
 ## August 29, 2026 — Tablet homepage walkthrough containment
 
 - Reflowed the homepage hero's approval stage for tablet portrait widths: the simulated workspace uses a narrower rail and taller viewport, approval metadata moves beneath the action title, evidence truncates safely, and both decision controls remain fully readable inside the demo card.

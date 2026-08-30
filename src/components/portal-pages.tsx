@@ -1246,6 +1246,7 @@ function BillsWorkspace({
                 ]}
               >
                 {({ HeaderSelector, RowSelector, actionBar }) => <>
+              <div className="workspace-table-scroll">
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
@@ -1269,7 +1270,10 @@ function BillsWorkspace({
                   <tr key={inv.id}>
                     <td className="workspace-bulk-selection-cell"><RowSelector row={inv} /></td>
                     <td>
-                      {inv.vendorId ? <Link className="record-link" href={`/app/vendors/${inv.vendorId}`} title={`Open ${inv.vendorName} workspace`}><strong>{inv.vendorName}</strong></Link> : <strong>{inv.vendorName}</strong>}
+                      <Link className="vendor-name-cell" href={inv.vendorId ? `/app/vendors/${inv.vendorId}` : `/app/bills/${inv.id}`} title={`Open ${inv.vendorName} workspace`}>
+                        <CompanyLogo entity="vendor" id={inv.vendorId ?? inv.id} name={inv.vendorName} className="vendor-monogram" />
+                        <span><strong>{inv.vendorName}</strong></span>
+                      </Link>
                     </td>
                     <td>
                       <Link className="record-link" href={`/app/bills/${inv.id}`}>
@@ -1293,6 +1297,7 @@ function BillsWorkspace({
               })}
                 </tbody>
               </table>
+              </div>
               {actionBar}
                 </>}
               </WorkspaceTableBulkActions>
@@ -1327,6 +1332,7 @@ function BillsWorkspace({
                 ]}
               >
                 {({ HeaderSelector, RowSelector, actionBar }) => <>
+              <div className="workspace-table-scroll">
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
@@ -1349,14 +1355,15 @@ function BillsWorkspace({
                       <td>
                         {inv.vendorId ? (
                           <Link
-                            className="record-link"
+                            className="vendor-name-cell"
                             href={`/app/vendors/${inv.vendorId}`}
                             title={`Open ${inv.vendorName} workspace`}
                           >
-                            <strong>{inv.vendorName}</strong>
+                            <CompanyLogo entity="vendor" id={inv.vendorId} name={inv.vendorName} className="vendor-monogram" />
+                            <span><strong>{inv.vendorName}</strong></span>
                           </Link>
                         ) : (
-                          <strong>{inv.vendorName}</strong>
+                          <span className="vendor-name-cell"><CompanyLogo entity="vendor" id={inv.id} name={inv.vendorName} className="vendor-monogram" /><strong>{inv.vendorName}</strong></span>
                         )}
                       </td>
                       <td>
@@ -1377,6 +1384,7 @@ function BillsWorkspace({
                   ))}
                 </tbody>
               </table>
+              </div>
               {actionBar}
                 </>}
               </WorkspaceTableBulkActions>
@@ -1427,6 +1435,7 @@ function BillsWorkspace({
                 ]}
               >
                 {({ HeaderSelector, RowSelector, actionBar }) => <>
+              <div className="workspace-table-scroll">
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
@@ -1445,13 +1454,10 @@ function BillsWorkspace({
                     <tr key={exp.id}>
                       <td className="workspace-bulk-selection-cell"><RowSelector row={exp} /></td>
                       <td>
-                        {exp.vendorId ? (
-                          <Link className="record-link" href={`/app/vendors/${exp.vendorId}`}>
-                            <strong>{exp.vendorName}</strong>
-                          </Link>
-                        ) : (
-                          <strong>{exp.vendorName}</strong>
-                        )}
+                        <Link className="vendor-name-cell" href={exp.vendorId ? `/app/vendors/${exp.vendorId}` : `/app/bills/${exp.invoiceId ?? exp.documentId ?? exp.id}`}>
+                          <CompanyLogo entity="vendor" id={exp.vendorId ?? exp.id} name={exp.vendorName} className="vendor-monogram" />
+                          <span><strong>{exp.vendorName}</strong></span>
+                        </Link>
                       </td>
                       <td>{exp.category}</td>
                       <td>{date(exp.periodEnd)}</td>
@@ -1475,6 +1481,7 @@ function BillsWorkspace({
                   ))}
                 </tbody>
               </table>
+              </div>
               {actionBar}
                 </>}
               </WorkspaceTableBulkActions>
@@ -1634,6 +1641,7 @@ function FindingsWorkspace({
               ]}
             >
               {({ HeaderSelector, RowSelector, actionBar }) => <>
+            <div className="workspace-table-scroll">
             <table className="portal-table vendor-table findings-table">
               <colgroup>
                 <col className="workspace-bulk-selection-column" /><col className="findings-col-title" /><col className="findings-col-vendor" /><col className="findings-col-source" /><col className="findings-col-trust" /><col className="findings-col-evidence" /><col className="findings-col-value" /><col className="findings-col-status" /><col className="findings-col-action" />
@@ -1647,7 +1655,7 @@ function FindingsWorkspace({
                   return <tr id={item.id} key={item.id}>
                     <td className="workspace-bulk-selection-cell"><RowSelector row={item} /></td>
                     <td><Link className="record-link" href={`/app/findings/${item.id}`} title={item.title}><strong>{item.title}</strong></Link><small>{item.summary}</small></td>
-                    <td>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}><strong>{item.vendorName}</strong></Link> : <strong>{item.vendorName}</strong>}<small>{item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</small></td>
+                    <td><div className="vendor-name-cell"><CompanyLogo entity="vendor" id={item.vendorId ?? item.id} name={item.vendorName} className="vendor-monogram" /><span>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}><strong>{item.vendorName}</strong></Link> : <strong>{item.vendorName}</strong>}<small>{item.expenseAccountReference ?? "Account not assigned"} · {item.locationName ?? "Location not assigned"}</small></span></div></td>
                     <td>{sourceId ? <Link className="record-link" href={`/app/bills/${sourceId}`}>Open bill</Link> : <span className="workspace-secondary-text">Not linked</span>}</td>
                     <td><TrustBadge state={item.trustState} /></td><td>{item.evidenceCount} reference{item.evidenceCount === 1 ? "" : "s"}</td>
                     <td>{(() => {
@@ -1661,6 +1669,7 @@ function FindingsWorkspace({
                 })}
               </tbody>
             </table>
+            </div>
             {actionBar}
               </>}
             </WorkspaceTableBulkActions>
@@ -1749,7 +1758,11 @@ function Contracts({ data }: { data: PortalData }) {
               ]}
             >
               {({ HeaderSelector, RowSelector, actionBar }) => <>
-            <table className="portal-table">
+            <div className="workspace-table-scroll">
+            <table className="portal-table vendor-table contracts-table">
+              <colgroup>
+                <col className="workspace-bulk-selection-column" /><col className="contracts-col-title" /><col className="contracts-col-vendor" /><col className="contracts-col-account" /><col className="contracts-col-value" /><col className="contracts-col-date" /><col className="contracts-col-notice" /><col className="contracts-col-status" />
+              </colgroup>
               <thead>
                 <tr>
                   <th className="workspace-bulk-selection-cell"><HeaderSelector /></th>
@@ -1770,7 +1783,7 @@ function Contracts({ data }: { data: PortalData }) {
                       <Link className="record-link" href={`/app/contracts/${item.id}`}><strong>{item.title}</strong></Link>
                       <small>{item.category}</small>
                     </td>
-                    <td>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}>{item.vendorName}</Link> : item.vendorName}</td>
+                    <td><div className="vendor-name-cell"><CompanyLogo entity="vendor" id={item.vendorId ?? item.id} name={item.vendorName} className="vendor-monogram" /><span>{item.vendorId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}`}>{item.vendorName}</Link> : item.vendorName}</span></div></td>
                     <td>{item.vendorId && item.expenseAccountId ? <Link className="record-link" href={`/app/vendors/${item.vendorId}?tab=accounts&account=${item.expenseAccountId}`}>{item.locationName ?? "Open account"}</Link> : item.locationName ?? "Not assigned"}</td>
                     <td>
                       {item.annualValue == null ? "—" : money(item.annualValue)}
@@ -1788,6 +1801,7 @@ function Contracts({ data }: { data: PortalData }) {
                 ))}
               </tbody>
             </table>
+            </div>
             {actionBar}
               </>}
             </WorkspaceTableBulkActions>
@@ -2337,6 +2351,7 @@ function Vendors({ data }: { data: PortalData }) {
               ]}
             >
               {({ HeaderSelector, RowSelector, actionBar }) => <>
+            <div className="workspace-table-scroll">
             <table className="portal-table vendor-table">
               <colgroup>
                 <col className="workspace-bulk-selection-column" />
@@ -2436,6 +2451,7 @@ function Vendors({ data }: { data: PortalData }) {
                 })}
               </tbody>
             </table>
+            </div>
             {actionBar}
               </>}
             </WorkspaceTableBulkActions>

@@ -9660,6 +9660,32 @@ body.modal-open .app-topbar { filter: blur(7px); }
    They never imply a bulk state change; the available actions are export and handoff. */
 .app-body .app-work-canvas .workspace-bulk-selection-column { width: 44px; }
 .app-body .app-work-canvas .workspace-bulk-selection-cell { width: 44px; padding-inline: 10px; text-align: center; }
+.app-body .app-work-canvas .workspace-table-scroll { min-width: 0; flex: 1 1 auto; overflow: auto; overscroll-behavior-x: contain; overscroll-behavior-y: auto; }
+.app-body .app-work-canvas :is(.vendor-table-wrap, .bills-table-wrap) { overflow: visible; }
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) th:first-child,
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) td:first-child { position: sticky; left: 0; z-index: 8; min-width: 44px; background: #fff; box-shadow: 6px 0 16px -8px rgba(16,31,56,.22), 1px 0 0 #dce2eb; }
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) th:first-child { background: var(--workspace-surface-soft); }
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) th:nth-child(2),
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) td:nth-child(2) { position: sticky; left: 44px; z-index: 7; background: #fff; box-shadow: 6px 0 16px -8px rgba(16,31,56,.22), 1px 0 0 #dce2eb; }
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) th:nth-child(2) { background: var(--workspace-surface-soft); }
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) tbody tr:hover td:first-child,
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) tbody tr:hover td:nth-child(2) { background: var(--workspace-row-hover); }
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) tr:has(.workspace-bulk-row-selector.is-checked) > td:first-child,
+.app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) tr:has(.workspace-bulk-row-selector.is-checked) > td:nth-child(2) { background: #f5f8ff; }
+.app-body .app-work-canvas .bills-table th:first-child,
+.app-body .app-work-canvas .bills-table td:first-child { min-width: 44px; }
+.app-body .app-work-canvas .bills-table th:nth-child(2),
+.app-body .app-work-canvas .bills-table td:nth-child(2) { min-width: 220px; }
+.contracts-table { min-width: 1160px; }
+.contracts-table .contracts-col-title { width: 320px; }
+.contracts-table .contracts-col-vendor { width: 190px; }
+.contracts-table .contracts-col-account { width: 190px; }
+.contracts-table .contracts-col-value { width: 140px; }
+.contracts-table .contracts-col-date { width: 120px; }
+.contracts-table .contracts-col-notice { width: 110px; }
+.contracts-table .contracts-col-status { width: 120px; }
+.contracts-table .vendor-name-cell { gap: 9px; }
+.contracts-table .vendor-monogram { width: 30px; height: 30px; border-radius: 9px; }
 .workspace-bulk-row-selector,
 .workspace-bulk-header-selector { width: 22px; height: 22px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--workspace-control-line); border-radius: 6px; background: var(--workspace-surface); color: transparent; cursor: pointer; transition: border-color var(--workspace-motion-fast), background-color var(--workspace-motion-fast), color var(--workspace-motion-fast), box-shadow var(--workspace-motion-fast); }
 .workspace-bulk-row-selector:hover,
