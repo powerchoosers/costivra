@@ -7140,6 +7140,57 @@ body.modal-open .app-topbar { filter: blur(7px); }
 @keyframes heroTourPaperIn { from { opacity: 0; transform: translateX(-7px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes heroTourButtonPress { 0%, 40% { transform: translateY(0); } 60% { transform: translateY(1px) scale(.98); box-shadow: inset 0 2px 5px rgba(28, 43, 9, .24); } 100% { transform: translateY(0) scale(1); } }
 
+/* At tablet widths the marketing hero remains two columns, which leaves the
+   simulated product pane narrower than its desktop presentation. Reflow the
+   approval metadata inside that pane instead of letting intrinsic text widths
+   push the action card beyond the walkthrough viewport. */
+@media (min-width: 761px) and (max-width: 1050px) {
+  .hero-tour-screen {
+    grid-template-columns: 86px minmax(0, 1fr);
+    height: 380px;
+    min-height: 380px;
+  }
+
+  .hero-tour-sidebar { padding: 14px 8px; }
+  .hero-tour-content { padding: 16px; }
+  .hero-tour-action-view,
+  .hero-tour-action-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .hero-tour-action-card-heading {
+    display: grid;
+    grid-template-columns: 27px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .hero-tour-action-icon { grid-row: 1 / span 2; }
+  .hero-tour-approval-badge { grid-column: 2; justify-self: start; }
+  .hero-tour-action-card-heading strong {
+    overflow: visible;
+    line-height: 1.25;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .hero-tour-action-card-heading small { line-height: 1.3; }
+  .hero-tour-action-evidence { min-width: 0; }
+  .hero-tour-action-evidence span { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
+  .hero-tour-action-buttons { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .hero-tour-action-buttons .hero-tour-primary,
+  .hero-tour-action-buttons .hero-tour-secondary {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin-left: 0;
+    padding-inline: 6px;
+    font-size: .53rem;
+  }
+}
+
 @media (max-width: 760px) {
   .hero-tour-screen { grid-template-columns: 76px minmax(0, 1fr); height: 420px; min-height: 420px; }.hero-tour-sidebar { padding: 13px 7px; }.hero-tour-wordmark { font-size: .6rem; }.hero-tour-nav-item { padding: 6px 4px; font-size: .51rem; }.hero-tour-nav-item small, .hero-tour-sidebar-bottom { display: none; }.hero-tour-content { padding: 14px 11px; }.hero-tour-finding-grid { grid-template-columns: 1fr; }.hero-tour-finding-card { grid-template-columns: 1fr 1fr; }.hero-tour-finding-status, .hero-tour-finding-card h3, .hero-tour-finding-card p { grid-column: 1 / -1; }.hero-tour-potential { margin-top: 0; }.hero-tour-finding-card .hero-tour-secondary { grid-column: 2; }.hero-tour-action-card-heading { align-items: flex-start; flex-wrap: wrap; }.hero-tour-approval-badge { margin-left: 33px; }.hero-tour-action-buttons { flex-wrap: wrap; }.hero-tour-action-buttons .hero-tour-secondary { margin-left: 0; }.hero-tour-table-head, .hero-tour-table-row { grid-template-columns: 13px minmax(0, 1fr) minmax(44px, .55fr) 12px; }.hero-tour-table-head span:nth-child(3), .hero-tour-table-row span:nth-child(3) { display: none; }.hero-tour-content-top strong { font-size: .68rem; }.hero-tour-address { width: 55%; }
   .hero-tour-cursor { width: 15px; height: 20px; }

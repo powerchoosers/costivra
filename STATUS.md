@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 29, 2026 — Tablet homepage walkthrough containment
+
+- Reflowed the homepage hero's approval stage for tablet portrait widths: the simulated workspace uses a narrower rail and taller viewport, approval metadata moves beneath the action title, evidence truncates safely, and both decision controls remain fully readable inside the demo card.
+- Added a tablet Playwright regression that selects the **Decide** stage and verifies the card and approval callout remain within the walkthrough content bounds without horizontal overflow.
+- Browser QA covered 908×838, 390×844, and 1440×900. At the reported 908×838 size, the approval card and callout remain fully contained and the walkthrough reports zero horizontal overflow; phone and desktop layouts remain contained.
+
 ## August 29, 2026 — Searchable settings hubs
 
 - Replaced the top-tab settings navigation in both customer App and Manage with a responsive, grouped directory and a keyboard-focusable **Search settings** field. Search covers plain-language names, descriptions, and common task words without exposing owner-only controls to other roles.

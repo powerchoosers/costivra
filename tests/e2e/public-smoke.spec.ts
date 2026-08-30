@@ -39,6 +39,41 @@ test("public site navigates without runtime errors", async ({ page }, testInfo) 
   expect(failures).toEqual([]);
 });
 
+test("tablet hero keeps the approval card inside the walkthrough", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "tablet-chromium", "Tablet walkthrough geometry is covered by the tablet project");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const walkthrough = page.getByRole("complementary", { name: "Illustrative bill review example" });
+  await walkthrough.getByRole("tab", { name: "Decide" }).click();
+  await expect(walkthrough.getByRole("tab", { name: "Decide" })).toHaveAttribute("aria-selected", "true");
+  await expect(walkthrough.getByText("Ask vendor to explain the increase", { exact: true })).toBeVisible();
+
+  const geometry = await walkthrough.evaluate((root) => {
+    const content = root.querySelector<HTMLElement>(".hero-tour-content");
+    const card = root.querySelector<HTMLElement>(".hero-tour-action-card");
+    const callout = root.querySelector<HTMLElement>(".hero-tour-action-view > .hero-tour-callout");
+    if (!content || !card || !callout) throw new Error("Walkthrough approval state was not rendered");
+    const contentRect = content.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const calloutRect = callout.getBoundingClientRect();
+    return {
+      cardLeft: cardRect.left,
+      cardRight: cardRect.right,
+      calloutBottom: calloutRect.bottom,
+      contentLeft: contentRect.left,
+      contentRight: contentRect.right,
+      contentBottom: contentRect.bottom,
+      contentOverflow: content.scrollWidth - content.clientWidth,
+    };
+  });
+
+  expect(geometry.cardLeft).toBeGreaterThanOrEqual(geometry.contentLeft - 1);
+  expect(geometry.cardRight).toBeLessThanOrEqual(geometry.contentRight + 1);
+  expect(geometry.calloutBottom).toBeLessThanOrEqual(geometry.contentBottom + 1);
+  expect(geometry.contentOverflow).toBeLessThanOrEqual(1);
+});
+
 test("sign-in keeps unconfigured workspace providers honest", async ({ page }) => {
   const failures = failOnConsoleErrors(page);
   await page.goto("/login");
