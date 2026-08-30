@@ -14154,14 +14154,27 @@ button.workspace-notification-row:focus-visible {
     min-height:100dvh;
   }
   .app-body .app-sidebar { display:none; }
-  .app-body .app-main { margin:0; padding-bottom:82px; }
-  .app-body .app-work-canvas { min-height:100dvh; border-radius:0; }
+  .app-body .app-shell .app-main,
+  .app-body .app-shell.sidebar-collapsed .app-main {
+    width:100%;
+    max-width:none;
+    margin-left:0;
+    padding:0 0 82px;
+  }
+  .app-body .app-work-canvas {
+    width:100%;
+    max-width:none;
+    min-height:100dvh;
+    border:0;
+    border-radius:0;
+  }
   .app-body .app-work-canvas > .app-topbar {
     position:sticky;
     top:0;
     z-index:20;
     min-height:66px;
     padding:0 22px;
+    border-radius:0;
   }
   .app-body .app-work-canvas > :is(.app-content, .app-content-table-page) {
     padding-bottom:calc(96px + env(safe-area-inset-bottom));
