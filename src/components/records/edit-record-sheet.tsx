@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { AlertTriangle, LoaderCircle, X } from "@/lib/icons";
+import { lockWorkspaceModalScroll } from "@/lib/ui/workspace-modal-scroll-lock";
 
 export type EditRecordSheetProps = {
   title: string;
@@ -86,8 +87,7 @@ export function EditRecordSheet({
 
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releasePageScroll = lockWorkspaceModalScroll();
 
     const focusFrame = window.requestAnimationFrame(() => {
       const initial = dialogRef.current?.querySelector<HTMLElement>(
@@ -142,7 +142,7 @@ export function EditRecordSheet({
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      releasePageScroll();
       previousFocusRef.current?.focus();
       previousFocusRef.current = null;
     };

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ElementType } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckSquare, Gear, Layout, Target, Upload, X } from "@/lib/icons";
+import { lockWorkspaceModalScroll } from "@/lib/ui/workspace-modal-scroll-lock";
 
 type TutorialStep = {
   id: string;
@@ -90,13 +91,12 @@ export function WorkspaceOnboardingTour() {
     const handle = () => window.requestAnimationFrame(positionTarget);
     window.addEventListener("resize", handle);
     window.addEventListener("scroll", handle, true);
-    const bodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releasePageScroll = lockWorkspaceModalScroll();
     return () => {
       window.cancelAnimationFrame(initialFrame);
       window.removeEventListener("resize", handle);
       window.removeEventListener("scroll", handle, true);
-      document.body.style.overflow = bodyOverflow;
+      releasePageScroll();
     };
   }, [open, positionTarget]);
 

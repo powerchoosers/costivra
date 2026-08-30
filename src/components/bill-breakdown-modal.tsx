@@ -15,6 +15,7 @@ import {
 } from "@/lib/icons";
 import { formatFinancialDate } from "@/lib/ui/date-format";
 import { useClientAssistant } from "@/components/client-assistant/client-assistant-provider";
+import { lockWorkspaceModalScroll } from "@/lib/ui/workspace-modal-scroll-lock";
 
 function BillBreakdownLoadingState({ compact = false }: { compact?: boolean }) {
   return (
@@ -1104,6 +1105,12 @@ export function BillBreakdownModal({
   const [closingId, setClosingId] = useState<string | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const modalIsMounted = Boolean(documentId || closingId);
+
+  useEffect(() => {
+    if (!modalIsMounted) return;
+    return lockWorkspaceModalScroll();
+  }, [modalIsMounted]);
 
   useEffect(() => {
     triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;

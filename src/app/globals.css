@@ -1718,6 +1718,13 @@ body { background: var(--ink); font-family: Inter, Aptos, "Segoe UI Variable", "
 *::-webkit-scrollbar-thumb { min-height:40px; border:3px solid transparent; border-radius:999px; background:#6177a8; background-clip:padding-box; }
 *::-webkit-scrollbar-thumb:hover { background:#3f5b98; background-clip:padding-box; }
 body.modal-open { overflow:hidden !important; touch-action:none; }
+body:has([aria-modal="true"]) .app-work-canvas > .app-content,
+body:has([aria-modal="true"]) .manage-shell-v2 .manage-page,
+body:has([aria-modal="true"]) [data-workspace-page-scroll] {
+  overflow:hidden !important;
+  overscroll-behavior:none;
+  touch-action:none;
+}
 .manage-sidebar nav, .app-sidebar nav, .drawer-content, .manage-modal, .portal-modal { overscroll-behavior:contain; }
 .manage-mail-list > div, .manage-message-stack { overscroll-behavior-x:contain; overscroll-behavior-y:auto; }
 .account-message { margin:16px 0 0; border-left:3px solid #5169a8; background:#f1f4fb; padding:10px 12px; color:#39445b; font-size:.85rem; }

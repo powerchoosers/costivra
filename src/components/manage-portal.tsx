@@ -88,6 +88,7 @@ import type {
 import { buildEmailViewerDocument } from "@/lib/manage/email-viewer";
 import { createClient } from "@/lib/supabase/client";
 import { getNextVerticalScrollTop, hasNestedNativeScrollRegion } from "@/lib/ui/workspace-scrollbar";
+import { lockWorkspaceModalScroll } from "@/lib/ui/workspace-modal-scroll-lock";
 import { AssistantConversationScroller } from "@/components/assistant-conversation-scroller";
 import { resizeAssistantComposer } from "@/lib/ui/assistant-composer";
 import { getMotionSafeScrollBehavior } from "@/lib/ui/motion";
@@ -502,6 +503,7 @@ function Modal({
     if (typeof document === "undefined") return;
     const modal = modalRef.current;
     if (!modal) return;
+    const releasePageScroll = lockWorkspaceModalScroll();
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusables = (): HTMLElement[] => {
       const candidates = Array.from(
@@ -514,6 +516,7 @@ function Modal({
     const immediateFocus = focusables()[0] || modal;
     immediateFocus.focus();
     return () => {
+      releasePageScroll();
       previousFocus.current?.focus?.({ preventScroll: true } as FocusOptions);
     };
   }, []);
@@ -594,10 +597,14 @@ function SidePanel({
     if (typeof document === "undefined") return;
     const panel = panelRef.current;
     if (!panel) return;
+    const releasePageScroll = lockWorkspaceModalScroll();
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusables = (): HTMLElement[] => Array.from(panel.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")).filter((item) => !item.hasAttribute("disabled"));
     (focusables()[0] || panel).focus();
-    return () => previousFocus.current?.focus?.({ preventScroll: true } as FocusOptions);
+    return () => {
+      releasePageScroll();
+      previousFocus.current?.focus?.({ preventScroll: true } as FocusOptions);
+    };
   }, []);
   return <div className={`manage-sidepanel-backdrop${isClosing ? " is-closing" : ""}`} role="presentation" onMouseDown={(event) => { if (!isClosing && event.currentTarget === event.target) onClose(); }}>
     <section ref={panelRef} tabIndex={-1} className={`manage-sidepanel${isClosing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={title} onKeyDown={(event) => {

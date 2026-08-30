@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 30, 2026 — Shared modal background scroll lock
+
+- Replaced the App-only body overflow toggle with a reference-counted workspace modal lock that freezes the real nested App and Manage page scrollports, preserves their exact positions, and still allows a modal body to own its own scrolling.
+- Applied the shared behavior to customer modals and side sheets, Manage modals and side panels, bill breakdown, record edit/danger dialogs, and the onboarding dialog. Semantic `aria-modal` overlays also receive a CSS fallback for the shared App and Manage page scrollports.
+- Validation: Node `v24.19.0`; TypeScript no-emit and focused ESLint passed. Authenticated browser QA at the reported 908×838 viewport confirmed a backdrop wheel gesture left the App scroll position fixed at 1632px, closing restored that exact position, and page scrolling resumed after close.
+
 ## August 30, 2026 — Animated App navigation drawer
 
 - Added coordinated entrance and exit animations for the App mobile/tablet navigation drawer and backdrop. Closing keeps both surfaces mounted until the drawer’s exit animation completes; reduced-motion users receive an immediate close.

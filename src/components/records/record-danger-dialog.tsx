@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { AlertTriangle, LoaderCircle, ShieldAlert, X } from "@/lib/icons";
+import { lockWorkspaceModalScroll } from "@/lib/ui/workspace-modal-scroll-lock";
 
 export type DangerActionMode =
   | "archive"
@@ -145,8 +146,7 @@ export function RecordDangerDialog({
 
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const releasePageScroll = lockWorkspaceModalScroll();
 
     const focusFrame = window.requestAnimationFrame(() => {
       (cancelButtonRef.current ?? dialogRef.current)?.focus();
@@ -191,7 +191,7 @@ export function RecordDangerDialog({
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
+      releasePageScroll();
       previousFocusRef.current?.focus();
       previousFocusRef.current = null;
     };
