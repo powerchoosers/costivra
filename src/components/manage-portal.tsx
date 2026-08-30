@@ -105,7 +105,7 @@ import { ManageInvoiceReview } from "@/components/manage-invoice-review";
 import { ManageIntakeOperations } from "@/components/manage-intake-operations";
 import { ManageCategoryIntelligence } from "@/components/manage-category-intelligence";
 import { CompanyLogo } from "@/components/company-logo";
-import { ManageAiDrawer } from "@/components/manage-ai-drawer";
+import { ManageAiDrawer, requestManageAssistantClose } from "@/components/manage-ai-drawer";
 import { AssistantComposerShell, AssistantIconButton } from "@/components/assistant-workspace";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { ManageNotificationCenter } from "@/components/manage-live-notifications";
@@ -1400,7 +1400,7 @@ export function ManagePortal({
               )}
               </div>
             )}
-              <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => assistantOpen ? setAssistantOpen(false) : openManageAssistant()}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
+              <WorkspaceUtilityButton active={assistantOpen} type="button" className="manage-topbar-icon manage-topbar-icon--assistant" aria-label="Ask Costivra" title="Ask Costivra" aria-expanded={assistantOpen} aria-controls="manage-ai-drawer" onClick={() => assistantOpen ? requestManageAssistantClose() : openManageAssistant()}><CostivraAssistantIcon size={24} /></WorkspaceUtilityButton>
               <ManageNotificationCenter soundEnabled={data.operator.notificationSoundEnabled} />
               </div>
             {section === "mail" ? null : section === "settings" || section === "operations" || section === "invoice-review" || section === "intake" || section === "category-intelligence" ? null : section === "activity" ? (

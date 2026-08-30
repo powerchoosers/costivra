@@ -278,7 +278,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: assistantSlideIn 280ms var(--assistant-ease) both;
   transition: width var(--assistant-motion-surface) var(--assistant-ease), border-color var(--assistant-motion-surface) var(--assistant-ease), border-radius var(--assistant-motion-surface) var(--assistant-ease), box-shadow var(--assistant-motion-surface) var(--assistant-ease), background-color var(--assistant-motion-surface) var(--assistant-ease);
 }
 
@@ -287,18 +286,26 @@
   text-align: center;
 }
 
+.assistant-drawer-surface[data-phase="opening"],
+.assistant-surface[data-mode="drawer"][data-phase="opening"] {
+  animation: assistantDrawerIn var(--assistant-motion-surface) var(--assistant-ease) both;
+}
+
 .assistant-surface[data-phase="closing"],
 .assistant-drawer-surface[data-phase="closing"] {
-  animation: assistantDrawerOut 280ms var(--assistant-ease) forwards;
+  animation: assistantDrawerOut var(--assistant-motion-surface) var(--assistant-ease) forwards;
 }
 
 .assistant-fullscreen-surface,
 .assistant-surface[data-mode="fullscreen"] {
   position: fixed;
-  inset: 0;
   top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -307,27 +314,45 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: none;
+}
+
+.assistant-fullscreen-surface[data-phase="opening"],
+.assistant-surface[data-mode="fullscreen"][data-phase="opening"] {
+  animation: assistantFullscreenIn var(--assistant-motion-surface) var(--assistant-ease) both;
+}
+
+.assistant-surface[data-phase="transitioning"] {
+  animation: assistantSurfaceMorph var(--assistant-motion-surface) var(--assistant-ease) both;
 }
 
 .assistant-fullscreen-surface[data-phase="closing"],
 .assistant-surface[data-mode="fullscreen"][data-phase="closing"] {
-  animation: assistantFullscreenOut 280ms var(--assistant-ease) forwards;
+  animation: assistantFullscreenOut var(--assistant-motion-surface) var(--assistant-ease) forwards;
 }
 
-@keyframes assistantSlideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+@keyframes assistantDrawerIn {
+  from { opacity: 0; transform: translateX(48px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes assistantDrawerOut {
   from { transform: translateX(0); opacity: 1; }
-  to { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(48px); opacity: 0; }
+}
+
+@keyframes assistantFullscreenIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes assistantFullscreenOut {
   from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.985); }
+  to { opacity: 0; transform: translateY(6px) scale(0.992); }
+}
+
+@keyframes assistantSurfaceMorph {
+  from { opacity: 0.94; }
+  to { opacity: 1; }
 }
 
 /* Assistant Header Bar */
@@ -1713,7 +1738,6 @@ a.assistant-citation:focus-visible {
   width: 440px;
   max-width: 100vw;
   z-index: 950;
-  animation: none;
   color: var(--assistant-text);
   opacity: 0;
   pointer-events: none;
@@ -1733,10 +1757,6 @@ a.assistant-citation:focus-visible {
   z-index: 1000;
   transform: none;
   transition: transform var(--assistant-motion-surface) var(--assistant-ease), opacity var(--assistant-motion-surface) var(--assistant-ease), width var(--assistant-motion-surface) var(--assistant-ease), border-color var(--assistant-motion-surface) var(--assistant-ease), border-radius var(--assistant-motion-surface) var(--assistant-ease), box-shadow var(--assistant-motion-surface) var(--assistant-ease), background-color var(--assistant-motion-surface) var(--assistant-ease);
-}
-
-.assistant-surface.manage-assistant.assistant-fullscreen-surface.is-open {
-  animation: none;
 }
 
 .assistant-surface.manage-assistant .manage-assistant-body {

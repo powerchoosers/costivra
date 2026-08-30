@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 const assistantCss = readFileSync(new URL("./client-assistant.css", import.meta.url), "utf8");
 const conversationScroller = readFileSync(new URL("../assistant-conversation-scroller.tsx", import.meta.url), "utf8");
 const providerSource = readFileSync(new URL("./client-assistant-provider.tsx", import.meta.url), "utf8");
+const surfaceSource = readFileSync(new URL("./client-assistant-surface.tsx", import.meta.url), "utf8");
+const manageDrawerSource = readFileSync(new URL("../manage-ai-drawer.tsx", import.meta.url), "utf8");
 
 describe("shared assistant message motion", () => {
   it("owns the bubble blur and top-to-bottom copy reveal keyframes", () => {
@@ -58,6 +60,19 @@ describe("shared assistant message motion", () => {
 
   it("finishes drawer exit from the actual animation instead of a duplicated delay", () => {
     expect(providerSource).toContain("finishClosing");
-    expect(providerSource).not.toMatch(/setTimeout\([\s\S]{0,120}SET_MODE[\s\S]{0,120}240/);
+    expect(providerSource).toContain("finishTransition");
+    expect(providerSource).not.toMatch(/setTimeout\([\s\S]{0,120}SET_PHASE/);
+    expect(surfaceSource).toContain('event.animationName === "assistantSurfaceMorph"');
+  });
+
+  it("uses the same phase-driven surface motion in App and Manage", () => {
+    expect(assistantCss).toContain("@keyframes assistantDrawerIn");
+    expect(assistantCss).toContain("@keyframes assistantFullscreenIn");
+    expect(assistantCss).toContain("@keyframes assistantDrawerOut");
+    expect(assistantCss).toContain("@keyframes assistantFullscreenOut");
+    expect(assistantCss).toContain("@keyframes assistantSurfaceMorph");
+    expect(manageDrawerSource).toContain("data-phase={surfacePhase}");
+    expect(manageDrawerSource).toContain('setMotionPhase("closing")');
+    expect(manageDrawerSource).toContain('event.animationName === "assistantSurfaceMorph"');
   });
 });

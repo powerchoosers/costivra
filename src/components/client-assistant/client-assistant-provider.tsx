@@ -73,7 +73,7 @@ function assistantReducer(state: AssistantState, action: AssistantAction): Assis
       return {
         ...state,
         mode: action.mode,
-        phase: action.mode === "closed" ? "closed" : "open",
+        phase: action.mode === "closed" ? "closed" : state.phase,
       };
     case "SET_PHASE":
       return { ...state, phase: action.phase };
@@ -146,6 +146,7 @@ type ContextValue = {
   openFullscreen: () => void;
   closeAssistant: () => void;
   finishClosing: () => void;
+  finishTransition: () => void;
   toggleHistory: () => void;
   toggleFullscreenHistory: () => void;
   openInspector: (blockId: string) => void;
@@ -395,20 +396,18 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openDrawer = useCallback(() => {
-    dispatch({ type: "SET_PHASE", phase: "opening" });
+    dispatch({ type: "SET_PHASE", phase: state.mode === "closed" ? "opening" : "transitioning" });
     dispatch({ type: "SET_MODE", mode: "drawer" });
     fetchSessions();
     fetchSuggestions();
-    setTimeout(() => dispatch({ type: "SET_PHASE", phase: "open" }), 20);
-  }, [fetchSessions, fetchSuggestions]);
+  }, [fetchSessions, fetchSuggestions, state.mode]);
 
   const openFullscreen = useCallback(() => {
-    dispatch({ type: "SET_PHASE", phase: "opening" });
+    dispatch({ type: "SET_PHASE", phase: state.mode === "closed" ? "opening" : "transitioning" });
     dispatch({ type: "SET_MODE", mode: "fullscreen" });
     fetchSessions();
     fetchSuggestions();
-    setTimeout(() => dispatch({ type: "SET_PHASE", phase: "open" }), 20);
-  }, [fetchSessions, fetchSuggestions]);
+  }, [fetchSessions, fetchSuggestions, state.mode]);
 
   const closeAssistant = useCallback(() => {
     dispatch({ type: "SET_PHASE", phase: "closing" });
@@ -419,10 +418,15 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_PHASE", phase: "closed" });
   }, []);
 
+  const finishTransition = useCallback(() => {
+    dispatch({ type: "SET_PHASE", phase: "open" });
+  }, []);
+
   useEffect(() => {
-    if (state.phase !== "closing" || typeof window === "undefined") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) finishClosing();
-  }, [finishClosing, state.phase]);
+    if (typeof window === "undefined" || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (state.phase === "closing") finishClosing();
+    if (state.phase === "opening" || state.phase === "transitioning") finishTransition();
+  }, [finishClosing, finishTransition, state.phase]);
 
   const toggleHistory = useCallback(() => {
     dispatch({ type: "TOGGLE_HISTORY" });
@@ -452,6 +456,7 @@ export function ClientAssistantProvider({ children }: { children: ReactNode }) {
         openFullscreen,
         closeAssistant,
         finishClosing,
+        finishTransition,
         toggleHistory,
         toggleFullscreenHistory,
         openInspector,

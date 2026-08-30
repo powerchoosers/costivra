@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type CSSProperties, FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type CSSProperties, FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -58,6 +58,14 @@ type ManageAssistantSession = {
   updatedAt: string;
 };
 
+type ManageAssistantPhase = "closed" | "opening" | "open" | "transitioning" | "closing";
+
+const MANAGE_ASSISTANT_CLOSE_EVENT = "costivra:manage-assistant-close";
+
+export function requestManageAssistantClose() {
+  window.dispatchEvent(new Event(MANAGE_ASSISTANT_CLOSE_EVENT));
+}
+
 const icons = {
   account: Building2,
   contact: UserRound,
@@ -99,10 +107,26 @@ export function ManageAiDrawer({
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [mode, setMode] = useState<"drawer" | "fullscreen">("drawer");
+  const [motionPhase, setMotionPhase] = useState<ManageAssistantPhase>("closed");
   const [liveSuggestionsCollapsed, setLiveSuggestionsCollapsed] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const isFullscreen = mode === "fullscreen";
+  const surfacePhase = open && motionPhase === "closed" ? "opening" : motionPhase;
+
+  const closeAssistant = useCallback(() => {
+    if (!open || motionPhase === "closing") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      onClose();
+      return;
+    }
+    setMotionPhase("closing");
+  }, [motionPhase, onClose, open]);
+
+  const toggleSurfaceMode = useCallback(() => {
+    setMotionPhase("transitioning");
+    setMode((current) => current === "fullscreen" ? "drawer" : "fullscreen");
+  }, []);
 
   async function loadSuggestions() {
     setLoadingSuggestions(true);
@@ -180,11 +204,18 @@ export function ManageAiDrawer({
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeAssistant();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [closeAssistant, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleCloseRequest = () => closeAssistant();
+    window.addEventListener(MANAGE_ASSISTANT_CLOSE_EVENT, handleCloseRequest);
+    return () => window.removeEventListener(MANAGE_ASSISTANT_CLOSE_EVENT, handleCloseRequest);
+  }, [closeAssistant, open]);
 
   useEffect(() => {
     const textarea = inputRef.current;
@@ -201,10 +232,6 @@ export function ManageAiDrawer({
     setError(null);
     setConversationRevision((current) => current + 1);
     window.setTimeout(() => inputRef.current?.focus(), 0);
-  }
-
-  function closeAssistant() {
-    onClose();
   }
 
   async function sendQuestion(question: string, file: File | null = attachmentFile) {
@@ -315,13 +342,28 @@ export function ManageAiDrawer({
       <aside
         className={`assistant-surface manage-assistant${open ? " is-open" : ""}${isFullscreen ? " assistant-fullscreen-surface" : " assistant-drawer-surface"}`}
         data-mode={mode}
+        data-phase={surfacePhase}
         data-history={liveSuggestionsCollapsed ? "collapsed" : "open"}
         aria-label="Ask Costivra"
         aria-hidden={!open}
-        onTransitionEnd={(event) => {
-          if (!open && event.target === event.currentTarget && event.propertyName === "opacity") {
+        onAnimationEnd={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (surfacePhase === "closing" && ["assistantDrawerOut", "assistantFullscreenOut"].includes(event.animationName)) {
+            setMotionPhase("closed");
             setMode("drawer");
             setLiveSuggestionsCollapsed(false);
+            onClose();
+          }
+          if (surfacePhase === "opening" && ["assistantDrawerIn", "assistantFullscreenIn"].includes(event.animationName)) {
+            setMotionPhase("open");
+          }
+          if (surfacePhase === "transitioning" && event.animationName === "assistantSurfaceMorph") {
+            setMotionPhase("open");
+          }
+        }}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && surfacePhase === "transitioning" && event.propertyName === "width") {
+            setMotionPhase("open");
           }
         }}
       >
@@ -345,7 +387,7 @@ export function ManageAiDrawer({
               </AssistantIconButton>
               <AssistantIconButton
                 label={isFullscreen ? "Exit full screen" : "Expand to full screen"}
-                onClick={() => setMode((current) => current === "fullscreen" ? "drawer" : "fullscreen")}
+                onClick={toggleSurfaceMode}
               >
                 {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </AssistantIconButton>

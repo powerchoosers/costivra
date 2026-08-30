@@ -9,7 +9,7 @@ import { X } from "@/lib/icons";
 import "./client-assistant.css";
 
 export function ClientAssistantSurface() {
-  const { state, closeInspector, finishClosing } = useClientAssistant();
+  const { state, closeInspector, finishClosing, finishTransition } = useClientAssistant();
 
   if (state.mode === "closed" && state.phase === "closed") return null;
 
@@ -29,12 +29,20 @@ export function ClientAssistantSurface() {
       data-inspector={state.inspectorOpen ? "open" : "closed"}
       aria-label="Ask Costivra"
       onAnimationEnd={(event) => {
-        if (
-          event.target === event.currentTarget
-          && state.phase === "closing"
-          && ["assistantDrawerOut", "assistantFullscreenOut"].includes(event.animationName)
-        ) {
+        if (event.target !== event.currentTarget) return;
+        if (state.phase === "closing" && ["assistantDrawerOut", "assistantFullscreenOut"].includes(event.animationName)) {
           finishClosing();
+        }
+        if (state.phase === "opening" && ["assistantDrawerIn", "assistantFullscreenIn"].includes(event.animationName)) {
+          finishTransition();
+        }
+        if (state.phase === "transitioning" && event.animationName === "assistantSurfaceMorph") {
+          finishTransition();
+        }
+      }}
+      onTransitionEnd={(event) => {
+        if (event.target === event.currentTarget && state.phase === "transitioning" && event.propertyName === "width") {
+          finishTransition();
         }
       }}
     >
