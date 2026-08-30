@@ -432,7 +432,7 @@ textarea:focus-visible {
     font: 700 .7rem "SFMono-Regular", Consolas, monospace;
   }
   .marketing-header ~ .mobile-drawer a:not(.mobile-drawer-cta) svg { color: #7e8ca1; }
-  .marketing-header ~ .mobile-drawer-cta { margin-top: 24px; width: 100%; }
+  .marketing-header ~ .mobile-drawer .mobile-drawer-cta { margin-top: 24px; width: 100%; }
   .marketing-header ~ .mobile-drawer a:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
 }
 

@@ -107,9 +107,17 @@ test("tablet navigation opens as a full-height drawer without page overflow", as
     width: document.documentElement.clientWidth,
     drawerWidth: document.querySelector<HTMLElement>("#mobile-navigation")?.getBoundingClientRect().width ?? 0,
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ctaGap: (() => {
+      const links = Array.from(document.querySelectorAll<HTMLElement>("#mobile-navigation a"));
+      const signIn = links.find((link) => link.textContent?.trim().includes("Sign in"));
+      const cta = document.querySelector<HTMLElement>("#mobile-navigation .mobile-drawer-cta");
+      if (!signIn || !cta) return 0;
+      return cta.getBoundingClientRect().top - signIn.getBoundingClientRect().bottom;
+    })(),
   }));
   expect(geometry.drawerWidth).toBe(geometry.width);
   expect(geometry.overflow).toBeLessThanOrEqual(1);
+  expect(geometry.ctaGap).toBeGreaterThanOrEqual(24);
 });
 
 test("mobile scan page stacks the intake story and workspace panel", async ({ page }, testInfo) => {
