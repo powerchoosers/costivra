@@ -51,6 +51,7 @@ import { CostivraDatePicker } from "@/components/ui/costivra-date-picker";
 import { SkeletonBlock } from "@/components/ui/skeletons";
 import { WorkspaceDecisionSummary, WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { SettingsHub, type SettingsHubItem } from "@/components/ui/settings-hub";
+import { WorkspaceAppearanceSettings } from "@/components/workspace-theme";
 import { formatMoneyInput } from "@/lib/vendors/spend";
 import { formatFinancialDate } from "@/lib/ui/date-format";
 import { PortalRecordDetail, resolveRecordDetailCurrency } from "@/components/portal-record-detail";
@@ -4619,13 +4620,13 @@ function Settings({
   data: PortalData;
   run: (work: () => Promise<unknown>, success: string) => Promise<void>;
   onInvite: () => void;
-  initialTab?: "organization" | "account" | "integrations" | "team" | "billing";
+  initialTab?: "organization" | "appearance" | "account" | "integrations" | "team" | "billing";
 }) {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams?.get("tab");
-  const tabFromUrl = requestedTab === "organization" || requestedTab === "account" || requestedTab === "integrations" || requestedTab === "team" || requestedTab === "billing"
+  const tabFromUrl = requestedTab === "organization" || requestedTab === "appearance" || requestedTab === "account" || requestedTab === "integrations" || requestedTab === "team" || requestedTab === "billing"
     ? requestedTab
     : null;
   const [tab, setTab] = useState(tabFromUrl ?? initialTab);
@@ -4659,6 +4660,7 @@ function Settings({
   };
   const settingsItems: SettingsHubItem<typeof tab>[] = [
     { id: "organization", group: "Workspace", title: "Organization details", description: "Profile, locations, alerts, and data export.", keywords: ["company", "currency", "timezone", "renewal", "digest", "location", "export"] },
+    { id: "appearance", group: "Branding & appearance", title: "Appearance & theme", description: "Light, dark, and system display preferences.", keywords: ["branding", "theme", "dark mode", "light mode", "system", "color"] },
     { id: "account", group: "People & security", title: "Account & login", description: "Sign-in methods and password recovery.", keywords: ["microsoft", "outlook", "password", "identity", "security"] },
     { id: "integrations", group: "Connections", title: "Mail intake & integrations", description: "Email forwarding, mailboxes, and vendor rules.", keywords: ["gmail", "outlook", "email", "forwarding", "inbox", "vendors"] },
     { id: "team", group: "People & security", title: "Team & approvals", description: "Workspace access and consequential-action policies.", keywords: ["invite", "member", "role", "approval", "policy"] },
@@ -4761,6 +4763,7 @@ function Settings({
       )}
       </>}
       {tab === "account" && <AccountLoginSettings data={data} />}
+      {tab === "appearance" && <WorkspaceAppearanceSettings workspaceLabel="App" />}
       {tab === "integrations" && <div className="settings-tab-panel"><Integrations data={data} run={run} embedded /></div>}
       {tab === "team" && <div className="settings-tab-panel"><Team data={data} onInvite={onInvite} run={run} embedded /><ApprovalPolicyManager data={data} run={run} /></div>}
       {tab === "billing" && <BillingPanel />}
@@ -5867,14 +5870,14 @@ function CreateModals({
               defaultValue="30"
             />
           </div>
-          <div style={{ background: "var(--bg-subtle, #f8fafc)", padding: 14, borderRadius: 8, marginTop: 14, border: "1px solid var(--border-color, #e2e8f0)" }}>
-            <strong style={{ fontSize: "0.85rem", display: "block", marginBottom: 6 }}>Private intake address</strong>
-            <p className="muted" style={{ fontSize: "0.78rem", margin: "8px 0 0" }}>
+          <div className="portal-modal-note">
+            <strong>Private intake address</strong>
+            <p>
               Costivra shows the active private intake address after this workspace has one. It never invents an address from your organization ID.
             </p>
           </div>
-          <p className="muted" style={{ fontSize: "0.78rem", marginTop: 12, display: "flex", gap: 6, alignItems: "center" }}>
-            <ShieldCheck size={14} style={{ color: "#002FA7" }} /> Costivra receives only messages sent to your private workspace address.
+          <p className="portal-modal-trust-note">
+            <ShieldCheck size={14} /> Costivra receives only messages sent to your private workspace address.
           </p>
           <FormActions busy={busy} onCancel={close} label="Save monitoring rule" />
         </form>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APP_SIDEBAR_PREFERENCE_COOKIE, MANAGE_SIDEBAR_PREFERENCE_COOKIE, appSidebarPreferenceCookie, manageSidebarPreferenceCookie, parseAppSidebarPreference, resolveManageRailOpen, shouldPersistManageRailPreference } from "@/lib/ui/workspace-preferences";
+import { APP_SIDEBAR_PREFERENCE_COOKIE, MANAGE_SIDEBAR_PREFERENCE_COOKIE, WORKSPACE_THEME_PREFERENCE_COOKIE, appSidebarPreferenceCookie, manageSidebarPreferenceCookie, parseAppSidebarPreference, parseWorkspaceThemePreference, resolveEffectiveWorkspaceTheme, resolveManageRailOpen, shouldPersistManageRailPreference, workspaceThemePreferenceCookie } from "@/lib/ui/workspace-preferences";
 
 describe("workspace preferences", () => {
   it("parses only explicit App sidebar preferences", () => {
@@ -28,5 +28,20 @@ describe("workspace preferences", () => {
     expect(shouldPersistManageRailPreference("desktop", null, true)).toBe(true);
     expect(shouldPersistManageRailPreference("compact", false, false)).toBe(true);
     expect(shouldPersistManageRailPreference("mobile", false, true)).toBe(false);
+  });
+
+  it("parses and resolves the shared App and Manage theme preference", () => {
+    expect(parseWorkspaceThemePreference("system")).toBe("system");
+    expect(parseWorkspaceThemePreference("light")).toBe("light");
+    expect(parseWorkspaceThemePreference("dark")).toBe("dark");
+    expect(parseWorkspaceThemePreference("midnight")).toBeNull();
+    expect(resolveEffectiveWorkspaceTheme("system", true)).toBe("dark");
+    expect(resolveEffectiveWorkspaceTheme("system", false)).toBe("light");
+    expect(resolveEffectiveWorkspaceTheme("light", true)).toBe("light");
+    expect(resolveEffectiveWorkspaceTheme("dark", false)).toBe("dark");
+  });
+
+  it("writes a path-scoped shared theme cookie", () => {
+    expect(workspaceThemePreferenceCookie("dark")).toBe(`${WORKSPACE_THEME_PREFERENCE_COOKIE}=dark; Path=/; Max-Age=31536000; SameSite=Lax`);
   });
 });

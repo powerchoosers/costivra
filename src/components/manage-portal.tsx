@@ -116,6 +116,7 @@ import { CostivraSelect } from "@/components/ui/costivra-select";
 import { CostivraDateTimePicker } from "@/components/ui/costivra-date-time-picker";
 import { WorkspaceDecisionSummary, WorkspaceEmptyState, WorkspaceStatusBadge, WorkspaceUtilityButton, WorkspaceViewTabs } from "@/components/ui/workspace-primitives";
 import { SettingsHub, type SettingsHubItem } from "@/components/ui/settings-hub";
+import { WorkspaceAppearanceSettings } from "@/components/workspace-theme";
 import { GlobalBackControl, shouldRenderManagePageBack, useNavigationLabel } from "@/components/navigation-history";
 import type { ManageInvoiceReviewData } from "@/lib/manage/invoice-review-types";
 import type { ManageIntakeOperationsData } from "@/lib/manage/intake-operations-types";
@@ -5253,7 +5254,7 @@ function SettingsPage({
   const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
   const [runningRetentionReport, setRunningRetentionReport] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "enrichment" | "billing">("general");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "appearance" | "enrichment" | "billing">("general");
   const [apolloSettings, setApolloSettings] = useState<ApolloSettingsSummary | null>(null);
   const [loadingApolloSettings, setLoadingApolloSettings] = useState(false);
   const [apolloSettingsError, setApolloSettingsError] = useState<string | null>(null);
@@ -5419,6 +5420,7 @@ function SettingsPage({
 
   const settingsItems: SettingsHubItem<typeof activeSettingsTab>[] = [
     { id: "general", group: "Profile & communication", title: "Profile, email & alerts", description: "Photo, email signature, live notifications, and sending identities.", keywords: ["avatar", "signature", "mailbox", "sound", "email"] },
+    { id: "appearance", group: "Branding & appearance", title: "Appearance & theme", description: "Light, dark, and system display preferences.", keywords: ["branding", "theme", "dark mode", "light mode", "system", "color"] },
     ...(data.operator.role === "owner" ? [
       { id: "billing" as const, group: "Business controls", title: "Billing & pricing", description: "Costivra plans and Stripe price catalog.", keywords: ["stripe", "plan", "price", "subscription"] },
       { id: "enrichment" as const, group: "System & providers", title: "Provider health", description: "Apollo usage and production readiness.", keywords: ["apollo", "credits", "retention", "readiness", "integration"] },
@@ -5438,7 +5440,9 @@ function SettingsPage({
         </div>
       </section>
       <SettingsHub ariaLabel="Manage settings" items={settingsItems} value={activeSettingsTab} onValueChange={selectSettings}>
-      {activeSettingsTab === "billing" ? (
+      {activeSettingsTab === "appearance" ? (
+        <WorkspaceAppearanceSettings workspaceLabel="Manage" />
+      ) : activeSettingsTab === "billing" ? (
         <BillingCatalogSettings />
       ) : activeSettingsTab === "general" ? (
         <div

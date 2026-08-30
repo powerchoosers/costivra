@@ -15,7 +15,9 @@ type LogoRecord = {
 function fallbackLogo(name: string) {
   const candidate = name.trim().slice(0, 1).toUpperCase();
   const initial = /^[A-Z0-9]$/.test(candidate) ? candidate : "?";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="${initial}"><rect width="64" height="64" rx="16" fill="#eef3f8"/><text x="32" y="39" text-anchor="middle" font-family="Arial,sans-serif" font-size="26" font-weight="700" fill="#29415f">${initial}</text></svg>`;
+  // Keep the image itself transparent so the authenticated workspace tile can
+  // supply the correct Light or Dark surface without recoloring real logos.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="${initial}"><text x="32" y="40" text-anchor="middle" font-family="Arial,sans-serif" font-size="27" font-weight="700" fill="#6f93e8">${initial}</text></svg>`;
   return new NextResponse(svg, {
     status: 200,
     headers: {

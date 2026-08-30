@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Sora, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/toast-provider";
 import { SmoothScroll } from "@/components/smooth-scroll";
+import { WorkspaceThemeProvider } from "@/components/workspace-theme";
 import "./globals.css";
 import "lenis/dist/lenis.css";
 
@@ -41,12 +42,26 @@ export const metadata: Metadata = {
   icons: { icon: "/brand/costivra-favicon.png", apple: "/brand/costivra-favicon.png", other: [{ rel: "mask-icon", url: "/brand/costivra-circuit-mark.svg", color: "#0b1115" }] },
 };
 
-export const viewport: Viewport = { themeColor: "#f4f1e8", colorScheme: "light" };
+export const viewport: Viewport = { themeColor: "#f5f7fa", colorScheme: "light dark" };
+
+const workspaceThemeBootScript = `(() => { try {
+  const key = "costivra.workspace.theme";
+  const cookieName = "costivra_workspace_theme";
+  const stored = localStorage.getItem(key);
+  const cookie = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(cookieName + "="))?.split("=")[1];
+  const preference = ["system", "light", "dark"].includes(stored || "") ? stored : (["system", "light", "dark"].includes(cookie || "") ? cookie : "system");
+  const theme = preference === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : preference;
+  document.documentElement.dataset.workspaceTheme = theme;
+  document.documentElement.dataset.workspaceThemePreference = preference;
+  document.documentElement.style.colorScheme = theme;
+} catch (_) { document.documentElement.dataset.workspaceTheme = "light"; }
+})();`;
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${sora.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth" data-workspace-scrollbar="">
-      <body><SmoothScroll /><ToastProvider>{children}</ToastProvider></body>
+    <html lang="en" className={`${sora.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth" data-workspace-scrollbar="" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: workspaceThemeBootScript }} /></head>
+      <body><WorkspaceThemeProvider><SmoothScroll /><ToastProvider>{children}</ToastProvider></WorkspaceThemeProvider></body>
     </html>
   );
 }

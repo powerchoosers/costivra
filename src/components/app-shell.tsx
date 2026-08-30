@@ -108,6 +108,7 @@ function websiteLabel(website: string) {
 }
 
 import { useCallback, useEffect, useRef, useState, useMemo, useSyncExternalStore, useTransition } from "react";
+import type { AnimationEvent } from "react";
 
 export interface AppSearchResult {
   id: string;
@@ -278,6 +279,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
   const [profileOpen, setProfileOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuClosing, setMobileMenuClosing] = useState(false);
   const [sidebarCollapsedOverride, setSidebarCollapsedOverride] = useState<boolean | null>(null);
   const readBrowserSidebarPreference = useCallback(() => {
     if (hasInitialSidebarPreference) return initialSidebarCollapsed;
@@ -306,6 +308,26 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
   const createMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarTooltipCloseTimerRef = useRef<number | null>(null);
+
+  const closeMobileMenu = useCallback(() => {
+    if (!mobileMenuOpen || mobileMenuClosing) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setMobileMenuOpen(false);
+      return;
+    }
+    setMobileMenuClosing(true);
+  }, [mobileMenuClosing, mobileMenuOpen]);
+
+  const openMobileMenu = useCallback(() => {
+    setMobileMenuClosing(false);
+    setMobileMenuOpen(true);
+  }, []);
+
+  const finishMobileMenuClose = useCallback((event: AnimationEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || event.animationName !== "app-mobile-drawer-out") return;
+    setMobileMenuOpen(false);
+    setMobileMenuClosing(false);
+  }, []);
 
   const clearSidebarTooltip = useCallback(() => {
     setSidebarTooltip((current) => {
@@ -427,7 +449,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
   }, [data, currentPathname]);
 
   useEffect(() => {
-    if (mobileMenuOpen) {
+    if (mobileMenuOpen || mobileMenuClosing) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -435,7 +457,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
     return () => {
       document.body.style.overflow = "";
     };
-  }, [mobileMenuOpen]);
+  }, [mobileMenuClosing, mobileMenuOpen]);
 
   const closeSearch = useCallback(() => {
     if (!searchFocused || searchClosing) return;
@@ -476,12 +498,12 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
         setNotificationsOpen(false);
         setProfileOpen(false);
         setCreateMenuOpen(false);
-        setMobileMenuOpen(false);
+        closeMobileMenu();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeSearch]);
+  }, [closeMobileMenu, closeSearch]);
 
   useEffect(() => {
     if (searchFocused) window.requestAnimationFrame(() => mobileSearchInputRef.current?.focus());
@@ -669,7 +691,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                             setOptimisticHref(href);
                             startNavTransition(() => {});
                           }
-                          setMobileMenuOpen(false);
+                          closeMobileMenu();
                         }}
                       >
                         <Icon aria-hidden="true" size={18} />
@@ -708,7 +730,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                     setOptimisticHref("/app/settings");
                     startNavTransition(() => {});
                   }
-                  setMobileMenuOpen(false);
+                  closeMobileMenu();
                 }}
               >
                 <Gear aria-hidden="true" size={18} />
@@ -875,26 +897,26 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
           )}
 
           <nav className="app-mobile-nav" aria-label="Mobile workspace navigation">
-            <Link className={isRouteActive("/app", pathname) ? "active" : ""} href="/app" aria-label="Open Command Center" onClick={() => setMobileMenuOpen(false)}>
+            <Link className={isRouteActive("/app", pathname) ? "active" : ""} href="/app" aria-label="Open Command Center" onClick={closeMobileMenu}>
               <Layout aria-hidden="true" size={20} />
               <span>Overview</span>
             </Link>
-            <Link className={isRouteActive("/app/bills", pathname) ? "active" : ""} href="/app/bills" aria-label="Open Bills & Spend" onClick={() => setMobileMenuOpen(false)}>
+            <Link className={isRouteActive("/app/bills", pathname) ? "active" : ""} href="/app/bills" aria-label="Open Bills & Spend" onClick={closeMobileMenu}>
               <Receipt aria-hidden="true" size={20} />
               <span>Bills</span>
             </Link>
-            <Link className={isRouteActive("/app/findings", pathname) ? "active" : ""} href="/app/findings" aria-label="Open Findings" data-tour="findings" onClick={() => setMobileMenuOpen(false)}>
+            <Link className={isRouteActive("/app/findings", pathname) ? "active" : ""} href="/app/findings" aria-label="Open Findings" data-tour="findings" onClick={closeMobileMenu}>
               <Target aria-hidden="true" size={20} />
               <span>Findings</span>
             </Link>
-            <Link className={isRouteActive("/app/actions", pathname) ? "active" : ""} href="/app/actions" aria-label="Open Actions" data-tour="actions" onClick={() => setMobileMenuOpen(false)}>
+            <Link className={isRouteActive("/app/actions", pathname) ? "active" : ""} href="/app/actions" aria-label="Open Actions" data-tour="actions" onClick={closeMobileMenu}>
               <CheckSquare aria-hidden="true" size={20} />
               <span>Actions</span>
             </Link>
             <button
               type="button"
               className={`app-mobile-nav-toggle${mobileMenuOpen ? " active" : ""}`}
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              onClick={() => mobileMenuOpen ? closeMobileMenu() : openMobileMenu()}
               aria-label="Toggle navigation menu"
               aria-expanded={mobileMenuOpen}
               data-tour="menu"
@@ -903,24 +925,25 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
               <span>Menu</span>
             </button>
           </nav>
-          {mobileMenuOpen && (
+          {(mobileMenuOpen || mobileMenuClosing) && (
             <>
               <div
-                className="app-mobile-drawer-overlay"
-                onClick={() => setMobileMenuOpen(false)}
+                className={`app-mobile-drawer-overlay${mobileMenuClosing ? " is-closing" : ""}`}
+                onClick={closeMobileMenu}
                 aria-hidden="true"
               />
               <div
-                className="app-mobile-drawer"
+                className={`app-mobile-drawer${mobileMenuClosing ? " is-closing" : ""}`}
                 role="dialog"
                 aria-label="Navigation menu"
+                onAnimationEnd={finishMobileMenuClose}
               >
                 <div className="mobile-drawer-header">
                   <strong>Navigation</strong>
                   <button
                     className="workspace-close-button"
                     type="button"
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                     aria-label="Close menu"
                   >
                     <X size={18} aria-hidden="true" />
@@ -936,7 +959,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                           key={href}
                           className={active ? "active" : ""}
                           href={href}
-                          onClick={() => setMobileMenuOpen(false)}
+                          onClick={closeMobileMenu}
                           aria-current={active ? "page" : undefined}
                         >
                           <Icon aria-hidden="true" size={18} />
