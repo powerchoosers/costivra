@@ -13942,7 +13942,10 @@ button.workspace-notification-row:focus-visible {
     backdrop-filter:blur(16px);
   }
 
-  .manage-shell-v2 .manage-main { padding-bottom:calc(78px + env(safe-area-inset-bottom)); }
+  /* The dock overlays the scroll surface. Bottom clearance belongs to the
+     page content so records can travel behind the dock before resting safely
+     above it at the end of the scroll. */
+  .manage-shell-v2 .manage-main { padding-bottom:0; }
 
   /* Manage now uses the same mobile navigation-sheet model as the customer
      workspace: the dock stays available, while the complete information
@@ -14274,7 +14277,7 @@ button.workspace-notification-row:focus-visible {
     min-height:0;
     margin:0;
     overflow:hidden;
-    padding-bottom:82px;
+    padding-bottom:0;
   }
   .manage-shell-v2 .manage-topbar {
     min-height:72px;
@@ -14290,6 +14293,9 @@ button.workspace-notification-row:focus-visible {
   }
   .manage-shell-v2 .manage-top-actions { width:auto; flex:0 0 auto; }
   .manage-shell-v2 .manage-page { min-width:0; }
+  .manage-shell-v2 .manage-page--overview {
+    padding-bottom:calc(110px + env(safe-area-inset-bottom));
+  }
   .manage-shell-v2 .manage-page--mail { height:calc(100dvh - 72px); }
   /* Keep the portrait-tablet header calm: search remains one tap away in the
      shared focused sheet instead of competing with the page title and utility
@@ -14313,7 +14319,7 @@ button.workspace-notification-row:focus-visible {
     bottom:max(12px, env(safe-area-inset-bottom));
     left:0;
     display:grid;
-    width:min(calc(100% - 32px), 640px);
+    width:min(calc(100% - 32px), 900px);
     margin-inline:auto;
     grid-template-columns:repeat(5,minmax(0,1fr));
     gap:6px;
@@ -14491,9 +14497,33 @@ button.workspace-notification-row:focus-visible {
 @media (max-width:780px) {
   .app-mobile-utilities { display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .app-mobile-utility-search { display:contents; }
-  .manage-shell-v2 .manage-topbar { grid-template-areas:"leading actions"; height:auto !important; min-height:0 !important; }
+  .manage-shell-v2 .manage-topbar {
+    grid-template-areas:"leading actions";
+    height:auto !important;
+    min-height:72px !important;
+  }
+  .manage-shell-v2 .manage-topbar-leading > div { display:grid; }
   .manage-mobile-search-trigger { flex:0 0 38px; }
-  .manage-mobile-search-divider { display:none; }
+  .manage-shell-v2 .manage-mobile-search-divider {
+    display:block;
+    width:1px;
+    height:24px;
+    flex:0 0 1px;
+    margin:0 2px;
+    background:var(--workspace-line,#dfe5ee);
+  }
+  .manage-shell-v2 .manage-page--overview {
+    padding-bottom:calc(108px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Touch Manage chrome stays visually anchored while its page surface moves
+   beneath it. The stronger two-stage shadow is reserved for this real
+   overlay relationship, not decorative card depth. */
+@media (max-width:1199px), (hover:none) and (pointer:coarse) {
+  .manage-shell-v2 .manage-topbar {
+    box-shadow:0 1px 0 rgba(15,23,42,.08), 0 12px 30px rgba(15,23,42,.11);
+  }
 }
 
 /* Close controls are intentionally quiet until interaction. One shared

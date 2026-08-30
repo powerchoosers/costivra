@@ -1171,6 +1171,39 @@ test.describe("authenticated customer workspace", () => {
         expect(manageHeaderGeometry.buttons[index - 1].right).toBeLessThanOrEqual(manageHeaderGeometry.buttons[index].left + 1);
       }
 
+      const manageTouchChrome = await page.evaluate(() => {
+        const header = document.querySelector<HTMLElement>(".manage-topbar");
+        const divider = document.querySelector<HTMLElement>(".manage-mobile-search-divider");
+        const dock = document.querySelector<HTMLElement>(".manage-mobile-nav");
+        const overview = document.querySelector<HTMLElement>(".manage-page--overview");
+        const dockRect = dock?.getBoundingClientRect();
+        const overviewRect = overview?.getBoundingClientRect();
+        return {
+          dividerVisible: Boolean(divider?.getClientRects().length),
+          dockWidth: dockRect?.width ?? 0,
+          headerShadow: header ? getComputedStyle(header).boxShadow : "none",
+          overviewBottom: overviewRect?.bottom ?? 0,
+          overviewPaddingBottom: overview ? Number.parseFloat(getComputedStyle(overview).paddingBottom) : 0,
+          overlap: dockRect && overviewRect ? overviewRect.bottom - dockRect.top : 0,
+        };
+      });
+      expect(manageTouchChrome.dividerVisible).toBe(true);
+      expect(manageTouchChrome.dockWidth).toBeGreaterThanOrEqual(786);
+      expect(manageTouchChrome.headerShadow).not.toBe("none");
+      expect(manageTouchChrome.overviewBottom).toBeGreaterThanOrEqual(1179);
+      expect(manageTouchChrome.overviewPaddingBottom).toBeGreaterThanOrEqual(108);
+      expect(manageTouchChrome.overlap).toBeGreaterThanOrEqual(68);
+
+      for (const viewport of [
+        { width: 768, height: 1024 },
+        { width: 390, height: 844 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await expect(page.getByRole("heading", { name: "Client operations" })).toBeVisible();
+        await expect(page.locator(".manage-mobile-search-divider")).toBeVisible();
+      }
+      await page.setViewportSize({ width: 820, height: 1180 });
+
       await page.getByRole("button", { name: "Open more owner operations" }).click();
       const manageNavigation = page.getByRole("dialog", { name: "Owner operations navigation" });
       await expect(manageNavigation).toBeVisible();
