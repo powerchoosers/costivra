@@ -1,5 +1,11 @@
 # Costivra Status
 
+## August 31, 2026 — Manage tablet frozen-column and navigation refinement
+
+- Restored the visible dark-mode depth cue to the right edge of Manage frozen identity columns by moving them onto the same 18px low-light gradient contract used by customer App tables.
+- Quieted the dark tablet/phone active navigation state across App and Manage: selection now uses a restrained theme-derived border and fill without the near-white outline or inset highlight.
+- Validation: authenticated browser QA passed at the reported 908×838 Manage viewport after a 240px horizontal table scroll; the frozen Account column held its exact position with an 18px dark edge gradient, and the active dock state used a subdued theme-derived border with no inset highlight. Shared 390×844 checks passed in both App and Manage with zero horizontal overflow, clean console logs, and no framework overlay. Node `v24.19.0`, TypeScript no-emit, focused ESLint, and `git diff --check` passed. The Costivra dev server is running from this checkout on port 3000.
+
 ## August 30, 2026 — Shared modal background scroll lock
 
 - Replaced the App-only body overflow toggle with a reference-counted workspace modal lock that freezes the real nested App and Manage page scrollports, preserves their exact positions, and still allows a modal body to own its own scrolling.

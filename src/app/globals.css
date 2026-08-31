@@ -16004,7 +16004,6 @@ button.workspace-notification-row:focus-visible {
 }
 
 :root[data-workspace-theme="dark"] .app-body .app-mobile-nav :where(a, button) { color: var(--workspace-muted); }
-:root[data-workspace-theme="dark"] .app-body .app-mobile-nav :where(a.active, button.active) { color: var(--workspace-control-ink-active); background: var(--workspace-accent-soft); }
 
 :root[data-workspace-theme="dark"] :where(.app-body, .manage-shell-v2) :where(
   .portal-panel-heading,
@@ -16120,7 +16119,16 @@ button.workspace-notification-row:focus-visible {
   box-shadow: 0 -8px 26px rgba(0, 0, 0, .24);
 }
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-mobile-nav :where(a, button) { color: var(--workspace-muted); }
-:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-mobile-nav :where(a.active, button.active) { color: var(--workspace-control-ink-active); background: var(--workspace-accent-soft); }
+
+/* Selection should be unmistakable without turning the active destination
+   into the brightest container in the workspace. App and Manage share the
+   same quiet low-light treatment. */
+:root[data-workspace-theme="dark"] :is(.app-body .app-mobile-nav, .manage-shell-v2 .manage-mobile-nav) :is(a.active, button.active) {
+  border-color: color-mix(in srgb, var(--workspace-accent) 24%, var(--workspace-line));
+  color: var(--workspace-control-ink-active);
+  background: color-mix(in srgb, var(--workspace-accent-soft) 76%, var(--workspace-surface));
+  box-shadow: none;
+}
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-preference-toggle,
 :root[data-workspace-theme="dark"] .manage-shell-v2 .workspace-mobile-search-trigger {
   border-color: var(--workspace-control-line);
@@ -16151,7 +16159,10 @@ button.workspace-notification-row:focus-visible {
   box-shadow: 12px 0 22px -14px rgba(0, 0, 0, .96), 3px 0 9px -5px rgba(117, 148, 194, .34), 1px 0 0 #3a4b61;
 }
 
-:root[data-workspace-theme="dark"] .app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) :is(th, td):nth-child(2)::after {
+:root[data-workspace-theme="dark"] :is(
+  .app-body .app-work-canvas :is(.vendor-table, .bills-table, .contracts-table) :is(th, td):nth-child(2),
+  .manage-shell-v2 .manage-data-table .manage-sticky-column
+)::after {
   position: absolute;
   top: 0;
   right: -18px;
