@@ -1,5 +1,35 @@
 # Costivra Status
 
+## September 1, 2026 — Appearance preview rail
+
+- Replaced the theme preview's hard-coded dark sidebar fill with the active workspace surface token, so the light preview shows its approved black-C mark on a light rail and the dark preview continues to show the white-C counterpart on a dark rail.
+- Added the missing right-edge divider to preserve the miniature sidebar/canvas boundary in both themes.
+- Validation: local Browser QA at 1260×838 confirmed the light selection renders a light preview rail, the approved black-C mark, and a visible right divider; the dark selection renders the dark rail, white-C counterpart, and theme-matched divider. The original light preference was restored after testing. No browser warning/error or framework overlay remained.
+
+## September 1, 2026 — Costivra dark mark refinement
+
+- Rebuilt the dark mark directly from the approved light asset so its canvas, silhouette, center segments, rail geometry, stacking, transparency, and antialiasing remain pixel-for-pixel identical.
+- Changed only the light asset's near-black C and center segments to white while preserving every blue-green-blue rail pixel. The discarded generated draft is not used because it introduced edge artifacts.
+- Versioned the dark-asset URL so open local workspace tabs cannot retain the prior PNG during review. The shared theme binding applies the exact inverse mark to App, Manage, the theme preview, and the entry overlay.
+- Validation: local Browser QA at 1260×838 confirmed both Manage and App serve the cache-busted white-C asset in dark mode at 34×34 CSS pixels. The focused light/dark comparison shows identical geometry, stacking, rails, transparent bounds, and antialiasing with only the C color inverted. No P0/P1/P2 mismatch, browser warning/error, or framework overlay remained.
+
+## September 1, 2026 — Dark workspace entry overlay
+
+- Refined the dark-mode entry overlay’s Costivra mark and record-preview icon treatments to use the workspace’s dark surface, restrained border, and shallow elevation rather than bright light-mode tiles.
+- Corrected the surrounding loading line, placeholder bars, progress rail, and heading contrast so the transition reads coherently before Manage is ready.
+- Validation: local Browser QA captured the dark Manage entry overlay with both updated icon treatments, readable heading, and no console warnings/errors or framework overlay. The overlay then completed its exit and handed off to the Manage workspace successfully. `git diff --check` passed.
+
+## September 1, 2026 — Shared assistant composer surface
+
+- Removed the visible nested fill from the dark-mode Manage assistant textarea so the outer composer shell is the sole input surface and focus treatment, matching the customer App.
+- Validation: local Browser QA on `/manage` confirmed the focused textarea is visually transparent and the outer composer shell owns the only visible fill, border, and focus state. No browser console warnings/errors or framework overlay were observed. `git diff --check` passed.
+
+## September 1, 2026 — Manage overview queue dark-mode refinement
+
+- Refined the dark-mode **Open follow-ups** and **Recent activity** queues as one quiet operating surface: panel, header, list dividers, text hierarchy, hover state, and focus treatment now use the shared low-light workspace tokens rather than light-mode paint.
+- The change preserves the existing task and activity data, navigation, and priority/status meaning while making queue scanning more legible and less visually harsh at tablet dimensions.
+- Validation: local Browser QA at the reported 908×838 Manage viewport confirmed both queues use the dark workspace surface, restrained dividers, and a visible row-hover state without framework overlays or console warnings/errors. The responsive mobile queue remains present after the mobile navigation drawer closes. Node `v24.19.0`, TypeScript no-emit, focused ESLint, and `git diff --check` passed. The Costivra Next.js server is listening on port 3000 and `/manage` returns HTTP 200.
+
 ## August 31, 2026 — Manage tablet frozen-column and navigation refinement
 
 - Restored the visible dark-mode depth cue to the right edge of Manage frozen identity columns by moving them onto the same 18px low-light gradient contract used by customer App tables.
@@ -3384,3 +3414,26 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Installed the repository-matched Playwright Chromium runtime and reran the local E2E matrix. Browser execution is now working: 20 checks pass, 33 authenticated checks remain credential-gated/skipped, and 9 existing public-content assertions fail on provider/copy/marketing expectations outside the App/Manage responsive scope. The mobile scan layout check passes; no responsive App/Manage assertion failed.
 - Fixed the iPad portrait marketing hamburger gap found during authenticated browser QA. At 761–1050px the compact menu button now has a full-height animated drawer, backdrop, safe-area padding, and properly laid-out links; at 768px and 820px the drawer opens/closes with zero horizontal overflow. Manage was smoke-tested at tablet and phone widths with its fixed shell and contacts card layout intact. Targeted mobile navigation E2E passed (1/1).
 - Extended the credential-gated authenticated responsive test to cover the tablet App bills route, App navigation drawer profile/sign-out affordance, and Manage More drawer profile/sign-out affordance. Node `v24.19.0`; targeted ESLint and repository typecheck pass.
+# 2026-09-01 - Dark Settings Border Refinement
+
+- Replaced the bright desktop active-navigation outline and white inset highlight with the shared restrained dark selection treatment in both authenticated workspaces.
+- Moved the Manage Settings dividers and the Branding & Appearance panel outline onto the dark workspace border tokens.
+- Preserved clear selection meaning while removing the high-contrast white containers that competed with the page content.
+- Browser-verified `/manage/settings` at 1260x838 in dark mode: panel, dividers, and selected Settings control now resolve to the intended dark-theme borders with no inset highlight.
+# 2026-09-01 - Dark Global Search Surface
+
+- Removed the inner rectangular input paint from dark-mode global search controls in Manage and App header patterns.
+- Kept the rounded outer search shell as the sole owner of background, border, shadow, and focus feedback.
+- Browser-verified Manage in dark mode: the input resolves transparent and borderless inside the 12px rounded header search shell.
+# 2026-09-01 - Ask Costivra Conversation Icon
+
+- Replaced the abstract evidence-node assistant mark with Lewis's selected two-bubble conversation direction in matched light and dark variants.
+- Regenerated the production bitmaps from the approved concept to preserve its broad circular proportions and lighter outline weight, then trimmed excess transparent canvas without distorting the geometry.
+- Set the header glyph to 22px while retaining the larger assistant artwork in conversation and welcome surfaces.
+- Matched the App assistant trigger to the adjacent Plus and Notifications controls: all three now render at 40px with identical dark fill, border, and shadow values.
+- Browser-verified the shared icon in App and Manage dark mode; both assets load and the App header controls resolve to matching computed geometry and paint.
+# 2026-09-01 - Dark Runtime Fail-Safe
+
+- Added an explicit dark-theme bridge for route errors and shared runtime fallbacks, which render outside the normal App and Manage shell selectors.
+- Dark mode now carries through the fail-safe canvas, card, brand tile, heading, supporting copy, reference text, and secondary action while retaining the high-visibility recovery action.
+- Confirmed the active workspace theme remains `dark` outside authenticated shell routes; the local server was restarted on port 3000 for verification.

@@ -10083,12 +10083,12 @@ button.workspace-notification-row:focus-visible {
 .app-body .app-work-canvas .workspace-utility-button.assistant-trigger-btn-circle .assistant-icon-image,
 .manage-shell-v2 .workspace-utility-button.manage-topbar-icon--assistant .assistant-icon-image {
   display: block;
-  width: 26px !important;
-  height: 26px !important;
+  width: 22px !important;
+  height: 22px !important;
   max-width: none;
   max-height: none;
   object-fit: contain;
-  flex: 0 0 26px;
+  flex: 0 0 22px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -12150,7 +12150,14 @@ button.workspace-notification-row:focus-visible {
   background: var(--workspace-ground);
   box-shadow: var(--workspace-panel-shadow);
 }
-.workspace-theme-preview__rail { display: grid; padding-top: 19px; color: #e7edf7; background: #0b111b; place-items: start center; }
+.workspace-theme-preview__rail {
+  display: grid;
+  padding-top: 19px;
+  border-right: 1px solid var(--workspace-line);
+  color: var(--workspace-ink);
+  background: var(--workspace-surface-soft);
+  place-items: start center;
+}
 .workspace-theme-preview__rail svg { width: 28px; height: 28px; }
 .workspace-theme-preview__canvas {
   display: grid;
@@ -12256,6 +12263,26 @@ button.workspace-notification-row:focus-visible {
   background-image: radial-gradient(rgba(255,255,255,.025) .65px, transparent .65px);
 }
 
+/* The entry overlay sits outside both authenticated shells. Give its two
+   loading icons the same low-light materials as the workspace they introduce. */
+:root[data-workspace-theme="dark"] .workspace-loading-screen__signal-mark,
+:root[data-workspace-theme="dark"] .workspace-loading-screen__signal-records {
+  border-color: var(--workspace-control-line);
+  background: var(--workspace-surface-soft);
+  box-shadow: var(--workspace-panel-shadow);
+}
+:root[data-workspace-theme="dark"] .workspace-loading-screen__signal-line {
+  background: var(--workspace-line);
+}
+:root[data-workspace-theme="dark"] .workspace-loading-screen__signal-records i,
+:root[data-workspace-theme="dark"] .workspace-loading-screen__topbar i,
+:root[data-workspace-theme="dark"] .workspace-loading-screen__progress {
+  background: #314056;
+}
+:root[data-workspace-theme="dark"] .workspace-loading-screen__content h1 {
+  color: var(--workspace-ink);
+}
+
 :root[data-workspace-theme="dark"] :where(.app-body .app-work-canvas, .manage-shell-v2 .manage-main) { border-color: var(--workspace-line); background: var(--workspace-surface); box-shadow: var(--workspace-shadow); }
 :root[data-workspace-theme="dark"] :where(.app-body .app-topbar, .manage-shell-v2 .manage-topbar) { border-color: var(--workspace-line); color: var(--workspace-ink); background: color-mix(in srgb, var(--workspace-surface) 93%, transparent); }
 :root[data-workspace-theme="dark"] :where(.app-body .app-content, .manage-shell-v2 .manage-page) { color: var(--workspace-ink); background-color: var(--workspace-surface); }
@@ -12291,6 +12318,18 @@ button.workspace-notification-row:focus-visible {
   .manage-compose-window textarea
 ) { border-color: var(--workspace-control-line); color: var(--workspace-ink); background-color: var(--workspace-surface-soft); }
 :root[data-workspace-theme="dark"] :where(.app-body input, .app-body textarea, .manage-shell-v2 input, .manage-shell-v2 textarea)::placeholder { color: #718096; }
+
+/* The rounded global-search shell owns the surface and focus state. Keep its
+   native input visually flat so dark mode does not paint a second rectangle. */
+:root[data-workspace-theme="dark"] :is(
+  .app-body .app-topbar .global-search,
+  .manage-shell-v2 .manage-topbar-center .manage-search,
+  .manage-shell-v2 .manage-mobile-header-search .manage-search
+) input {
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
 
 :root[data-workspace-theme="dark"] :where(.app-body table, .manage-shell-v2 table) { color: var(--workspace-ink); background: var(--workspace-surface); }
 :root[data-workspace-theme="dark"] :where(.app-body th, .manage-shell-v2 th) { border-color: var(--workspace-line); color: var(--workspace-table-heading); background: var(--workspace-surface-soft); }
@@ -16123,11 +16162,29 @@ button.workspace-notification-row:focus-visible {
 /* Selection should be unmistakable without turning the active destination
    into the brightest container in the workspace. App and Manage share the
    same quiet low-light treatment. */
+:root[data-workspace-theme="dark"] :is(.manage-shell-v2 .manage-sidebar, .app-body .app-sidebar) nav a.active,
+:root[data-workspace-theme="dark"] .app-body .app-sidebar .app-sidebar-utility a.active {
+  border-color: color-mix(in srgb, var(--workspace-accent) 24%, var(--workspace-line));
+  color: var(--workspace-control-ink-active);
+  background: color-mix(in srgb, var(--workspace-accent-soft) 76%, var(--workspace-surface));
+  box-shadow: none;
+}
+
 :root[data-workspace-theme="dark"] :is(.app-body .app-mobile-nav, .manage-shell-v2 .manage-mobile-nav) :is(a.active, button.active) {
   border-color: color-mix(in srgb, var(--workspace-accent) 24%, var(--workspace-line));
   color: var(--workspace-control-ink-active);
   background: color-mix(in srgb, var(--workspace-accent-soft) 76%, var(--workspace-surface));
   box-shadow: none;
+}
+
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-sidebar nav.manage-sidebar-utility,
+:root[data-workspace-theme="dark"] .app-body .app-sidebar .app-sidebar-utility {
+  border-color: var(--workspace-line);
+}
+
+:root[data-workspace-theme="dark"] :is(.manage-shell-v2, .app-body) .workspace-appearance-panel {
+  border-color: var(--workspace-line);
+  box-shadow: var(--workspace-panel-shadow);
 }
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-preference-toggle,
 :root[data-workspace-theme="dark"] .manage-shell-v2 .workspace-mobile-search-trigger {
@@ -16385,6 +16442,41 @@ button.workspace-notification-row:focus-visible {
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-activity-row--account .manage-activity-icon { border-color: #315647; color: #9ed8be; background: #142820; }
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-activity-row--inquiry .manage-activity-icon { border-color: #6a542b; color: #ebc777; background: #2b2315; }
 
+/* The overview queues are one operating surface: preserve their calm panel
+   hierarchy in the low-light theme without carrying over light-mode dividers. */
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid > .manage-panel {
+  border-color: var(--workspace-line);
+  background: var(--workspace-surface);
+  box-shadow: var(--workspace-panel-shadow);
+}
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid > .manage-panel:hover {
+  border-color: var(--workspace-control-line-hover);
+  box-shadow: var(--workspace-panel-shadow);
+}
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid > .manage-panel > header {
+  border-color: var(--workspace-line-soft);
+  background: var(--workspace-surface);
+}
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid .manage-panel > header h3,
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid :is(.manage-compact-list, .manage-activity-list) strong {
+  color: var(--workspace-ink);
+}
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid .manage-panel > header p,
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid :is(.manage-compact-list, .manage-activity-list) :is(p, small, time) {
+  color: var(--workspace-muted);
+}
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid :is(.manage-compact-record-row, .manage-activity-row) {
+  border-color: var(--workspace-line-soft);
+  background: transparent;
+}
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid :is(.manage-compact-record-row, .manage-activity-row):hover {
+  background: var(--workspace-row-hover);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--workspace-accent) 54%, transparent);
+}
+:root[data-workspace-theme="dark"] .manage-shell-v2 .manage-lower-grid :is(.manage-compact-record-row, .manage-activity-row):focus-visible {
+  outline-color: var(--workspace-accent);
+}
+
 :root[data-workspace-theme="dark"] .manage-shell-v2 :is(.manage-mail-tabs, .manage-mail-shell, .manage-message) {
   border-color: var(--workspace-line);
   color: var(--workspace-ink);
@@ -16545,11 +16637,94 @@ button.workspace-notification-row:focus-visible {
 /* Dark artwork and contrast refinements. Keep controls with their own outer
    shell visually singular, and use quieter semantic color in dense work areas. */
 :root[data-workspace-theme="dark"] .assistant-icon-image {
-  content: url("/brand/ai-chat-concepts/evidence-signal-dark.svg");
+  content: url("/brand/ai-chat-concepts/conversation-pair-dark.png");
+}
+
+:root[data-workspace-theme="dark"] :is(
+  .app-body .workspace-utility-button.assistant-trigger-btn-circle,
+  .manage-shell-v2 .workspace-utility-button.manage-topbar-icon--assistant
+) {
+  border-color: var(--workspace-control-line);
+  color: var(--workspace-control-ink);
+  background: var(--workspace-control-surface);
+  box-shadow: var(--workspace-control-shadow);
+}
+
+:root[data-workspace-theme="dark"] :is(
+  .app-body .workspace-utility-button.assistant-trigger-btn-circle,
+  .manage-shell-v2 .workspace-utility-button.manage-topbar-icon--assistant
+):is(:hover, :focus-visible, .is-active) {
+  border-color: var(--workspace-control-line-hover);
+  color: var(--workspace-control-ink-active);
+  background: var(--workspace-control-surface-active);
+  box-shadow: var(--workspace-control-shadow);
+}
+
+/* The App assistant trigger still carries legacy `.button-quiet` paint with
+   greater specificity. Match the adjacent create and notification circles
+   exactly until that legacy button layer is removed. */
+:root[data-workspace-theme="dark"] .app-body .app-work-canvas .app-top-actions .workspace-utility-button.assistant-trigger-btn-circle {
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  border-color: #334052 !important;
+  background: #121923 !important;
+  box-shadow: var(--workspace-control-shadow) !important;
+}
+
+:root[data-workspace-theme="dark"] .app-body .app-work-canvas .app-top-actions .workspace-utility-button.assistant-trigger-btn-circle:is(:hover, :focus-visible, .is-active) {
+  border-color: #4b6280 !important;
+  background: #182536 !important;
 }
 
 :root[data-workspace-theme="dark"] .costivra-mark {
-  content: url("/brand/costivra-circuit-mark-dark.svg");
+  content: url("/brand/costivra-circuit-mark-dark.png?v=20260901-e");
+}
+
+/* Route failures stay inside the chosen workspace theme. These pages sit
+   outside the authenticated shell classes, so they need their own token bridge. */
+:root[data-workspace-theme="dark"] .runtime-error-page {
+  color: var(--workspace-ink);
+  background: #0c1118;
+}
+
+:root[data-workspace-theme="dark"] .runtime-error-card {
+  border-color: var(--workspace-line);
+  color: var(--workspace-ink);
+  background: var(--workspace-surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .34);
+}
+
+:root[data-workspace-theme="dark"] .runtime-error-brand {
+  border-color: var(--workspace-control-line);
+  background: var(--workspace-surface-soft);
+}
+
+:root[data-workspace-theme="dark"] .runtime-error-card h1 {
+  color: var(--workspace-ink);
+}
+
+:root[data-workspace-theme="dark"] .runtime-error-card > p:not(.eyebrow),
+:root[data-workspace-theme="dark"] .runtime-error-card small {
+  color: var(--workspace-muted);
+}
+
+:root[data-workspace-theme="dark"] .runtime-error-card .eyebrow {
+  color: var(--workspace-table-heading);
+}
+
+:root[data-workspace-theme="dark"] .runtime-error-card .button-secondary {
+  border-color: var(--workspace-control-line);
+  color: var(--workspace-control-ink);
+  background: var(--workspace-control-surface);
+  box-shadow: none;
+}
+
+:root[data-workspace-theme="dark"] .runtime-error-card .button-secondary:is(:hover, :focus-visible) {
+  border-color: var(--workspace-control-line-hover);
+  color: var(--workspace-control-ink-active);
+  background: var(--workspace-control-surface-active);
 }
 
 :root[data-workspace-theme="dark"] .app-body .app-topbar-title strong {
@@ -16607,7 +16782,7 @@ button.workspace-notification-row:focus-visible {
   background: #1a2a40;
 }
 
-:root[data-workspace-theme="dark"] .app-body :is(
+:root[data-workspace-theme="dark"] :is(.app-body, .manage-shell-v2) :is(
   .workspace-settings-search input,
   .assistant-composer-shell .assistant-composer-textarea,
   .vendor-list-search input

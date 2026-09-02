@@ -9,7 +9,7 @@ type CostivraAssistantIconProps = {
 export function CostivraAssistantIcon({ size = 20, className }: CostivraAssistantIconProps) {
   return (
     <Image
-      src="/brand/ai-chat-concepts/evidence-signal-white-safe.png"
+      src="/brand/ai-chat-concepts/conversation-pair-light.png"
       alt=""
       aria-hidden="true"
       width={size}

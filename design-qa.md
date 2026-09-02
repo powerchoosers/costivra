@@ -1,14 +1,45 @@
-# Sequence builder redesign QA
+# Costivra dark mark reference QA
 
-## Final result: blocked
+## Comparison target
 
-The sequence detail builder now uses a responsive two-column layout: the editable timeline and add-step actions occupy the primary column, while settings, business days, and preview occupy the secondary column. At widths below 900px the layout becomes a single column, and the add-step controls become a two-column touch-friendly grid below 760px.
+- Source visual truth: `C:\Users\lewis\Documents\costivra\public\brand\costivra-circuit-mark-cropped.png`
+- Normalized source asset: `C:\Users\lewis\Documents\costivra\public\brand\costivra-circuit-mark-dark.png`
+- Implementation screenshot: `C:\Users\lewis\Documents\costivra\design-qa-assets\costivra-dark-settings-implementation.png`
+- Focused implementation region: `C:\Users\lewis\Documents\costivra\design-qa-assets\costivra-dark-mark-implementation.png`
+- Combined comparison: `C:\Users\lewis\Documents\costivra\design-qa-assets\costivra-dark-mark-comparison.png`
+- Viewport: 1260 × 838 CSS pixels at 1× screenshot density
+- Source and dark counterpart pixels: 757 × 671 with identical transparent bounds
+- Rendered mark: 34 × 34 CSS pixels inside the shared sidebar brand control
+- State: Manage Settings, expanded sidebar, dark theme
 
-Validation completed:
+## Full-view comparison evidence
 
-- `npm run typecheck` passed.
-- `git diff --check -- src/app/globals.css` passed.
+The replacement changes only the shared dark-theme Costivra mark. The existing sidebar geometry, wordmark, Owner Operations label, navigation, typography, and Settings layout remain unchanged. Both Manage and App served `/brand/costivra-circuit-mark-dark.png?v=20260901-e` at 34 × 34 CSS pixels with no browser warning/error logs or framework overlay.
 
-Browser verification was blocked because the existing local sequence-detail page refused the in-app browser connection (`ERR_CONNECTION_REFUSED`) even though a local process was listening on port 3000. Production build and full lint were not completed in this pass because the existing multi-process environment did not return within the available validation window.
+## Focused region comparison evidence
 
-Next QA action: restart the local app cleanly, then inspect the sequence detail page at desktop, tablet, and 390px mobile widths. Confirm the timeline, right rail, add-step controls, preview, keyboard focus order, and reduced-motion behavior.
+The combined light/dark comparison confirms identical geometry and layer order. Only the near-black C and center segments are recolored to white; the blue-green-blue rails, transparent bounds, and antialiased edges are unchanged.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged; the existing Costivra wordmark and Owner Operations label retain their current family, weight, tracking, and hierarchy.
+- Spacing and layout rhythm: unchanged; the mark remains in the 34 × 34 slot and the shared brand-control alignment is preserved.
+- Colors and visual tokens: the C becomes clean white for the low-light surface while the source blue and mint rail pixels remain unchanged.
+- Image quality and asset fidelity: the approved light artwork is used as the direct source rather than a handcrafted or generated approximation; transparency, geometry, stacking, and antialiasing remain intact.
+- Copy and content: unchanged.
+
+## Findings
+
+No actionable P0, P1, or P2 differences remain in the focused logo comparison.
+
+## Comparison history
+
+- Earlier P1: the handcrafted and generated dark alternatives changed the approved light mark's proportions or edge treatment.
+- Fix: produced the dark counterpart by recoloring only the light asset's near-black C pixels to white, preserving all source geometry and colored rail pixels.
+- Post-fix evidence: refreshed Manage and App checks serve the white-C asset at the real 34-pixel slot; the focused combined comparison shows the intended exact light/dark inversion.
+
+## Follow-up polish
+
+None required for the selected inverse. The deterministic counterpart is approximately 77 KB and preserves the approved source dimensions.
+
+## Final result: passed
