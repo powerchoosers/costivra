@@ -14430,7 +14430,12 @@ button.workspace-notification-row:focus-visible {
   .manage-shell-v2 .manage-create-trigger { width:40px; min-width:40px; height:40px; min-height:40px; }
   .manage-shell-v2 .manage-sidebar { z-index:80; }
   .manage-shell-v2 .manage-nav-scrim { z-index:70; }
-  .manage-shell-v2 .manage-page { min-width:0; overflow-x:hidden; padding:18px 14px calc(30px + env(safe-area-inset-bottom)); }
+  .manage-shell-v2 .manage-page {
+    min-width:0;
+    overflow-x:hidden;
+    padding:18px 14px calc(168px + env(safe-area-inset-bottom));
+    scroll-padding-bottom:calc(168px + env(safe-area-inset-bottom));
+  }
 
   /* Contacts keep the semantic desktop table, while phones use purpose-built
      cards so sticky columns and selected-row paint cannot leak into the
