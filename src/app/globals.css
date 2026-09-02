@@ -6993,8 +6993,8 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .manage-shell-v2 .manage-topbar-center { display: none; }
   /* Keep the final settings sections and action rows above the fixed touch nav. */
   .manage-shell-v2 .manage-page {
-    padding: 20px 16px calc(116px + env(safe-area-inset-bottom));
-    scroll-padding-bottom: calc(116px + env(safe-area-inset-bottom));
+    padding: 20px 16px calc(168px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(168px + env(safe-area-inset-bottom));
   }
 }
 
