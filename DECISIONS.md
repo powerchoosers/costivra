@@ -2413,3 +2413,26 @@ Owners can purchase, designate, and change the Costivra line entirely from
 Manage Settings. The public Contact page and outbound caller ID follow the
 database designation without an environment edit or redeploy. A missing main
 row remains an explicit setup state instead of exposing a placeholder.
+
+# 2026-09-02 — Keep global Twilio provisioning out of tenant side effects
+
+## Context
+
+The first number-purchase implementation reused `external_side_effects`, which
+is intentionally tenant-scoped and requires `organization_id`. A Costivra main
+line is a product-owned resource, not a customer workspace action, so assigning
+an arbitrary organization would corrupt tenant provenance.
+
+## Decision
+
+Record owner-confirmed Twilio number provisioning in the service-only
+`internal_voice_side_effects` ledger. Keep the tenant-scoped
+`external_side_effects` contract unchanged. The internal ledger stores the
+actor, deterministic idempotency key, request hash, provider reference, safe
+metadata, and reconciliation status while denying browser access through RLS.
+
+## Consequences
+
+Number purchases can be claimed and reconciled without weakening the required
+organization boundary on customer effects. The new ledger migration must be
+applied before the purchase action is enabled in production.

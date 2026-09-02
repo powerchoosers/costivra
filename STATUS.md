@@ -3729,6 +3729,25 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   in Settings. No Twilio number was purchased and no operator routing was
   changed.
 
+# 2026-09-02 - Twilio number purchase ledger boundary fix
+
+- Investigated Lewis's production purchase failure through Vercel runtime
+  logs and Supabase Postgres logs. The request reached the Costivra route but
+  failed before Twilio was called because `external_side_effects.organization_id`
+  is required and the global voice purchase had no tenant organization.
+- Confirmed no `twilio_number_purchase` row exists and no number was activated,
+  so the failed attempt did not purchase a Twilio number.
+- Added the service-only `internal_voice_side_effects` ledger and moved the
+  purchase claim and provider reconciliation updates to it. The tenant-scoped
+  `external_side_effects` table remains unchanged.
+- Applied migration `20260902170000_internal_voice_side_effects` to the Costivra
+  production Supabase project. Deployed the fix in Ready production deployment
+  `dpl_TY9d4EM3cDJTe7faU5Y5qs4ip3Q8` and re-aliased `https://costivra.ai`.
+- Verified the public phone endpoint still returns `{"phoneNumber":null}` and
+  the protected Manage voice route still returns `401` without a session. The
+  real purchase action remains intentionally un-replayed here to avoid a
+  second Twilio charge without Lewis's confirmation.
+
 # 2026-09-02 - Move Email identities into Communications
 
 - Moved the Email identities settings destination into the Communications

@@ -107,8 +107,17 @@ export async function requireVerifiedInternalOperator() {
   return operator;
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return "INTERNAL_ERROR";
+}
+
 export function manageApiError(error: unknown) {
-  const message = error instanceof Error ? error.message : "INTERNAL_ERROR";
+  const message = errorMessage(error);
   if (message === "AUTH_REQUIRED")
     return { status: 401, error: "Please sign in again." };
   if (message === "INTERNAL_ACCESS_REQUIRED")
@@ -131,7 +140,17 @@ export function manageApiError(error: unknown) {
       status: 403,
       error: "Verify your operator email before sending a test message.",
     };
-  console.error("Owner portal API error:", message);
+  const details =
+    typeof error === "object" && error !== null
+      ? (error as { code?: unknown; details?: unknown; hint?: unknown; status?: unknown })
+      : {};
+  console.error("Owner portal API error:", {
+    message: message.slice(0, 500),
+    code: typeof details.code === "string" ? details.code.slice(0, 80) : undefined,
+    details: typeof details.details === "string" ? details.details.slice(0, 500) : undefined,
+    hint: typeof details.hint === "string" ? details.hint.slice(0, 500) : undefined,
+    status: typeof details.status === "number" ? details.status : undefined,
+  });
   return {
     status: 500,
     error: "The owner portal could not complete that request.",

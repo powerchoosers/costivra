@@ -5,8 +5,8 @@
 Owner-only Manage Settings now includes **Phone numbers**. Search is read-only
 until an owner types the exact E.164 number into the purchase confirmation. A
 successful Twilio purchase is written to the server-only number inventory and
-the existing external-side-effect ledger before it can be designated as the
-main number. The public Contact page reads only an active, designated main row;
+the internal voice side-effect ledger before it can be designated as the main
+number. The public Contact page reads only an active, designated main row;
 with no purchased main number, it renders no phone number.
 
 After purchase, select **Make main number** and choose the operators whose
@@ -51,10 +51,11 @@ reuse Luxor credentials.
 6. Add the required `COSTIVRA_TWILIO_*` values shown in `.env.example` to the
    local and Vercel environments. The TwiML App SID begins with `AP`; the API
    key SID begins with `SK`; the Account SID begins with `AC`.
-7. Apply both reviewed migrations to the Costivra Supabase project before
+7. Apply all reviewed migrations to the Costivra Supabase project before
    enabling calls:
    - `20260902145722_internal_manage_voice_call_ledger.sql`
    - `20260902162000_internal_manage_voice_numbers.sql`
+   - `20260902170000_internal_voice_side_effects.sql`
 8. Redeploy, open `/manage`, open the phone, and choose **Turn on phone**.
 
 ## Safe defaults and boundaries

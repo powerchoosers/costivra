@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import twilio from "twilio";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { requireInternalOwner } from "@/lib/manage/auth";
@@ -81,11 +82,14 @@ export async function purchaseVoiceNumber(input: { phoneNumber: string; confirme
   }
   if (existing) throw new Error("That number is already in Costivra's inventory.");
   const idempotencyKey = `twilio:number-purchase:${phoneNumber}`;
-  const { data: prior, error: priorError } = await db.from("external_side_effects").select("id,status,provider_reference").eq("idempotency_key", idempotencyKey).maybeSingle();
+  const requestHash = createHash("sha256").update(phoneNumber).digest("hex");
+  const { data: prior, error: priorError } = await db.from("internal_voice_side_effects").select("id,status,provider_reference").eq("idempotency_key", idempotencyKey).maybeSingle();
   if (priorError) throw priorError;
   if (prior?.status === "sent" && prior.provider_reference) throw new Error("This purchase was already recorded. Refresh the number inventory.");
-  const { data: effect, error: effectError } = await db.from("external_side_effects").upsert({
+  const { data: effect, error: effectError } = await db.from("internal_voice_side_effects").upsert({
     type: "twilio_number_purchase",
+    destination: phoneNumber,
+    request_hash: requestHash,
     status: "claimed",
     provider: "twilio",
     idempotency_key: idempotencyKey,
@@ -108,7 +112,7 @@ export async function purchaseVoiceNumber(input: { phoneNumber: string; confirme
       statusCallbackMethod: "POST",
     });
   } catch (error) {
-    await db.from("external_side_effects").update({ status: "failed", failure_class: "provider_error", last_error: error instanceof Error ? error.message.slice(0, 500) : "Twilio purchase failed", updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
+    await db.from("internal_voice_side_effects").update({ status: "failed", failure_class: "provider_error", last_error: error instanceof Error ? error.message.slice(0, 500) : "Twilio purchase failed", updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
     throw new Error("Twilio did not complete the purchase. No public number was activated.");
   }
   const { data: row, error: insertError } = await db.from("internal_voice_numbers").insert({
@@ -123,10 +127,10 @@ export async function purchaseVoiceNumber(input: { phoneNumber: string; confirme
     updated_by: owner.userId,
   }).select("id,phone_number,status,is_main").single();
   if (insertError) {
-    await db.from("external_side_effects").update({ status: "failed", failure_class: "reconciliation_required", provider_reference: purchased.sid, last_error: "Twilio purchased the number but Costivra inventory insert failed.", updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
+    await db.from("internal_voice_side_effects").update({ status: "failed", failure_class: "reconciliation_required", provider_reference: purchased.sid, last_error: "Twilio purchased the number but Costivra inventory insert failed.", updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
     throw new Error("Twilio purchased the number, but Costivra could not activate it. Review the side-effect ledger before retrying.");
   }
-  await db.from("external_side_effects").update({ status: "sent", provider_reference: purchased.sid, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
+  await db.from("internal_voice_side_effects").update({ status: "sent", provider_reference: purchased.sid, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
   await db.from("internal_audit_events").insert({ actor_id: owner.userId, action: "voice.number_purchased", resource_type: "internal_voice_number", resource_id: row.id, safe_metadata: { phone_number: phoneNumber, twilio_phone_sid: purchased.sid } });
   return row;
 }
