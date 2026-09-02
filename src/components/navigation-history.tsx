@@ -521,6 +521,9 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
     const updateFloatingState = () => {
       if (!routeSettled.current) return;
       const { top, bottom } = anchor.getBoundingClientRect();
+      const documentScrollTop = Math.max(window.scrollY, document.documentElement.scrollTop, document.body.scrollTop);
+      const workspaceScrollTop = scrollContainer?.scrollTop ?? 0;
+      const workspaceIsAtStart = documentScrollTop <= 1 && workspaceScrollTop <= 1;
       const tabsRect = recordTabs?.getBoundingClientRect();
       const workspaceHeaderBottom = workspaceHeader?.getBoundingClientRect().bottom ?? 0;
       const recordTabsAreVisible = Boolean(tabsRect && recordTabsAreVisibleInWorkspace({
@@ -529,12 +532,14 @@ export function GlobalBackControl({ className = "", floatingActions }: { classNa
         workspaceHeaderBottom,
         viewportBottom: window.innerHeight,
       }));
-      const nextState = nextFloatingBackControlState({
-        wasFloating: floatingBackIsFloatingRef.current,
-        hasUserScrolled: hasUserScrolled.current,
-        anchorTop: top,
-        anchorBottom: bottom,
-      });
+      const nextState = workspaceIsAtStart
+        ? { isFloating: false, visible: false }
+        : nextFloatingBackControlState({
+            wasFloating: floatingBackIsFloatingRef.current,
+            hasUserScrolled: hasUserScrolled.current,
+            anchorTop: top,
+            anchorBottom: bottom,
+          });
       floatingBackIsFloatingRef.current = nextState.isFloating;
       setFloatingBackTabBottom(nextState.visible && recordTabsAreVisible && tabsRect ? tabsRect.bottom : null);
       if (floatingBackVisibleRef.current !== nextState.visible) {

@@ -38,6 +38,7 @@ import { useWorkspaceSidebarRail } from "@/lib/ui/workspace-sidebar-rail";
 import { WorkspaceExperienceBanner } from "@/components/workspace-experience-banner";
 import { WorkspaceOnboardingTour } from "@/components/workspace-onboarding-tour";
 import { WorkspaceSidebarBrandToggle } from "@/components/workspace-sidebar-brand-toggle";
+import { useRotatingSearchPlaceholder } from "@/lib/ui/rotating-search-placeholder";
 
 import type { ElementType } from "react";
 
@@ -109,6 +110,7 @@ function websiteLabel(website: string) {
 
 import { useCallback, useEffect, useRef, useState, useMemo, useSyncExternalStore, useTransition } from "react";
 import type { AnimationEvent } from "react";
+import { parseSearchDateQuery, searchDateMatches } from "@/lib/ui/date-search";
 
 export interface AppSearchResult {
   id: string;
@@ -141,6 +143,16 @@ export const searchCategoryIcons = {
 function appSearchResults(data: PortalData, query: string) {
   const term = query.trim().toLowerCase();
   if (!term) return [] as AppSearchResult[];
+  const dateQuery = parseSearchDateQuery(term);
+  const hasDateQuery = dateQuery.exactDates.size > 0 || dateQuery.monthDays.size > 0;
+  const requestedCategories = new Set<AppSearchResult["category"]>();
+  if (/\b(bill|bills|invoice|invoices)\b/.test(term)) requestedCategories.add("bills");
+  if (/\b(contract|contracts|renewal|renewals)\b/.test(term)) requestedCategories.add("contracts");
+  if (/\b(finding|findings|opportunity|opportunities)\b/.test(term)) requestedCategories.add("findings");
+  if (/\b(action|actions|task|tasks)\b/.test(term)) requestedCategories.add("actions");
+  if (/\b(document|documents|file|files)\b/.test(term)) requestedCategories.add("documents");
+  if (/\b(expense|expenses|spend)\b/.test(term)) requestedCategories.add("expenses");
+  const categoryAllowed = (category: AppSearchResult["category"]) => requestedCategories.size === 0 || requestedCategories.has(category);
 
   const results: AppSearchResult[] = [];
 
@@ -163,8 +175,11 @@ function appSearchResults(data: PortalData, query: string) {
   // 2. Bills (Invoices)
   for (const inv of data.invoices) {
     if (
-      inv.vendorName.toLowerCase().includes(term) ||
-      (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(term))
+      categoryAllowed("bills") && (
+        inv.vendorName.toLowerCase().includes(term) ||
+        (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(term)) ||
+        (hasDateQuery && [inv.invoiceDate, inv.dueDate, inv.servicePeriodStart, inv.servicePeriodEnd].some((value) => searchDateMatches(value, dateQuery)))
+      )
     ) {
       results.push({
         id: inv.id,
@@ -179,9 +194,12 @@ function appSearchResults(data: PortalData, query: string) {
   // 3. Contracts
   for (const c of data.contracts) {
     if (
-      c.title.toLowerCase().includes(term) ||
-      c.vendorName.toLowerCase().includes(term) ||
-      (c.category && c.category.toLowerCase().includes(term))
+      categoryAllowed("contracts") && (
+        c.title.toLowerCase().includes(term) ||
+        c.vendorName.toLowerCase().includes(term) ||
+        (c.category && c.category.toLowerCase().includes(term)) ||
+        (hasDateQuery && [c.startDate, c.endDate, c.updatedAt].some((value) => searchDateMatches(value, dateQuery)))
+      )
     ) {
       results.push({
         id: c.id,
@@ -196,9 +214,12 @@ function appSearchResults(data: PortalData, query: string) {
   // 4. Findings (Opportunities)
   for (const opp of data.opportunities) {
     if (
-      opp.title.toLowerCase().includes(term) ||
-      opp.vendorName.toLowerCase().includes(term) ||
-      (opp.summary && opp.summary.toLowerCase().includes(term))
+      categoryAllowed("findings") && (
+        opp.title.toLowerCase().includes(term) ||
+        opp.vendorName.toLowerCase().includes(term) ||
+        (opp.summary && opp.summary.toLowerCase().includes(term)) ||
+        (hasDateQuery && [opp.deadlineAt, opp.lastEvaluatedAt, opp.updatedAt].some((value) => searchDateMatches(value, dateQuery)))
+      )
     ) {
       results.push({
         id: opp.id,
@@ -213,8 +234,11 @@ function appSearchResults(data: PortalData, query: string) {
   // 5. Actions
   for (const act of data.actions) {
     if (
-      act.title.toLowerCase().includes(term) ||
-      act.vendorName.toLowerCase().includes(term)
+      categoryAllowed("actions") && (
+        act.title.toLowerCase().includes(term) ||
+        act.vendorName.toLowerCase().includes(term) ||
+        (hasDateQuery && [act.dueAt, act.updatedAt].some((value) => searchDateMatches(value, dateQuery)))
+      )
     ) {
       results.push({
         id: act.id,
@@ -229,8 +253,11 @@ function appSearchResults(data: PortalData, query: string) {
   // 6. Source Documents (optional secondary)
   for (const d of data.documents) {
     if (
-      d.originalFilename.toLowerCase().includes(term) ||
-      d.vendorName.toLowerCase().includes(term)
+      categoryAllowed("documents") && (
+        d.originalFilename.toLowerCase().includes(term) ||
+        d.vendorName.toLowerCase().includes(term) ||
+        (hasDateQuery && [d.createdAt, d.updatedAt].some((value) => searchDateMatches(value, dateQuery)))
+      )
     ) {
       results.push({
         id: d.id,
@@ -245,8 +272,11 @@ function appSearchResults(data: PortalData, query: string) {
   // 7. Spend Records (optional secondary)
   for (const e of data.expenses) {
     if (
-      e.vendorName.toLowerCase().includes(term) ||
-      (e.category && e.category.toLowerCase().includes(term))
+      categoryAllowed("expenses") && (
+        e.vendorName.toLowerCase().includes(term) ||
+        (e.category && e.category.toLowerCase().includes(term)) ||
+        (hasDateQuery && [e.periodStart, e.periodEnd, e.updatedAt].some((value) => searchDateMatches(value, dateQuery)))
+      )
     ) {
       results.push({
         id: e.id,
@@ -303,6 +333,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
   const currentPathname = optimisticHref ?? pathname;
   const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; left: number; top: number; closing?: boolean } | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchSheetRef = useRef<HTMLDivElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
@@ -404,21 +435,21 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
       ask: "Ask Costivra",
     };
     const descriptions: Record<string, string> = {
-      home: `A live operating view of ${data.organization.name}'s recurring costs.`,
-      vendors: "Vendor relationships, spend, renewals, and operating context.",
-      bills: "Upload, review, track, and prove operating expenses.",
-      expenses: "Spend records and source-backed operating expenses.",
+      home: `${data.organization.name}'s recurring costs and priorities.`,
+      vendors: "Spend, renewals, and vendor context.",
+      bills: "Review and track operating expenses.",
+      expenses: "Source-backed operating spend.",
       documents: "Source files and extraction evidence.",
-      contracts: "Renewal terms, dates, and contract evidence.",
-      findings: "Evidence-backed cost issues and opportunities.",
-      opportunities: "Evidence-backed cost issues and opportunities.",
-      actions: "Approved work and decisions in progress.",
-      results: "Value created and outcomes supported by evidence.",
-      savings: "Value created and outcomes supported by evidence.",
-      settings: "Workspace configuration and operating controls.",
+      contracts: "Renewals, dates, and contract evidence.",
+      findings: "Evidence-backed cost issues.",
+      opportunities: "Evidence-backed cost issues.",
+      actions: "Approved work and decisions.",
+      results: "Outcomes and value supported by evidence.",
+      savings: "Outcomes and value supported by evidence.",
+      settings: "Workspace configuration and controls.",
       integrations: "Connected systems and data controls.",
-      team: "People, roles, and approval controls.",
-      ask: "Ask questions about the evidence in your workspace.",
+      team: "People, roles, and approvals.",
+      ask: "Ask about evidence in this workspace.",
     };
     const vendor = section === "vendors" && detailId
       ? data.vendors.find((item) => item.id === detailId)
@@ -488,7 +519,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        (window.innerWidth <= 760 ? mobileSearchInputRef.current : document.querySelector<HTMLInputElement>(".app-sidebar-search input[aria-label='Search Costivra records']"))?.focus();
+        (window.innerWidth <= 780 ? mobileSearchInputRef.current : desktopSearchInputRef.current)?.focus();
         setSearchFocused(true);
         setSearchClosing(false);
       } else if (e.key === "Escape") {
@@ -506,10 +537,35 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
   }, [closeMobileMenu, closeSearch]);
 
   useEffect(() => {
-    if (searchFocused) window.requestAnimationFrame(() => mobileSearchInputRef.current?.focus());
+    if (searchFocused && window.innerWidth <= 780) window.requestAnimationFrame(() => mobileSearchInputRef.current?.focus());
   }, [searchFocused]);
 
   const results = useMemo(() => appSearchResults(data, searchQuery), [data, searchQuery]);
+  const primarySearchCategory = useMemo<AppSearchResult["category"]>(() => {
+    const section = currentPathname.split("/").filter(Boolean)[1];
+    if (section === "vendors" || section === "bills" || section === "contracts" || section === "findings" || section === "actions" || section === "documents" || section === "expenses") return section;
+    if (section === "opportunities") return "findings";
+    return "vendors";
+  }, [currentPathname]);
+  const smartSearchSuggestions = useMemo(() => {
+    const vendorNames = [...data.vendors]
+      .sort((left, right) => right.annualizedSpend - left.annualizedSpend)
+      .map((vendor) => vendor.name);
+    const suggestions = [
+      ...vendorNames.slice(0, 2),
+      data.opportunities.find((opportunity) => opportunity.status !== "closed")?.title,
+      data.contracts.find((contract) => contract.endDate)?.title,
+    ].filter((suggestion): suggestion is string => Boolean(suggestion));
+    return [...new Set(suggestions)].slice(0, 4);
+  }, [data.contracts, data.opportunities, data.vendors]);
+  const placeholderSuggestions = useMemo(() => [
+    `Search ${searchCategoryLabels[primarySearchCategory].toLowerCase()} first`,
+    smartSearchSuggestions[0] ? `Find ${smartSearchSuggestions[0]}` : "Find a vendor or contract",
+    "Review bills needing attention",
+    "Check upcoming renewal dates",
+  ], [primarySearchCategory, smartSearchSuggestions]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const rotatingSearchPlaceholder = useRotatingSearchPlaceholder(placeholderSuggestions);
   const resultsByCategory = useMemo(() => {
     const grouped = new Map<AppSearchResult["category"], AppSearchResult[]>();
     for (const result of results) {
@@ -518,6 +574,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
       grouped.set(result.category, categoryResults);
     }
     const categoriesOrder: AppSearchResult["category"][] = [
+      primarySearchCategory,
       "vendors",
       "bills",
       "contracts",
@@ -526,12 +583,14 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
       "documents",
       "expenses",
     ];
-    return categoriesOrder
+    return [...new Set(categoriesOrder)]
       .map((category) => ({ category, results: grouped.get(category) ?? [] }))
       .filter(({ results }) => results.length > 0);
-  }, [results]);
+  }, [primarySearchCategory, results]);
 
   function openSearchResult(result: AppSearchResult) {
+    const completedQuery = searchQuery.trim();
+    if (completedQuery) setRecentSearches((searches) => [completedQuery, ...searches.filter((search) => search !== completedQuery)].slice(0, 3));
     setSearchFocused(false);
     setSearchClosing(false);
     setSearchQuery("");
@@ -592,18 +651,24 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
     </div>
   );
   const globalSearch = (
-    <div className="app-sidebar-search app-global-search-wrap" ref={searchContainerRef}>
-      <label className="manage-search global-search">
-        <MagnifyingGlass aria-hidden="true" size={15} />
-        <input aria-label="Search Costivra records" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder="Search..." />
+    <div className={`manage-global-search-wrap app-global-search-wrap${searchFocused || searchClosing ? " is-active" : ""}`} ref={searchContainerRef}>
+      <label className="manage-search global-search" title="Search all Costivra records">
+        <MagnifyingGlass aria-hidden="true" size={16} />
+        <input ref={desktopSearchInputRef} aria-label="Search all Costivra records" aria-controls="app-global-search-results" aria-expanded={searchFocused} role="combobox" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => { setSearchFocused(true); setSearchClosing(false); }} onKeyDown={(event) => { if (event.key === "Escape") { closeSearch(); event.currentTarget.blur(); } }} placeholder=" " />
+        {!searchQuery && <span className="workspace-search-placeholder" key={rotatingSearchPlaceholder.index} aria-hidden="true">{rotatingSearchPlaceholder.placeholder}</span>}
         <span className="manage-kbd">⌘K</span>
       </label>
-      {(searchFocused || searchClosing) && searchQuery.trim() && (
-        <div className={`app-global-results${searchClosing ? " is-closing" : ""}`} id="app-global-search-results" role="listbox" aria-label="Search results">
-          {resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => {
+      {(searchFocused || searchClosing) && (
+        <div className={`manage-global-results app-global-results${searchClosing ? " is-closing" : ""}`} id="app-global-search-results" role="listbox" aria-label="Search results">
+          {searchQuery.trim() ? (resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => {
             const Icon = searchCategoryIcons[category];
-            return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>;
-          }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}
+            return <section className="manage-global-result-group app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}{category === primarySearchCategory && <span>Current page</span>}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => event.preventDefault()} onClick={() => openSearchResult(result)}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>;
+          }) : <p className="manage-global-no-results app-global-no-results">No records match “{searchQuery.trim()}”.</p>) : (
+            <div className="workspace-search-suggestions app-search-suggestions">
+              {recentSearches.length > 0 && <section><h2>Recent searches</h2>{recentSearches.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSearchQuery(suggestion); desktopSearchInputRef.current?.focus(); }}>{suggestion}</button>)}</section>}
+              <section><h2>Suggested for this workspace</h2>{smartSearchSuggestions.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSearchQuery(suggestion); desktopSearchInputRef.current?.focus(); }}>{suggestion}</button>)}</section>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -650,7 +715,6 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
             />
           </div>
           {workspaceIdentity}
-          {globalSearch}
           <div
             className="app-nav-scroll"
             data-workspace-scrollbar=""
@@ -819,12 +883,11 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                 <small>{appHeader.description}</small>
               </div>
             </div>
+            <div className="app-topbar-center">
+              {globalSearch}
+            </div>
             <div className="workspace-header-action-group">
-              <button className={`workspace-mobile-search-trigger app-mobile-header-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="app-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
-                <MagnifyingGlass aria-hidden="true" size={17} />
-              </button>
-              <div className="app-topbar-center">
-                <div className="app-create-wrap" ref={createMenuRef}>
+              <div className="app-create-wrap" ref={createMenuRef}>
                 <WorkspaceUtilityButton
                   active={createMenuOpen}
                   className="app-create-trigger"
@@ -851,7 +914,6 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                       <span className="app-create-label"><strong>Add contract</strong><small>Track renewal terms and dates</small></span>
                     </Link>
                   </div>
-                </div>
               </div>
               <div className="top-actions app-top-actions">
                 <ClientAssistantTrigger />
@@ -874,6 +936,10 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                   open={notificationsOpen}
                 />
               </div>
+              <span className="app-mobile-search-divider" aria-hidden="true" />
+              <button className={`workspace-mobile-search-trigger app-mobile-header-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="app-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
+                <MagnifyingGlass aria-hidden="true" size={17} />
+              </button>
             </div>
             </div>
 
@@ -891,7 +957,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                   </label>
                   <button className="workspace-close-button workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
                 </div>
-                {searchQuery.trim() && <div className={`app-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="app-global-no-results">No records match “{searchQuery.trim()}”.</p>}</div>}
+                <div className={`app-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Search results">{searchQuery.trim() ? (resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="manage-global-result-group app-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="manage-global-no-results app-global-no-results">No records match “{searchQuery.trim()}”.</p>) : <div className="workspace-search-suggestions app-search-suggestions">{recentSearches.length > 0 && <section><h2>Recent searches</h2>{recentSearches.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onClick={() => { setSearchQuery(suggestion); mobileSearchInputRef.current?.focus(); }}>{suggestion}</button>)}</section>}<section><h2>Suggested for this workspace</h2>{smartSearchSuggestions.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onClick={() => { setSearchQuery(suggestion); mobileSearchInputRef.current?.focus(); }}>{suggestion}</button>)}</section></div>}</div>
               </div>
             </>
           )}

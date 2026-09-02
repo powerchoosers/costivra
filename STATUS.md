@@ -1,5 +1,11 @@
 # Costivra Status
 
+## September 1, 2026 — Shared table scrollbar placement and color
+
+- Made the inner App table scrollport fill the available table body so horizontal rails sit directly above the footer instead of below the final row with unused panel space beneath them.
+- Enrolled Bills, Findings, Contracts, and Vendors in the shared fading workspace scrollbar overlay and removed the remaining blue/gray native scrollbar declarations from invoice-review and PDF surfaces.
+- Validation: live local Vendors geometry at 908×838 measured a zero-pixel gap between the horizontal scrollport and footer, with the visible thumb resolving to the dark workspace yellow-green token. Node `v24.19.0`, TypeScript no-emit, six focused scrollbar tests, and `git diff --check` passed.
+
 ## September 1, 2026 — Appearance preview rail
 
 - Replaced the theme preview's hard-coded dark sidebar fill with the active workspace surface token, so the light preview shows its approved black-C mark on a light rail and the dark preview continues to show the white-C counterpart on a dark rail.
@@ -3437,3 +3443,63 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added an explicit dark-theme bridge for route errors and shared runtime fallbacks, which render outside the normal App and Manage shell selectors.
 - Dark mode now carries through the fail-safe canvas, card, brand tile, heading, supporting copy, reference text, and secondary action while retaining the high-visibility recovery action.
 - Confirmed the active workspace theme remains `dark` outside authenticated shell routes; the local server was restarted on port 3000 for verification.
+
+# 2026-09-01 - App Header Global Search
+
+- Moved the customer App global search from the desktop sidebar into the centered top-bar slot, matching Manage's control geometry, focus treatment, categorized result surface, and Command/Ctrl+K behavior while preserving App's tenant-scoped records and routes.
+- Search now prioritizes the current App section before the remaining record categories and exposes matching combobox state to assistive technology.
+- Shortened route subtitles and constrained them to their leading grid column so page identity cannot compress the search or utility controls.
+- Preserved the compact search-sheet trigger on phone and tablet layouts; the centered desktop field is hidden below the existing 780px touch breakpoint.
+- Validation: Node `v24.19.0`; TypeScript no-emit passed; changed-file ESLint passed with three existing `<img>` warnings; authenticated local browser QA on `/app/vendors` confirmed the sidebar search is removed, the header combobox returns categorized App records, and the keyboard shortcut focuses the field.
+- Follow-up repair: a late mobile compatibility selector had applied `display: contents` to the shared action wrapper at desktop widths, releasing App's create, assistant, and notification controls into separate grid cells. Desktop App now retains one explicit utility group, while the search shell is included in the same theme-aware control contract as Manage. This restores one vertically centered header row and the correct dark surface without coupling App and Manage layout structures.
+- Interaction parity follow-up: App and Manage top-bar searches now use one shared width expansion, hover, focus, dropdown offset, reduced-motion, and result-row interaction contract. App also exposes Manage's current-page category cue while retaining its own authorized customer records and destinations.
+- Expansion correction: removed the App wrapper's legacy `flex: 1` behavior inside the top bar. Its resting width is now 410px and the shared hover/focus state can visibly expand it to 460px, matching Manage instead of beginning at the expanded width.
+- Search guidance and dark-state follow-up: extended the shared dark dropdown palette to App result headings, labels, rows, metadata, hover/focus states, and dividers; raised the dark placeholder contrast; added a reduced-motion-aware rotating typewriter placeholder; and added deterministic workspace suggestions from real vendors, open findings, and dated contracts. Recent queries remain memory-only for the open App session and are never written to persistent browser storage. Search results and suggestion buttons now support keyboard activation as well as pointer selection.
+- Placeholder motion refinement: replaced the distracting typewriter loop with one shared App/Manage placeholder rotator. Suggestions hold for 60 seconds and enter through a restrained 720ms left-to-right reveal; no deletion animation runs, user input immediately removes the overlay, and reduced-motion users receive static copy. App keeps customer-workspace suggestions while Manage uses operations-specific account, contact, follow-up, and activity prompts.
+
+# 2026-09-01 - Manage Inspector Dark Surface
+
+- Removed the remaining light row dividers and white task-composer surface from the Manage account inspector in dark mode.
+- Aligned inspector values and the marketing-consent state to the right edge while preserving readable supporting context beneath each value.
+- Applied the shared dark control, hover, focus, placeholder, and border tokens to task and note composer fields.
+- Reloaded and inspected the authenticated `/manage` overview with the task composer open; the definition list, consent state, form fields, date control, selects, and actions remained present and keyboard-addressable.
+- Replaced the inspector tab rail's remaining light divider with the shared dark soft-line token while preserving the active blue tab indicator.
+- Corrected the Ask Costivra utility button's stale dark-surface token so its resting background now matches the adjacent Plus and Notifications controls in both authenticated shells.
+- Added empty-query search discovery to Manage and App: recent completed queries appear first, followed by deterministic workspace suggestions; typing switches to the existing tenant-scoped categorized results. The behavior now also carries into both mobile search sheets.
+- Replaced the search-result metadata's tracked monospace appearance with a quieter Inter secondary line for clearer account, title, and email scanning.
+- Matched App's iPad and phone header search entry to Manage: the persistent field collapses into a round trigger placed after Notifications, separated by the same quiet vertical divider, and opens the existing App-scoped search sheet.
+- Fixed dark-mode typed search text and caret contrast in App and Manage desktop fields and their compact search sheets, overriding a higher-specificity legacy App input color.
+- Added deterministic date-aware App search across bills, contracts, findings, actions, source files, and spend records. Supported input includes ISO, numeric slash/dash dates, two-digit years, full or abbreviated month names, and ordinal days; category words such as `bills` narrow the date match to the intended record family. Focused date-search tests pass (8/8).
+
+# 2026-09-01 - Portal Modal Dark Surface
+
+- Strengthened the shared dark-theme overrides for portal modals, including the modal footer, secondary controls, vendor picker, result menu, file icon, and progress surface.
+- Upload and other portal dialogs now inherit the same restrained workspace palette instead of exposing a bright white action container in dark mode.
+
+# 2026-09-01 - Manage Follow-up Dark Surface
+
+- Matched the Open follow-ups rows and task icons to the surrounding dark Manage panel, including the row surface, divider, hover, focus, and icon treatments.
+
+# 2026-09-01 - Manage Mobile Record Queues
+
+- Reworked mobile and narrow-tablet Manage account/contact queues so lifecycle filters stay compact and horizontally scrollable instead of becoming oversized vertical tabs.
+- Kept record cards in a dedicated scroll region with bottom-navigation clearance, so the final records and actions remain reachable above the fixed navigation.
+- Mobbin mobile list references informed the compact filter row and focused scrollable-card treatment.
+- Corrected the mobile card grid so records keep their full intrinsic height instead of being compressed into clipped strips; mobile cards now prioritize account identity, stage, primary contact, and next step while secondary fields remain available in the account detail.
+- Made the mobile record list the sole flexible scroll region, pinned the count/pagination footer above the bottom navigation, and reset the compact floating Back control whenever both the page and list return to their starting position.
+- Resolved the narrow-screen specificity conflict that displayed the desktop account table beneath the mobile account cards; phones now render only the dedicated mobile record list.
+- Hid the mobile account-list scrollbar chrome while preserving touch, wheel, and keyboard scrolling inside the contained record viewport.
+- Normalized the four mobile Manage header utilities to the same 38px touch target, including the notification control's nested wrapper, and removed the desktop-only selected-account outline from phone cards.
+- Kept the mobile Accounts and Contacts queue controls and pagination footer viewport-bound while moving vertical scrolling into each record list. Restored the visible, shared yellow-green scrollbar on the mobile account-card list and added the same contained scrollbar to Contacts.
+- Replaced the fragile mobile Contacts table-row transformation with dedicated contact cards. Mobile contacts now keep identity, account, role, source, selection, email, and record navigation in a stable card hierarchy without inheriting desktop sticky-column or selected-row styling.
+- Corrected the mobile queue height chain so Accounts and Contacts consume only the flex space between the top bar and bottom navigation. Their filters and pagination footers stay in view, while only the inner record list scrolls.
+- Follow-up repair: the zero-height queue technique depended on a desktop-only flex rule and collapsed the mobile workspace at 394px. Accounts and Contacts now use an explicit two-row mobile grid for Back plus the constrained queue, while the desktop sizing contract is restored.
+- Extended the Manage dark inspector contract to the contact inspector's direct detail list. Its dividers, labels, values, secondary copy, and email action now use the shared dark workspace hierarchy instead of retaining light-theme borders and link paint.
+- Changed the shared Manage inspector active-tab label and underline to white in dark mode, covering Contacts, Accounts, and the home overview inspector consistently.
+- Moved root-level notification toasts onto the shared workspace surface, text, border, action, and hover tokens so notifications render as light surfaces in light mode and switch intentionally with dark mode.
+- Corrected the contact detail account-link hover and its transparent fallback logo tile in dark mode, replacing the light-only hover fill and white icon surface with shared dark interaction tokens.
+- Overrode the legacy light-only selected-row record-card hover in dark mode, preventing contact and account identity blocks from flashing a white nested container while preserving a restrained hover cue.
+- Standardized filled blue primary actions across App and Manage to use white labels in dark mode, removing the Manage-only dark-label exception and pairing the labels with accessible 5.98:1 resting and 5.24:1 hover blue fills.
+- Quieted Manage source chips such as CRM in dark mode by replacing the light legacy outline with the shared dark divider token and removing the unnecessary filled surface.
+- Mail records now mark themselves read when opened through the existing authorized thread action, clearing the unread badge after refresh; the list also shows a compact dot state for unread versus read conversations.
+- Tightened Manage mail-list row geometry by reducing the reserved left columns, inter-column gap, and side padding so star and sender icons sit closer to the list edge without disturbing message content alignment.

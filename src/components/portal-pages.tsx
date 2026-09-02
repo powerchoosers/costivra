@@ -1209,7 +1209,7 @@ function BillsWorkspace({
                 ]}
               >
                 {({ HeaderSelector, RowSelector, actionBar }) => <>
-              <div className="workspace-table-scroll">
+              <div className="workspace-table-scroll" data-workspace-scrollbar="">
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
@@ -1295,7 +1295,7 @@ function BillsWorkspace({
                 ]}
               >
                 {({ HeaderSelector, RowSelector, actionBar }) => <>
-              <div className="workspace-table-scroll">
+              <div className="workspace-table-scroll" data-workspace-scrollbar="">
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
@@ -1398,7 +1398,7 @@ function BillsWorkspace({
                 ]}
               >
                 {({ HeaderSelector, RowSelector, actionBar }) => <>
-              <div className="workspace-table-scroll">
+              <div className="workspace-table-scroll" data-workspace-scrollbar="">
               <table className="portal-table bills-table">
                 <thead>
                   <tr>
@@ -1604,7 +1604,7 @@ function FindingsWorkspace({
               ]}
             >
               {({ HeaderSelector, RowSelector, actionBar }) => <>
-            <div className="workspace-table-scroll">
+            <div className="workspace-table-scroll" data-workspace-scrollbar="">
             <table className="portal-table vendor-table findings-table">
               <colgroup>
                 <col className="workspace-bulk-selection-column" /><col className="findings-col-title" /><col className="findings-col-vendor" /><col className="findings-col-source" /><col className="findings-col-trust" /><col className="findings-col-evidence" /><col className="findings-col-value" /><col className="findings-col-status" /><col className="findings-col-action" />
@@ -1721,7 +1721,7 @@ function Contracts({ data }: { data: PortalData }) {
               ]}
             >
               {({ HeaderSelector, RowSelector, actionBar }) => <>
-            <div className="workspace-table-scroll">
+            <div className="workspace-table-scroll" data-workspace-scrollbar="">
             <table className="portal-table vendor-table contracts-table">
               <colgroup>
                 <col className="workspace-bulk-selection-column" /><col className="contracts-col-title" /><col className="contracts-col-vendor" /><col className="contracts-col-account" /><col className="contracts-col-value" /><col className="contracts-col-date" /><col className="contracts-col-notice" /><col className="contracts-col-status" />
@@ -2314,7 +2314,7 @@ function Vendors({ data }: { data: PortalData }) {
               ]}
             >
               {({ HeaderSelector, RowSelector, actionBar }) => <>
-            <div className="workspace-table-scroll">
+            <div className="workspace-table-scroll" data-workspace-scrollbar="">
             <table className="portal-table vendor-table">
               <colgroup>
                 <col className="workspace-bulk-selection-column" />

@@ -206,6 +206,7 @@ export default function BreakdownPdfViewer({
 
       <div
         className="breakdown-pdf-scroll-container"
+        data-workspace-scrollbar=""
         ref={containerRef}
         onScroll={handleScroll}
       >
@@ -341,7 +342,7 @@ export default function BreakdownPdfViewer({
           align-items: center;
           background: #020617;
           scrollbar-width: thin;
-          scrollbar-color: rgba(148, 163, 184, 0.4) rgba(15, 23, 42, 0.6);
+          scrollbar-color: var(--workspace-scroll-thumb) var(--workspace-scroll-track);
         }
         .breakdown-pdf-stage {
           position: relative;
@@ -371,14 +372,14 @@ export default function BreakdownPdfViewer({
           height: 8px;
         }
         .breakdown-pdf-scroll-container::-webkit-scrollbar-track {
-          background: rgba(15, 23, 42, 0.6);
+          background: var(--workspace-scroll-track);
         }
         .breakdown-pdf-scroll-container::-webkit-scrollbar-thumb {
-          background: rgba(148, 163, 184, 0.35);
+          background: var(--workspace-scroll-thumb);
           border-radius: 999px;
         }
         .breakdown-pdf-scroll-container::-webkit-scrollbar-thumb:hover {
-          background: rgba(148, 163, 184, 0.55);
+          background: var(--workspace-scroll-thumb-hover);
         }
         .breakdown-pdf-loading,
         .breakdown-pdf-error {

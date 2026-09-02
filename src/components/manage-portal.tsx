@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CSSProperties, FormEvent, ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { useRotatingSearchPlaceholder } from "@/lib/ui/rotating-search-placeholder";
 import {
   Activity,
   Archive,
@@ -764,6 +765,7 @@ export function ManagePortal({
   const [search, setSearch] = useState(routeSearch);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchClosing, setSearchClosing] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchSheetRef = useRef<HTMLDivElement>(null);
@@ -1014,6 +1016,13 @@ export function ManagePortal({
   }, [results, section]);
 
   function openSearchResult(result: GlobalSearchResult) {
+    const completedQuery = search.trim();
+    if (completedQuery) {
+      setRecentSearches((searches) => [
+        completedQuery,
+        ...searches.filter((savedSearch) => savedSearch !== completedQuery),
+      ].slice(0, 3));
+    }
     setSearchFocused(false);
     setSearchClosing(false);
     router.push(
@@ -1049,6 +1058,24 @@ export function ManagePortal({
       : section === "intake" ? "Intake operations"
         : section === "category-intelligence" ? "Category operations"
         : pretty(section);
+  const managePlaceholderSuggestions = useMemo(() => [
+    `Search ${searchCategoryLabels[currentSearchOrder(section)[0]].toLowerCase()} first`,
+    "Find an account or primary contact",
+    "Review open follow-ups",
+    "Search recent client activity",
+  ], [section]);
+  const smartSearchSuggestions = useMemo(() => {
+    const suggestionsByCategory: Record<GlobalSearchResult["category"], string[]> = {
+      accounts: data.accounts.map((account) => account.name),
+      contacts: data.contacts.map((contact) => contact.fullName),
+      tasks: data.tasks.filter((task) => task.status !== "completed").map((task) => task.title),
+      mail: data.mail.threads.map((thread) => thread.subject).filter(Boolean),
+      mailboxes: data.mail.mailboxes.map((mailbox) => mailbox.displayName),
+      activity: data.activities.map((activity) => activity.subject),
+    };
+    return [...new Set(currentSearchOrder(section).flatMap((category) => suggestionsByCategory[category]))].slice(0, 4);
+  }, [data, section]);
+  const rotatingSearchPlaceholder = useRotatingSearchPlaceholder(managePlaceholderSuggestions);
   const globalSearchControl = (
     <div className={`manage-global-search-wrap${searchFocused || searchClosing ? " is-active" : ""}`} ref={searchContainerRef}>
       <label className="manage-search" title="Search all Costivra records">
@@ -1068,21 +1095,22 @@ export function ManagePortal({
               event.currentTarget.blur();
             }
           }}
-          placeholder={`Search ${searchCategoryLabels[currentSearchOrder(section)[0]].toLowerCase()} first, then everything`}
+          placeholder=" "
           role="combobox"
-          aria-expanded={searchFocused && search.trim().length > 0}
+          aria-expanded={searchFocused}
           aria-controls="manage-global-search-results"
         />
+        {!search && <span className="workspace-search-placeholder" key={rotatingSearchPlaceholder.index} aria-hidden="true">{rotatingSearchPlaceholder.placeholder}</span>}
         <span className="manage-kbd">⌘K</span>
       </label>
-      {(searchFocused || searchClosing) && search.trim() && (
+      {(searchFocused || searchClosing) && (
         <div
           className={`manage-global-results${searchClosing ? " is-closing" : ""}`}
           id="manage-global-search-results"
           role="listbox"
           aria-label="Global search results"
         >
-          {resultsByCategory.length ? (
+          {search.trim() ? (resultsByCategory.length ? (
             resultsByCategory.map(({ category, results: categoryResults }) => {
               const Icon = searchCategoryIcons[category];
               return (
@@ -1112,6 +1140,11 @@ export function ManagePortal({
             })
           ) : (
             <p className="manage-global-no-results">No records match “{search.trim()}”.</p>
+          )) : (
+            <div className="workspace-search-suggestions">
+              {recentSearches.length > 0 && <section><h2>Recent searches</h2>{recentSearches.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSearch(suggestion); searchInputRef.current?.focus(); }}>{suggestion}</button>)}</section>}
+              <section><h2>Suggested for client operations</h2>{smartSearchSuggestions.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSearch(suggestion); searchInputRef.current?.focus(); }}>{suggestion}</button>)}</section>
+            </div>
           )}
         </div>
       )}
@@ -1457,7 +1490,7 @@ export function ManagePortal({
                 </label>
                 <button className="workspace-close-button workspace-mobile-search-sheet__close" type="button" aria-label="Close search" onClick={closeSearch}><X aria-hidden="true" size={18} /></button>
               </div>
-              {search.trim() && <div className={`manage-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Global search results">{resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="manage-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}{category === currentSearchOrder(section)[0] && <span>Current page</span>}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="manage-global-no-results">No records match “{search.trim()}”.</p>}</div>}
+              <div className={`manage-global-results workspace-mobile-search-results${searchClosing ? " is-closing" : ""}`} role="listbox" aria-label="Global search results">{search.trim() ? (resultsByCategory.length ? resultsByCategory.map(({ category, results: categoryResults }) => { const Icon = searchCategoryIcons[category]; return <section className="manage-global-result-group" key={category}><h2><Icon aria-hidden="true" size={14} />{searchCategoryLabels[category]}{category === currentSearchOrder(section)[0] && <span>Current page</span>}</h2>{categoryResults.map((result) => <button type="button" role="option" aria-selected={false} key={result.id} onMouseDown={(event) => { event.preventDefault(); openSearchResult(result); }}><strong>{result.title}</strong><small>{result.detail}</small></button>)}</section>; }) : <p className="manage-global-no-results">No records match “{search.trim()}”.</p>) : <div className="workspace-search-suggestions">{recentSearches.length > 0 && <section><h2>Recent searches</h2>{recentSearches.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onClick={() => { setSearch(suggestion); mobileSearchInputRef.current?.focus(); }}>{suggestion}</button>)}</section>}<section><h2>Suggested for client operations</h2>{smartSearchSuggestions.map((suggestion) => <button type="button" role="option" aria-selected={false} key={suggestion} onClick={() => { setSearch(suggestion); mobileSearchInputRef.current?.focus(); }}>{suggestion}</button>)}</section></div>}</div>
             </div>
           </>
         )}
@@ -3344,6 +3377,60 @@ function Contacts({
             })}</tbody>
           </table>
         </div>
+        {pageRows.length ? (
+          <div key={`mobile-${filter}-${lifecycleFilter}-${query}`} className="manage-contact-cards">
+            {pageRows.map((contact, index) => {
+              const bulkSelected = selectedIds.has(contact.id);
+              return (
+                <article key={contact.id} className={bulkSelected ? "is-bulk-selected" : undefined}>
+                  <header className="manage-contact-card__header">
+                    <BulkRowSelector
+                      checked={bulkSelected}
+                      index={(currentPage - 1) * pageSize + index + 1}
+                      label={contact.fullName}
+                      onChange={() => setSelectedIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(contact.id)) next.delete(contact.id); else next.add(contact.id);
+                        return next;
+                      })}
+                    />
+                    <Link href={`/manage/contacts/${contact.id}`} className="manage-contact-card__identity">
+                      <span className="manage-person-avatar">{initials(contact.fullName)}</span>
+                      <span>
+                        <strong>{contact.fullName}</strong>
+                        <small>{contact.email}</small>
+                      </span>
+                    </Link>
+                    <span className="manage-contact-card__source">{contact.source === "workspace" ? "Workspace" : "CRM"}</span>
+                  </header>
+                  <dl className="manage-contact-card__details">
+                    <div>
+                      <dt>Account</dt>
+                      <dd>
+                        <Link href={`/manage/accounts/${contact.organizationId}`}>
+                          <strong>{contact.organizationName}</strong>
+                          <small>{contact.isPrimary ? "Primary contact" : "Client contact"}</small>
+                        </Link>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Role</dt>
+                      <dd>{contact.title || "Not set"}</dd>
+                    </div>
+                  </dl>
+                  <footer className="manage-contact-card__footer">
+                    <button type="button" onClick={() => onCompose(contact)}>
+                      <Mail aria-hidden="true" size={15} /> Email
+                    </button>
+                    <Link href={`/manage/contacts/${contact.id}`}>
+                      Open contact <ChevronRight aria-hidden="true" size={15} />
+                    </Link>
+                  </footer>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
         {!rows.length && (
           <Empty
             icon={Users}
@@ -6078,7 +6165,7 @@ function ThreadMessage({
   onReply: () => void;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
-  const [blockExternalImages, setBlockExternalImages] = useState(true);
+  const [blockExternalImages, setBlockExternalImages] = useState(false);
   const [openingAttachment, setOpeningAttachment] = useState<string | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<{ id: string; filename: string; contentType: string } | null>(null);
   const router = useRouter();
@@ -6125,9 +6212,7 @@ function ThreadMessage({
           <small>
             {message.fromAddress} → {message.toAddresses.join(", ")}
           </small>
-          {!open && (
-            <span>{message.textBody || "No plain-text body was available."}</span>
-          )}
+          <span>{message.textBody || "No plain-text body was available."}</span>
         </span>
         <time>{date(timestamp, true)}</time>
         <ChevronDown className="manage-message-chevron" size={16} />
@@ -6197,6 +6282,13 @@ function MailPage({
   const searchParams = useSearchParams();
   const sequenceView = searchParams.get("view") === "sequence";
   const current = data.mail.selectedThread;
+  useEffect(() => {
+    if (!current?.id || !current.unreadCount) return;
+    void api(`/api/manage/mail/threads/${current.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ operation: "read" }),
+    }).catch(() => undefined);
+  }, [current?.id, current?.unreadCount, router]);
   const activeMailboxes = data.mail.mailboxes.filter(
     (mailbox) => mailbox.status === "active",
   );
@@ -6334,7 +6426,7 @@ function MailPage({
           )}
         </div>
       </section>
-      <section className="manage-mail-reader">
+      <section className="manage-mail-reader" key={current?.id ?? "empty-reader"}>
         {current ? (
           <>
             <header className="manage-reader-tools">
@@ -6549,16 +6641,18 @@ function MailThreadRow({
       href={`/manage/mail/${thread.id}?folder=${folder}${thread.mailboxId ? `&mailbox=${thread.mailboxId}` : ""}`}
       className={`manage-thread${active ? " active" : ""}${thread.unreadCount ? " unread" : ""}`}
     >
-      <span className="manage-thread-star" aria-hidden="true">
-        <Star size={15} fill={thread.isStarred ? "currentColor" : "none"} />
-      </span>
-      <span className="manage-person-avatar">
-        {initials(
-          thread.contactName ||
-            thread.organizationName ||
-            thread.participants[0] ||
-            "?",
-        )}
+      <span className="manage-thread-leading">
+        <span className="manage-thread-star" aria-hidden="true">
+          <Star size={15} fill={thread.isStarred ? "currentColor" : "none"} />
+        </span>
+        <span className="manage-person-avatar">
+          {initials(
+            thread.contactName ||
+              thread.organizationName ||
+              thread.participants[0] ||
+              "?",
+          )}
+        </span>
       </span>
       <div>
         <header>
