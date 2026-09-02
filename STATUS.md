@@ -3642,3 +3642,14 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   disconnected phone panel now says to purchase and designate a main number
   in Settings. No Twilio number was purchased and no operator routing was
   changed.
+
+# 2026-09-02 - Move Email identities into Communications
+
+- Moved the Email identities settings destination into the Communications
+  group beside Phone numbers, while preserving the existing mailbox data,
+  permissions, search result hash link, and owner actions.
+- Repositioned New mailbox to the upper-right of the section header, with a
+  full-width stacked action on narrow screens for reliable touch access.
+- Verified the hash deep link, updated Settings directory state, mailbox table,
+  and header alignment in the live browser. Latest Vercel deployment is Ready
+  and aliased to `https://costivra.ai`.
