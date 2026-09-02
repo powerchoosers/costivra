@@ -1,5 +1,11 @@
 # Costivra Status
 
+## September 2, 2026 — Phone number settings panel spacing
+
+- Applied one shared inner-layout contract to the Manage Phone numbers panels. Search controls, confirmation content, available-number results, purchased-number rows, and the empty inventory state now use consistent panel padding and full-width box sizing instead of touching the panel edges.
+- Preserved the existing responsive behavior: the area-code field remains bounded on larger screens, the search action fills the available width on phones, and owned-number routing rows keep their mobile stack.
+- Validation: Node `v24.19.0`; TypeScript, focused voice tests (12 passed), ESLint (0 errors, 4 pre-existing image warnings), and production build passed. Browser QA opened the authenticated Phone numbers settings at the reported tablet viewport and confirmed the revised panel content is present without a framework overlay.
+
 ## September 1, 2026 — Shared table scrollbar placement and color
 
 - Made the inner App table scrollport fill the available table body so horizontal rails sit directly above the footer instead of below the final row with unused panel space beneath them.
