@@ -36,8 +36,8 @@ export async function POST(request: Request) {
   try {
     const owner = await requireInternalOwner();
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body || typeof body.phoneNumber !== "string" || typeof body.confirmNumber !== "string") return NextResponse.json({ error: "Select a number and confirm the exact number before purchasing." }, { status: 400, headers });
-    const result = await purchaseVoiceNumber({ phoneNumber: body.phoneNumber, confirmNumber: body.confirmNumber, actorId: owner.userId });
+    if (!body || typeof body.phoneNumber !== "string" || body.confirmed !== true) return NextResponse.json({ error: "Select a number and confirm the purchase before continuing." }, { status: 400, headers });
+    const result = await purchaseVoiceNumber({ phoneNumber: body.phoneNumber, confirmed: true, actorId: owner.userId });
     return NextResponse.json({ number: result }, { status: 201, headers });
   } catch (error) {
     if (isTwilioTrialRestriction(error)) {

@@ -68,11 +68,11 @@ export async function getPublicMainVoiceNumber() {
   }
 }
 
-export async function purchaseVoiceNumber(input: { phoneNumber: string; confirmNumber: string; actorId: string }) {
+export async function purchaseVoiceNumber(input: { phoneNumber: string; confirmed: boolean; actorId: string }) {
   const owner = await requireInternalOwner();
   if (owner.userId !== input.actorId) throw new Error("OWNER_ACCESS_REQUIRED");
   const phoneNumber = normalizeVoiceNumber(input.phoneNumber);
-  if (!phoneNumber || normalizeVoiceNumber(input.confirmNumber) !== phoneNumber) throw new Error("Confirm the exact phone number before purchasing it.");
+  if (!phoneNumber || input.confirmed !== true) throw new Error("Confirm the purchase before continuing.");
   const db = owner.db;
   const { data: existing, error: existingError } = await db.from("internal_voice_numbers").select("id,status").eq("phone_number", phoneNumber).maybeSingle();
   if (existingError) {
@@ -90,7 +90,7 @@ export async function purchaseVoiceNumber(input: { phoneNumber: string; confirmN
     provider: "twilio",
     idempotency_key: idempotencyKey,
     actor_id: owner.userId,
-    authorization_method: "explicit_number_confirmation",
+    authorization_method: "explicit_purchase_action",
     authorized_at: new Date().toISOString(),
     sanitized_request_metadata: { phone_number: phoneNumber },
   }, { onConflict: "idempotency_key" }).select("id,status,provider_reference").maybeSingle();

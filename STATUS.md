@@ -1,5 +1,27 @@
 # Costivra Status
 
+## September 2, 2026 — Inline phone-number purchase confirmation
+
+- Clicking an available Twilio number now expands an inline confirmation card directly beneath that selected result. The exact-number typing requirement was removed at Lewis's request; the Purchase number button remains the explicit authorization action, with Twilio's monthly charge and private-until-main behavior stated beside it.
+- The purchase API now accepts the explicit purchase action and records `explicit_purchase_action` in the external side-effect ledger. No Twilio purchase was performed during QA.
+- Validation: Node `v24.19.0`; TypeScript, focused voice tests (12 passed), and `git diff --check` passed. ESLint completed with 0 errors and 4 pre-existing image warnings. Local authenticated QA at 1186×838 confirmed the card expands beneath the selected result in both light and dark themes.
+
+## September 2, 2026 — Phone search control height
+
+- Matched the Search available numbers control to the area-code field with one shared 40px, border-box control height for consistent alignment in light and dark themes.
+- Validation: local authenticated QA at 1186×838 confirmed the controls align on the Phone numbers settings panel. `git diff --check` passed.
+
+## September 2, 2026 — Purchased-number skeleton spacing
+
+- Added 14px of top breathing room inside the Purchased numbers loading skeleton so its first row does not sit against the section header.
+- Validation: local authenticated QA at 1186×838 confirmed the first skeleton row now has visible breathing room below the Purchased numbers header. This remains local-only.
+
+## September 2, 2026 — Phone-number result list simplification
+
+- Removed the inline purchase-confirmation block from the available-number result list at Lewis's request, keeping the search surface focused on choosing a number.
+- The Twilio purchase API route remains unchanged. This is a local UI-only change pending the next purchase-action design decision.
+- Validation: local authenticated QA at 1186×838 confirmed the result list no longer expands with the confirmation block. This remains local-only pending Lewis's review.
+
 ## September 2, 2026 — Available-number dark mode and loading skeleton
 
 - Restyled Twilio available-number results to use the dark workspace surface, border, text, hover, and selected-state tokens instead of light cards.
