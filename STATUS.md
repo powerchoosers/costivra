@@ -1,5 +1,21 @@
 # Costivra Status
 
+## September 2, 2026 — Available-number dark mode and loading skeleton
+
+- Restyled Twilio available-number results to use the dark workspace surface, border, text, hover, and selected-state tokens instead of light cards.
+- Added a three-row shimmer skeleton to the search feedback while Twilio inventory is loading, with the result container resizing through the existing open/close transition and reduced-motion support.
+- Validation: Node `v24.19.0`; `git diff --check`, TypeScript, focused voice tests (12 passed), and ESLint (0 errors, 4 pre-existing image warnings) passed. Local authenticated QA at 1186×838 confirmed the dark result rows, no-results state, and search skeleton on `localhost:3000`. No production deployment made for this QA pass.
+
+## September 2, 2026 — Phone inventory loading skeleton
+
+- Replaced the purchased-number inventory spinner with a two-row skeleton that matches the eventual number layout, uses a restrained shimmer, and preserves a screen-reader loading status. Reduced-motion users receive a static placeholder.
+- Validation: Node `v24.19.0`; TypeScript and ESLint passed with the repository's four pre-existing image warnings. Local authenticated QA at 1186×838 confirmed the Phone numbers search and panel remain contained while the inventory state loads.
+
+## September 2, 2026 — Production readiness helper spacing
+
+- Added a 14px separation between the Production readiness description and its dashed guidance container so the explanatory line and the next action read as two distinct layers.
+- Validation: local authenticated QA at 1186×838 confirmed the added spacing in the running `localhost:3000` server. This polish change is local-only pending Lewis's review.
+
 ## September 2, 2026 — Phone number settings panel spacing
 
 - Applied one shared inner-layout contract to the Manage Phone numbers panels. Search controls, confirmation content, available-number results, purchased-number rows, and the empty inventory state now use consistent panel padding and full-width box sizing instead of touching the panel edges.
