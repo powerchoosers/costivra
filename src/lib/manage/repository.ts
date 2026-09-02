@@ -623,10 +623,13 @@ export async function getManageData(input?: {
     );
   });
   const latestMessageByThread = new Map<string, Row>();
+  const threadsWithAttachments = new Set<string>();
   for (const message of rawMessages) {
     const threadId = text(message.thread_id);
     if (!latestMessageByThread.has(threadId))
       latestMessageByThread.set(threadId, message);
+    if (Array.isArray(message.attachments) && message.attachments.length > 0)
+      threadsWithAttachments.add(threadId);
   }
   const allThreads: ManageMailThread[] = rows(threadsResult.data)
     .filter((thread) => {
@@ -665,6 +668,7 @@ export async function getManageData(input?: {
             ? latest.direction
             : null,
         latestStatus: nullable(latest?.provider_status),
+        hasAttachments: threadsWithAttachments.has(text(thread.id)),
       };
     });
   const folder = input?.folder ?? "inbox";

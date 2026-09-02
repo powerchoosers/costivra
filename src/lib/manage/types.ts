@@ -311,6 +311,7 @@ export type ManageMailThread = {
   folder: string;
   latestDirection: "inbound" | "outbound" | null;
   latestStatus: string | null;
+  hasAttachments?: boolean;
 };
 
 export type ManageData = {

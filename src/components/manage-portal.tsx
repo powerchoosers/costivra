@@ -27,6 +27,8 @@ import {
   Clock3,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   FileCheck2,
   Globe2,
@@ -111,6 +113,8 @@ import { ManageAiDrawer, requestManageAssistantClose } from "@/components/manage
 import { AssistantComposerShell, AssistantIconButton } from "@/components/assistant-workspace";
 import { RecordFilesWorkspace } from "@/components/record-files-workspace";
 import { ManageNotificationCenter } from "@/components/manage-live-notifications";
+import { ManageVoicePhone } from "@/components/manage-voice-phone";
+import { ManageVoiceNumbersSettings } from "@/components/manage-voice-numbers-settings";
 import { ManagePilotOperations } from "@/components/manage-pilot-operations";
 import { SequenceWorkspace } from "@/components/manage/outreach/sequence-workspace";
 import { SequenceMailView } from "@/components/manage/mail/sequence-mail-view";
@@ -1407,6 +1411,7 @@ export function ManagePortal({
           <div className="workspace-header-action-group manage-header-action-group">
             <div className="manage-top-actions">
               <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
+              <ManageVoicePhone />
             {(["overview", "accounts", "contacts", "outreach"] as const).includes(section as "overview" | "accounts" | "contacts" | "outreach") && (
               <div className="manage-create-wrap" ref={createMenuRef}>
               <WorkspaceUtilityButton active={createMenuOpen} className="manage-create-trigger" type="button" onClick={() => createMenuOpen ? closeCreateMenu() : setCreateMenuOpen(true)} aria-label="Create a new record" aria-expanded={createMenuOpen} aria-haspopup="menu">
@@ -5348,7 +5353,7 @@ function SettingsPage({
   const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
   const [runningRetentionReport, setRunningRetentionReport] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "appearance" | "enrichment" | "billing">("general");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "appearance" | "enrichment" | "billing" | "voice">("general");
   const [apolloSettings, setApolloSettings] = useState<ApolloSettingsSummary | null>(null);
   const [loadingApolloSettings, setLoadingApolloSettings] = useState(false);
   const [apolloSettingsError, setApolloSettingsError] = useState<string | null>(null);
@@ -5516,6 +5521,7 @@ function SettingsPage({
     { id: "general", group: "Profile & communication", title: "Profile, email & alerts", description: "Photo, email signature, live notifications, and sending identities.", keywords: ["avatar", "signature", "mailbox", "sound", "email"] },
     { id: "appearance", group: "Branding & appearance", title: "Appearance & theme", description: "Light, dark, and system display preferences.", keywords: ["branding", "theme", "dark mode", "light mode", "system", "color"] },
     ...(data.operator.role === "owner" ? [
+      { id: "voice" as const, group: "Communications", title: "Phone numbers", description: "Purchase numbers and route the main line to operators.", keywords: ["twilio", "voice", "phone", "call", "number", "routing"] },
       { id: "billing" as const, group: "Business controls", title: "Billing & pricing", description: "Costivra plans and Stripe price catalog.", keywords: ["stripe", "plan", "price", "subscription"] },
       { id: "enrichment" as const, group: "System & providers", title: "Provider health", description: "Apollo usage and production readiness.", keywords: ["apollo", "credits", "retention", "readiness", "integration"] },
     ] : []),
@@ -5534,7 +5540,9 @@ function SettingsPage({
         </div>
       </section>
       <SettingsHub ariaLabel="Manage settings" items={settingsItems} value={activeSettingsTab} onValueChange={selectSettings}>
-      {activeSettingsTab === "appearance" ? (
+      {activeSettingsTab === "voice" ? (
+        <ManageVoiceNumbersSettings />
+      ) : activeSettingsTab === "appearance" ? (
         <WorkspaceAppearanceSettings workspaceLabel="Manage" />
       ) : activeSettingsTab === "billing" ? (
         <BillingCatalogSettings />
@@ -6317,7 +6325,7 @@ function MailPage({
               method: "PATCH",
               body: JSON.stringify({ operation }),
             }),
-          `Conversation ${operation === "read" ? "marked read" : operation + "d"}.`,
+          `Conversation ${operation === "read" ? "marked read" : operation === "unread" ? "marked unread" : operation + "d"}.`,
         )
       : Promise.resolve();
   const replyToMessage = (message: ManageData["mail"]["messages"][number]) => {
@@ -6438,6 +6446,18 @@ function MailPage({
                   <ArrowLeft size={17} />
                 </Link>
                 <button
+                  className="manage-reader-star-control"
+                  onClick={() => void act(current.isStarred ? "unstar" : "star")}
+                  aria-label={current.isStarred ? "Remove from favorites" : "Add to favorites"}
+                  aria-pressed={current.isStarred}
+                  title={current.isStarred ? "Remove from favorites" : "Add to favorites"}
+                >
+                  <Star
+                    size={18}
+                    fill={current.isStarred ? "currentColor" : "none"}
+                  />
+                </button>
+                <button
                   onClick={() => void act("archive")}
                   aria-label="Archive"
                 >
@@ -6453,24 +6473,16 @@ function MailPage({
                   onClick={() =>
                     void act(current.unreadCount ? "read" : "unread")
                   }
-                  aria-label="Change read state"
+                  aria-label={current.unreadCount ? "Mark as read" : "Mark as unread"}
+                  title={current.unreadCount ? "Mark as read" : "Mark as unread"}
                 >
                   {current.unreadCount ? (
-                    <MailOpen size={17} />
+                    <Eye size={17} />
                   ) : (
-                    <Mail size={17} />
+                    <EyeOff size={17} />
                   )}
                 </button>
               </div>
-              <button
-                onClick={() => void act(current.isStarred ? "unstar" : "star")}
-                aria-label="Star conversation"
-              >
-                <Star
-                  size={18}
-                  fill={current.isStarred ? "currentColor" : "none"}
-                />
-              </button>
             </header>
             <div className="manage-reader-heading">
               <div>
@@ -6480,7 +6492,7 @@ function MailPage({
                   )}
                 </span>
                 <div>
-                  <h2>{current.subject}</h2>
+                  <h2>{current.subject}{data.mail.messages.some((message) => message.attachments.length > 0) && <Paperclip className="manage-reader-attachment-indicator" size={15} aria-label="Has attachments" />}</h2>
                   <p>
                     {current.contactName ||
                       current.participants[0] ||
@@ -6642,9 +6654,7 @@ function MailThreadRow({
       className={`manage-thread${active ? " active" : ""}${thread.unreadCount ? " unread" : ""}`}
     >
       <span className="manage-thread-leading">
-        <span className="manage-thread-star" aria-hidden="true">
-          <Star size={15} fill={thread.isStarred ? "currentColor" : "none"} />
-        </span>
+        {thread.isStarred && <span className="manage-thread-star" aria-hidden="true"><Star size={15} fill="currentColor" /></span>}
         <span className="manage-person-avatar">
           {initials(
             thread.contactName ||
@@ -6668,6 +6678,7 @@ function MailThreadRow({
         <p>{thread.snippet || "No message preview"}</p>
         <footer>
           {thread.organizationName && <span>{thread.organizationName}</span>}
+          {thread.hasAttachments && <Paperclip className="manage-thread-attachment-indicator" size={13} aria-label="Has attachments" />}
           {thread.latestStatus && <small>{pretty(thread.latestStatus)}</small>}
         </footer>
       </div>

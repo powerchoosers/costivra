@@ -2333,3 +2333,61 @@ Use one deterministic retry policy for lifecycle and sequence email effects. Aut
 ## Consequences
 
 Costivra remains on the existing Supabase and Vercel-based execution model with no new service or hosting cost. A transient provider rejection can recover automatically, while a potentially accepted request cannot be resent merely because local persistence or a worker failed. Operators must resolve held rows through the existing recovery workflow before creating any new effect.
+
+# 2026-09-02 — Keep the Manage browser phone isolated and ledgered
+
+## Context
+
+Costivra needs an internal browser phone for incoming and operator-authorized
+outgoing calls. The customer portal must not receive Twilio credentials or call
+controls, and Luxor's Twilio project, customer records, and routing rules belong
+to a separate business. A browser call also creates a real external effect that
+must be attributable before Twilio connects it.
+
+## Decision
+
+Use a dedicated Costivra Twilio project and server-only configuration. Issue
+short-lived Voice SDK tokens only to authenticated internal operators, validate
+every Twilio webhook signature, restrict outbound regions and emergency dialing,
+and place all UI inside the Manage header. Record each inbound or outbound call
+and its provider lifecycle in a service-only `internal_voice_calls` ledger. Fail
+closed when the ledger cannot be written. Do not record connected calls,
+transcribe voicemail, expose customer-app controls, claim background push
+delivery, or use a Luxor credential fallback.
+
+## Consequences
+
+The header, responsive dialer, incoming Answer/Decline alert, mute, DTMF keypad,
+duration, and hang-up controls can ship before credentials exist, while the
+phone remains visibly disconnected. Activation requires the reviewed migration,
+dedicated Twilio resources, environment configuration, and real controlled-call
+verification. Reliable ringing after a mobile browser is suspended remains out
+of scope for this web-only foundation. Inbound voicemail is deliberately
+narrow: it starts only after the internal client is not answered, caps messages
+at 120 seconds, and exposes audio only through an authenticated proxy.
+Retention and deletion still require an operational policy before production use.
+
+# 2026-09-02 - Provision numbers only through an owner-confirmed inventory
+
+## Context
+
+Costivra needs a purchased main line that can change without a code release,
+while avoiding a public placeholder and preventing duplicate or unreviewed
+Twilio purchases.
+
+## Decision
+
+Keep Twilio number inventory and operator routing in server-only tables. Search
+is read-only. Purchase requires an owner session and exact-number confirmation,
+claims an external-side-effect ledger row, configures the incoming webhook, and
+activates local inventory only after the provider and database writes succeed.
+The public site renders only an active row designated as main. Inbound calls
+ring the selected operator identities simultaneously, with the legacy shared
+identity retained as a migration fallback.
+
+## Consequences
+
+Changing the public number becomes an auditable Manage action instead of a
+deployment. Ambiguous provider outcomes remain held for reconciliation, and no
+number is displayed or treated as the main line until an owner explicitly
+designates it.

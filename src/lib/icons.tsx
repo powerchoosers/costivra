@@ -20,6 +20,7 @@ import {
   ArrowsOut as PhosphorArrowsOut,
   At as PhosphorAt,
   Bank as PhosphorBank,
+  Backspace as PhosphorBackspace,
   Broadcast as PhosphorBroadcast,
   Building as PhosphorBuilding,
   Buildings as PhosphorBuildings,
@@ -47,6 +48,7 @@ import {
   Copy as PhosphorCopy,
   CurrencyCircleDollar as PhosphorCurrencyCircleDollar,
   DotsSixVertical as PhosphorDotsSixVertical,
+  DotsNine as PhosphorDotsNine,
   DotsThree as PhosphorDotsThree,
   DotsThreeVertical as PhosphorDotsThreeVertical,
   Download as PhosphorDownload,
@@ -81,6 +83,8 @@ import {
   LockKey as PhosphorLockKey,
   MapPin as PhosphorMapPin,
   MicrosoftOutlookLogo as PhosphorMicrosoftOutlookLogo,
+  Microphone as PhosphorMicrophone,
+  MicrophoneSlash as PhosphorMicrophoneSlash,
   Minus as PhosphorMinus,
   Paperclip as PhosphorPaperclip,
   PaperPlaneTilt as PhosphorPaperPlaneTilt,
@@ -88,6 +92,8 @@ import {
   Pencil as PhosphorPencil,
   PencilSimple as PhosphorPencilSimple,
   Phone as PhosphorPhone,
+  PhoneCall as PhosphorPhoneCall,
+  PhoneDisconnect as PhosphorPhoneDisconnect,
   Play as PhosphorPlay,
   Plus as PhosphorPlus,
   Pulse as PhosphorPulse,
@@ -165,6 +171,7 @@ export const AlignCenter = adaptIcon(PhosphorTextAlignCenter);
 export const AlignLeft = adaptIcon(PhosphorAlignLeft);
 export const AlignRight = adaptIcon(PhosphorAlignRight);
 export const Archive = adaptIcon(PhosphorArchive);
+export const Backspace = adaptIcon(PhosphorBackspace);
 export const Bell = adaptIcon(PhosphorBell);
 export const ArrowDown = adaptIcon(PhosphorArrowDown);
 export const ArrowLeft = adaptIcon(PhosphorArrowLeft);
@@ -212,6 +219,7 @@ export const Clock = adaptIcon(PhosphorClock);
 export const Clock3 = adaptIcon(PhosphorClock);
 export const Copy = adaptIcon(PhosphorCopy);
 export const Download = adaptIcon(PhosphorDownload);
+export const Dialpad = adaptIcon(PhosphorDotsNine);
 export const Edit2 = adaptIcon(PhosphorPencilSimple);
 export const ExternalLink = adaptIcon(PhosphorArrowSquareOut);
 export const Eye = adaptIcon(PhosphorEye);
@@ -265,6 +273,8 @@ export const MessageCircle = adaptIcon(PhosphorChatCircle);
 export const MessageSquare = adaptIcon(PhosphorChat);
 export const MessageSquareText = adaptIcon(PhosphorChatText);
 export const MicrosoftOutlookLogo = adaptIcon(PhosphorMicrosoftOutlookLogo);
+export const Microphone = adaptIcon(PhosphorMicrophone);
+export const MicrophoneOff = adaptIcon(PhosphorMicrophoneSlash);
 export const Minimize2 = adaptIcon(PhosphorArrowsIn);
 export const Minus = adaptIcon(PhosphorMinus);
 export const MoreHorizontal = adaptIcon(PhosphorDotsThree);
@@ -276,6 +286,8 @@ export const Paperclip = adaptIcon(PhosphorPaperclip);
 export const Pause = adaptIcon(PhosphorPause);
 export const Pencil = adaptIcon(PhosphorPencil);
 export const Phone = adaptIcon(PhosphorPhone);
+export const PhoneCall = adaptIcon(PhosphorPhoneCall);
+export const PhoneOff = adaptIcon(PhosphorPhoneDisconnect);
 export const Pin = adaptIcon(PhosphorPushPin);
 export const Play = adaptIcon(PhosphorPlay);
 export const Plus = adaptIcon(PhosphorPlus);

@@ -3503,3 +3503,118 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Quieted Manage source chips such as CRM in dark mode by replacing the light legacy outline with the shared dark divider token and removing the unnecessary filled surface.
 - Mail records now mark themselves read when opened through the existing authorized thread action, clearing the unread badge after refresh; the list also shows a compact dot state for unread versus read conversations.
 - Tightened Manage mail-list row geometry by reducing the reserved left columns, inter-column gap, and side padding so star and sender icons sit closer to the list edge without disturbing message content alignment.
+- Removed empty favorite-star silhouettes from unstarred mail rows and moved the favorite action into the reader toolbar before archive, trash, and read-state controls. Replaced the ambiguous envelope toggle with labeled eye and eye-off actions for marking a conversation read or unread. Browser-verified the selected Manage mail thread at the current desktop route; typecheck, lint, targeted viewer tests, and diff checks passed.
+
+# 2026-09-02 - Manage Browser Phone Foundation
+
+- Added a Manage-only phone control before the existing header utilities with explicit disconnected, connecting, ready, incoming, and active-call states.
+- Added a responsive dialer and active-call surface with Answer, Decline, mute, DTMF keypad, call duration, and hang-up controls. The feature is configuration-gated and remains safely disconnected without a dedicated Costivra Twilio project.
+- Added authenticated Voice token issuance, signed inbound/outbound TwiML webhooks, signed lifecycle callbacks, destination and emergency-call policy, token refresh, and dynamic loading of the Twilio browser SDK.
+- Added a service-only `internal_voice_calls` migration so every browser call is attributable and lifecycle-reconciled before Twilio connects it. Browser access is denied by RLS and table grants.
+- Added `.env.example` placeholders and `docs/MANAGE_TWILIO_VOICE_SETUP.md`. No credential was created, stored, or used; no live call was placed.
+- Verified with Node 24: typecheck, full lint (0 errors; 4 pre-existing image warnings), 958 unit tests, 8 non-live integration tests, production build, secret scan, structural migration audit, and browser QA at 1280×720, 768×1024, 390×844, and 320×700. Live Twilio calls and the database migration remain activation-gated.
+
+# 2026-09-02 - Manage Browser Phone Voicemail Pass
+
+- Added a signed inbound `<Dial action>` completion path. If the internal
+  browser phone is not answered within 30 seconds, Twilio now prompts for a
+  voicemail capped at 120 seconds and reports its recording status back to the
+  service-only call ledger.
+- Added an authenticated Manage call-history endpoint, recent-call UI, and
+  server-streamed voicemail playback. Recording SIDs are validated and no
+  Twilio recording URL or audio is exposed to the browser without an internal
+  operator session.
+- Hardened the webhook boundary so unsigned or invalid requests return `403`
+  even while Twilio credentials are intentionally absent, instead of surfacing
+  a configuration `500`.
+- Kept connected calls unrecorded and transcription disabled. Operational
+  retention/deletion policy and live Twilio/Supabase activation remain pending
+  Lewis's dedicated project setup.
+
+# 2026-09-02 - Twilio Number Inventory and Main-Line Routing
+
+- Added an owner-only Manage Settings phone-number surface for read-only Twilio
+  inventory search, explicit exact-number purchase confirmation, purchased
+  number inventory, main-number designation, and selected-operator routing.
+- Added server-only number and routing tables with browser-denied RLS, audit
+  events, and an external-side-effect ledger record for each purchase.
+- Added dynamic public Contact-page phone rendering. No number is shown until a
+  purchased number is designated as the active main number.
+- Added per-operator Voice SDK identities and simultaneous inbound routing to
+  the selected browser-phone operators, with a legacy shared-identity fallback.
+- Twilio remains trial-only in the open console. No paid number was purchased
+  and no billing method was added. Lewis created the `Costivra Production Voice`
+  Main API key, and the account SID, auth token, API key SID, and one-time API
+  key secret are stored in `.env.local` and Vercel Production, Preview, and
+  Development environments without being committed or displayed.
+- Twilio rejected TwiML App creation on the trial account with the provider's
+  upgrade-required response. The TwiML App SID therefore remains intentionally
+  unset until the account is upgraded. Supabase migration application is also
+  pending a `SUPABASE_ACCESS_TOKEN`; no live number purchase or call was made.
+- The tested voice foundation was promoted to Vercel Production and is serving
+  on `https://costivra.ai`. Production smoke checks return `{"phoneNumber":null}`
+  for the public phone endpoint and a sign-in error for the protected number
+  inventory endpoint, confirming the public no-number state and auth boundary.
+- Corrected the provisioning prerequisite so inventory search and owner-confirmed
+  number purchase require only the Twilio account credentials; the TwiML App is
+  now correctly deferred to browser-call activation. TypeScript and the focused
+  voice tests pass, and the correction is deployed in the latest Ready
+  production deployment.
+- Hardened owner routing updates to deduplicate selections and verify every
+  selected operator is an active internal staff user before replacing routes.
+  TypeScript, focused voice tests (10/10), lint (0 errors), and the latest Ready
+  production deployment all pass after this change.
+- Added a fail-closed preflight for the voice inventory migration so a missing
+  table returns a clear 503 setup state and cannot trigger a Twilio purchase
+  that Costivra cannot record. Focused voice tests now pass 11/11, and this
+  guard is deployed in the latest Ready production deployment.
+- Confirmed the latest production deployment is Ready and aliased to
+  `https://costivra.ai`. The public phone endpoint still returns no number,
+  which is the intentional pre-purchase state. Twilio number search currently
+  returns the provider's trial-account restriction and the Manage API maps it
+  to an upgrade-required response instead of a misleading server error.
+- Full lint passes with 0 errors and 4 pre-existing Next image warnings. Twilio
+  billing upgrade, number purchase/main designation, Supabase migration
+  application, and TwiML App creation remain external activation steps.
+- Applied both voice migrations to the authenticated Costivra production
+  Supabase project through its SQL editor. Verified `internal_voice_calls`,
+  `internal_voice_numbers`, and `internal_voice_number_routes` exist with RLS
+  enabled, `service_role` SELECT access, and no `authenticated` SELECT access.
+  The local Supabase CLI still has no management token, so the CLI migration
+  ledger is not being used as evidence for this dashboard-applied change.
+- Browser-verified the authenticated production Manage journey at
+  `/manage` and `/manage/settings`: the phone control is visible as disconnected,
+  the owner-only Phone numbers settings surface loads with an empty inventory,
+  and a live search attempt shows the clear upgrade-required toast returned by
+  the Twilio trial gate.
+- Recorded both dashboard-applied voice migrations in
+  `supabase_migrations.schema_migrations` with their repository versions and
+  names, then read them back successfully. Future Supabase CLI history checks
+  will recognize these migrations as applied.
+- Reconfirmed Vercel's project environment inventory without reading secret
+  values: all four Twilio secrets remain present in Production, Preview, and
+  Development, and the four non-secret voice configuration values remain
+  present in all three environments.
+- Rechecked the live Twilio console: the account is still Trial with 17 days
+  remaining and the upgrade prompt is still present. The latest Costivra
+  production deployment remains Ready, so no code or environment rollback is
+  needed while billing is pending.
+- Read-only Twilio console verification confirms `Costivra Production Voice`
+  is present as a Main API key. The key identifier was not copied into output
+  and its secret remains server-only in local and Vercel environments.
+
+# 2026-09-02 - Twilio API Provisioning Unblocked
+
+- Lewis upgraded the Twilio account and added billing. The account now reports
+  Active with a $50.00 available balance; no number was purchased in the Twilio
+  console.
+- Created or reused the `Costivra Manage Voice` TwiML App through the Twilio
+  API and stored its SID only in `.env.local` and Vercel Production, Preview,
+  and Development as a secret.
+- Added account-specific Twilio Pricing API lookup to available-number search.
+  US local results now show the current recurring monthly price in Costivra
+  before the explicit purchase confirmation.
+- Deployed the updated voice foundation to the Ready production deployment
+  aliased to `https://costivra.ai`. Number purchase, main designation, and
+  operator routing remain intentionally pending Lewis's exact number and
+  routing selection.
