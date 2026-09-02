@@ -3740,7 +3740,7 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added the service-only `internal_voice_side_effects` ledger and moved the
   purchase claim and provider reconciliation updates to it. The tenant-scoped
   `external_side_effects` table remains unchanged.
-- Applied migration `20260902170000_internal_voice_side_effects` to the Costivra
+- Applied migration `20260902201222_internal_voice_side_effects` to the Costivra
   production Supabase project. Deployed the fix in Ready production deployment
   `dpl_TY9d4EM3cDJTe7faU5Y5qs4ip3Q8` and re-aliased `https://costivra.ai`.
 - Verified the public phone endpoint still returns `{"phoneNumber":null}` and

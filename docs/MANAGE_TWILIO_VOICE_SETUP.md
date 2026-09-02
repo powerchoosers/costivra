@@ -55,7 +55,7 @@ reuse Luxor credentials.
    enabling calls:
    - `20260902145722_internal_manage_voice_call_ledger.sql`
    - `20260902162000_internal_manage_voice_numbers.sql`
-   - `20260902170000_internal_voice_side_effects.sql`
+   - `20260902201222_internal_voice_side_effects.sql`
 8. Redeploy, open `/manage`, open the phone, and choose **Turn on phone**.
 
 ## Safe defaults and boundaries
