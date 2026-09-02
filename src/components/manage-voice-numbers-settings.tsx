@@ -21,7 +21,15 @@ export function ManageVoiceNumbersSettings() {
   const [searchState, setSearchState] = useState<SearchState>("idle");
   const [searchError, setSearchError] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
+  const [purchaseClosing, setPurchaseClosing] = useState(false);
+  const [purchaseOpening, setPurchaseOpening] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selected || purchaseClosing || !purchaseOpening) return;
+    const frame = window.requestAnimationFrame(() => setPurchaseOpening(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [purchaseClosing, purchaseOpening, selected]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,6 +44,8 @@ export function ManageVoiceNumbersSettings() {
     setSearchError(null);
     setAvailable([]);
     setSelected(null);
+    setPurchaseClosing(false);
+    setPurchaseOpening(false);
     try {
       const response = await fetch(`/api/manage/voice/numbers?available=1&areaCode=${encodeURIComponent(areaCode)}`);
       const payload = await response.json();
@@ -51,6 +61,18 @@ export function ManageVoiceNumbersSettings() {
     } finally { setSearching(false); }
   }
   function openPurchase(phoneNumber: string) {
+    if (selected === phoneNumber) {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        setSelected(null);
+        setPurchaseClosing(false);
+        setPurchaseOpening(false);
+      } else {
+        setPurchaseClosing(true);
+      }
+      return;
+    }
+    setPurchaseClosing(false);
+    setPurchaseOpening(true);
     setSelected(phoneNumber);
   }
   async function purchase() {
@@ -64,23 +86,23 @@ export function ManageVoiceNumbersSettings() {
       setAvailable([]);
       setSearchState("idle");
       setSelected(null);
+      setPurchaseClosing(false);
+      setPurchaseOpening(false);
       await load();
     } catch (error) { toast.error("Number was not purchased", error instanceof Error ? error.message : "Try again."); }
     finally { setPurchasing(false); }
   }
   async function update(id: string, body: Record<string, unknown>, message: string) { setSaving(id); try { const response = await fetch(`/api/manage/voice/numbers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error); toast.success(message); await load(); } catch (error) { toast.error("Phone setting was not saved", error instanceof Error ? error.message : "Try again."); } finally { setSaving(null); } }
-  const selectedNumber = available.find(number => number.phoneNumber === selected);
-
   return <div className="manage-settings-tab-panel manage-voice-number-settings">
     <section className="manage-panel" aria-labelledby="voice-number-settings-title">
       <header className="manage-settings-enrichment-heading"><div><span className="manage-settings-kicker">Owner controls</span><h3 id="voice-number-settings-title">Costivra phone numbers</h3><p>Search Twilio inventory, purchase with an explicit confirmation, and choose which operators receive the main line. Nothing appears on the public site until a purchased number is designated as main.</p></div><Phone size={22} aria-hidden="true" /></header>
-      <div className="manage-voice-number-search" aria-busy={searching}><label><span>Area code</span><input inputMode="numeric" maxLength={3} value={areaCode} disabled={searching} onChange={event => setAreaCode(event.target.value.replace(/\D/g, ""))} placeholder="e.g. 214" /></label><button type="button" className="manage-button manage-button--quiet" disabled={searching} onClick={() => void search()}><Search size={15} className={searching ? "is-spinning" : undefined} />{searching ? "Searching…" : "Search available numbers"}</button></div>
+      <div className="manage-voice-number-search" aria-busy={searching}><label><span>Area code</span><input inputMode="numeric" maxLength={3} value={areaCode} disabled={searching} onChange={event => setAreaCode(event.target.value.replace(/\D/g, ""))} onKeyDown={event => { if (event.key === "Enter" && !searching) { event.preventDefault(); void search(); } }} placeholder="e.g. 214" /></label><button type="button" className="manage-button manage-button--quiet" disabled={searching} onClick={() => void search()}><Search size={15} className={searching ? "is-spinning" : undefined} />{searching ? "Searching…" : "Search available numbers"}</button></div>
       <div className={`manage-voice-number-search-feedback ${searchState !== "idle" ? "is-open" : ""}`} aria-live="polite">
         <div className="manage-voice-number-search-feedback-inner">
           {searchState === "loading" && <><div className="manage-voice-number-search-state manage-voice-number-search-state--loading"><LoaderCircle className="is-spinning" size={17} /><div><strong>Searching Twilio inventory</strong><span>Checking available numbers for this area.</span></div></div><div className="manage-voice-number-results-skeleton" aria-hidden="true">{[0, 1, 2].map(index => <div className="manage-voice-number-result-skeleton" key={index}><span className="manage-voice-number-result-skeleton-copy"><span className="manage-voice-skeleton-line manage-voice-skeleton-line--wide" /><span className="manage-voice-skeleton-line manage-voice-skeleton-line--medium" /></span><span className="manage-voice-skeleton-status manage-voice-number-result-skeleton-price" /></div>)}</div></>}
           {searchState === "empty" && <div className="manage-voice-number-search-state manage-voice-number-search-state--empty"><PhoneOff size={18} /><div><strong>No numbers found</strong><span>Twilio did not return an available number for this area code. Try a nearby area code.</span></div></div>}
           {searchState === "error" && <div className="manage-voice-number-search-state manage-voice-number-search-state--error"><CircleAlert size={18} /><div><strong>Search unavailable</strong><span>{searchError || "Twilio did not return a result. Try again shortly."}</span></div><button type="button" className="manage-button manage-button--quiet" onClick={() => void search()}>Try again</button></div>}
-          {searchState === "results" && available.length > 0 && <div className="manage-voice-number-results" aria-label="Available Twilio numbers">{available.map(number => <div className="manage-voice-number-result-item" key={number.phoneNumber}><button type="button" className={selected === number.phoneNumber ? "is-selected" : ""} onClick={() => openPurchase(number.phoneNumber)}><span><strong>{number.phoneNumber}</strong><small>{[number.locality, number.region].filter(Boolean).join(", ") || "United States"}</small></span><em>{money(number.monthlyPriceCents, number.currency)}</em></button>{selected === number.phoneNumber && <div className="manage-voice-number-confirm-wrap is-open"><div className="manage-voice-number-confirm" role="region" aria-labelledby="voice-number-confirm-title"><div><span className="manage-settings-kicker">Ready to purchase</span><strong id="voice-number-confirm-title">{selected}</strong><span>{[number.locality, number.region].filter(Boolean).join(", ") || "United States"} · {money(number.monthlyPriceCents, number.currency)}</span></div><p>Twilio will charge the monthly number fee. This number stays private until you make it the main number.</p><button type="button" className="manage-button manage-button--primary" disabled={purchasing} onClick={() => void purchase()}>{purchasing ? "Purchasing…" : "Purchase number"}</button></div></div>}</div>)}</div>}
+          {searchState === "results" && available.length > 0 && <div className="manage-voice-number-results" aria-label="Available Twilio numbers">{available.map(number => <div className="manage-voice-number-result-item" key={number.phoneNumber}><button type="button" className={selected === number.phoneNumber ? "is-selected" : ""} onClick={() => openPurchase(number.phoneNumber)}><span><strong>{number.phoneNumber}</strong><small>{[number.locality, number.region].filter(Boolean).join(", ") || "United States"}</small></span><em>{money(number.monthlyPriceCents, number.currency)}</em></button>{selected === number.phoneNumber && <div className={`manage-voice-number-confirm-wrap${purchaseClosing ? " is-closing" : purchaseOpening ? " is-opening" : " is-open"}`} aria-hidden={purchaseClosing} onTransitionEnd={event => { if (purchaseClosing && event.currentTarget === event.target && event.propertyName === "grid-template-rows") { setSelected(null); setPurchaseClosing(false); } }}><div className="manage-voice-number-confirm" role="region" aria-labelledby="voice-number-confirm-title"><div><span className="manage-settings-kicker">Ready to purchase</span><strong id="voice-number-confirm-title">{selected}</strong><span>{[number.locality, number.region].filter(Boolean).join(", ") || "United States"} · {money(number.monthlyPriceCents, number.currency)}</span></div><p>Twilio will charge the monthly number fee. This number stays private until you make it the main number.</p><button type="button" className="manage-button manage-button--primary" disabled={purchasing || purchaseClosing} onClick={() => void purchase()}>{purchasing ? "Purchasing…" : "Purchase number"}</button></div></div>}</div>)}</div>}
         </div>
       </div>
     </section>

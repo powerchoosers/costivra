@@ -1,5 +1,47 @@
 # Costivra Status
 
+## September 2, 2026 — Location-card action order
+
+- Swapped the location-card action order so `Open map` appears before the `Active` status badge, matching the intended scan path while preserving the edit control at the far right.
+- Validation: local browser QA at the iPad-sized 1186×838 viewport confirmed both cards render `Open map` then `Active` on one row. No production deployment made.
+
+## September 2, 2026 — App settings dark-mode surfaces
+
+- Tokenized the App settings form footer and Locations section so separators, cards, icons, headings, copy, and map links follow the shared workspace theme. Expanded desktop/tablet location cards to five columns so the edit control stays on the same row; mobile uses named grid areas for copy, status, map, and edit.
+- Validation: Node `v24.19.0`; `pnpm typecheck`, `pnpm lint`, and `git diff --check` passed. Local browser QA at the iPad-sized 1186×838 viewport confirmed the dark and light treatments, muted separators, and single-row edit controls. ESLint reported four pre-existing `<img>` warnings and no errors. No production deployment made.
+
+## September 2, 2026 — Calculation summary dark-mode borders
+
+- Replaced the remaining hard-coded light borders and text colors in the finding calculation summary with shared workspace tokens. The calculation method, input, assumptions, detail groups, and notice now use the same subdued dark separators as the rest of the App detail view.
+- Validation: Node `v24.19.0`; `git diff --check` and TypeScript passed. Local browser QA at the iPad-sized 1186×838 viewport confirmed the calculation card no longer renders bright white grid lines. No production deployment made.
+
+## September 2, 2026 — App detail dark-mode record surfaces
+
+- Replaced hard-coded light borders, separators, text colors, and nested evidence surfaces across App finding details with the shared workspace tokens. Record fields, data-quality checks, related records, line items, section headings, and evidence cards now keep readable hierarchy in dark mode while retaining the light-mode palette.
+- Validation: Node `v24.19.0`; TypeScript and `git diff --check` passed. Local browser QA at the iPad-sized 1186×838 viewport confirmed the record-detail cards and data-quality rail use muted dark separators with readable primary and secondary text. No production deployment made.
+
+## September 2, 2026 — Tablet Back-control alignment
+
+- Corrected the persistent compact Back control at the iPad/tablet breakpoint in both Manage and App. Tablet shells hide the desktop side rails, so the control now follows each page's content rail instead of inheriting a desktop sidebar offset. Desktop and phone positioning remain unchanged.
+- Validation: Node `v24.19.0`; `git diff --check`, TypeScript, and ESLint passed. Local browser QA at the iPad-sized 1186×838 viewport confirmed the Manage control aligns at the 28px content rail and the App control aligns at the 32px content rail after scrolling. No production deployment made.
+
+## September 2, 2026 — Phone-number purchase animation polish
+
+- Coordinated the inline purchase row's height, opacity, and slight vertical travel so expansion and collapse read as one continuous state change instead of a jump. Selecting the same result closes it; selecting another replaces it beneath the new result.
+- The motion uses the shared workspace timing tokens and keeps the accent-soft purchase surface distinct from inventory rows. Reduced-motion users still get an immediate, accessible state change.
+- Validation: Node `v24.19.0`; TypeScript, focused ESLint, and `git diff --check` passed. Local authenticated QA at 1186×838 confirmed the purchase row opens and collapses cleanly in the dark workspace.
+
+## September 2, 2026 — Phone-number purchase row toggle
+
+- The inline purchase row now collapses when its selected number is clicked again. Selecting a different number replaces the prior context and slides the new purchase row into place beneath that result.
+- Purchase rows use the workspace accent-soft surface and accent border so they are visually distinct from available-number results in both themes. Reduced-motion users receive the same state change without animated movement.
+- Validation: Node `v24.19.0`; TypeScript, focused ESLint, and `git diff --check` passed. Local authenticated QA at 1186×838 confirmed open, collapse, and replacement behavior in the dark workspace.
+
+## September 2, 2026 — Enter-to-search phone numbers
+
+- The Area code field now submits the same Twilio inventory search when Lewis presses Enter, while preserving the button path, loading lock, skeleton, and result states.
+- Validation: Node `v24.19.0`; TypeScript, focused ESLint, and `git diff --check` passed. Local authenticated QA remains available at `localhost:3000`.
+
 ## September 2, 2026 — Inline phone-number purchase confirmation
 
 - Clicking an available Twilio number now expands an inline confirmation card directly beneath that selected result. The exact-number typing requirement was removed at Lewis's request; the Purchase number button remains the explicit authorization action, with Twilio's monthly charge and private-until-main behavior stated beside it.

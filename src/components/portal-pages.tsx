@@ -5049,8 +5049,8 @@ function LocationManager({
                 <strong>{item.name}</strong>
                 <small>{addressLine(item)}{item.meterCount > 0 ? ` · ${item.meterCount} meter${item.meterCount === 1 ? "" : "s"}` : ""}</small>
               </div>
-              <Status value={item.status} />
               {addressLine(item) !== "Address not added" && <a className="settings-location-map-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${item.name}, ${addressLine(item)}`)}`} target="_blank" rel="noreferrer">Open map</a>}
+              <Status value={item.status} />
               {canManage && (
                 <button className="icon-button" type="button" onClick={() => setSelected(item)} aria-label={`Edit ${item.name}`}>
                   <Pencil size={15} />
