@@ -3747,6 +3747,10 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   the protected Manage voice route still returns `401` without a session. The
   real purchase action remains intentionally un-replayed here to avoid a
   second Twilio charge without Lewis's confirmation.
+- Read-only provider verification now confirms the Twilio account is active,
+  the `Costivra Manage Voice` TwiML App exists, its outbound Voice URL and
+  lifecycle callback point to `costivra.ai`, and live inventory search returns
+  available numbers. No provider mutation was performed during this audit.
 
 # 2026-09-02 - Move Email identities into Communications
 
