@@ -3634,5 +3634,11 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Added bottom-nav clearance and scroll padding to the Manage touch layout so
   Settings containers and their final rows remain fully visible above the fixed
   navigation dock.
-- Validation and deployment are pending in this checkpoint; no Twilio number
-  was purchased and no operator routing was changed.
+- Focused voice tests (6/6), TypeScript, lint (0 errors, 4 pre-existing Next
+  image warnings), and production build pass. The latest Vercel deployment is
+  Ready and aliased to `https://costivra.ai`.
+- Browser verification at the reported tablet-sized viewport shows the final
+  mailbox row and explanatory footer fully above the navigation dock. The
+  disconnected phone panel now says to purchase and designate a main number
+  in Settings. No Twilio number was purchased and no operator routing was
+  changed.

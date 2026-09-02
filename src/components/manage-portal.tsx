@@ -5353,7 +5353,7 @@ function SettingsPage({
   const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
   const [runningRetentionReport, setRunningRetentionReport] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "appearance" | "enrichment" | "billing" | "voice">("general");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "appearance" | "enrichment" | "billing" | "voice" | "mail">("general");
   const [apolloSettings, setApolloSettings] = useState<ApolloSettingsSummary | null>(null);
   const [loadingApolloSettings, setLoadingApolloSettings] = useState(false);
   const [apolloSettingsError, setApolloSettingsError] = useState<string | null>(null);
@@ -5365,6 +5365,12 @@ function SettingsPage({
       originalDocuments: number;
     };
   } | null>(null);
+
+  useEffect(() => {
+    if (window.location.hash !== "#email-identities") return;
+    const frame = window.requestAnimationFrame(() => setActiveSettingsTab("mail"));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -5518,10 +5524,13 @@ function SettingsPage({
     : 0;
 
   const settingsItems: SettingsHubItem<typeof activeSettingsTab>[] = [
-    { id: "general", group: "Profile & communication", title: "Profile, email & alerts", description: "Photo, email signature, live notifications, and sending identities.", keywords: ["avatar", "signature", "mailbox", "sound", "email"] },
+    { id: "general", group: "Profile & communication", title: "Profile, email & alerts", description: "Photo, email signature, and live notifications.", keywords: ["avatar", "signature", "sound", "email"] },
     { id: "appearance", group: "Branding & appearance", title: "Appearance & theme", description: "Light, dark, and system display preferences.", keywords: ["branding", "theme", "dark mode", "light mode", "system", "color"] },
     ...(data.operator.role === "owner" ? [
       { id: "voice" as const, group: "Communications", title: "Phone numbers", description: "Purchase numbers and route the main line to operators.", keywords: ["twilio", "voice", "phone", "call", "number", "routing"] },
+    ] : []),
+    { id: "mail", group: "Communications", title: "Email identities", description: "Manage the addresses Costivra sends and receives through Resend.", keywords: ["mailbox", "email", "resend", "inbox", "sending"] },
+    ...(data.operator.role === "owner" ? [
       { id: "billing" as const, group: "Business controls", title: "Billing & pricing", description: "Costivra plans and Stripe price catalog.", keywords: ["stripe", "plan", "price", "subscription"] },
       { id: "enrichment" as const, group: "System & providers", title: "Provider health", description: "Apollo usage and production readiness.", keywords: ["apollo", "credits", "retention", "readiness", "integration"] },
     ] : []),
@@ -5542,6 +5551,10 @@ function SettingsPage({
       <SettingsHub ariaLabel="Manage settings" items={settingsItems} value={activeSettingsTab} onValueChange={selectSettings}>
       {activeSettingsTab === "voice" ? (
         <ManageVoiceNumbersSettings />
+      ) : activeSettingsTab === "mail" ? (
+        <section id="email-identities" className="manage-settings-section manage-settings-section--mail">
+          <Mailboxes data={data} query={query} run={run} onAdd={onAdd} embedded />
+        </section>
       ) : activeSettingsTab === "appearance" ? (
         <WorkspaceAppearanceSettings workspaceLabel="Manage" />
       ) : activeSettingsTab === "billing" ? (
@@ -5713,9 +5726,6 @@ function SettingsPage({
           )}
         </section>
       )}
-      <section id="email-identities" className="manage-settings-section">
-        <Mailboxes data={data} query={query} run={run} onAdd={onAdd} embedded />
-      </section>
         </div>
       ) : (
         <section
@@ -5948,23 +5958,24 @@ function Mailboxes({
   return (
     <>
       <section className={embedded ? "manage-settings-section-heading" : "manage-page-heading"}>
-        <div>
+        <div className="manage-mailbox-heading-copy">
           <p>Manage the addresses Costivra sends and receives through Resend.</p>
           <div className="manage-mailbox-heading-row">
             <h2>Email identities</h2>
             <span>
               {mailboxes.length} mailbox{mailboxes.length === 1 ? "" : "es"}
             </span>
-            {data.operator.role === "owner" && (
-              <button
-                className="manage-button manage-button--primary"
-                onClick={onAdd}
-              >
-                <Plus size={15} /> New mailbox
-              </button>
-            )}
           </div>
         </div>
+        {data.operator.role === "owner" && (
+          <button
+            className="manage-button manage-button--primary"
+            onClick={onAdd}
+            type="button"
+          >
+            <Plus size={15} /> New mailbox
+          </button>
+        )}
       </section>
       <section className="manage-panel manage-mailbox-panel">
         {mailboxes.length ? (

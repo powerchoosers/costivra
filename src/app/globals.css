@@ -2857,11 +2857,13 @@ html { scroll-padding-top: 92px; }
 .manage-voice-number-results,.manage-owned-voice-numbers { display:grid; gap:8px; }
 .manage-voice-number-results button { display:flex; justify-content:space-between; align-items:center; gap:16px; width:100%; padding:12px 14px; border:1px solid #e3e8f0; border-radius:11px; color:#273244; background:#fff; text-align:left; cursor:pointer; }.manage-voice-number-results button:hover,.manage-voice-number-results button.is-selected { border-color:#8aa5e6; background:#f7f9ff; }.manage-voice-number-results span,.manage-owned-voice-number-heading div { display:grid; gap:3px; }.manage-voice-number-results small,.manage-owned-voice-number-heading small { color:#788397; font-size:.68rem; }.manage-voice-number-results em { color:#44546c; font-size:.7rem; font-style:normal; white-space:nowrap; }
 .manage-voice-number-confirm button { justify-self:end; }.manage-owned-voice-numbers article { display:grid; gap:14px; padding:14px 0; border-top:1px solid #edf0f4; }.manage-owned-voice-number-heading,.manage-owned-voice-number-actions { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; }.manage-owned-voice-number-heading strong { color:#1d2b42; font-size:.86rem; }.manage-voice-route-list { display:grid; gap:7px; min-width:220px; }.manage-voice-route-list label { display:flex; align-items:center; gap:7px; color:#4f5c70; font-size:.72rem; }.manage-settings-empty { display:flex; align-items:center; gap:8px; color:#6b7789; font-size:.76rem; }
-@media (max-width:700px) { .manage-voice-number-confirm { grid-template-columns:1fr; }.manage-voice-number-confirm button { justify-self:start; }.manage-owned-voice-number-actions { display:grid; }.manage-voice-route-list { min-width:0; }.manage-voice-number-search .manage-button { width:100%; justify-content:center; } }
+@media (max-width:700px) { .manage-voice-number-confirm { grid-template-columns:1fr; }.manage-voice-number-confirm button { justify-self:start; }.manage-owned-voice-number-actions { display:grid; }.manage-voice-route-list { min-width:0; }.manage-voice-number-search .manage-button { width:100%; justify-content:center; }.manage-settings-section-heading { flex-direction:column; gap:12px; }.manage-settings-section-heading > .manage-button { width:100%; justify-content:center; } }
 @media (max-width:820px) { .workspace-settings-hub { grid-template-columns:1fr; gap:14px; } .workspace-settings-directory { position:static; } .workspace-settings-nav { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .workspace-settings-nav section { padding-top:0; border-top:0; } .workspace-settings-nav h2 { grid-column:1/-1; margin-top:5px; } }
 @media (max-width:520px) { .workspace-settings-directory { padding:12px; border-radius:16px; } .workspace-settings-search-hint { display:none; } .workspace-settings-nav { grid-template-columns:1fr; } .workspace-settings-nav button { padding:10px; } }
 .manage-settings-section { margin-top:28px; scroll-margin-top:96px; }
-.manage-settings-section-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:14px; }
+.manage-settings-section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; margin-bottom:14px; }
+.manage-mailbox-heading-copy { min-width:0; }
+.manage-settings-section-heading > .manage-button { flex:0 0 auto; }
 .manage-settings-section-heading p { margin:0 0 5px; color:var(--manage-muted); font-size:.73rem; }
 .manage-settings-section-heading h2 { margin:0; color:#1d2939; font-size:1rem; }
 .manage-settings-enrichment { margin-top:14px; overflow:hidden; }
@@ -15143,7 +15145,11 @@ button.workspace-notification-row:focus-visible {
     min-width:0;
   }
   .manage-shell-v2 .manage-top-actions { width:auto; flex:0 0 auto; }
-  .manage-shell-v2 .manage-page { min-width:0; }
+  .manage-shell-v2 .manage-page {
+    min-width:0;
+    padding-bottom:calc(168px + env(safe-area-inset-bottom));
+    scroll-padding-bottom:calc(168px + env(safe-area-inset-bottom));
+  }
   .manage-shell-v2 .manage-page--overview {
     padding-bottom:calc(110px + env(safe-area-inset-bottom));
   }
