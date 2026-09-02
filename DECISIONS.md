@@ -2391,3 +2391,25 @@ Changing the public number becomes an auditable Manage action instead of a
 deployment. Ambiguous provider outcomes remain held for reconciliation, and no
 number is displayed or treated as the main line until an owner explicitly
 designates it.
+
+# 2026-09-02 - Read the dynamic main number from Costivra inventory
+
+## Context
+
+The browser phone setup previously treated `COSTIVRA_TWILIO_PHONE_NUMBER` as a
+required deployment value. That conflicts with owner-managed number purchases
+and makes changing the public line look like a release task.
+
+## Decision
+
+Treat the active, designated main row in `internal_voice_numbers` as the
+runtime source of truth for readiness and Voice SDK token metadata. Keep the
+environment phone only as an unavailable-database fallback for older installs;
+it is not required for a new setup.
+
+## Consequences
+
+Owners can purchase, designate, and change the Costivra line entirely from
+Manage Settings. The public Contact page and outbound caller ID follow the
+database designation without an environment edit or redeploy. A missing main
+row remains an explicit setup state instead of exposing a placeholder.

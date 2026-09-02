@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     await requireInternalOperator();
-    const readiness = getManageTwilioReadiness();
+    const readiness = await getManageTwilioReadiness();
     return NextResponse.json(
       {
         configured: readiness.configured,
@@ -24,4 +24,3 @@ export async function GET() {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 }
-

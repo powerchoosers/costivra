@@ -522,10 +522,18 @@ export function ManageVoicePhone() {
           ) : configuration && !configuration.configured ? (
             <div className="manage-voice-setup">
               <span className="manage-voice-setup__icon"><Phone aria-hidden="true" size={22} /></span>
-              <h2>Connect your Twilio project</h2>
-              <p>The phone is built and safely offline. Add the server-only values below, then redeploy.</p>
+              <h2>{configuration.missing.includes("COSTIVRA_MAIN_NUMBER") ? "Choose a Costivra number" : "Connect your Twilio project"}</h2>
+              <p>
+                {configuration.missing.includes("COSTIVRA_MAIN_NUMBER")
+                  ? "Purchase and designate a main number in Settings. Costivra reads that choice dynamically, so you do not need to enter a phone number here."
+                  : "The phone is built and safely offline. Add the server-only values below, then redeploy."}
+              </p>
               <ul>
-                {configuration.missing.map((key) => <li key={key}><code>{key}</code></li>)}
+                {configuration.missing.map((key) => (
+                  <li key={key}>
+                    {key === "COSTIVRA_MAIN_NUMBER" ? "Purchase and designate a main number in Manage Settings" : <code>{key}</code>}
+                  </li>
+                ))}
               </ul>
               <button className="manage-voice-secondary" onClick={() => void loadConfiguration()} type="button">
                 Check setup again

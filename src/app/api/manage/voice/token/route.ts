@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function GET() {
   try {
     const operator = await requireInternalOperator();
-    return NextResponse.json(createManageVoiceToken(operator), {
+    return NextResponse.json(await createManageVoiceToken(operator), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
@@ -15,4 +15,3 @@ export async function GET() {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
 }
-

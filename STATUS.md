@@ -3542,15 +3542,16 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   purchased number is designated as the active main number.
 - Added per-operator Voice SDK identities and simultaneous inbound routing to
   the selected browser-phone operators, with a legacy shared-identity fallback.
-- Twilio remains trial-only in the open console. No paid number was purchased
-  and no billing method was added. Lewis created the `Costivra Production Voice`
-  Main API key, and the account SID, auth token, API key SID, and one-time API
-  key secret are stored in `.env.local` and Vercel Production, Preview, and
+- At the time of this earlier checkpoint Twilio was trial-only. No paid number
+  had been purchased yet. Lewis created the `Costivra Production Voice` Main
+  API key, and the account SID, auth token, API key SID, and one-time API key
+  secret are stored in `.env.local` and Vercel Production, Preview, and
   Development environments without being committed or displayed.
-- Twilio rejected TwiML App creation on the trial account with the provider's
-  upgrade-required response. The TwiML App SID therefore remains intentionally
-  unset until the account is upgraded. Supabase migration application is also
-  pending a `SUPABASE_ACCESS_TOKEN`; no live number purchase or call was made.
+- At the time of this earlier checkpoint Twilio rejected TwiML App creation
+  because the account was still on trial. The account has since been upgraded,
+  and the TwiML App was created through the API in the later provisioning
+  checkpoint below. Supabase migration application was completed through the
+  authenticated dashboard.
 - The tested voice foundation was promoted to Vercel Production and is serving
   on `https://costivra.ai`. Production smoke checks return `{"phoneNumber":null}`
   for the public phone endpoint and a sign-in error for the protected number
@@ -3568,14 +3569,16 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   table returns a clear 503 setup state and cannot trigger a Twilio purchase
   that Costivra cannot record. Focused voice tests now pass 11/11, and this
   guard is deployed in the latest Ready production deployment.
-- Confirmed the latest production deployment is Ready and aliased to
+- Confirmed the earlier production deployment was Ready and aliased to
   `https://costivra.ai`. The public phone endpoint still returns no number,
-  which is the intentional pre-purchase state. Twilio number search currently
-  returns the provider's trial-account restriction and the Manage API maps it
-  to an upgrade-required response instead of a misleading server error.
-- Full lint passes with 0 errors and 4 pre-existing Next image warnings. Twilio
-  billing upgrade, number purchase/main designation, Supabase migration
-  application, and TwiML App creation remain external activation steps.
+  which remains the intentional pre-purchase state. The earlier trial-account
+  restriction is retained here as historical evidence; current searches work
+  after Lewis upgraded the account.
+- Full lint passes with 0 errors and 4 pre-existing Next image warnings. At this
+  earlier checkpoint Twilio billing upgrade, number purchase/main designation,
+  Supabase migration application, and TwiML App creation remained external
+  activation steps; the later provisioning checkpoint records the completed
+  upgrade, migration, and TwiML App steps.
 - Applied both voice migrations to the authenticated Costivra production
   Supabase project through its SQL editor. Verified `internal_voice_calls`,
   `internal_voice_numbers`, and `internal_voice_number_routes` exist with RLS
@@ -3583,10 +3586,10 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   The local Supabase CLI still has no management token, so the CLI migration
   ledger is not being used as evidence for this dashboard-applied change.
 - Browser-verified the authenticated production Manage journey at
-  `/manage` and `/manage/settings`: the phone control is visible as disconnected,
-  the owner-only Phone numbers settings surface loads with an empty inventory,
-  and a live search attempt shows the clear upgrade-required toast returned by
-  the Twilio trial gate.
+  `/manage` and `/manage/settings`: the phone control was visible as
+  disconnected, the owner-only Phone numbers settings surface loaded with an
+  empty inventory, and the earlier live search attempt showed the clear
+  upgrade-required toast returned by the Twilio trial gate.
 - Recorded both dashboard-applied voice migrations in
   `supabase_migrations.schema_migrations` with their repository versions and
   names, then read them back successfully. Future Supabase CLI history checks
@@ -3595,10 +3598,10 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   values: all four Twilio secrets remain present in Production, Preview, and
   Development, and the four non-secret voice configuration values remain
   present in all three environments.
-- Rechecked the live Twilio console: the account is still Trial with 17 days
-  remaining and the upgrade prompt is still present. The latest Costivra
-  production deployment remains Ready, so no code or environment rollback is
-  needed while billing is pending.
+- Rechecked the live Twilio console at the earlier checkpoint: the account was
+  still Trial with 17 days remaining and the upgrade prompt was still present.
+  The later provisioning checkpoint confirms the account upgrade and a newer
+  Ready production deployment.
 - Read-only Twilio console verification confirms `Costivra Production Voice`
   is present as a Main API key. The key identifier was not copied into output
   and its secret remains server-only in local and Vercel environments.
@@ -3618,3 +3621,18 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   aliased to `https://costivra.ai`. Number purchase, main designation, and
   operator routing remain intentionally pending Lewis's exact number and
   routing selection.
+
+# 2026-09-02 - Dynamic main number and Settings touch-layout polish
+
+- Removed the manual phone-number environment value from the required setup
+  contract. Readiness and browser-token metadata now resolve the active,
+  designated main number from `internal_voice_numbers`; the environment value
+  remains only as a legacy fallback if the database is unavailable.
+- Updated the disconnected phone panel and setup guide to direct owners to
+  purchase and designate the main number in Manage Settings. The public phone
+  remains empty until that audited designation exists.
+- Added bottom-nav clearance and scroll padding to the Manage touch layout so
+  Settings containers and their final rows remain fully visible above the fixed
+  navigation dock.
+- Validation and deployment are pending in this checkpoint; no Twilio number
+  was purchased and no operator routing was changed.

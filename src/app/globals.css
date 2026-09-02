@@ -6991,7 +6991,11 @@ body.modal-open .app-topbar { filter: blur(7px); }
   }
   .manage-shell-v2 .manage-topbar { border-radius: 0; padding-inline: 16px; grid-template-columns: minmax(0, 1fr) auto; }
   .manage-shell-v2 .manage-topbar-center { display: none; }
-  .manage-shell-v2 .manage-page { padding: 20px 16px; }
+  /* Keep the final settings sections and action rows above the fixed touch nav. */
+  .manage-shell-v2 .manage-page {
+    padding: 20px 16px calc(116px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(116px + env(safe-area-inset-bottom));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import twilio from "twilio";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertAllowedVoiceNumber, normalizeVoiceNumber } from "@/lib/manage/voice-number";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const CALL_SID_PATTERN = /^CA[0-9a-f]{32}$/i;
 const RECORDING_SID_PATTERN = /^RE[0-9a-f]{32}$/i;
@@ -29,6 +30,7 @@ const CONFIG_KEYS = [
   "COSTIVRA_TWILIO_TWIML_APP_SID",
   "COSTIVRA_TWILIO_PHONE_NUMBER",
 ] as const;
+const REQUIRED_CONFIG_KEYS = CONFIG_KEYS.slice(0, 5);
 
 export function sanitizeVoiceIdentity(value: string) {
   const sanitized = value.trim().replace(/[^A-Za-z0-9_]/g, "_").slice(0, 121);
@@ -39,12 +41,34 @@ export function manageVoiceOperatorIdentity(userId: string) {
   return sanitizeVoiceIdentity(`costivra_operator_${userId.replace(/[^A-Za-z0-9]/g, "").slice(0, 80)}`);
 }
 
-export function getManageTwilioReadiness() {
-  const missing = CONFIG_KEYS.filter((key) => !process.env[key]?.trim());
-  const phoneNumber = normalizeVoiceNumber(process.env.COSTIVRA_TWILIO_PHONE_NUMBER);
-  if (!phoneNumber && !missing.includes("COSTIVRA_TWILIO_PHONE_NUMBER")) {
-    missing.push("COSTIVRA_TWILIO_PHONE_NUMBER");
+/**
+ * The purchased, active main number is the source of truth. The environment
+ * number is retained only as a temporary fallback while the database is
+ * unavailable, so changing the main number in Settings never needs a deploy.
+ */
+export async function getManageMainPhoneNumber() {
+  const fallback = normalizeVoiceNumber(process.env.COSTIVRA_TWILIO_PHONE_NUMBER);
+  if (process.env.NODE_ENV === "test") return fallback;
+
+  try {
+    const supabase = createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("internal_voice_numbers")
+      .select("phone_number")
+      .eq("status", "active")
+      .eq("is_main", true)
+      .maybeSingle();
+    if (error) return fallback;
+    return normalizeVoiceNumber(data?.phone_number) ?? null;
+  } catch {
+    return fallback;
   }
+}
+
+export async function getManageTwilioReadiness() {
+  const missing: string[] = REQUIRED_CONFIG_KEYS.filter((key) => !process.env[key]?.trim());
+  const phoneNumber = await getManageMainPhoneNumber();
+  if (!phoneNumber) missing.push("COSTIVRA_MAIN_NUMBER");
   return {
     configured: missing.length === 0,
     missing,
@@ -54,7 +78,6 @@ export function getManageTwilioReadiness() {
 
 export function getManageTwilioConfig() {
   const config = getManageTwilioRuntimeConfig();
-  if (!config.phoneNumber) throw new Error("Missing Twilio configuration: COSTIVRA_TWILIO_PHONE_NUMBER");
   return { ...config, phoneNumber: config.phoneNumber };
 }
 
@@ -100,8 +123,9 @@ export function getManagePublicBaseUrl() {
   return new URL(configured).toString().replace(/\/$/, "");
 }
 
-export function createManageVoiceToken(operator: { userId: string; email: string }) {
+export async function createManageVoiceToken(operator: { userId: string; email: string }) {
   const config = getManageTwilioRuntimeConfig();
+  const phoneNumber = await getManageMainPhoneNumber();
   const AccessToken = twilio.jwt.AccessToken;
   const VoiceGrant = AccessToken.VoiceGrant;
   const token = new AccessToken(
@@ -124,7 +148,7 @@ export function createManageVoiceToken(operator: { userId: string; email: string
   return {
     token: token.toJwt(),
     identity: manageVoiceOperatorIdentity(operator.userId),
-    phoneNumber: config.phoneNumber,
+    phoneNumber,
     expiresIn: 3600,
   };
 }

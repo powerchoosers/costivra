@@ -38,9 +38,9 @@ afterEach(() => {
 });
 
 describe("manage Twilio server policy", () => {
-  it("reports missing server configuration without exposing values", () => {
+  it("reports missing server configuration without exposing values", async () => {
     delete process.env.COSTIVRA_TWILIO_API_KEY_SECRET;
-    expect(getManageTwilioReadiness()).toEqual({
+    await expect(getManageTwilioReadiness()).resolves.toEqual({
       configured: false,
       missing: ["COSTIVRA_TWILIO_API_KEY_SECRET"],
       phoneNumber: "+12145550123",

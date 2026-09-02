@@ -15,32 +15,40 @@ Voice SDK identity. Twilio can ring the selected identities simultaneously and
 the first accepted call wins. Operators still need to turn on the browser
 phone, and a suspended mobile browser is not a guaranteed background receiver.
 
+The purchased active main number in Costivra's inventory is the source of truth
+for the public phone and outbound caller ID. `COSTIVRA_TWILIO_PHONE_NUMBER` is
+an optional legacy fallback for an unavailable database, not a number you need
+to maintain or add before buying through Manage Settings.
+
 The purchase endpoint configures the number's Voice webhook to
 `/api/manage/voice/twiml/incoming` and status callback to
 `/api/manage/voice/twiml/events`. It does not release numbers, change billing,
 or retry an ambiguous provider purchase automatically.
 
-The Manage phone is implemented but remains disconnected until a dedicated
-Costivra Twilio project, number, and API key are configured. Do not reuse Luxor
-credentials.
+The Manage phone remains disconnected until a dedicated Costivra Twilio
+project, API key, TwiML App, and a purchased main number are configured. Do not
+reuse Luxor credentials.
 
 ## Required Twilio resources
 
 1. Create a dedicated Twilio project for Costivra.
-2. Purchase or port a voice-capable number.
-3. Create a standard Twilio API key and keep the SID and secret in the server
+2. Create a standard Twilio API key and keep the SID and secret in the server
    environment only.
-4. Create a TwiML App. Set its Voice request URL to:
+3. Create a TwiML App. Set its Voice request URL to:
 
    `https://costivra.ai/api/manage/voice/twiml/outbound`
 
    Use HTTP `POST`.
-5. Set the purchased phone number's incoming Voice webhook to:
+4. Use **Manage Settings → Phone numbers** to search the live inventory and
+   purchase a number after the exact-number confirmation. Costivra configures
+   the incoming Voice webhook automatically. Designate the purchased number as
+   the main number and select the operators who should receive calls.
+5. If a number was ported or already exists, set its incoming Voice webhook to:
 
    `https://costivra.ai/api/manage/voice/twiml/incoming`
 
    Use HTTP `POST`.
-6. Add the `COSTIVRA_TWILIO_*` values shown in `.env.example` to the
+6. Add the required `COSTIVRA_TWILIO_*` values shown in `.env.example` to the
    local and Vercel environments. The TwiML App SID begins with `AP`; the API
    key SID begins with `SK`; the Account SID begins with `AC`.
 7. Apply both reviewed migrations to the Costivra Supabase project before
