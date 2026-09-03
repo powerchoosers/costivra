@@ -3775,5 +3775,6 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
   availability, and billing failures return a safe actionable owner message;
   provider error logs include only a phone suffix and bounded non-secret error
   fields.
-- Focused voice-number tests (2/2), TypeScript, and targeted lint pass. A new
-  production deployment is required before the improved message is live.
+- Focused voice-number tests (2/2), TypeScript, and targeted lint pass. The
+  improved message is live in Ready production deployment
+  `dpl_6nLQ1bbCDDkDj68uXHxbWDkBJfFP`, aliased to `https://costivra.ai`.
