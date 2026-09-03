@@ -9,6 +9,34 @@ import { isVoiceNumberInventorySchemaError, normalizeVoiceNumber, VOICE_NUMBER_I
 
 type TwilioNumberClient = ReturnType<typeof twilio>;
 
+/**
+ * Turn provider failures into actionable owner-facing messages without
+ * exposing Twilio request details or credentials.
+ */
+export function getVoiceNumberPurchaseErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? "");
+  const normalized = message.toLowerCase();
+  if (normalized.includes("primary compliance profile") || normalized.includes("trust hub") || normalized.includes("kyc")) {
+    return "Twilio requires an approved Trust Hub compliance profile before this number can be purchased. Complete KYC in Twilio Trust Hub, then try again.";
+  }
+  if (normalized.includes("not available") || normalized.includes("unavailable")) {
+    return "That number is no longer available. Search Twilio inventory again for another number.";
+  }
+  if (normalized.includes("balance") || normalized.includes("billing") || normalized.includes("funds")) {
+    return "Twilio could not complete the purchase because the account billing setup needs attention.";
+  }
+  return "Twilio did not complete the purchase. No public number was activated.";
+}
+
+function safeTwilioPurchaseError(error: unknown) {
+  const candidate = error as { code?: unknown; status?: unknown; message?: unknown };
+  return {
+    code: typeof candidate?.code === "string" || typeof candidate?.code === "number" ? candidate.code : undefined,
+    status: typeof candidate?.status === "number" ? candidate.status : undefined,
+    message: typeof candidate?.message === "string" ? candidate.message.slice(0, 300) : undefined,
+  };
+}
+
 function twilioClient(): TwilioNumberClient {
   const config = getManageTwilioProvisioningConfig();
   return twilio(config.accountSid, config.authToken);
@@ -112,8 +140,12 @@ export async function purchaseVoiceNumber(input: { phoneNumber: string; confirme
       statusCallbackMethod: "POST",
     });
   } catch (error) {
+    console.error("[manage.voice] Twilio number purchase failed", {
+      phone_suffix: phoneNumber.slice(-4),
+      ...safeTwilioPurchaseError(error),
+    });
     await db.from("internal_voice_side_effects").update({ status: "failed", failure_class: "provider_error", last_error: error instanceof Error ? error.message.slice(0, 500) : "Twilio purchase failed", updated_at: new Date().toISOString() }).eq("idempotency_key", idempotencyKey);
-    throw new Error("Twilio did not complete the purchase. No public number was activated.");
+    throw new Error(getVoiceNumberPurchaseErrorMessage(error));
   }
   const { data: row, error: insertError } = await db.from("internal_voice_numbers").insert({
     twilio_phone_sid: purchased.sid,

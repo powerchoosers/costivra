@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Phone number purchases are waiting for the Costivra voice database migration." }, { status: 503, headers });
     }
     const result = manageApiError(error);
-    const status = error instanceof Error && /Confirm|already|Twilio did|purchased the number/.test(error.message) ? 400 : result.status;
+    const status = error instanceof Error && /Confirm|already|Twilio|purchased the number/.test(error.message) ? 400 : result.status;
     return NextResponse.json({ error: error instanceof Error && status === 400 ? error.message : result.error }, { status, headers });
   }
 }

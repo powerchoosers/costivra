@@ -12,12 +12,16 @@ vi.mock("@/lib/manage/voice-server", () => ({
 }));
 vi.mock("twilio", () => ({ default: twilioClient }));
 
-import { purchaseVoiceNumber } from "@/lib/manage/voice-numbers";
+import { getVoiceNumberPurchaseErrorMessage, purchaseVoiceNumber } from "@/lib/manage/voice-numbers";
 
 describe("purchaseVoiceNumber", () => {
   beforeEach(() => {
     requireInternalOwner.mockReset();
     twilioClient.mockReset();
+  });
+
+  it("turns a Trust Hub rejection into an actionable owner message", () => {
+    expect(getVoiceNumberPurchaseErrorMessage({ message: "Primary compliance profile is not approved. Complete the KYC process in Trust Hub." })).toContain("approved Trust Hub compliance profile");
   });
 
   it("claims the internal voice ledger without assigning a tenant organization", async () => {

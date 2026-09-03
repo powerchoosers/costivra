@@ -3762,3 +3762,18 @@ Configure Vercel environment variables, production SMTP, domain/redirect URLs, a
 - Verified the hash deep link, updated Settings directory state, mailbox table,
   and header alignment in the live browser. Latest Vercel deployment is Ready
   and aliased to `https://costivra.ai`.
+
+# 2026-09-02 - Twilio compliance failure surfaced
+
+- The next purchase attempt for `+18176238198` reached Twilio from the latest
+  production deployment and was rejected by the provider, not by the Costivra
+  database or deployment.
+- The internal voice side-effect ledger records the provider reason: the
+  primary Trust Hub compliance profile is not approved and KYC must be
+  completed. No Twilio number was purchased or charged.
+- Updated the server-side purchase failure mapping so Trust Hub/KYC, inventory
+  availability, and billing failures return a safe actionable owner message;
+  provider error logs include only a phone suffix and bounded non-secret error
+  fields.
+- Focused voice-number tests (2/2), TypeScript, and targeted lint pass. A new
+  production deployment is required before the improved message is live.
