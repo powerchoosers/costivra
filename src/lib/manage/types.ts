@@ -179,6 +179,7 @@ export type ManageVendorRelationship = {
   relationshipStatus: string;
   spendCadence: string;
   annualizedSpend: number | null;
+  annualizedSpendIsEstimate?: boolean;
   recordedSpend: number;
   expenseCount: number;
   contractCount: number;

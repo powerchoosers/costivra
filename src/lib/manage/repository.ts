@@ -142,7 +142,7 @@ export async function getManageData(input?: {
       ? db.from("vendors").select("id,canonical_name,category,website,logo_url")
       : Promise.resolve({ data: [], error: null }),
     scopedAccountId
-      ? db.from("organization_vendors").select("id,organization_id,vendor_id,relationship_status,annualized_spend,spend_cadence,updated_at,display_name_override,category_override,website_override,ended_at,ended_by").eq("organization_id", scopedAccountId)
+      ? db.from("organization_vendors").select("id,organization_id,vendor_id,relationship_status,annualized_spend,annualized_spend_basis,spend_cadence,updated_at,display_name_override,category_override,website_override,ended_at,ended_by").eq("organization_id", scopedAccountId)
       : Promise.resolve({ data: [], error: null }),
     scopedAccountId
       ? db.from("expenses").select("id,organization_id,organization_vendor_id,category,period_start,period_end,amount,currency,status").eq("organization_id", scopedAccountId).order("period_end", { ascending: false })
@@ -359,6 +359,7 @@ export async function getManageData(input?: {
         relationshipStatus: text(relationship.relationship_status, "unknown"),
         spendCadence: text(relationship.spend_cadence, "not set"),
         annualizedSpend: relationship.annualized_spend == null ? null : numericValue(relationship.annualized_spend),
+        annualizedSpendIsEstimate: Boolean(relationship.annualized_spend_basis),
         recordedSpend: recordedSpendTotal(relationshipExpenses, accountCurrency),
         expenseCount: relationshipExpenses.length,
         contractCount: relationshipContracts.length,

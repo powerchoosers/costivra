@@ -32,6 +32,7 @@ export type PortalVendor = {
   canonicalCategory: string;
   canonicalWebsite: string | null;
   annualizedSpend: number;
+  annualizedSpendBasis?: { status: string; sources: Array<{ invoiceId: string; periodStart: string; periodEnd: string; annualAmount: number }>; excludedAccountCount: number } | null;
   relationshipStatus: string;
   spendCadence: string;
   createdAt: string;

@@ -1,5 +1,11 @@
 # Costivra Status
 
+## September 5, 2026 — Intake-derived annual spend
+- Installed an invoice insert/update/delete trigger in Supabase. Annual spend now sums the latest service-period estimate per account, even while bills await review. PostgreSQL numeric arithmetic, currency checks, source provenance, and audit events are shared with the repeatable backfill.
+- Backfilled three linked vendor relationships; excluded records without a linked vendor, currency, or usable service period. Existing manual amounts are preserved in the calculation basis and audit history.
+- App vendor list/detail and Manage vendor detail now label derived amounts as estimates needing verification. Dates and assumptions accompany the App detail value.
+- Passed transactional SQL regression assertions, TypeScript, targeted ESLint, and eight spend-history/workbook tests. Supabase security advisors returned no findings. Performance advisors report existing index recommendations. Browser refresh timed out; rendered-label verification remains open. Database change is live; UI changes are local on main, not deployed.
+
 ## September 5, 2026 — App table frozen identity and contract footer
 - Removed the legacy forced checkbox-column shadow; shared App table styles now place Manage's light-theme shadow and edge gradient after the frozen identity column. Checkbox and identity remain sticky; dark checkbox shadow is removed too.
 - Contracts now uses the same full-height directory and anchored count/pagination footer as Vendors and Findings, including empty results.

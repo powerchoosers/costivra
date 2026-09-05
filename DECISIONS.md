@@ -1,5 +1,13 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-09-05 — Calculate provisional annual costs at invoice persistence
+
+Invoice extraction previously left annualized vendor spend untouched. Calculate an estimated run rate whenever invoices are inserted, corrected, reassigned, or deleted, using a restricted security-invoker PostgreSQL trigger and deterministic numeric arithmetic. This covers every intake channel and review mutation atomically, including cleanup after failed extraction.
+
+Use the latest service period per account; monthly periods (27–35 elapsed days) multiply by 12, annual periods (350–366 days) retain the amount, and other valid periods use 365 divided by elapsed service days. Prefer current charges; otherwise subtract a known carried balance from the invoice total. Do not infer currency or a service period from an invoice issue date alone. Different accounts add together; sequential bills for one account replace its prior estimate. Missing identity remains one provisional unresolved account, and currency/period exclusions are recorded.
+
+Every derived amount remains an estimate needing verification, even after invoice approval: repeating observed charges does not establish future seasonality. Store method, invoice IDs, dates, input amounts, exclusions, and original manual baseline in the relationship basis; record changes in audit events. Preserve the original amount if all usable sources disappear. Existing annualized-spend readers continue to consume the recalculated value. This avoids channel-specific application hooks and repeated backfill logic. No invoice review or savings-verification status changes.
+
 ## 2026-08-29 — Export a tenant-scoped accounting workbook instead of raw JSON
 
 ### Context

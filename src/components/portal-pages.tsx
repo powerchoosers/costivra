@@ -2378,6 +2378,7 @@ function Vendors({ data }: { data: PortalData }) {
                       <td>{vendor.category}</td>
                       <td>
                         <strong>{money(vendor.annualizedSpend)}</strong>
+                        {vendor.annualizedSpendBasis?.sources.length ? <small className="workspace-secondary-text">Estimate · Needs verification</small> : null}
                       </td>
                       <td>{accountsCount || 1}</td>
                       <td>
@@ -2893,9 +2894,11 @@ export function VendorDetail({
            <section className="vendor-overview-summary" aria-label={`${vendor.name} relationship summary`}>
             <dl className="vendor-overview-summary__metrics">
               <div>
-                <dt>Recorded annualized spend</dt>
+                <dt>{vendor.annualizedSpendBasis?.sources.length ? "Estimated annual spend" : "Recorded annualized spend"}</dt>
                 <dd>{vendorMoney(vendor.annualizedSpend)}</dd>
-                <small>Current relationship record</small>
+                <small>{vendor.annualizedSpendBasis?.sources.length ? `Needs verification · Latest bill for each of ${vendor.annualizedSpendBasis.sources.length} account(s), annualized` : "Current relationship record"}</small>
+                {vendor.annualizedSpendBasis?.sources.length ? <small>Based on service periods ending {vendor.annualizedSpendBasis.sources.map((source) => formatFinancialDate(source.periodEnd)).join(", ")}. Assumes these costs recur; seasonal changes may affect the year.</small> : null}
+                {vendor.annualizedSpendBasis?.excludedAccountCount ? <small>{vendor.annualizedSpendBasis.excludedAccountCount} account(s) excluded: confirm amount, currency, or service dates.</small> : null}
               </div>
               <div>
                 <dt>Latest recorded charge</dt>

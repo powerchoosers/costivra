@@ -316,6 +316,7 @@ export async function getPortalData(): Promise<PortalData> {
         canonicalCategory: stringValue(vendor?.category, "Other"),
         canonicalWebsite: nullableString(vendor?.website),
         annualizedSpend: numberValue(relationship.annualized_spend),
+        annualizedSpendBasis: relationship.annualized_spend_basis as import("./types").PortalVendor["annualizedSpendBasis"] ?? null,
         relationshipStatus: stringValue(relationship.relationship_status),
         spendCadence: stringValue(relationship.spend_cadence, "monthly"),
         createdAt: stringValue(relationship.created_at),
