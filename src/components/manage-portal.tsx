@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MobileHeaderTools } from "@/components/ui/mobile-header-tools";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CSSProperties, FormEvent, ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRotatingSearchPlaceholder } from "@/lib/ui/rotating-search-placeholder";
@@ -1409,6 +1410,7 @@ export function ManagePortal({
           </div>
           <div className="manage-topbar-center">{globalSearchControl}</div>
           <div className="workspace-header-action-group manage-header-action-group">
+            <MobileHeaderTools>
             <div className="manage-top-actions">
               <div className="manage-topbar-utilities" aria-label="Workspace utilities" data-workspace-slot="utilities">
               <ManageVoicePhone />
@@ -1478,6 +1480,7 @@ export function ManagePortal({
               </button>
               )}
             </div>
+            </MobileHeaderTools>
             <span className="manage-mobile-search-divider" aria-hidden="true" />
             <button className={`workspace-mobile-search-trigger manage-mobile-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="manage-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
               <Search aria-hidden="true" size={17} />

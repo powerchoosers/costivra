@@ -133,6 +133,9 @@ export function ManageNotificationCenter({
         actionHref: notification.href ?? undefined,
         actionLabel: notification.href ? "View" : undefined,
       });
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        new Notification(notification.title, { body: notification.body, tag: notification.id });
+      }
     }
     if (soundEnabled && audioContext.current?.state === "running") {
       playNotificationChime(audioContext.current);

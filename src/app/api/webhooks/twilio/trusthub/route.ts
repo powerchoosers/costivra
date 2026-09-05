@@ -45,5 +45,14 @@ export async function POST(request: Request) {
     console.error("Trust Hub callback persistence failed.", { reason: error.message });
     return NextResponse.json({ error: "Unable to record Trust Hub status." }, { status: 500 });
   }
+  await db.from("internal_notifications").insert({
+    organization_id: organizationId,
+    kind: "twilio_trusthub_status",
+    title: "Twilio Trust Hub updated",
+    body: `The primary compliance profile is now ${status}.`,
+    resource_type: "integration",
+    resource_id: organizationId,
+    action_href: "/manage/settings?tab=enrichment",
+  });
   return NextResponse.json({ ok: true });
 }

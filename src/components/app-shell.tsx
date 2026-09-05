@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MobileHeaderTools } from "@/components/ui/mobile-header-tools";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building,
@@ -887,6 +888,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
               {globalSearch}
             </div>
             <div className="workspace-header-action-group">
+              <MobileHeaderTools>
               <div className="app-create-wrap" ref={createMenuRef}>
                 <WorkspaceUtilityButton
                   active={createMenuOpen}
@@ -936,6 +938,7 @@ function AppShellContent({ children, data, initialSidebarCollapsed, hasInitialSi
                   open={notificationsOpen}
                 />
               </div>
+              </MobileHeaderTools>
               <span className="app-mobile-search-divider" aria-hidden="true" />
               <button className={`workspace-mobile-search-trigger app-mobile-header-search-trigger${searchFocused ? " is-open" : ""}`} type="button" aria-label="Open search" aria-expanded={searchFocused} aria-controls="app-mobile-search-modal" onClick={() => { setSearchFocused(true); setSearchClosing(false); }}>
                 <MagnifyingGlass aria-hidden="true" size={17} />

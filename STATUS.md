@@ -1,5 +1,32 @@
 # Costivra Status
 
+## September 4, 2026 — Desktop find/create header grouping
+
+- On desktop widths, App and Manage now anchor the existing Create control 12px to the right of the existing 410px global search field. Communication utilities stay grouped at the far right; mobile More behavior remains unchanged.
+- Browser QA at the current 1538px desktop viewport confirmed App and Manage search/create geometry and verified both Create menus open. TypeScript passed; focused ESLint passed with three pre-existing App `<img>` warnings and no errors; diff check passed. No production deployment.
+
+## September 4, 2026 — Shared mobile header tools
+
+- App and Manage phone headers show Search and More beside the page title. More reveals existing create, assistant, notification, and Manage phone controls in a shared animated panel. All use 44px square targets, 12px corners and theme surfaces. Desktop/tablet retain existing tools through display-contents wrappers.
+- Browser QA at 394×852: Manage open and nested Create menu; App open/close, Escape, light/dark themes; computed assistant target confirmed 44×44 after resolving legacy dark CSS. Node 24 typecheck, focused component lint, and diff check passed. Desktop/tablet visual regression checks remain pending; no production deployment.
+
+## September 4, 2026 — Mobile settings directory polish
+
+- Added a theme-token panel around the customer settings directory, reused workspace blur entry motion with a matching exit, and retained the closing panel until its animation completes. Closing controls are inert; Escape and reduced motion are supported.
+- Tightened mobile top/back spacing and bottom clearance. At 394×852 the open directory measured 788px scroll height within a 788px content viewport, eliminating unnecessary scroll while retaining overflow for smaller screens or longer content.
+- Browser verified dark-mode container, open/close completion, restored settings and trigger focus. Node 24 TypeScript passed. No production deployment.
+
+## September 4, 2026 — Compact customer mobile settings
+
+- Customer settings now use a compact category disclosure at widths up to 780px. The searchable directory appears on demand and replaces the content while open; selection clears search, closes the directory, and returns focus to its trigger. Desktop and Manage retain their existing directory layout.
+- Inspiration: Mobbin Obsidian settings category navigation, adapted to preserve the existing settings routes and forms.
+- Validation: Node 24 TypeScript check and focused SettingsHub ESLint passed; diff check passed. Browser verified desktop layout at 1280×720 and dark phone layout at 394×852, including open, search, select, collapsed content and focus restoration. Light theme and tablet visual rechecks remain unperformed.
+
+## September 4, 2026 — App navigation blur parity
+
+- App and Manage bottom navigation now share the same 32px blur, 140% saturation, and 50% light / 65% dark surface opacity on phones and tablets.
+- Validation: live App computed styles at 394×852 confirmed dark surface opacity 65% and 32px blur. Light styling shares the existing Manage rule; a live light-mode recheck was not performed because the user had an approval-policy form open. `git diff --check` passed.
+
 ## September 4, 2026 — Manage navigation translucency
 
 - Manage phone/tablet bottom navigation uses a 50% light / 65% dark theme surface with 32px backdrop blur and Safari-prefixed support, allowing softened content to show through more prominently in light mode.

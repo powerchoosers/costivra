@@ -4640,7 +4640,7 @@ function Settings({
         title="Settings"
         description="Find the right workspace, access, connection, or plan control in one place."
       />
-      <SettingsHub ariaLabel="Customer settings" items={settingsItems} value={tab} onValueChange={selectSettings}>
+      <SettingsHub compactMobile ariaLabel="Customer settings" items={settingsItems} value={tab} onValueChange={selectSettings}>
       {tab === "organization" && <>
       <form className="portal-panel settings-form" onSubmit={submit}>
         <div className="form-grid">

@@ -254,6 +254,14 @@ textarea:focus-visible {
 }
 
 @media (max-width:780px) {
+  .app-body .app-work-canvas > .app-content:has(.workspace-settings-hub--compact-mobile) { padding-top:12px; padding-bottom:calc(88px + env(safe-area-inset-bottom)); }
+  .app-content:has(.workspace-settings-hub--compact-mobile) > .global-back-control { margin-bottom:12px; }
+  .workspace-settings-hub.workspace-settings-hub--compact-mobile { margin-top:0; gap:12px; }
+  .workspace-settings-hub--compact-mobile .workspace-settings-directory { padding:12px; border:1px solid var(--workspace-line); border-radius:16px; background:var(--workspace-surface); box-shadow:var(--workspace-panel-shadow); }
+  .workspace-settings-hub--compact-mobile.is-directory-open .workspace-settings-directory { animation:workspace-content-blur-in 200ms cubic-bezier(.23,1,.32,1) both; }
+  .workspace-settings-hub--compact-mobile.is-directory-closing .workspace-settings-directory { animation:workspace-settings-blur-out 160ms ease both; }
+  .workspace-settings-hub--compact-mobile .workspace-settings-nav { gap:8px; }
+  .workspace-settings-hub--compact-mobile .workspace-settings-nav button { min-height:44px; padding:8px 10px; }
   .app-mobile-utilities { display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .app-mobile-utility-search { display:contents; }
   .manage-shell-v2 .manage-topbar { grid-template-areas:"leading actions"; height:auto !important; min-height:0 !important; }
@@ -2766,6 +2774,20 @@ html { scroll-padding-top: 92px; }
 .workspace-settings-nav button.is-active span { color:#5b78ae; }
 .workspace-settings-empty { margin:0; padding:13px 8px; color:#667085; font-size:.7rem; line-height:1.45; }
 .workspace-settings-content { min-width:0; }
+.workspace-settings-category { display:none; }
+@media (max-width:780px) {
+  .workspace-settings-hub--compact-mobile .workspace-settings-category { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:62px; padding:12px 16px; border:1px solid var(--workspace-line); border-radius:14px; color:var(--workspace-ink); background:var(--workspace-surface); text-align:left; cursor:pointer; }
+  .workspace-settings-category > span { display:grid; gap:4px; }
+  .workspace-settings-category small { color:var(--workspace-muted); font-size:.68rem; }
+  .workspace-settings-category strong { font-size:.86rem; }
+  .workspace-settings-category svg { transition:transform 160ms ease; }
+  .workspace-settings-category[aria-expanded="true"] svg { transform:rotate(180deg); }
+  .workspace-settings-category:focus-visible { outline:2px solid var(--workspace-accent); outline-offset:3px; }
+  .workspace-settings-hub--compact-mobile:not(.is-directory-open) .workspace-settings-directory,
+  .workspace-settings-hub--compact-mobile.is-directory-open .workspace-settings-content { display:none; }
+}
+@keyframes workspace-settings-blur-out { from { opacity:1; filter:blur(0); transform:translateY(0); } to { opacity:0; filter:blur(4px); transform:translateY(5px); } }
+@media (prefers-reduced-motion:reduce) { .workspace-settings-category svg { transition:none; } .workspace-settings-hub--compact-mobile.is-directory-open .workspace-settings-directory { animation:none; } }
 .manage-settings-tabs { position:relative; display:flex; gap:4px; overflow:hidden; padding:0 12px; border-radius:16px; }
 .manage-settings-tabs button { position:relative; min-height:46px; padding:0 12px; border:0; background:transparent; color:#727d8c; font:670 .7rem/1 Inter,ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
 .manage-settings-tabs button::after { position:absolute; right:12px; bottom:0; left:12px; height:2px; border-radius:2px; background:#1f4fd6; content:""; opacity:0; transform:scaleX(.35); transform-origin:center; transition:opacity 140ms ease,transform 220ms cubic-bezier(.23,1,.32,1); }
@@ -15328,6 +15350,35 @@ button.workspace-notification-row:focus-visible {
    row. Both authenticated shells use the same action grouping so a phone does
    not inherit desktop columns that force controls onto separate lines. */
 .workspace-header-action-group { display:contents; }
+.workspace-header-tools, .workspace-header-tools-panel { display:contents; }
+.workspace-header-more { display:none; }
+@media (min-width:1200px) {
+  /* The search field owns the find/create zone on desktop. The Create control
+     remains inside the shared mobile tool tree, but is anchored beside the
+     search field here so App and Manage keep the same header composition. */
+  .app-body .app-work-canvas > .app-topbar .app-create-wrap,
+  .manage-shell-v2 .manage-topbar .manage-create-wrap {
+    position:absolute;
+    top:50%;
+    left:calc(50% + 217px);
+    transform:translateY(-50%);
+  }
+}
+@media (max-width:780px) {
+  .workspace-header-tools { display:block; order:2; }
+  .workspace-header-action-group > .workspace-mobile-search-trigger { order:1; }
+  .app-body .app-topbar .app-mobile-search-divider,
+  .manage-shell-v2 .manage-topbar .manage-mobile-search-divider { display:none; }
+  .workspace-header-tools .workspace-header-tools-panel { display:none; }
+  .workspace-header-tools.is-open .workspace-header-tools-panel {
+    position:absolute; top:calc(100% + 8px); right:12px; display:flex; align-items:center; gap:8px; padding:10px;
+    border:1px solid var(--workspace-line); border-radius:16px; background:var(--workspace-surface); box-shadow:var(--workspace-shadow);
+    animation:workspace-content-blur-in 180ms ease both;
+  }
+  .workspace-header-tools.is-closing .workspace-header-tools-panel { animation:workspace-settings-blur-out 160ms ease both; }
+  .workspace-header-more { display:grid; place-items:center; }
+}
+@media (prefers-reduced-motion:reduce) { .workspace-header-tools.is-open .workspace-header-tools-panel { animation:none; } }
 .manage-mobile-header-search { display:none; }
 
 @media (max-width:780px) {
@@ -16621,12 +16672,14 @@ button.workspace-notification-row:focus-visible {
   .skeleton-block
 ) { border-color: var(--workspace-line); color: var(--workspace-muted); background-color: var(--workspace-surface-soft); }
 
+.app-body .app-mobile-nav,
 .manage-shell-v2 .manage-mobile-nav {
   background: color-mix(in srgb, var(--workspace-surface, #fff) 50%, transparent);
   -webkit-backdrop-filter: blur(32px) saturate(140%);
   backdrop-filter: blur(32px) saturate(140%);
 }
 
+:root[data-workspace-theme="dark"] .app-body .app-mobile-nav,
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-mobile-nav {
   border-color: var(--workspace-line);
   color: var(--workspace-muted);
@@ -18266,4 +18319,25 @@ button.workspace-notification-row:focus-visible {
     border-color: var(--workspace-line);
     box-shadow: var(--workspace-panel-shadow);
   }
+}
+
+/* Shared phone controls supersede the legacy per-shell !important geometry
+   and paint above. Remove those exceptions when consolidating header CSS. */
+@media (max-width:780px) {
+  :root .app-body .app-work-canvas > .app-topbar,
+  :root .manage-shell-v2 .manage-topbar { position:relative; height:64px !important; min-height:64px !important; grid-template-areas:"leading actions"; padding:10px 12px !important; }
+  :root .app-body .app-topbar .workspace-header-action-group,
+  :root .manage-shell-v2 .manage-topbar .workspace-header-action-group { gap:8px; }
+  :root[data-workspace-theme] .app-body .app-work-canvas > .app-topbar .workspace-header-action-group :is(.workspace-header-more, .workspace-mobile-search-trigger, .workspace-utility-button, .workspace-notification-center__trigger),
+  :root[data-workspace-theme] .manage-shell-v2 .manage-topbar .workspace-header-action-group :is(.workspace-header-more, .workspace-mobile-search-trigger, .workspace-utility-button, .workspace-notification-center__trigger, .manage-voice-trigger) {
+    display:grid; place-items:center; width:44px !important; min-width:44px !important; max-width:44px !important; height:44px !important; min-height:44px !important; max-height:44px !important; flex:0 0 44px; box-sizing:border-box;
+    padding:0 !important; border:1px solid var(--workspace-control-line) !important; border-radius:12px !important;
+    color:var(--workspace-control-ink); background:var(--workspace-surface) !important; box-shadow:none !important; cursor:pointer;
+  }
+  :root .workspace-header-more:focus-visible { outline:2px solid var(--workspace-accent); outline-offset:2px; }
+  .app-body .app-work-canvas > .app-topbar .app-mobile-search-divider,
+  .manage-shell-v2 .manage-topbar .manage-mobile-search-divider { display:none; }
+  :root .workspace-header-tools-panel :is(.app-top-actions, .manage-topbar-utilities) { gap:8px; }
+  :root .app-body .app-topbar .app-top-actions > .workspace-notification-center,
+  :root .manage-shell-v2 .manage-topbar-utilities > .workspace-notification-center { width:44px !important; min-width:44px !important; height:44px !important; min-height:44px !important; border:0 !important; background:transparent !important; }
 }
