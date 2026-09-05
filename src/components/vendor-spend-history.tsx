@@ -67,7 +67,6 @@ export function VendorSpendHistory({
   const points = history.points;
   const absoluteMaximum = Math.max(...points.map((point) => Math.abs(point.amount)), 1);
   const total = points.reduce((sum, point) => sum + point.amount, 0);
-  const latest = points[points.length - 1];
   const recentPoints = [...points].reverse().slice(0, 5);
 
   return (
@@ -98,11 +97,6 @@ export function VendorSpendHistory({
               <span>Average record</span>
               <strong>{money(total / points.length, currency)}</strong>
               <small>Across the selected history</small>
-            </div>
-            <div>
-              <span>Latest record</span>
-              <strong>{money(latest.amount, currency)}</strong>
-              <small>{formatFinancialDate(latest.date)}</small>
             </div>
           </div>
 

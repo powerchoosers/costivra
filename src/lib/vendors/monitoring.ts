@@ -150,6 +150,7 @@ export type VendorNextStep = {
 type VendorActionContext = {
   documentCount: number;
   hasPendingReviewInvoice: boolean;
+  pendingReviewCount?: number;
   monitoringState: MonitoringState | DurableMonitoringState;
   hasOpenFinding: boolean;
   hasPendingAction: boolean;
@@ -172,10 +173,11 @@ export function getVendorNextStep(vendor: VendorActionContext): VendorNextStep {
     };
   }
   if (vendor.hasPendingReviewInvoice) {
+    const pendingReviewCount = Math.max(1, vendor.pendingReviewCount ?? 1);
     return {
-      action: { label: "Review invoice", actionKind: "review_invoice", href: "/app/bills" },
-      heading: "A bill needs review",
-      description: "A recorded bill still needs a human check before Costivra can rely on it for monitoring or a customer-facing finding.",
+      action: { label: `Review ${pendingReviewCount} ${pendingReviewCount === 1 ? "bill" : "bills"}`, actionKind: "review_invoice", href: "/app/bills?view=review" },
+      heading: `${pendingReviewCount} ${pendingReviewCount === 1 ? "bill needs" : "bills need"} review`,
+      description: `${pendingReviewCount === 1 ? "This bill needs" : "These bills need"} a human check before Costivra can rely on ${pendingReviewCount === 1 ? "it" : "them"} for monitoring or a customer-facing finding.`,
       state: "attention",
     };
   }

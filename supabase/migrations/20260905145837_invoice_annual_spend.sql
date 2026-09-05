@@ -1,4 +1,5 @@
 -- Invoice-derived annual run rate. Numeric arithmetic stays in PostgreSQL.
+-- Version aligned with the applied Supabase migration history.
 -- This is an estimate at the source service dates, never verified savings.
 alter table public.organization_vendors
   add column if not exists annualized_spend_basis jsonb;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowSquareOut,
@@ -211,14 +211,44 @@ function ContactForm({ draft, setDraft, isExisting }: { draft: ContactDraft; set
   );
 }
 
+function QuickContactForm({ draft, setDraft }: { draft: ContactDraft; setDraft: (next: ContactDraft) => void }) {
+  const update = <K extends keyof ContactDraft>(key: K, value: ContactDraft[K]) => setDraft({ ...draft, [key]: value });
+  return (
+    <div className="vendor-contact-quick-add__fields">
+      <div className="workspace-record-form__field">
+        <label className="workspace-record-form__label" htmlFor="quick-vendor-contact-role">Relationship role</label>
+        <select id="quick-vendor-contact-role" className="workspace-record-form__control" value={draft.contactType} onChange={(event) => update("contactType", event.target.value as ContactType)}>
+          {Object.entries(contactTypeLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+        </select>
+      </div>
+      <div className="workspace-record-form__field">
+        <label className="workspace-record-form__label" htmlFor="quick-vendor-contact-name">Contact or desk name</label>
+        <input id="quick-vendor-contact-name" className="workspace-record-form__control" value={draft.contactName} onChange={(event) => update("contactName", event.target.value)} placeholder="e.g. Billing desk" required autoFocus />
+      </div>
+      <div className="workspace-record-form__field">
+        <label className="workspace-record-form__label" htmlFor="quick-vendor-contact-email">Email</label>
+        <input id="quick-vendor-contact-email" type="email" className="workspace-record-form__control" value={draft.email} onChange={(event) => update("email", event.target.value)} placeholder="name@company.com" />
+      </div>
+      <div className="workspace-record-form__field">
+        <label className="workspace-record-form__label" htmlFor="quick-vendor-contact-phone">Phone</label>
+        <input id="quick-vendor-contact-phone" type="tel" className="workspace-record-form__control" value={draft.phone} onChange={(event) => update("phone", event.target.value)} placeholder="(555) 555-0100" />
+      </div>
+      <label className="workspace-record-form__check vendor-contact-quick-add__primary"><input type="checkbox" checked={draft.isPrimary} onChange={(event) => update("isPrimary", event.target.checked)} /> Primary contact for this role</label>
+    </div>
+  );
+}
+
 export function VendorRelationshipContacts({ relationshipId, contacts, canWrite }: { relationshipId: string; contacts: PortalVendorContact[]; canWrite: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [newContactType, setNewContactType] = useState<ContactType | null>(null);
   const [draft, setDraft] = useState<ContactDraft>(emptyDraft);
   const [savedDraft, setSavedDraft] = useState<ContactDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const statePanelRef = useRef<HTMLDivElement>(null);
+  const statePanelHeightRef = useRef<number | null>(null);
 
   const activeContacts = useMemo(() => contacts
     .filter((contact) => contact.status === "active")
@@ -226,16 +256,33 @@ export function VendorRelationshipContacts({ relationshipId, contacts, canWrite 
   const vendorContacts = activeContacts.filter((contact) => !["broker", "consultant"].includes(contact.contactType));
   const relationshipContacts = activeContacts.filter((contact) => ["broker", "consultant"].includes(contact.contactType));
   const isOpen = editingId !== null;
-  const isNew = editingId === "new";
-  const isExisting = editingId !== "new" && editingId !== null;
+  const isNew = newContactType !== null;
+  const isExisting = editingId !== null;
+  const activeEditorId = editingId ?? (isNew ? "new" : null);
   const isDirty = JSON.stringify(draft) !== JSON.stringify(savedDraft);
+
+  useLayoutEffect(() => {
+    const panel = statePanelRef.current;
+    if (!panel) return;
+
+    const nextHeight = panel.getBoundingClientRect().height;
+    const previousHeight = statePanelHeightRef.current;
+    statePanelHeightRef.current = nextHeight;
+    if (previousHeight === null || previousHeight === nextHeight || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const animation = panel.animate(
+      [{ height: `${previousHeight}px` }, { height: `${nextHeight}px` }],
+      { duration: 220, easing: "cubic-bezier(.22, 1, .36, 1)" },
+    );
+    return () => animation.cancel();
+  }, [isNew]);
 
   const openNew = (contactType: ContactType) => {
     const next = { ...emptyDraft, contactType };
     setDraft(next);
     setSavedDraft(next);
     setError(null);
-    setEditingId("new");
+    setNewContactType(contactType);
   };
 
   const openEdit = (contact: PortalVendorContact) => {
@@ -243,22 +290,23 @@ export function VendorRelationshipContacts({ relationshipId, contacts, canWrite 
     setDraft(next);
     setSavedDraft(next);
     setError(null);
+    setNewContactType(null);
     setEditingId(contact.id);
   };
 
   const close = () => {
     if (saving) return;
     setEditingId(null);
+    setNewContactType(null);
     setError(null);
   };
 
   const save = async () => {
-    if (!editingId || !isDirty) return;
+    if (!activeEditorId || (!isNew && !isDirty)) return;
     setSaving(true);
     setError(null);
     try {
-      const isNew = editingId === "new";
-      const response = await fetch(isNew ? `/api/portal/vendors/${relationshipId}/contacts` : `/api/portal/vendors/${relationshipId}/contacts/${editingId}`, {
+      const response = await fetch(isNew ? `/api/portal/vendors/${relationshipId}/contacts` : `/api/portal/vendors/${relationshipId}/contacts/${activeEditorId}`, {
         method: isNew ? "POST" : "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(draft),
@@ -267,6 +315,7 @@ export function VendorRelationshipContacts({ relationshipId, contacts, canWrite 
       if (!response.ok) throw new Error(payload.error || "The contact could not be saved.");
       toast.success(isNew ? "Contact added." : "Contact updated.", "The vendor relationship now has a clearer path to action.");
       setEditingId(null);
+      setNewContactType(null);
       router.refresh();
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Try again.";
@@ -287,20 +336,29 @@ export function VendorRelationshipContacts({ relationshipId, contacts, canWrite 
         </div>
         {canWrite ? <button type="button" className="workspace-record-button workspace-record-button--secondary workspace-record-button--small" onClick={() => openNew("vendor")}><Plus size={14} aria-hidden="true" /> Add contact</button> : null}
       </div>
-      <div className="vendor-relationship-contacts__groups">
-        <div className="vendor-contact-group">
+      <div ref={statePanelRef} className="vendor-contact-state-panel">
+        <div key={isNew ? "add" : "summary"} className="vendor-contact-state-panel__content">
+      {isNew ? <form className="vendor-contact-quick-add" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+          <div className="vendor-contact-quick-add__heading"><div><strong>Add a relationship contact</strong><p>Start with the person or desk your team would use first. You can add more detail later.</p></div></div>
+          <QuickContactForm draft={draft} setDraft={setDraft} />
+          {error ? <p className="vendor-contact-quick-add__error" role="alert">{error}</p> : null}
+          <div className="vendor-contact-quick-add__actions"><button type="button" className="workspace-record-button workspace-record-button--secondary workspace-record-button--small" onClick={close} disabled={saving}>Cancel</button><button type="submit" className="workspace-record-button workspace-record-button--primary workspace-record-button--small" disabled={saving}>{saving ? "Saving" : "Save contact"}</button></div>
+        </form> : <div className="vendor-relationship-contacts__groups">
+        <div className={`vendor-contact-group${vendorContacts.length ? "" : " vendor-contact-group--empty"}`}>
           <div className="vendor-contact-group__heading"><div><h3>Vendor contacts</h3><p>People or desks at the supplier.</p></div>{canWrite ? <button type="button" className="vendor-contact-group__add" onClick={() => openNew("vendor")}><Plus size={14} aria-hidden="true" /> Add</button> : null}</div>
           {vendorContacts.length ? <div className="vendor-contact-group__cards">{vendorContacts.map((contact) => <ContactCard key={contact.id} contact={contact} onEdit={() => openEdit(contact)} />)}</div> : <div className="vendor-contact-group__empty"><UserRound size={18} aria-hidden="true" /><span>{canWrite ? "Add the person or desk your team should contact first." : "No vendor contact has been recorded yet."}</span></div>}
         </div>
-        <div className="vendor-contact-group vendor-contact-group--relationship">
+        <div className={`vendor-contact-group vendor-contact-group--relationship${relationshipContacts.length ? "" : " vendor-contact-group--empty"}`}>
           <div className="vendor-contact-group__heading"><div><h3>Broker or consultant</h3><p>Who helped set this up or advises the relationship.</p></div>{canWrite ? <button type="button" className="vendor-contact-group__add" onClick={() => openNew("broker")}><Plus size={14} aria-hidden="true" /> Add</button> : null}</div>
           {relationshipContacts.length ? <div className="vendor-contact-group__cards">{relationshipContacts.map((contact) => <ContactCard key={contact.id} contact={contact} onEdit={() => openEdit(contact)} />)}</div> : <div className="vendor-contact-group__empty"><Handshake size={18} aria-hidden="true" /><span>{canWrite ? "Record the broker or consultant so the relationship is not a dead end." : "No broker or consultant has been recorded."}</span></div>}
+        </div>
+        </div>}
         </div>
       </div>
       <p className="vendor-relationship-contacts__privacy">Visible to authorized members of this workspace. Costivra does not contact these people, share documents, or create a referral from this record.</p>
 
       <EditRecordSheet
-        title={isNew ? "Add relationship contact" : "Edit relationship contact"}
+        title="Edit relationship contact"
         subtitle="This information stays within your Costivra workspace."
         isOpen={isOpen}
         onClose={close}

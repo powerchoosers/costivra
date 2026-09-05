@@ -1,5 +1,41 @@
 # Costivra Status
 
+## September 5, 2026 — Vendor record phone layout
+- Replaced the horizontally scrollable vendor section tabs on phones with one full-width, accessible section selector. It preserves every existing section and count without introducing sideways navigation; desktop keeps the tab treatment.
+- Rebuilt the App vendor detail breakpoint around a compact decision summary: the three operating facts now scan as one row, the review action is full-width, and the desktop vertical fact stack is removed.
+- Restored strict mobile width containment for the record and its sections, fixing the overflow that clipped the third fact and the financial summary. Annual spend and latest charge now share a readable two-column mobile summary; supporting copy wraps instead of leaking past the card.
+- Vendor section tabs retain intentional horizontal touch scrolling with snap alignment rather than widening the page.
+- Refined the source-file action row at 430px: Bill Breakdown now owns the available row width and remains a single-line control, while the overflow menu keeps its fixed utility width.
+- Browser-verified at the active 412px phone viewport. Node 24 typecheck and final diff validation remain to be run. Local on `main`; not deployed.
+
+## September 5, 2026 — Vendor relationship contact entry
+- Replaced the nonresponsive contact sheet trigger with an in-context, compact relationship-contact composer. The section header, Vendor contacts, and Broker or consultant actions all open the same focused form and preserve the selected role.
+- The contact container now animates its height as it moves between summary and composer states, with a short content fade/settle and a reduced-motion fallback.
+- The composer captures the essential actionable details first: role, person/desk, email or phone, and primary-contact status. It does not send email, share documents, or create a referral.
+- Browser-verified the header, vendor, and broker entry paths at desktop. Node 24 typecheck, contact API tests, targeted component lint, and diff validation pass. Local on `main`; not deployed.
+
+## September 5, 2026 — Vendor record evidence and action hierarchy
+- Reworked the App vendor detail page around the current decision: its primary action now counts bills needing review, the Bill Breakdown and Bills labels both state their source-file count, and latest charge appears only in the summary with its invoice date.
+- Selecting the annual-spend estimate opens a source-level explanation with account, bill, service period, input charge, calculation, and review/reconciliation state. The record remains explicitly estimated until a human verifies it.
+- Record completeness now puts unresolved items first with direct bill-match, bill-review, and contract actions; completed/not-applicable checks collapse. Empty value/work and contact sections are shorter, avoiding filler space.
+- Browser-verified at desktop on the live local Reliant vendor detail route, including the estimate dialog and completeness states. Node 24 typecheck, targeted monitoring tests, ESLint, and diff validation pass. Local on `main`; not deployed.
+
+## September 5, 2026 — Vendor overview section hierarchy
+- Reviewed Attio and Lightfield record-detail references in Mobbin. Replaced independently stacked main/rail columns with a full-width sequence for value/work, contacts, monitoring, and record completeness. The checklist uses two desktop columns and retains one column below 760px.
+- Browser-reviewed the live vendor route at 1538px: all four sections share the same bounds and the bottom checklist no longer leaves empty space beside it. TypeScript, targeted portal-pages ESLint, and diff checks passed. Tablet/mobile and dark visual checks remain open. Local on main; not deployed.
+
+## September 5, 2026 — App sidebar no-overflow polish
+- Reduced the App navigation rail's bottom spacing by 6px so the desktop sidebar does not create a needless scrollbar when all navigation options fit. Native scrolling remains available when the rail content exceeds the viewport.
+- Browser-verified the active vendor detail route: navigation content is 484px within a 486px scrollport with no overflow. TypeScript and diff checks pass; no production deployment.
+
+## September 5, 2026 — Unified desktop search focus treatment
+- App and Manage topbar search inputs now remain visually flat when focused; the outer search control owns the single focus ring, removing the nested input rectangle.
+- TypeScript, targeted ESLint, and diff checks pass. The change is local on `main` and not deployed.
+
+## September 5, 2026 — App desktop breakpoint correction
+- App tablet chrome now keys off viewport width only. Removed the coarse-pointer condition that caused the in-app browser to hide the desktop sidebar and search field at wide desktop widths.
+- Verified the live 1538px vendor detail route now exposes the full "Search all Costivra records" combobox, desktop sidebar, and desktop header actions. TypeScript and diff checks pass.
+
 ## September 5, 2026 — Intake-derived annual spend
 - Installed an invoice insert/update/delete trigger in Supabase. Annual spend now sums the latest service-period estimate per account, even while bills await review. PostgreSQL numeric arithmetic, currency checks, source provenance, and audit events are shared with the repeatable backfill.
 - Backfilled three linked vendor relationships; excluded records without a linked vendor, currency, or usable service period. Existing manual amounts are preserved in the calculation basis and audit history.

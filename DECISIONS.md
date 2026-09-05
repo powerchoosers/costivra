@@ -1,5 +1,15 @@
 # Costivra Architecture and Product Decisions
 
+## 2026-09-05 — Explain annual estimates at the vendor record
+
+An annualized vendor amount is useful before every source bill passes review, but it must never read as a verified cost or an unexplained aggregate. Keep the deterministic intake-derived value in the normal vendor summary, label it as an estimate, and make it open a record-local source explanation. Each contributing account shows its source invoice, service period, charge used, annualization method, and review/reconciliation state. This preserves the fast operating view while keeping the complete evidence and uncertainty one intentional interaction away.
+
+Prioritize review work over monitoring setup whenever source bills remain in review. Direct completeness actions should open the exact unresolved bill or controlled creation flow; completed checks are retained but collapsed. This gives owners one obvious next action without hiding provenance or turning the page into a dense audit report.
+
+## 2026-09-05 — Vendor overview uses sequential sections
+
+Unequal independent overview columns left a large empty area beside the ten-item record checklist and squeezed monitoring fields. Use full-width sections in reading order: spend, history, value/work, contacts, monitoring, completeness. A two-column desktop checklist reduces its height and becomes one column on mobile. This preserves all controls and evidence while avoiding artificial card heights or filler content. Compact detail rails remain suitable for short metadata, but not this long checklist.
+
 ## 2026-09-05 — Calculate provisional annual costs at invoice persistence
 
 Invoice extraction previously left annualized vendor spend untouched. Calculate an estimated run rate whenever invoices are inserted, corrected, reassigned, or deleted, using a restricted security-invoker PostgreSQL trigger and deterministic numeric arithmetic. This covers every intake channel and review mutation atomically, including cleanup after failed extraction.

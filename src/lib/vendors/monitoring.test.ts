@@ -37,11 +37,12 @@ describe("Vendor Monitoring Domain", () => {
       getDynamicPrimaryAction({
         documentCount: 2,
         hasPendingReviewInvoice: true,
+        pendingReviewCount: 2,
         monitoringState: "not_set_up",
         hasOpenFinding: false,
         hasPendingAction: false,
       }).label,
-    ).toBe("Review invoice");
+    ).toBe("Review 2 bills");
 
     expect(
       getDynamicPrimaryAction({

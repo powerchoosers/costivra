@@ -1,5 +1,6 @@
 -- Run against a migrated database. All synthetic rows roll back.
 begin;
+set local role service_role;
 do $$
 declare
   org uuid := gen_random_uuid(); other_org uuid := gen_random_uuid();

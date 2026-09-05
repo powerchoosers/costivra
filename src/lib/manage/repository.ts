@@ -359,7 +359,7 @@ export async function getManageData(input?: {
         relationshipStatus: text(relationship.relationship_status, "unknown"),
         spendCadence: text(relationship.spend_cadence, "not set"),
         annualizedSpend: relationship.annualized_spend == null ? null : numericValue(relationship.annualized_spend),
-        annualizedSpendIsEstimate: Boolean(relationship.annualized_spend_basis),
+        annualizedSpendIsEstimate: Boolean((relationship.annualized_spend_basis as { sources?: unknown[] } | null)?.sources?.length),
         recordedSpend: recordedSpendTotal(relationshipExpenses, accountCurrency),
         expenseCount: relationshipExpenses.length,
         contractCount: relationshipContracts.length,

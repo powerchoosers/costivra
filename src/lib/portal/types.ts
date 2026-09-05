@@ -32,7 +32,25 @@ export type PortalVendor = {
   canonicalCategory: string;
   canonicalWebsite: string | null;
   annualizedSpend: number;
-  annualizedSpendBasis?: { status: string; sources: Array<{ invoiceId: string; periodStart: string; periodEnd: string; annualAmount: number }>; excludedAccountCount: number } | null;
+  annualizedSpendKnown?: boolean;
+  annualizedSpendBasis?: {
+    status: string;
+    method?: string;
+    assumption?: string;
+    originalAmount?: number;
+    sources: Array<{
+      invoiceId: string;
+      periodStart: string | null;
+      periodEnd: string | null;
+      amount?: number;
+      amountSource?: string;
+      annualAmount: number;
+      reviewStatus?: string;
+      reconciliationStatus?: string;
+      accountIdentityUnresolved?: boolean;
+    }>;
+    excludedAccountCount: number;
+  } | null;
   relationshipStatus: string;
   spendCadence: string;
   createdAt: string;

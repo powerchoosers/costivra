@@ -6227,11 +6227,13 @@ body.modal-open .app-topbar { filter: blur(7px); }
   background: transparent !important;
 }
 .app-work-canvas {
-  background: transparent !important;
-  box-shadow: none !important;
+  /* The App canvas is the framed work surface. Keeping it transparent made
+     route content square off its inherited 26px corners. */
+  background: var(--workspace-surface) !important;
+  box-shadow: var(--workspace-shadow) !important;
 }
 .app-work-canvas > .app-topbar {
-  background: transparent !important;
+  background: var(--workspace-surface) !important;
 }
 
 /* The app is a fixed frame. Route content owns the scroll position so the
@@ -6560,6 +6562,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
 .app-sidebar .app-nav {
   min-height: 0;
   flex: 0 0 auto;
+  padding-bottom: 18px;
   overflow: visible;
 }
 .app-shell.sidebar-collapsed .app-nav-scroll {
@@ -7103,8 +7106,7 @@ body.modal-open .app-topbar { filter: blur(7px); }
   .manage-shell-v2 .manage-sidebar.is-collapsed .manage-sidebar-search .manage-search { display: flex; }
 }
 
-@media (min-width:781px) and (max-width:1199px),
-       (min-width:781px) and (hover:none) and (pointer:coarse) {
+@media (min-width:781px) and (max-width:1199px) {
   :root[data-workspace-theme="dark"] .app-body .app-work-canvas > .app-topbar .workspace-mobile-search-trigger {
     border-color: var(--workspace-control-line);
     color: var(--workspace-control-ink);
@@ -10196,6 +10198,17 @@ body.modal-open .app-topbar { filter: blur(7px); }
   box-shadow: var(--workspace-focus-ring);
 }
 
+/* The search label is the single visible control. Keep the native input flat
+   when it owns focus so keyboard focus does not create a second inner box. */
+.manage-shell-v2 .manage-topbar-center .manage-search input:focus,
+.manage-shell-v2 .manage-topbar-center .manage-search input:focus-visible,
+.app-body .app-topbar-center .global-search.manage-search input:focus,
+.app-body .app-topbar-center .global-search.manage-search input:focus-visible {
+  outline: 0;
+  border: 0;
+  box-shadow: none;
+}
+
 /* Visual-only primitives shared by the customer and internal workspaces.
    They own geometry and interaction feedback; each surface keeps its own
    data, permissions, wording, and action handlers. */
@@ -10795,6 +10808,18 @@ button.workspace-notification-row:focus-visible {
   white-space: nowrap;
 }
 
+.app-body .app-work-canvas .vendor-annual-estimate-trigger {
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-body .app-work-canvas .vendor-annual-estimate-trigger:hover { color: var(--workspace-accent); }
+.app-body .app-work-canvas .vendor-annual-estimate-trigger:focus-visible { outline: 0; border-radius: 5px; box-shadow: var(--workspace-focus-ring); }
+
 .app-body .app-work-canvas .vendor-overview-summary small {
   overflow: hidden;
   color: var(--workspace-muted);
@@ -11025,6 +11050,14 @@ button.workspace-notification-row:focus-visible {
     padding-inline: 6px;
   }
 
+  .app-body .app-work-canvas .vendor-detail,
+  .app-body .app-work-canvas .vendor-detail > *,
+  .app-body .app-work-canvas .vendor-detail-stack,
+  .app-body .app-work-canvas .vendor-detail-stack > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .app-body .app-work-canvas .vendor-detail-header {
     display: grid;
     gap: 16px;
@@ -11044,13 +11077,79 @@ button.workspace-notification-row:focus-visible {
     flex: 1;
   }
 
+  /* A vendor record is a decision screen on a phone, not a stacked desktop
+     dashboard. Keep the three operating facts together, then give the one
+     next action the full row below them. */
+  .app-body .app-work-canvas .vendor-decision-summary {
+    gap: 14px;
+    padding: 17px 16px 16px;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__copy > span {
+    margin-bottom: 5px;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__copy h2 {
+    font-size: 1rem;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__copy p {
+    margin-top: 6px;
+    font-size: .76rem;
+    line-height: 1.45;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    padding-top: 11px;
+    border-top: 1px solid var(--workspace-line-soft);
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__facts > div {
+    min-width: 0;
+    padding: 0 8px;
+    border-top: 0;
+    border-left: 1px solid var(--workspace-line-soft);
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__facts > div:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__facts > div:last-child {
+    padding-right: 0;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__facts dt {
+    min-height: 2.3em;
+    font-size: .53rem;
+    line-height: 1.15;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__facts dd {
+    margin-top: 4px;
+    font-size: .7rem;
+    line-height: 1.25;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__actions {
+    padding-top: 12px;
+  }
+
+  .app-body .app-work-canvas .vendor-decision-summary .workspace-decision-summary__actions .button {
+    width: 100%;
+    min-height: 40px;
+  }
+
   .app-body .app-work-canvas .vendor-overview-summary__metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .app-body .app-work-canvas .vendor-overview-summary__metrics > div + div {
-    border-top: 1px solid var(--workspace-line-soft);
-    border-left: 0;
+    border-top: 0;
+    border-left: 1px solid var(--workspace-line-soft);
   }
 
   .app-body .app-work-canvas .vendor-overview-summary__metrics > div,
@@ -11059,7 +11158,62 @@ button.workspace-notification-row:focus-visible {
   }
 
   .app-body .app-work-canvas .vendor-overview-summary__metrics dd {
-    font-size: 1.5rem;
+    font-size: clamp(1.2rem, 6.5vw, 1.5rem);
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__metrics > div {
+    gap: 6px;
+    padding-block: 16px;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary small {
+    display: -webkit-box;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__facts {
+    gap: 10px 16px;
+    padding-block: 12px;
+  }
+
+  .app-body .app-work-canvas .vendor-overview-summary__facts dd {
+    font-size: .9rem;
+  }
+
+  .app-body .app-work-canvas .vendor-detail-navigation-row {
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+  }
+
+  .app-body .app-work-canvas .vendor-mobile-section-switcher {
+    display: block;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .app-body .app-work-canvas .vendor-mobile-section-switcher .costivra-select-trigger {
+    min-height: 44px;
+    border-color: var(--workspace-control-line);
+    border-radius: var(--workspace-control-radius);
+    color: var(--workspace-control-ink);
+    background: var(--workspace-surface);
+    font-size: .78rem;
+    font-weight: 700;
+  }
+
+  .app-body .app-work-canvas .vendor-mobile-section-switcher .costivra-select-popover {
+    border-color: var(--workspace-line);
+    background: var(--workspace-surface);
+    box-shadow: var(--workspace-shadow);
+  }
+
+  .app-body .app-work-canvas .vendor-detail-navigation-row .workspace-view-tabs {
+    display: none;
   }
 
   .app-body .app-work-canvas .vendor-monitoring-card__header {
@@ -13095,15 +13249,11 @@ button.workspace-notification-row:focus-visible {
 
 .vendor-overview-support-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
-  align-items: start;
 }
 
-.vendor-overview-support-grid__main,
-.vendor-overview-support-grid__rail {
-  display: grid;
-  gap: 24px;
+.vendor-overview-support-grid > * {
   min-width: 0;
 }
 
@@ -13507,10 +13657,6 @@ button.workspace-notification-row:focus-visible {
   .vendor-history-range-picker__custom { transition: none; }
 }
 
-@media (max-width: 980px) {
-  .vendor-overview-support-grid { grid-template-columns: 1fr; }
-}
-
 @media (max-width: 760px) {
   .workspace-decision-summary--finding .workspace-decision-summary__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -13597,11 +13743,15 @@ button.workspace-notification-row:focus-visible {
   color: var(--workspace-control-ink-active);
 }
 
+.app-body .app-work-canvas .workspace-value-summary--empty { display: flex; align-items: center; min-height: 88px; padding: 18px 22px; }
+.workspace-value-summary--empty h2 { margin: 0; color: var(--workspace-ink); font-size: 1rem; letter-spacing: -.02em; }
+.workspace-value-summary--empty p { max-width: 720px; margin: 6px 0 0; color: var(--workspace-muted); font-size: .72rem; line-height: 1.5; }
+
 /* Completeness is a checkable record-quality surface. Each state is visible
    without relying on color alone, and it uses the same evidence-first rhythm
    as the surrounding vendor record. */
 .app-body .app-work-canvas .workspace-completeness-card {
-  margin-bottom: 24px;
+  margin-bottom: 0;
   padding: 20px 22px;
   border-color: var(--workspace-line);
 }
@@ -13612,13 +13762,14 @@ button.workspace-notification-row:focus-visible {
 
 .workspace-completeness-card__states {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .workspace-completeness-card__state {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   min-width: 0;
   gap: 8px;
   min-height: 43px;
@@ -13629,7 +13780,17 @@ button.workspace-notification-row:focus-visible {
   background: var(--workspace-surface);
   font-size: .68rem;
   line-height: 1.36;
+  text-align: left;
+  text-decoration: none;
 }
+
+button.workspace-completeness-card__state { width: 100%; cursor: pointer; }
+:is(a, button).workspace-completeness-card__state:hover { border-color: var(--workspace-control-line); background: var(--workspace-row-hover); }
+:is(a, button).workspace-completeness-card__state:focus-visible { outline: 0; box-shadow: var(--workspace-focus-ring); }
+.workspace-completeness-card__state-copy { display: grid; min-width: 0; gap: 1px; }
+.workspace-completeness-card__state-copy strong { overflow: hidden; color: inherit; font-size: .68rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-completeness-card__state-copy small { color: var(--workspace-muted); font-size: .61rem; }
+.workspace-completeness-card__action { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; color: var(--workspace-accent); font-size: .64rem; font-weight: 720; white-space: nowrap; }
 
 .workspace-completeness-card__marker {
   display: grid;
@@ -13660,6 +13821,34 @@ button.workspace-notification-row:focus-visible {
   color: var(--workspace-muted);
 }
 
+.workspace-completeness-card__completed { margin-top: 10px; }
+.workspace-completeness-card__completed summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 2px; color: var(--workspace-muted); font-size: .68rem; font-weight: 700; cursor: pointer; list-style: none; }
+.workspace-completeness-card__completed summary::-webkit-details-marker { display: none; }
+.workspace-completeness-card__completed summary:focus-visible { outline: 2px solid var(--workspace-focus); outline-offset: 3px; border-radius: 6px; }
+.workspace-completeness-card__completed summary > span { display: inline-flex; align-items: center; gap: 6px; }
+.workspace-completeness-card__completed summary > svg { transition: transform var(--workspace-motion-fast); }
+.workspace-completeness-card__completed[open] summary > svg { transform: rotate(90deg); }
+.workspace-completeness-card__completed[open] > .workspace-completeness-card__states { padding-top: 2px; }
+
+.annual-estimate-explanation { display: grid; gap: 12px; }
+.annual-estimate-explanation__source { overflow: hidden; border: 1px solid var(--workspace-line); border-radius: 14px; background: var(--workspace-surface); }
+.annual-estimate-explanation__source > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 16px; border-bottom: 1px solid var(--workspace-line-soft); }
+.annual-estimate-explanation__source > header > div { display: grid; gap: 4px; min-width: 0; }
+.annual-estimate-explanation__source > header strong { color: var(--workspace-ink); font-size: .8rem; }
+.annual-estimate-explanation__source > header span { color: var(--workspace-muted); font-size: .68rem; }
+.annual-estimate-explanation__source > header a { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; color: var(--workspace-accent); font-size: .68rem; font-weight: 700; text-decoration: none; }
+.annual-estimate-explanation__source > header a:hover { color: var(--workspace-accent-hover); text-decoration: underline; }
+.annual-estimate-explanation__source dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.annual-estimate-explanation__source dl > div { display: grid; gap: 4px; min-width: 0; padding: 12px 16px; border-bottom: 1px solid var(--workspace-line-soft); }
+.annual-estimate-explanation__source dl > div:nth-child(odd) { border-right: 1px solid var(--workspace-line-soft); }
+.annual-estimate-explanation__source dl > div:last-child { grid-column: 1 / -1; border-bottom: 0; }
+.annual-estimate-explanation__source dt { color: var(--workspace-table-heading); font-size: .61rem; font-weight: 720; letter-spacing: .04em; text-transform: uppercase; }
+.annual-estimate-explanation__source dd { margin: 0; color: var(--workspace-control-ink); font-size: .72rem; font-weight: 650; line-height: 1.45; overflow-wrap: anywhere; }
+.annual-estimate-explanation__notice,.annual-estimate-explanation__note { margin: 0; color: var(--workspace-muted); font-size: .7rem; line-height: 1.48; }
+.annual-estimate-explanation__notice { padding: 12px 14px; border: 1px solid var(--workspace-line); border-radius: 12px; background: var(--workspace-surface-soft); }
+.annual-estimate-explanation__note { display: flex; align-items: flex-start; gap: 7px; }
+.annual-estimate-explanation__note svg { flex: 0 0 auto; margin-top: 1px; color: var(--workspace-control-ink-active); }
+
 @media (max-width: 760px) {
   .workspace-value-summary__grid {
     grid-template-columns: 1fr;
@@ -13677,6 +13866,11 @@ button.workspace-notification-row:focus-visible {
   .workspace-completeness-card__states {
     grid-template-columns: 1fr;
   }
+
+  .annual-estimate-explanation__source > header { align-items: flex-start; flex-direction: column; }
+  .annual-estimate-explanation__source dl { grid-template-columns: 1fr; }
+  .annual-estimate-explanation__source dl > div:nth-child(odd) { border-right: 0; }
+  .annual-estimate-explanation__source dl > div:last-child { grid-column: auto; }
 }
 
 .app-body .app-work-canvas :is(.bills-filter-trigger, .vendor-filter-trigger),
@@ -15107,9 +15301,9 @@ button.workspace-notification-row:focus-visible {
 /* Tablets use the same touch-first navigation model as phones. The content
    remains a single viewport-bound surface while the bottom dock and More
    sheet replace the desktop side rail. Include landscape iPads (which can be
-   1180px wide) and coarse-pointer tablets beyond the portrait breakpoint. */
-@media (min-width:781px) and (max-width:1199px),
-       (min-width:781px) and (hover:none) and (pointer:coarse) {
+   1180px wide) based on viewport width so browser pointer capabilities cannot
+   switch a wide desktop viewport into tablet mode. */
+@media (min-width:781px) and (max-width:1199px) {
   .app-body .app-shell,
   .app-body .app-shell.sidebar-collapsed {
     display:block;
@@ -15976,6 +16170,12 @@ button.workspace-notification-row:focus-visible {
   margin: 0;
 }
 
+@media (min-width: 761px) {
+  .app-body .app-work-canvas .vendor-mobile-section-switcher {
+    display: none;
+  }
+}
+
 /* Client record IDs use one decision-and-proof stage before their supporting
    fields. Entity modifiers change content, while this shared frame keeps the
    customer-facing reading order consistent across bills, findings, and terms. */
@@ -16094,8 +16294,22 @@ button.workspace-notification-row:focus-visible {
 
 @media (max-width: 760px) {
   .app-body .app-work-canvas .vendor-scope-context .vendor-detail-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     width: 100%;
-    justify-content: space-between;
+  }
+
+  .app-body .app-work-canvas .vendor-scope-context .vendor-detail-actions > .button {
+    min-width: 0;
+    min-height: 42px;
+    padding-inline: 12px;
+    font-size: .72rem;
+    white-space: nowrap;
+  }
+
+  .app-body .app-work-canvas .vendor-scope-context .vendor-detail-actions > .workspace-record-menu {
+    justify-self: end;
   }
 }
 
@@ -16163,6 +16377,9 @@ button.workspace-notification-row:focus-visible {
   gap: 12px;
 }
 
+.vendor-contact-state-panel { overflow: clip; will-change: height; }
+.vendor-contact-state-panel__content { animation: vendor-contact-state-in 180ms cubic-bezier(.22, 1, .36, 1) both; }
+
 .vendor-contact-group {
   display: grid;
   align-content: start;
@@ -16175,6 +16392,7 @@ button.workspace-notification-row:focus-visible {
 }
 
 .vendor-contact-group--relationship { background: #fbfcfe; }
+.vendor-contact-group--empty { gap: 8px; padding-block: 13px; }
 .vendor-contact-group__heading h3 { font-size: .84rem; }
 
 .vendor-contact-group__add,
@@ -16244,10 +16462,25 @@ button.workspace-notification-row:focus-visible {
 .vendor-contact-card__footer-meta > span { display: inline-flex; align-items: center; gap: 4px; }
 .vendor-contact-card__footer-meta > span:first-child { color: #4f7d64; }
 .vendor-contact-card__edit { padding: 0; font-size: .62rem; }
-.vendor-contact-group__empty { display: flex; min-height: 86px; align-items: center; gap: 9px; color: var(--workspace-muted); font-size: .7rem; line-height: 1.45; }
+.vendor-contact-group__empty { display: flex; min-height: 52px; align-items: center; gap: 9px; color: var(--workspace-muted); font-size: .7rem; line-height: 1.45; }
 .vendor-contact-group__empty svg { flex: 0 0 auto; color: #8d9bb0; }
 .vendor-relationship-contacts__privacy { margin: -3px 0 0; color: var(--workspace-muted); font-size: .65rem; line-height: 1.45; }
 .vendor-contact-form__context { border-color: #d9e3f1; background: #f7faff; }
+
+.vendor-contact-quick-add {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--workspace-line);
+  border-radius: 15px;
+  padding: 17px;
+  background: var(--workspace-surface-soft);
+}
+.vendor-contact-quick-add__heading strong { color: var(--workspace-ink); font-size: .86rem; }
+.vendor-contact-quick-add__heading p { margin: 4px 0 0; color: var(--workspace-muted); font-size: .72rem; line-height: 1.45; }
+.vendor-contact-quick-add__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 14px; }
+.vendor-contact-quick-add__primary { grid-column: 1 / -1; }
+.vendor-contact-quick-add__actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--workspace-line-soft); padding-top: 14px; }
+.vendor-contact-quick-add__error { margin: -4px 0 0; color: var(--workspace-danger); font-size: .74rem; }
 
 @media (max-width: 780px) {
   .vendor-relationship-contacts__groups { grid-template-columns: 1fr; }
@@ -16260,6 +16493,19 @@ button.workspace-notification-row:focus-visible {
   .vendor-contact-group { padding: 13px; }
   .vendor-contact-card__footer { align-items: flex-start; flex-direction: column; }
   .vendor-contact-card__footer-meta { justify-content: flex-start; }
+  .vendor-contact-quick-add { padding: 14px; }
+  .vendor-contact-quick-add__fields { grid-template-columns: 1fr; }
+  .vendor-contact-quick-add__actions .workspace-record-button { flex: 1; justify-content: center; }
+}
+
+@keyframes vendor-contact-state-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vendor-contact-state-panel { will-change: auto; }
+  .vendor-contact-state-panel__content { animation: none; }
 }
 
 /* Shared workspace card entrance: content arrives with the same quiet

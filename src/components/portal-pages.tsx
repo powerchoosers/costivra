@@ -2377,7 +2377,7 @@ function Vendors({ data }: { data: PortalData }) {
                       </td>
                       <td>{vendor.category}</td>
                       <td>
-                        <strong>{money(vendor.annualizedSpend)}</strong>
+                        <strong>{vendor.annualizedSpendKnown === false ? "Not established" : money(vendor.annualizedSpend)}</strong>
                         {vendor.annualizedSpendBasis?.sources.length ? <small className="workspace-secondary-text">Estimate · Needs verification</small> : null}
                       </td>
                       <td>{accountsCount || 1}</td>
@@ -2481,6 +2481,7 @@ export function VendorDetail({
   const [historyReloadToken, setHistoryReloadToken] = useState(0);
   const [monitoring, setMonitoring] = useState<VendorMonitoringRecord | null>(null);
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
+  const [annualEstimateOpen, setAnnualEstimateOpen] = useState(false);
   const workspaceCurrency = resolveRecordDetailCurrency(data.organization.currency);
 
   useEffect(() => {
@@ -2616,6 +2617,7 @@ export function VendorDetail({
   const vendorNextStep = getVendorNextStep({
     documentCount: documents.length + expenses.length + invoices.length,
     hasPendingReviewInvoice,
+    pendingReviewCount,
     monitoringState: rawMonitoringState,
     hasOpenFinding,
     hasPendingAction,
@@ -2811,7 +2813,7 @@ export function VendorDetail({
   const vendorTabs = [
     { id: "overview", label: "Overview" },
     { id: "accounts", label: "Accounts", count: vendorAccountCount },
-    { id: "bills", label: "Bills", count: expenses.length + invoices.length + documents.length },
+    { id: "bills", label: "Bills", count: Math.max(invoices.length, vendorDocumentIds.length) },
     { id: "contracts", label: "Contracts", count: contracts.length },
     { id: "findings", label: "Findings", count: opportunities.length + actions.length },
     { id: "activity", label: "Activity", count: Math.max(auditHistory.length, data.auditEvents.filter((event) => event.resourceId === vendor.relationshipId).length) },
@@ -2856,7 +2858,7 @@ export function VendorDetail({
               className="button button-secondary"
               onClick={() => openInspector(vendorDocumentIds[0], vendorDocumentIds)}
             >
-              <ReceiptText size={15} /> Bill Breakdown {vendorDocumentIds.length > 1 ? `(${vendorDocumentIds.length})` : ""}
+              <ReceiptText size={15} /> Bill breakdown · {vendorDocumentIds.length} source {vendorDocumentIds.length === 1 ? "file" : "files"}
             </button>
           ) : null}
           <RecordOverflowMenu items={menuItems} ariaLabel="More vendor actions" />
@@ -2870,7 +2872,6 @@ export function VendorDetail({
         description={vendorNextStep.description}
         facts={[
           { label: "Monitoring", value: monitoringState.label },
-          { label: "Latest charge", value: latestRecordedPoint ? vendorMoney(latestRecordedPoint.amount) : "Not recorded" },
           { label: "Bills awaiting review", value: pendingReviewCount ? `${pendingReviewCount} ${pendingReviewCount === 1 ? "bill" : "bills"}` : "None" },
           { label: "Open work", value: openWorkCount ? `${openWorkCount} item${openWorkCount === 1 ? "" : "s"}` : "None" },
         ]}
@@ -2879,6 +2880,18 @@ export function VendorDetail({
       />
 
       <div className="vendor-detail-navigation-row">
+        <CostivraSelect
+          aria-label="Choose vendor section"
+          className="vendor-mobile-section-switcher"
+          onChange={handleTabChange}
+          options={vendorTabs.map((tab) => ({
+            value: tab.id,
+            label: typeof tab.count === "number" && tab.count > 0
+              ? `${tab.label} (${tab.count})`
+              : tab.label,
+          }))}
+          value={activeTab}
+        />
         <WorkspaceViewTabs
           activeId={activeTab}
           ariaLabel="Vendor sections"
@@ -2895,9 +2908,20 @@ export function VendorDetail({
             <dl className="vendor-overview-summary__metrics">
               <div>
                 <dt>{vendor.annualizedSpendBasis?.sources.length ? "Estimated annual spend" : "Recorded annualized spend"}</dt>
-                <dd>{vendorMoney(vendor.annualizedSpend)}</dd>
-                <small>{vendor.annualizedSpendBasis?.sources.length ? `Needs verification · Latest bill for each of ${vendor.annualizedSpendBasis.sources.length} account(s), annualized` : "Current relationship record"}</small>
-                {vendor.annualizedSpendBasis?.sources.length ? <small>Based on service periods ending {vendor.annualizedSpendBasis.sources.map((source) => formatFinancialDate(source.periodEnd)).join(", ")}. Assumes these costs recur; seasonal changes may affect the year.</small> : null}
+                <dd>
+                  {vendor.annualizedSpendKnown === false ? "Not established" : vendor.annualizedSpendBasis?.sources.length ? (
+                    <button
+                      type="button"
+                      className="vendor-annual-estimate-trigger"
+                      aria-haspopup="dialog"
+                      aria-expanded={annualEstimateOpen}
+                      onClick={() => setAnnualEstimateOpen(true)}
+                    >
+                      {vendorMoney(vendor.annualizedSpend)}
+                    </button>
+                  ) : vendorMoney(vendor.annualizedSpend)}
+                </dd>
+                <small>{vendor.annualizedSpendBasis?.sources.length ? `Needs verification · ${vendor.annualizedSpendBasis.sources.length} source ${vendor.annualizedSpendBasis.sources.length === 1 ? "bill" : "bills"}; select the estimate to review the calculation.` : "Current relationship record"}</small>
                 {vendor.annualizedSpendBasis?.excludedAccountCount ? <small>{vendor.annualizedSpendBasis.excludedAccountCount} account(s) excluded: confirm amount, currency, or service dates.</small> : null}
               </div>
               <div>
@@ -2923,40 +2947,44 @@ export function VendorDetail({
           />
 
           <div className="vendor-overview-support-grid">
-            <div className="vendor-overview-support-grid__main">
-              {/* Value summary */}
-              <section className="portal-panel workspace-value-summary">
-                <h2>Value Summary</h2>
-                <div className="workspace-value-summary__grid">
-                  <div className="workspace-value-summary__metric" data-tone="potential">
-                    <span>Potential Value</span>
-                    <strong>{potentialFindings.length ? vendorMoney(potentialValueTotal) : "Not established"}</strong>
-                    <small>{potentialFindings.length ? `${potentialFindings.length} evidence-backed finding${potentialFindings.length === 1 ? "" : "s"}` : "No evidence-backed finding yet"}</small>
+              {potentialFindings.length || actionsInProgress || hasVerifiedValue ? (
+                <section className="portal-panel workspace-value-summary">
+                  <h2>Value and work</h2>
+                  <div className="workspace-value-summary__grid">
+                    <div className="workspace-value-summary__metric" data-tone="potential">
+                      <span>Potential Value</span>
+                      <strong>{potentialFindings.length ? vendorMoney(potentialValueTotal) : "Not established"}</strong>
+                      <small>{potentialFindings.length ? `${potentialFindings.length} evidence-backed finding${potentialFindings.length === 1 ? "" : "s"}` : "No evidence-backed finding yet"}</small>
+                    </div>
+                    <div className="workspace-value-summary__metric">
+                      <span>Actions in Progress</span>
+                      <strong>{actionsInProgress ? `${actionsInProgress} work item${actionsInProgress === 1 ? "" : "s"}` : "No active work"}</strong>
+                      <small>{actionsInProgress ? "Active execution" : "No approved work is underway"}</small>
+                    </div>
+                    <div className="workspace-value-summary__metric" data-tone="verified">
+                      <span>Verified Value</span>
+                      <strong>{hasVerifiedValue ? vendorMoney(verifiedValueTotal) : "Not verified yet"}</strong>
+                      <small>{hasVerifiedValue ? "Proven by later evidence" : "Awaiting comparison evidence"}</small>
+                    </div>
                   </div>
-                  <div className="workspace-value-summary__metric">
-                    <span>Actions in Progress</span>
-                    <strong>{actionsInProgress ? `${actionsInProgress} work item${actionsInProgress === 1 ? "" : "s"}` : "No active work"}</strong>
-                    <small>{actionsInProgress ? "Active execution" : "No approved work is underway"}</small>
+                  <p className="workspace-value-summary__note">
+                    <ShieldCheck aria-hidden="true" size={14} /> {potentialFindings.length ? "Potential value is an estimate based on linked evidence and a deterministic calculation. Verified value is proven by later invoice evidence." : "Costivra will show potential value only after a finding has linked evidence and a deterministic calculation."}
+                  </p>
+                </section>
+              ) : (
+                <section className="portal-panel workspace-value-summary workspace-value-summary--empty">
+                  <div>
+                    <h2>Value and work</h2>
+                    <p>No evidence-backed finding or approved work is recorded yet. Review the outstanding bills before acting on this relationship.</p>
                   </div>
-                  <div className="workspace-value-summary__metric" data-tone="verified">
-                    <span>Verified Value</span>
-                    <strong>{hasVerifiedValue ? vendorMoney(verifiedValueTotal) : "Not verified yet"}</strong>
-                    <small>{hasVerifiedValue ? "Proven by later evidence" : "Awaiting comparison evidence"}</small>
-                  </div>
-                </div>
-                <p className="workspace-value-summary__note">
-                  <ShieldCheck aria-hidden="true" size={14} /> {potentialFindings.length ? "Potential value is an estimate based on linked evidence and a deterministic calculation. Verified value is proven by later invoice evidence." : "Costivra will show potential value only after a finding has linked evidence and a deterministic calculation."}
-                </p>
-              </section>
+                </section>
+              )}
 
               <VendorRelationshipContacts
                 relationshipId={vendor.relationshipId}
                 contacts={vendorContacts}
                 canWrite={canWrite}
               />
-            </div>
-
-            <div className="vendor-overview-support-grid__rail">
               <VendorMonitoringCard
                 vendor={vendor}
                 monitoring={monitoring}
@@ -2971,8 +2999,9 @@ export function VendorDetail({
                 invoices={invoices}
                 contract={contract}
                 monitoring={monitoring}
+                canWrite={canWrite}
+                onAddContract={() => onAdd("contract", vendor.relationshipId)}
               />
-            </div>
           </div>
         </div>
       )}
@@ -3010,6 +3039,14 @@ export function VendorDetail({
           />
         </section>
       )}
+
+      <AnnualSpendEstimateDialog
+        open={annualEstimateOpen}
+        onClose={() => setAnnualEstimateOpen(false)}
+        currency={workspaceCurrency}
+        invoices={invoices}
+        basis={vendor.annualizedSpendBasis}
+      />
 
       {/* Edit Record Sheet */}
       <EditRecordSheet
@@ -3127,6 +3164,81 @@ export function VendorDetail({
         requiredConfirmationText={dangerMode === "remove" ? "REMOVE" : undefined}
       />
     </div>
+  );
+}
+
+function annualEstimateServiceDays(periodStart: string | null, periodEnd: string | null) {
+  if (!periodStart || !periodEnd) return null;
+  const start = Date.parse(`${periodStart}T00:00:00Z`);
+  const end = Date.parse(`${periodEnd}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  return Math.round((end - start) / (24 * 60 * 60 * 1000));
+}
+
+function AnnualSpendEstimateDialog({
+  open,
+  onClose,
+  currency,
+  invoices,
+  basis,
+}: {
+  open: boolean;
+  onClose: () => void;
+  currency: string;
+  invoices: PortalData["invoices"];
+  basis: PortalVendor["annualizedSpendBasis"];
+}) {
+  const sources = basis?.sources ?? [];
+  const sourceAmountLabel = (amount: number | undefined) => amount == null ? "Not available" : money(amount, false, currency);
+
+  return (
+    <PortalModal
+      open={open}
+      onClose={onClose}
+      title="How this annual estimate is calculated"
+      description="Costivra uses the latest usable bill for each account. This is an estimate, not verified spend or savings."
+      className="portal-modal--annual-estimate"
+    >
+      <div className="annual-estimate-explanation">
+        {sources.map((source) => {
+          const invoice = invoices.find((item) => item.id === source.invoiceId);
+          const sourceAmount = source.amount ?? invoice?.currentCharges ?? (invoice?.totalAmount != null ? invoice.totalAmount - (invoice.balanceForward ?? 0) : undefined);
+          const serviceDays = annualEstimateServiceDays(source.periodStart, source.periodEnd);
+          const accountLabel = invoice?.accountNumberLast4
+            ? `Account ending …${invoice.accountNumberLast4}`
+            : invoice?.locationName ?? (source.accountIdentityUnresolved ? "Account identity needs review" : "Vendor account");
+          const billLabel = invoice?.invoiceNumber ? `Bill ${invoice.invoiceNumber}` : "Source bill";
+          const calculation = serviceDays && serviceDays >= 27 && serviceDays <= 35
+            ? `${sourceAmountLabel(sourceAmount)} × 12 months`
+            : serviceDays
+              ? `${sourceAmountLabel(sourceAmount)} × 365 ÷ ${serviceDays} service days`
+              : "Service period needs verification";
+          const reviewStatus = source.reviewStatus ?? invoice?.reviewStatus ?? "needs_verification";
+          const reconciliationStatus = source.reconciliationStatus ?? invoice?.reconciliationStatus ?? "unknown";
+
+          return (
+            <article className="annual-estimate-explanation__source" key={source.invoiceId}>
+              <header>
+                <div>
+                  <strong>{accountLabel}</strong>
+                  <span>{billLabel}{invoice?.invoiceDate ? ` · Invoice dated ${formatFinancialDate(invoice.invoiceDate)}` : ""}</span>
+                </div>
+                {invoice ? <Link href={`/app/bills/${invoice.id}`} onClick={onClose}>Open bill <ArrowUpRight size={14} aria-hidden="true" /></Link> : null}
+              </header>
+              <dl>
+                <div><dt>Service period</dt><dd>{source.periodStart && source.periodEnd ? `${formatFinancialDate(source.periodStart)} to ${formatFinancialDate(source.periodEnd)}` : "Not recorded"}</dd></div>
+                <div><dt>Charge used</dt><dd>{sourceAmountLabel(sourceAmount)}</dd></div>
+                <div><dt>Calculation</dt><dd>{calculation}</dd></div>
+                <div><dt>Estimated annual amount</dt><dd>{sourceAmountLabel(source.annualAmount)}</dd></div>
+                <div><dt>Verification</dt><dd>{titleCase(reviewStatus)} · Totals {titleCase(reconciliationStatus)}</dd></div>
+              </dl>
+            </article>
+          );
+        })}
+        {basis?.excludedAccountCount ? <p className="annual-estimate-explanation__notice">{basis.excludedAccountCount} account{basis.excludedAccountCount === 1 ? " was" : "s were"} excluded because the amount, currency, or service period needs review.</p> : null}
+        {basis?.assumption ? <p className="annual-estimate-explanation__note"><ShieldCheck aria-hidden="true" size={14} /> {basis.assumption}</p> : null}
+      </div>
+    </PortalModal>
   );
 }
 
@@ -3835,51 +3947,77 @@ function DataCompletenessChecklist({
   invoices,
   contract,
   monitoring,
+  canWrite,
+  onAddContract,
 }: {
   documents: PortalData["documents"];
   expenses: PortalData["expenses"];
   invoices: PortalData["invoices"];
   contract?: PortalContract;
   monitoring: VendorMonitoringRecord | null;
+  canWrite: boolean;
+  onAddContract: () => void;
 }) {
   type CompletenessState = "complete" | "attention" | "unknown" | "not_applicable";
+  type CompletenessItem = {
+    label: string;
+    state: CompletenessState;
+    href?: string;
+    actionLabel?: string;
+    onSelect?: () => void;
+  };
   const [now] = useState(() => Date.now());
   const latestDocument = documents.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const recentDocument = latestDocument && now - new Date(latestDocument.createdAt).getTime() <= 120 * 24 * 60 * 60 * 1000;
-  const hasResolvedMatch = invoices.some((invoice) => ["matched", "resolved"].includes(invoice.vendorMatchStatus));
-  const hasReconciledInvoice = invoices.some((invoice) => ["reconciled", "matched"].includes(invoice.reconciliationStatus));
-  const states: Array<{ label: string; state: CompletenessState }> = [
+  const unresolvedVendorMatch = invoices.find((invoice) => !["matched", "resolved"].includes(invoice.vendorMatchStatus));
+  const unreconciledInvoice = invoices.find((invoice) => !["reconciled", "matched"].includes(invoice.reconciliationStatus));
+  const reviewableInvoice = unresolvedVendorMatch ?? unreconciledInvoice ?? invoices[0];
+  const hasResolvedMatch = invoices.length > 0 && !unresolvedVendorMatch;
+  const hasReconciledInvoice = invoices.length > 0 && !unreconciledInvoice;
+  const states: CompletenessItem[] = [
     { label: "Recent source document", state: recentDocument ? "complete" : documents.length ? "attention" : "unknown" },
-    { label: "Vendor match resolved", state: hasResolvedMatch ? "complete" : invoices.length ? "attention" : "unknown" },
-    { label: "Invoice totals reconciled", state: hasReconciledInvoice ? "complete" : invoices.length ? "attention" : "unknown" },
-    { label: "Normalized expense exists", state: expenses.length ? "complete" : "unknown" },
-    { label: "Contract recorded", state: contract ? "complete" : "unknown" },
+    { label: "Vendor match resolved", state: hasResolvedMatch ? "complete" : invoices.length ? "attention" : "unknown", href: unresolvedVendorMatch ? `/app/bills/${unresolvedVendorMatch.id}` : undefined, actionLabel: unresolvedVendorMatch ? "Resolve match" : undefined },
+    { label: "Invoice totals reconciled", state: hasReconciledInvoice ? "complete" : invoices.length ? "attention" : "unknown", href: unreconciledInvoice ? `/app/bills/${unreconciledInvoice.id}` : undefined, actionLabel: unreconciledInvoice ? "Review bill" : undefined },
+    { label: "Normalized expense exists", state: expenses.length ? "complete" : "unknown", href: !expenses.length && reviewableInvoice ? `/app/bills/${reviewableInvoice.id}` : undefined, actionLabel: !expenses.length && reviewableInvoice ? "Review bill" : undefined },
+    { label: "Contract recorded", state: contract ? "complete" : "unknown", onSelect: !contract && canWrite ? onAddContract : undefined, actionLabel: !contract && canWrite ? "Add contract" : undefined },
     { label: "Renewal or end date recorded", state: contract ? (contract.endDate ? "complete" : "attention") : "unknown" },
     { label: "Location assigned when applicable", state: contract ? (contract.locationId ? "complete" : "attention") : expenses.some((expense) => expense.locationId) ? "complete" : "not_applicable" },
     { label: "Monitoring configured", state: monitoring ? (monitoring.state === "not_configured" ? "unknown" : "complete") : "unknown" },
     { label: "Forwarding test passed when required", state: monitoring?.sourceMethod === "email_forwarding" ? (monitoring.testCompletedAt ? "complete" : "attention") : monitoring ? "not_applicable" : "unknown" },
     { label: "Expected bill not missed", state: monitoring?.state === "attention_needed" ? "attention" : monitoring?.state === "active" ? "complete" : "unknown" },
   ];
+  const completeItems = states.filter((item) => item.state === "complete" || item.state === "not_applicable");
+  const outstandingItems = states.filter((item) => item.state !== "complete" && item.state !== "not_applicable");
   const score = Math.round((states.filter((item) => item.state === "complete").length / states.length) * 100);
+  const renderItem = (item: CompletenessItem) => {
+    const contents = <>
+      <span className="workspace-completeness-card__marker" aria-hidden="true">
+        {item.state === "complete" ? <Check size={12} /> : item.state === "attention" ? <Info size={12} /> : <X size={12} />}
+      </span>
+      <span className="workspace-completeness-card__state-copy"><strong>{item.label}</strong><small>{item.state === "not_applicable" ? "Not applicable" : titleCase(item.state)}</small></span>
+      {item.actionLabel ? <span className="workspace-completeness-card__action">{item.actionLabel} <ChevronRight size={14} aria-hidden="true" /></span> : null}
+    </>;
+    const className = "workspace-completeness-card__state";
+    if (item.href) return <Link key={item.label} className={className} data-state={item.state} href={item.href}>{contents}</Link>;
+    if (item.onSelect) return <button key={item.label} type="button" className={className} data-state={item.state} onClick={item.onSelect}>{contents}</button>;
+    return <div key={item.label} className={className} data-state={item.state}>{contents}</div>;
+  };
 
   return (
     <section className="portal-panel workspace-completeness-card">
       <div className="portal-panel-heading workspace-completeness-card__heading">
         <div>
-          <h2>Data Completeness</h2>
-          <p>{score}% of recommended relationship fields recorded.</p>
+          <h2>Record completeness</h2>
+          <p>{outstandingItems.length ? `${outstandingItems.length} item${outstandingItems.length === 1 ? "" : "s"} need attention. ${score}% of recommended relationship fields recorded.` : "All applicable record checks are complete."}</p>
         </div>
       </div>
-      <div className="workspace-completeness-card__states">
-        {states.map((item) => (
-          <div key={item.label} className="workspace-completeness-card__state" data-state={item.state}>
-            <span className="workspace-completeness-card__marker" aria-hidden="true">
-              {item.state === "complete" ? <Check size={12} /> : item.state === "attention" ? <Info size={12} /> : <X size={12} />}
-            </span>
-            <span>{item.label} · {item.state === "not_applicable" ? "Not applicable" : titleCase(item.state)}</span>
-          </div>
-        ))}
-      </div>
+      {outstandingItems.length ? <div className="workspace-completeness-card__states">{outstandingItems.map(renderItem)}</div> : null}
+      {completeItems.length ? (
+        <details className="workspace-completeness-card__completed">
+          <summary><span><Check size={14} aria-hidden="true" /> {completeItems.length} recorded or not applicable</span><ChevronRight size={15} aria-hidden="true" /></summary>
+          <div className="workspace-completeness-card__states">{completeItems.map(renderItem)}</div>
+        </details>
+      ) : null}
     </section>
   );
 }
