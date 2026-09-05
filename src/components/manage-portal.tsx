@@ -5357,6 +5357,7 @@ function SettingsPage({
   const [apolloSettings, setApolloSettings] = useState<ApolloSettingsSummary | null>(null);
   const [loadingApolloSettings, setLoadingApolloSettings] = useState(false);
   const [apolloSettingsError, setApolloSettingsError] = useState<string | null>(null);
+  const [trustHubStatus, setTrustHubStatus] = useState<{ configured: boolean; status: string; lastUpdatedAt: string | null } | null>(null);
   const [retentionReport, setRetentionReport] = useState<{
     id: string;
     candidates: {
@@ -5371,6 +5372,16 @@ function SettingsPage({
     const frame = window.requestAnimationFrame(() => setActiveSettingsTab("mail"));
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (activeSettingsTab !== "enrichment") return;
+    void fetch("/api/manage/trusthub/status", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload: { configured?: boolean; status?: string; lastUpdatedAt?: string | null }) =>
+        setTrustHubStatus({ configured: Boolean(payload.configured), status: payload.status || "unknown", lastUpdatedAt: payload.lastUpdatedAt || null }),
+      )
+      .catch(() => setTrustHubStatus({ configured: false, status: "unavailable", lastUpdatedAt: null }));
+  }, [activeSettingsTab]);
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -5739,6 +5750,18 @@ function SettingsPage({
               <p>Control the services Costivra uses to fill in company information. Apollo is the first provider available here.</p>
             </div>
           </header>
+          <div className="manage-enrichment-provider manage-trusthub-status" aria-live="polite">
+            <div className="manage-enrichment-provider-heading">
+              <div className="manage-enrichment-provider-identity">
+                <span aria-hidden="true"><ShieldCheck size={18} /></span>
+                <div><strong>Twilio Trust Hub</strong><small>Primary compliance profile status</small></div>
+              </div>
+              <span className={`manage-enrichment-status manage-enrichment-status--${trustHubStatus?.configured ? "connected" : "unconfigured"}`}>
+                <i aria-hidden="true" />{trustHubStatus?.status || "Waiting for first update"}
+              </span>
+            </div>
+            <p>{trustHubStatus?.lastUpdatedAt ? `Last update ${new Date(trustHubStatus.lastUpdatedAt).toLocaleString()}.` : "Add the Trust Hub callback after deployment to receive status updates here."}</p>
+          </div>
           <div className="manage-enrichment-provider">
             <div className="manage-enrichment-provider-heading">
               <div className="manage-enrichment-provider-identity">

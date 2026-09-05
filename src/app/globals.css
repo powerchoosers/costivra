@@ -15219,11 +15219,13 @@ button.workspace-notification-row:focus-visible {
     margin:0;
     overflow:hidden;
     padding-bottom:0;
+    border-radius:0;
   }
   .manage-shell-v2 .manage-topbar {
     min-height:72px;
     grid-template-columns:minmax(0,1fr) auto;
     gap:0 12px;
+    border-radius:0;
   }
   .manage-shell-v2 .manage-header-action-group {
     display:flex;
@@ -16619,10 +16621,16 @@ button.workspace-notification-row:focus-visible {
   .skeleton-block
 ) { border-color: var(--workspace-line); color: var(--workspace-muted); background-color: var(--workspace-surface-soft); }
 
+.manage-shell-v2 .manage-mobile-nav {
+  background: color-mix(in srgb, var(--workspace-surface, #fff) 50%, transparent);
+  -webkit-backdrop-filter: blur(32px) saturate(140%);
+  backdrop-filter: blur(32px) saturate(140%);
+}
+
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-mobile-nav {
   border-color: var(--workspace-line);
   color: var(--workspace-muted);
-  background: color-mix(in srgb, var(--workspace-surface) 96%, transparent);
+  background: color-mix(in srgb, var(--workspace-surface) 65%, transparent);
   box-shadow: 0 -8px 26px rgba(0, 0, 0, .24);
 }
 :root[data-workspace-theme="dark"] .manage-shell-v2 .manage-mobile-nav :where(a, button) { color: var(--workspace-muted); }

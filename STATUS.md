@@ -1,5 +1,10 @@
 # Costivra Status
 
+## September 4, 2026 — Manage navigation translucency
+
+- Manage phone/tablet bottom navigation uses a 50% light / 65% dark theme surface with 32px backdrop blur and Safari-prefixed support, allowing softened content to show through more prominently in light mode.
+- Validation: inspected both themes at 922×838 in the local browser; computed styles confirm transparency and blur. More navigation and theme switching worked; no browser warnings/errors recorded. `git diff --check` passed. No production deployment.
+
 ## September 2, 2026 — Location-card action order
 
 - Swapped the location-card action order so `Open map` appears before the `Active` status badge, matching the intended scan path while preserving the edit control at the far right.
