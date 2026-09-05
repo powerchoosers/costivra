@@ -173,7 +173,11 @@ export function RecordOverflowMenu({
   const itemClassName = (item: RecordMenuItem, index: number) =>
     [
       "workspace-record-menu__item",
-      item.destructive ? "workspace-record-menu__item--destructive" : null,
+      // Keep the current semantic modifier and the legacy alias while the
+      // shared Manage theme finishes migrating to the newer naming.
+      item.destructive
+        ? "workspace-record-menu__item--destructive is-danger"
+        : null,
       item.disabled ? "workspace-record-menu__item--disabled" : null,
       index === activeIndex ? "workspace-record-menu__item--active" : null,
     ]

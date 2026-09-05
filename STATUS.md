@@ -1,5 +1,84 @@
 # Costivra Status
 
+## September 5, 2026 — App table frozen identity and contract footer
+- Removed the legacy forced checkbox-column shadow; shared App table styles now place Manage's light-theme shadow and edge gradient after the frozen identity column. Checkbox and identity remain sticky; dark checkbox shadow is removed too.
+- Contracts now uses the same full-height directory and anchored count/pagination footer as Vendors and Findings, including empty results.
+- Browser reviewed Vendors, Contracts, Findings, and Bills review queue at 1538px in light mode. Node 24 TypeScript and targeted portal-pages ESLint passed. Dark/mobile visual regression checks remain open; no production deployment.
+
+## September 5, 2026 — Phone and tablet header blur correction
+- Extended the shared overlay positioning to phone widths with 64px header clearance. Removed the later App tablet sticky-position conflict and changed the final shared phone header rule to absolute positioning over its scrollport.
+- Verified App Command Center scrolling at the active 394px phone viewport, including visible blurred content beneath the stationary header. The 820px iPad viewport and light theme still need a live visual check for this correction.
+
+## September 5, 2026 — Shared workspace header overlay
+- Replaced the dashboard/settings-only fixed header rules with frame-relative shared overlays for every App and Manage route at widths above 780px. Header width follows its actual canvas, including sidebar and assistant resizing; shared content inset preserves initial heading clearance.
+- Browser checked Manage account detail and App settings scrolling at the current 1186px viewport. Full route matrix, phone, and light-theme visual checks remain unverified for this change. No production deployment.
+
+## September 5, 2026 — Manage header frame borders
+- Added theme-aware top, left, and right borders to the translucent Manage header so it reads as the framed continuation of the dashboard surface below.
+- Browser-verified the loaded Manage dashboard after hot reload. No production deployment.
+
+## September 5, 2026 — Manage header right-edge alignment
+- Tightened the fixed Manage dashboard/settings header by 4px on the right at desktop widths so it terminates on the same framed surface as the content below; tablet remains full bleed.
+- Browser-verified the loaded Manage dashboard at the active viewport after hot reload. No production deployment.
+
+## September 5, 2026 — Manage header frame bounds
+- Tightened the fixed Manage dashboard/settings header to the framed main surface: 4px inner left inset and 8px right inset on desktop, with full-bleed tablet overrides preserved.
+- Browser verified the dashboard header now aligns with the content frame and no longer extends past its right edge. No production deployment.
+
+## September 5, 2026 — Manage shell alignment and dashboard header
+- Applied the fixed translucent overlay treatment to the Manage dashboard as well as settings, so dashboard content can pass beneath the blurred header while scrolling.
+- Added a 10px desktop frame inset for the Manage settings/dashboard header and preserved zero-edge tablet alignment; the page content receives matching top clearance.
+- Browser-verified the dashboard route and its vertical scroll overlay at the current desktop/tablet viewport. Node 24 typecheck, targeted ESLint, and diff validation pass. No production deployment.
+
+## September 5, 2026 — Manage header scroll regression fix
+- Repaired Manage settings scrolling after the first shell-scroll implementation intercepted wheel events without advancing the page scrollport.
+- Settings now retains its established page scroll behavior with a fixed, translucent header layered above it, so content visibly passes beneath the 24px blur while scrolling.
+- Browser verified both vertical scrolling and the under-header blur state at `/manage/settings`. Node 24 typecheck, targeted ESLint, and diff validation pass. No production deployment.
+
+## September 5, 2026 — Header blur visibility
+- Reduced the shared App/Manage header fill from 76% to 58% in both themes so underlying content remains visible through the 24px blur instead of reading as an opaque bar.
+- Settings now owns the Manage shell scrollport at tablet and desktop widths, allowing content to pass beneath the sticky translucent header without changing other Manage workflows.
+- Browser verified the populated Manage settings surface after hot reload. Node 24 typecheck, targeted ESLint, and diff validation pass. No production deployment.
+
+## September 5, 2026 — Manage settings bottom clearance
+- Reduced tablet and mobile bottom clearance for the Manage settings page from the generic 168px dock allowance to 96px, matching the customer App settings behavior while preserving safe-area padding and scroll reachability.
+- Browser-verified the Manage settings route remains populated after reload. Node 24 typecheck, targeted ESLint, and diff validation pass. No production deployment.
+
+## September 5, 2026 — Manage settings heading cleanup
+- Removed the redundant in-page `Settings` heading from Manage settings while keeping the explanatory copy and existing settings directory intact.
+- Browser reload and page identity check remain clean. No production deployment.
+
+## September 5, 2026 — Shared header glass and tablet Back placement
+- Applied the same theme-aware translucent blur treatment to the App and Manage desktop headers that the mobile navigation uses, with dark-mode tokens and saturation preserved.
+- Moved shared floating Back controls below the sticky header at tablet widths, while retaining the existing phone placement.
+- Browser-verified the settled Manage settings shell after reload; the page remained populated, the header and controls were visible, and the Back control cleared the header. Node 24 checks and diff validation pass. No production deployment.
+
+## September 4, 2026 — Readiness loading and action polish
+- Normalized the Manage production-readiness action buttons to a shared width and touch-friendly height, including full-width mobile behavior.
+- Added dark-theme-aware animated skeleton rows while readiness and retention checks run, with reduced-motion support.
+- Browser-verified the loading state and restored dark readiness results at `/manage/settings`; Node 24 typecheck, targeted ESLint, and `git diff --check` pass. No production deployment.
+
+## September 4, 2026 — Production readiness dark-mode correction
+
+- Audited the full Manage production-readiness panel with three parallel agents. Corrected the warning summary, service rows, status badges, dividers, retention notice, kicker, action buttons, and empty state for dark mode.
+- Added explicit readiness and retention error states plus loading semantics and preserved results during refresh failures. Browser QA ran the readiness check successfully and confirmed the dark warning panel and completion toast. Node 24 typecheck, targeted ESLint, and diff checks pass. No production deployment.
+
+## September 4, 2026 — Profile photo loading polish
+
+- Profile photos now render through an animated skeleton placeholder and transition from a softly blurred image into focus when ready. Upload/error completion and reduced-motion behavior are supported.
+- Browser QA at `/manage/settings` confirmed the page identity, populated settings surface, and finished profile-photo state. Node 24 typecheck, targeted ESLint, and diff checks pass. No production deployment.
+
+## September 4, 2026 — Manage account detail dark-mode audit
+
+- Audited the account detail record page across panels, dividers, metadata, technology tags, title and phone controls, logos, snapshot links, inline controls, and overflow actions. Added shared dark-theme bindings and aligned the account action buttons with the workspace icon-button treatment.
+- Follow-up audit covered shared App/Manage overflow menus, floating phone actions, location maps, hierarchy/location edit fields, secondary context actions, and tablet frame geometry; added the missing theme bindings and iPad corner reset.
+- Browser reload confirmed the complete account-detail accessibility tree renders without missing content. Node 24 TypeScript, focused ESLint, and diff checks pass. No production deployment.
+
+## September 4, 2026 — Desktop expanded search/create alignment
+
+- Desktop App and Manage Create controls now follow the expanded global search field with a 12px gap. Both use the same 40px rounded-square geometry, 12px radius, border, surface, and control shadow as the search field. The position animates with the search expansion.
+- Browser QA at 1538px confirmed normal and focused geometry in both shells, including 12px spacing and matching 12px corners; both search suggestion panels still open. Diff check passed. No production deployment.
+
 ## September 4, 2026 — Desktop find/create header grouping
 
 - On desktop widths, App and Manage now anchor the existing Create control 12px to the right of the existing 410px global search field. Communication utilities stay grouped at the far right; mobile More behavior remains unchanged.

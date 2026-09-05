@@ -562,7 +562,7 @@ export function PortalPage({
             ? "app-content app-content-chat motion-page"
               : ["bills", "expenses", "documents"].includes(page) && !detailId
               ? "app-content app-content-table-page motion-page"
-              : ["vendors", "findings", "opportunities"].includes(page) && !detailId
+              : ["vendors", "contracts", "findings", "opportunities"].includes(page) && !detailId
                 ? "app-content app-content-table-page motion-page"
               : "app-content motion-page"
         }
@@ -1701,9 +1701,9 @@ function Contracts({ data }: { data: PortalData }) {
           countTone: id === "upcoming" || id === "needs_details" ? "attention" as const : undefined,
         }))}
       />
-      <section className="portal-panel">
+      <section className="portal-panel vendor-directory contracts-directory">
         {rows.length ? (
-          <div className="table-wrap">
+          <div className="vendor-table-wrap">
             <WorkspaceTableBulkActions
               rows={rows}
               rowId={(contract) => contract.id}
@@ -1775,6 +1775,14 @@ function Contracts({ data }: { data: PortalData }) {
             copy="Add a contract or clear your search."
           />
         )}
+        <footer className="vendor-table-footer">
+          <span>{rows.length} {rows.length === 1 ? "contract" : "contracts"}</span>
+          <div className="vendor-table-footer-pagination" aria-label="Contract table pagination">
+            <button type="button" disabled aria-label="Previous page"><ChevronLeft size={15} /></button>
+            <span>1 / 1</span>
+            <button type="button" disabled aria-label="Next page"><ChevronRight size={15} /></button>
+          </div>
+        </footer>
       </section>
     </>
   );

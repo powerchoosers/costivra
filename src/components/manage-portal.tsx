@@ -430,14 +430,22 @@ function OperatorAvatar({
   operator: ManageOperator;
   large?: boolean;
 }) {
+  const [loadedAvatarUrl, setLoadedAvatarUrl] = useState<string | null>(null);
+  const imageReady = Boolean(operator.avatarUrl && loadedAvatarUrl === operator.avatarUrl);
+
   return operator.avatarUrl ? (
-    // The URL is a short-lived, server-generated Supabase Storage URL.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      className={`manage-operator-avatar${large ? " is-large" : ""}`}
-      src={operator.avatarUrl}
-      alt={`${operator.fullName} profile`}
-    />
+    <span className={`manage-operator-avatar manage-operator-avatar--image${large ? " is-large" : ""}${imageReady ? " is-ready" : ""}`}>
+      <span className="manage-operator-avatar__skeleton" aria-hidden="true" />
+      {/* The URL is a short-lived, server-generated Supabase Storage URL. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="manage-operator-avatar__image"
+        src={operator.avatarUrl}
+        alt={`${operator.fullName} profile`}
+        onLoad={() => setLoadedAvatarUrl(operator.avatarUrl)}
+        onError={() => setLoadedAvatarUrl(operator.avatarUrl)}
+      />
+    </span>
   ) : (
     <span className={`manage-operator-avatar${large ? " is-large" : ""}`}>
       {initials(operator.fullName)}
@@ -4061,7 +4069,7 @@ function AccountDetailPage({
         <div className="manage-record-actions">
           {accountEmailContact && (
             <button
-              className="manage-record-action-icon manage-record-action-icon--email"
+              className="workspace-record-icon-button manage-record-action-icon manage-record-action-icon--email"
               onClick={() => onCompose(accountEmailContact)}
               aria-label={`Compose email to ${accountEmailContact.fullName}`}
               title={`Compose email to ${accountEmailContact.fullName}`}
@@ -4071,7 +4079,7 @@ function AccountDetailPage({
           )}
           {companyPhone && companyPhoneHref && (
             <a
-              className="manage-record-action-icon manage-record-action-icon--phone"
+              className="workspace-record-icon-button manage-record-action-icon manage-record-action-icon--phone"
               href={`tel:${companyPhoneHref}`}
               aria-label={`Call ${account.name}`}
               title={`Call ${companyPhone}`}
@@ -5355,7 +5363,9 @@ function SettingsPage({
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [readiness, setReadiness] = useState<SystemReadiness | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
+  const [readinessError, setReadinessError] = useState<string | null>(null);
   const [runningRetentionReport, setRunningRetentionReport] = useState(false);
+  const [retentionReportError, setRetentionReportError] = useState<string | null>(null);
   const [activeSettingsTab, setActiveSettingsTab] = useState<"general" | "appearance" | "enrichment" | "billing" | "voice" | "mail">("general");
   const [apolloSettings, setApolloSettings] = useState<ApolloSettingsSummary | null>(null);
   const [loadingApolloSettings, setLoadingApolloSettings] = useState(false);
@@ -5453,6 +5463,7 @@ function SettingsPage({
 
   async function runReadinessCheck() {
     setCheckingReadiness(true);
+    setReadinessError(null);
     try {
       const response = await fetch("/api/manage/system-readiness", {
         method: "GET",
@@ -5470,6 +5481,7 @@ function SettingsPage({
       else
         toast.error("Launch blockers found", "Review the blocked services before accepting customer data.");
     } catch (error) {
+      setReadinessError(error instanceof Error ? error.message : "Please try again.");
       toast.error(
         "Readiness check failed",
         error instanceof Error ? error.message : "Please try again.",
@@ -5481,6 +5493,7 @@ function SettingsPage({
 
   async function runRetentionReport() {
     setRunningRetentionReport(true);
+    setRetentionReportError(null);
     try {
       const response = await fetch("/api/manage/retention/report", {
         method: "POST",
@@ -5501,6 +5514,7 @@ function SettingsPage({
       toast.success("Retention report completed. No files were deleted.");
       await runReadinessCheck();
     } catch (error) {
+      setRetentionReportError(error instanceof Error ? error.message : "Please try again.");
       toast.error(
         "Retention report failed",
         error instanceof Error ? error.message : "Please try again.",
@@ -5559,7 +5573,6 @@ function SettingsPage({
       <section className="manage-page-heading">
         <div>
           <p>Find the correct Costivra operator or owner control without hunting through tabs.</p>
-          <h2>Settings</h2>
         </div>
       </section>
       <SettingsHub ariaLabel="Manage settings" items={settingsItems} value={activeSettingsTab} onValueChange={selectSettings}>
@@ -5649,7 +5662,11 @@ function SettingsPage({
         </label>
       </section>
       {data.operator.role === "owner" && (
-        <section className="manage-panel manage-settings-readiness" aria-labelledby="system-readiness-title">
+        <section
+          className={`manage-panel manage-settings-readiness${checkingReadiness ? " is-checking" : ""}${readinessError ? " has-error" : ""}`}
+          aria-labelledby="system-readiness-title"
+          aria-busy={checkingReadiness || runningRetentionReport}
+        >
           <header>
             <div>
               <span className="manage-settings-kicker">Owner controls</span>
@@ -5659,7 +5676,7 @@ function SettingsPage({
             <div className="manage-readiness-actions">
               <button
                 type="button"
-                className="manage-button manage-button--quiet"
+                className={`manage-button manage-button--quiet manage-readiness-action${runningRetentionReport ? " is-running" : ""}`}
                 disabled={runningRetentionReport}
                 onClick={() => void runRetentionReport()}
               >
@@ -5668,7 +5685,7 @@ function SettingsPage({
               </button>
               <button
                 type="button"
-                className="manage-button manage-button--quiet"
+                className={`manage-button manage-button--quiet manage-readiness-action${checkingReadiness ? " is-running" : ""}`}
                 disabled={checkingReadiness}
                 onClick={() => void runReadinessCheck()}
               >
@@ -5677,8 +5694,18 @@ function SettingsPage({
               </button>
             </div>
           </header>
-          {readiness ? (
-            <div className="manage-readiness-results" aria-live="polite">
+          {checkingReadiness || runningRetentionReport ? (
+            <div className="manage-readiness-loading" aria-busy="true" aria-label="Checking production readiness">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div className="manage-readiness-loading__row" key={index}>
+                  <span className="manage-readiness-loading__icon" />
+                  <span className="manage-readiness-loading__copy"><i /><i /><i /></span>
+                  <span className="manage-readiness-loading__badge" />
+                </div>
+              ))}
+            </div>
+          ) : readiness ? (
+            <div className="manage-readiness-results" aria-live="polite" aria-busy={checkingReadiness}>
               <div className={`manage-readiness-summary manage-readiness-summary--${readiness.overall}`}>
                 {readiness.overall === "ready" ? (
                   <CheckCircle2 size={18} />
@@ -5700,7 +5727,11 @@ function SettingsPage({
               </div>
               <div className="manage-readiness-grid">
                 {readiness.services.map((service) => (
-                  <article className={`manage-readiness-service manage-readiness-service--${service.status}`} key={service.id}>
+                  <article
+                    className={`manage-readiness-service manage-readiness-service--${service.status}`}
+                    data-status={service.status}
+                    key={service.id}
+                  >
                     <div aria-hidden="true">
                       {service.status === "ready" ? (
                         <CheckCircle2 size={16} />
@@ -5720,13 +5751,25 @@ function SettingsPage({
               </div>
             </div>
           ) : (
-            <div className="manage-readiness-empty">
-              <ShieldAlert size={18} aria-hidden="true" />
-              <p>Run this check after changing a production key, domain, webhook, worker, or provider.</p>
+            <div className={`manage-readiness-empty manage-empty${checkingReadiness ? " manage-readiness-state--loading" : ""}${readinessError ? " manage-readiness-state--error" : ""}`} role={readinessError ? "alert" : undefined}>
+              {checkingReadiness ? <LoaderCircle className="is-spinning" size={18} aria-hidden="true" /> : <ShieldAlert size={18} aria-hidden="true" />}
+              <p>{readinessError ? `Readiness check failed: ${readinessError}` : checkingReadiness ? "Checking live services…" : "Run this check after changing a production key, domain, webhook, worker, or provider."}</p>
+            </div>
+          )}
+          {readinessError && readiness && (
+            <div className="manage-readiness-empty manage-empty manage-readiness-state--error" role="alert">
+              <CircleAlert size={18} aria-hidden="true" />
+              <p>Latest check could not be refreshed: {readinessError}</p>
+            </div>
+          )}
+          {retentionReportError && (
+            <div className="manage-readiness-empty manage-empty manage-readiness-state--error" role="alert">
+              <CircleAlert size={18} aria-hidden="true" />
+              <p>Retention report failed: {retentionReportError}</p>
             </div>
           )}
           {retentionReport && (
-            <div className="manage-retention-report" aria-live="polite">
+            <div className="manage-retention-report manage-context-card" aria-live="polite">
               <ShieldAlert size={17} aria-hidden="true" />
               <div>
                 <strong>Report only · nothing deleted</strong>
